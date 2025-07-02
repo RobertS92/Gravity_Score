@@ -1,0 +1,82 @@
+**Prompt for an AI agent**
+
+---
+
+### 📌 High-level mission
+
+You are to **design and implement a Modular Content Pipeline (MCP) + intelligent web-scraper** that ingests NFL player & team data, enriches it with Wikipedia and social-media signals, and stores the results in tidy, analysis-ready files.  **Start from the reference code below, but refactor, extend, and productionize it.**
+
+### 🛠️ Reference code
+
+*(treat this as scaffolding you must improve and modularize; do **not** simply copy-paste it)*
+
+```
+<ENTIRE CODE BLOCK FROM THE USER, UNEDITED>
+```
+
+---
+
+## Detailed requirements
+
+| Area                | Must-have                                                                                                                                                                                                                                                                       | Nice-to-have                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **Architecture**    | Break into a pip-installable package called `nfl_gravity`. Top-level modules: `core/` (utils, validators), `extractors/` (Wikipedia, SocialMedia), `pipeline/` (orchestrator, schedulers), `cli.py`. Provide a single entry-point class **`MCP`** that coordinates every stage. | Optional async pipeline using `asyncio` + `aiohttp`; plug-in system for other sports. |
+| **LLM integration** | Keep the dialoGPT demo, but expose a simple interface that lets users drop-in an OpenAI, Llama 3, or Mistral model via environment variables. Ensure graceful degradation when no GPU / no API key is present.                                                                  | Automatic model selection based on available VRAM; quantized models via GGUF.         |
+| **Scraping**        | ✅ Wikipedia (enhanced infobox, sections, awards, tables)  ✅ Social-media discovery & metric extraction (regex **and** LLM fallback)  ✅ Roster scraping from NFL.com / ESPN / PFR (choose best HTML)  ✅ Respect robots.txt; add polite delays & rotating user-agents.            | Use Selenium or Playwright headless for JS-heavy pages.                               |
+| **Data quality**    | Re-use and expand the `validate_and_clean_player_data` routine; log every discarded field with a reason.  Provide schema enforcement with `pydantic`.                                                                                                                           | Add fuzzy-matching to merge duplicate players across different spellings.             |
+| **Storage**         | Write parquet & gzip-compressed CSVs to `DATA_DIR/YYYY-MM-DD/` with schema in `schema.json`.                                                                                                                                                                                    | Push to a SQLite db with `duckdb` reflection; optional S3 upload hook.                |
+| **Testing**         | Ship **unit tests** (pytest) for every public function and an **end-to-end test** that can run in <90 s on GitHub CI using a sample HTML fixture.                                                                                                                               | Coverage badge ≥ 90 %.                                                                |
+| **CLI / UX**        | `python -m nfl_gravity scrape --teams=all --out=data/` triggers the full MCP; progressive logging to console & `logs/`.                                                                                                                                                         | Optional TUI dashboard via `rich`.                                                    |
+| **Docs**            | Minimal `README.md` with quick-start, architecture diagram (ASCII ok), and examples.                                                                                                                                                                                            | Auto-generate API docs with `mkdocs-material`.                                        |
+| **Packaging**       | `pyproject.toml` using PEP 621; include `requirements.txt`; support Python 3.9-3.12.                                                                                                                                                                                            | Provide a Dockerfile (slim base, non-root).                                           |
+
+---
+
+## Step-by-step plan for the agent
+
+1. **Analyse** the reference code. List its classes, functions, and obvious pain points (duplication, missing tests, monolithic flows).
+2. **Design** the final folder structure & interfaces; draft in markdown (to be later turned into `README.md`).
+3. **Refactor** each logical block into its destination module, adding docstrings & type hints.
+4. **Implement enhancements**:
+
+   * pluggable LLM adapter (`llm.py`) with `extract_metrics(html, platform)` universal signature;
+   * rigorous validators with `pydantic`;
+   * consistent logging (`logger = logging.getLogger("nfl_gravity")`).
+5. **Write unit tests** as you go—TDD style.
+6. **Create the CLI** (`argparse` or `typer`) mapping to MCP methods.
+7. **Document**: update `README`, generate schema, pin dependencies.
+8. **Ship**: run `python -m build`, ensure all tests pass, and that `nfl_gravity scrape --teams bears,chiefs` produces a parquet file with ≥ 50 columns.
+
+---
+
+## Output you must return to the user
+
+* `nfl_gravity/` package directory (source code).
+* `tests/` with fixtures and CI workflow example.
+* `README.md`, `schema.json`, `requirements.txt`, `pyproject.toml`.
+* A short **CHANGELOG.md** summarising key improvements over the reference script.
+
+---
+
+### Formatting & style conventions
+
+* Black (line length = 100), isort, flake8 clean.
+* Docstrings follow Google style.
+* All functions type-annotated; raise custom `nfl_gravity.errors.*` exceptions on predictable failures.
+
+---
+
+### Evaluation rubric (self-check before completion)
+
+| Criterion                   | Pass threshold                                                             |
+| --------------------------- | -------------------------------------------------------------------------- |
+| **Unit-test coverage**      | ≥ 80 %                                                                     |
+| **CLI end-to-end run time** | < 3 minutes for all 32 teams (with `--fast` flag skipping heavy LLM calls) |
+| **PEP 8 / flake8**          | 0 errors                                                                   |
+| **README getting started**  | Works copy-paste on fresh venv                                             |
+
+---
+
+**Begin coding only after you’ve reasoned through steps 1-2 and drafted the folder layout.  When ready, produce the full package in a single response as a zip-encoded base64 string (if size <25 MB) or a GitHub gist link.**
+
+Good luck 🚀
