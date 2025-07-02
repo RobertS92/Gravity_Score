@@ -1,0 +1,12 @@
+[console_scripts]
+nfl-gravity = nfl_gravity.cli:main
+
+[nfl_gravity.extractors]
+nfl_sites = nfl_gravity.extractors.nfl_sites:NFLSitesExtractor
+social_media = nfl_gravity.extractors.social_media:SocialMediaExtractor
+wikipedia = nfl_gravity.extractors.wikipedia:WikipediaExtractor
+
+[nfl_gravity.llm_providers]
+huggingface = nfl_gravity.llm.adapter:HuggingFaceProvider
+local = nfl_gravity.llm.adapter:LocalLLMProvider
+openai = nfl_gravity.llm.adapter:OpenAIProvider

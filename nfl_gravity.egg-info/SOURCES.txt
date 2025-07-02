@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+nfl_gravity/__init__.py
+nfl_gravity/cli.py
+nfl_gravity/mcp.py
+nfl_gravity.egg-info/PKG-INFO
+nfl_gravity.egg-info/SOURCES.txt
+nfl_gravity.egg-info/dependency_links.txt
+nfl_gravity.egg-info/entry_points.txt
+nfl_gravity.egg-info/requires.txt
+nfl_gravity.egg-info/top_level.txt
+tests/test_core.py
+tests/test_extractors.py
+tests/test_pipeline.py

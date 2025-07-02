@@ -1,0 +1,229 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nfl-gravity"
+version = "1.0.0"
+description = "Modular Content Pipeline for NFL Data Analysis with LLM-powered intelligence"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "NFL Gravity Team", email = "contact@nflgravity.com"}
+]
+maintainers = [
+    {name = "NFL Gravity Team", email = "contact@nflgravity.com"}
+]
+keywords = ["nfl", "sports", "data", "scraping", "analysis", "llm", "pipeline"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Games/Entertainment :: Sports"
+]
+requires-python = ">=3.9"
+dependencies = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=4.9.0",
+    "pandas>=2.0.0",
+    "pyarrow>=12.0.0",
+    "pydantic>=2.0.0",
+    "trafilatura>=1.6.0",
+    "flask>=2.3.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "black>=25.1.0",
+    "pytest-cov>=6.2.1",
+    "isort>=6.0.1",
+    "pytest>=8.4.1",
+    "pytest-mock>=3.14.1",
+]
+
+[project.optional-dependencies]
+llm = [
+    "openai>=1.0.0",
+    "transformers>=4.30.0",
+    "torch>=2.0.0"
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.4.0",
+    "pre-commit>=3.3.0"
+]
+async = [
+    "aiohttp>=3.8.0",
+    "asyncio>=3.4.3"
+]
+browser = [
+    "selenium>=4.10.0",
+    "playwright>=1.35.0"
+]
+storage = [
+    "duckdb>=0.8.0",
+    "boto3>=1.28.0"
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.1.0",
+    "mkdocstrings[python]>=0.22.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/nfl-gravity/nfl-gravity"
+Documentation = "https://nfl-gravity.readthedocs.io"
+Repository = "https://github.com/nfl-gravity/nfl-gravity.git"
+Issues = "https://github.com/nfl-gravity/nfl-gravity/issues"
+Changelog = "https://github.com/nfl-gravity/nfl-gravity/blob/main/CHANGELOG.md"
+
+[project.scripts]
+nfl-gravity = "nfl_gravity.cli:main"
+
+[project.entry-points."nfl_gravity.extractors"]
+wikipedia = "nfl_gravity.extractors.wikipedia:WikipediaExtractor"
+social_media = "nfl_gravity.extractors.social_media:SocialMediaExtractor"
+nfl_sites = "nfl_gravity.extractors.nfl_sites:NFLSitesExtractor"
+
+[project.entry-points."nfl_gravity.llm_providers"]
+openai = "nfl_gravity.llm.adapter:OpenAIProvider"
+huggingface = "nfl_gravity.llm.adapter:HuggingFaceProvider"
+local = "nfl_gravity.llm.adapter:LocalLLMProvider"
+
+[tool.setuptools]
+packages = ["nfl_gravity"]
+
+[tool.setuptools.package-data]
+nfl_gravity = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    "docs/source/conf.py",
+    "old",
+    "build",
+    "dist",
+    ".venv",
+    ".tox"
+]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "trafilatura.*",
+    "bs4.*",
+    "pyarrow.*",
+    "transformers.*",
+    "torch.*"
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=nfl_gravity",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml"
+]
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning"
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "external: marks tests that require external services"
+]
+
+[tool.coverage.run]
+source = ["nfl_gravity"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__init__.py"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod"
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
