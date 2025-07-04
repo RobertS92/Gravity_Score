@@ -118,3 +118,18 @@ nfl_gravity/
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+
+## Project Evolution Request (July 04, 2025)
+
+User has requested a complete architectural shift from the current modular web application to a single-cell data pipeline approach:
+
+**New Requirements:**
+- Single Python script (not web app)
+- Firecrawl API for intelligent page discovery
+- Direct parsing (BeautifulSoup) with AI fallback only when needed
+- Focus on social media analytics (Instagram, Twitter, TikTok, YouTube)
+- Open-source Mistral for fallback parsing
+- Comprehensive player data: Wikipedia bio, PFR stats, Spotrac earnings, news mentions
+- Output: Single CSV with all enriched data
+
+**Key Shift:** From modular, extensible architecture to focused, efficient pipeline optimized for cost and speed.

@@ -1,0 +1,102 @@
+Here’s a set of **implementation notes** you can hand off to an LLM-powered coding assistant to build, understand, and maintain this “NFL Gravity” pipeline:
+
+---
+
+## 1. Purpose & Overview
+
+* **Goal**: Build a single-cell Python script that scrapes the 2024 NFL rosters, then for each player:
+
+  1. Discovers their Wikipedia, Instagram, X (Twitter), TikTok, YouTube, Pro-Football-Reference, and Spotrac pages via Firecrawl’s site-mapping.
+  2. Parses each page **directly** for key stats (bio, social followers & engagement, career earnings, PFR career stats, news headline counts).
+  3. If any direct parse fails (returns `None`), fall back to an **open-source Mistral** LLM loaded locally to extract the missing fields from that page’s raw HTML.
+  4. Aggregate everything into a Pandas DataFrame and save as CSV.
+
+* **Architecture**:
+
+  * **FirecrawlApp** for “site search” & discovery.
+  * **requests + BeautifulSoup + snscrape** for fast direct parsing.
+  * **Hugging Face `transformers` Mistral-small** as a minimal “JSON extractor” fallback.
+
+---
+
+## 2. Environment & Dependencies
+
+1. **Python 3.8+**
+2. **pip install**:
+
+   ```bash
+   pip install firecrawl requests beautifulsoup4 pandas transformers snscrape
+   ```
+3. **Environment variables**:
+
+   * `FIRECRAWL_API_KEY` in your shell or `.env`.
+
+---
+
+## 3. High-Level Script Structure
+
+1. **Imports & Initialization**
+
+   * `FirecrawlApp(api_key=…)`
+   * HF `AutoTokenizer` & `AutoModelForCausalLM` for Mistral
+   * Pandas, BeautifulSoup, `requests`, `snscrape`
+
+2. **Roster Scrape**
+
+   * Loop `TEAM_SLUGS` → `https://nfl.com/.../rosters/2024/{slug}`
+   * Extract `Team_Full`, `Location`, `Nickname`, `Jersey`, `Player`
+   * Consolidate into `df`
+
+3. **DataFrame Setup**
+
+   * Add columns for every desired field (Age, College, IG followers, PFR stats, etc.)
+
+4. **“discover\_url” Utility**
+
+   * Firecrawl “map\_url” with `params={"search": "<player> instagram"}` → pick first returned link
+
+5. **Direct Parsers**
+
+   * `parse_wikipedia(html)` → infobox fields + trophy counts
+   * `parse_instagram(html)` → `window._sharedData` JSON → followers + avg likes/comments + post rate
+   * `parse_twitter(username)` using X’s widget endpoint + `snscrape` engagement
+   * `parse_tiktok(html)` → SIGI\_STATE JSON
+   * `parse_youtube(html)` → `<meta itemprop="subscriberCount">`
+   * `parse_pfr(html)` → PFR career tables (passing, rushing+receiving, defense, kicking, returns)
+   * `parse_spotrac(html)` → “Career Earnings” text
+   * `get_news_count(name)` → Google News RSS
+
+6. **Fallback LLM Extractor**
+
+   * `fallback_extract(html, fields)`
+   * Prompts Mistral to “extract exactly these JSON keys” from a snippet of raw HTML
+
+7. **Enrichment Loop**
+
+   * For each row in `df`:
+
+     1. Discover all seven URLs.
+     2. Fetch & `parse_…` directly.
+     3. If any value is still `None`, call `fallback_extract` with that page’s HTML + list of missing keys.
+     4. Write all results back into the DataFrame.
+     5. Throttle with `time.sleep(0.5)` to avoid bans.
+
+8. **Save**
+
+   * `df.to_csv("nfl_2024_gravity_data.csv", index=False)`
+
+---
+
+## 4. Coding Agent Instructions
+
+> **“When you see a parsing function** (e.g. `parse_instagram`), implement a robust BeautifulSoup or JSON-regex approach first. Only if the direct approach yields `None` for a given field, invoke the `fallback_extract` LLM call.”
+
+> **“Keep all constants** (team slugs, column lists) at the top. Write small, single-responsibility helper functions. The main `enrich_player()` should orchestrate discovery → fetch → direct parse → fallback → write back.”
+
+> **“Ensure errors** (network timeouts, missing tags, JSON-decode errors) are caught and cause a safe fallback to `None` or the LLM extractor, **never** crash the entire loop.”
+
+> **“Test** on the first two rows by printing a preview, then prompt for ENTER to continue full enrichment.”
+
+---
+
+With these instructions, an LLM coding assistant can reproduce the one-cell pipeline, understand each step’s purpose, and maintain clear separation between discovery, parsing, fallback, and orchestration logic.

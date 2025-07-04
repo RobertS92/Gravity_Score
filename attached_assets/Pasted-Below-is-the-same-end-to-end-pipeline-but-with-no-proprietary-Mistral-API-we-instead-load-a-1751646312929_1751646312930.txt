@@ -1,0 +1,345 @@
+Below is the **same end-to-end pipeline**, but with **no proprietary Mistral API**—we instead load an **open-source Mistral** from Hugging Face via `transformers`. The tiny “fallback” extractor now only uses that local model.
+
+```python
+# ─────────────────────────────────────────────────────────────────────────────
+# One-Cell NFL Gravity Pipeline using Firecrawl + HF Open-Source Mistral
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 1) Install (Colab or local):
+# !pip install firecrawl requests beautifulsoup4 pandas transformers
+
+import os, time, json, re, requests, pandas as pd
+from bs4 import BeautifulSoup
+from firecrawl import FirecrawlApp
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2) CONFIGURE FIRECRAWL + HF MISTRAL
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Firecrawl key from env var
+firecrawl_api_key = os.getenv("FIRECRAWL_API_KEY")
+app = FirecrawlApp(api_key=firecrawl_api_key)
+
+# Load an open-source Mistral from Hugging Face for any fallback scraping
+MODEL_ID = "mistralai/mistral-small"  
+tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, use_fast=True)
+model     = AutoModelForCausalLM.from_pretrained(MODEL_ID)
+
+def call_llm(prompt: str) -> str:
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
+    tokens = model.generate(**inputs, max_new_tokens=256, do_sample=False)
+    return tokenizer.decode(tokens[0], skip_special_tokens=True).strip()
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3) SCRAPE NFL ROSTERS (2024)
+# ─────────────────────────────────────────────────────────────────────────────
+
+TEAM_SLUGS = [
+    "arizona-cardinals","atlanta-falcons","baltimore-ravens","buffalo-bills",
+    "carolina-panthers","chicago-bears","cincinnati-bengals","cleveland-browns",
+    "dallas-cowboys","denver-broncos","detroit-lions","green-bay-packers",
+    "houston-texans","indianapolis-colts","jacksonville-jaguars","kansas-city-chiefs",
+    "las-vegas-raiders","los-angeles-chargers","los-angeles-rams","miami-dolphins",
+    "minnesota-vikings","new-england-patriots","new-orleans-saints","new-york-giants",
+    "new-york-jets","philadelphia-eagles","pittsburgh-steelers","san-francisco-49ers",
+    "seattle-seahawks","tampa-bay-buccaneers","tennessee-titans","washington-commanders"
+]
+
+def scrape_team_roster(slug):
+    url = f"https://www.nfl.com/sitemap/html/rosters/2024/{slug}"
+    r = requests.get(url, headers={"User-Agent":"Mozilla/5.0"})
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "html.parser")
+    hdr = soup.find("h2", string=re.compile(r"ROSTER\s*-\s*", re.I))
+    full = hdr.get_text(strip=True).replace("ROSTER - ","").replace(" 2024","") if hdr else slug.replace("-"," ").title()
+    parts = full.split(); loc, nick = " ".join(parts[:-1]), parts[-1]
+    rows = []
+    for tr in soup.select("tbody tr"):
+        tds = tr.find_all("td")
+        if len(tds) >= 2:
+            rows.append({
+                "Team_Full": full,
+                "Location":  loc,
+                "Nickname":  nick,
+                "Jersey":    tds[0].get_text(strip=True),
+                "Player":    tds[1].get_text(strip=True)
+            })
+    return pd.DataFrame(rows)
+
+df = pd.concat([scrape_team_roster(s) for s in TEAM_SLUGS], ignore_index=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4) SETUP COLUMNS
+# ─────────────────────────────────────────────────────────────────────────────
+
+COLUMNS = [
+    # Wiki
+    "Age","Nationality","Position","CurrentTeam","College","DraftYear","Trophies","Injury_Status","Accomplishments",
+    # URLs
+    "IG_URL","Twitter_URL","TikTok_URL","YouTube_URL",
+    # Instagram
+    "Instagram_Followers","Instagram_Likes_Avg","Instagram_Comments_Avg","Instagram_Posts_per_Week",
+    # X/Twitter
+    "Twitter_Followers","Twitter_Likes_Avg","Twitter_Retweets_Avg","Twitter_Replies_Avg",
+    # TikTok
+    "TikTok_Followers","TikTok_Likes_Avg","TikTok_Comments_Avg","TikTok_Shares_Avg",
+    # YouTube
+    "YouTube_Subscribers","YouTube_Views_Avg",
+    # PFR
+    "PFR_PassYds","PFR_PassTD","PFR_RushRecYds","PFR_Tackles","PFR_Sacks","PFR_Int","PFR_FG","PFR_PuntYds",
+    # Spotrac
+    "Career_Earnings",
+    # News
+    "News_Headlines_Count"
+]
+for col in COLUMNS:
+    df[col] = None
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5) DISCOVERY HELPER
+# ─────────────────────────────────────────────────────────────────────────────
+
+def discover_url(domain, name, tag=""):
+    q = f"{name} {tag}".strip()
+    resp = app.map_url(domain, params={"search": q})
+    urls = resp.get("urls") if isinstance(resp, dict) else resp
+    return urls[0] if urls else None
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6) DIRECT PARSERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def parse_wikipedia(html):
+    out = dict.fromkeys(["Age","Nationality","Position","CurrentTeam","College","DraftYear","Trophies","Injury_Status","Accomplishments"], None)
+    soup = BeautifulSoup(html, "html.parser")
+    ib = soup.find("table", "infobox")
+    if ib:
+        for tr in ib.find_all("tr"):
+            txt = tr.get_text(separator="\n")
+            if "Born" in txt and out["Age"] is None:
+                m = re.search(r"\((\d+)\s+years", txt)
+                out["Age"] = int(m.group(1)) if m else None
+            if "Nationality" in txt and out["Nationality"] is None:
+                out["Nationality"] = txt.split("\n")[-1].strip()
+            if "Position" in txt and out["Position"] is None:
+                out["Position"] = txt.split("\n")[-1].strip()
+            if "Current team" in txt and out["CurrentTeam"] is None:
+                out["CurrentTeam"] = txt.split("\n")[-1].strip()
+            if "College" in txt and out["College"] is None:
+                out["College"] = txt.split("\n")[-1].strip()
+            if "Draft" in txt and out["DraftYear"] is None:
+                m2 = re.search(r"(\d{4})", txt)
+                out["DraftYear"] = int(m2.group(1)) if m2 else None
+            if "Injured Reserve" in txt:
+                out["Injury_Status"] = "Injured Reserve"
+        # trophies
+        trophy_th = ib.find("th", string=re.compile(r"Career highlights and awards", re.I))
+        if trophy_th:
+            lis = trophy_th.find_next_sibling("td").find_all("li")
+            out["Trophies"] = len(lis)
+    # accomplishments
+    count = 0
+    for h in soup.select("span.mw-headline"):
+        if re.search(r"career highlights|accomplishments", h.text, re.I):
+            ul = h.find_next("ul")
+            count += len(ul.find_all("li")) if ul else 0
+    out["Accomplishments"] = count
+    return out
+
+def parse_instagram(html):
+    out = dict.fromkeys(["Instagram_Followers","Instagram_Likes_Avg","Instagram_Comments_Avg","Instagram_Posts_per_Week"], None)
+    m = re.search(r"window\._sharedData\s*=\s*(\{.*?\});", html)
+    if m:
+        data = json.loads(m.group(1))
+        user = data["entry_data"]["ProfilePage"][0]["graphql"]["user"]
+        foll = user["edge_followed_by"]["count"]
+        edges = user["edge_owner_to_timeline_media"]["edges"][:5]
+        likes = [e["node"]["edge_media_preview_like"]["count"] for e in edges]
+        cmts  = [e["node"]["edge_media_to_comment"]["count"] for e in edges]
+        times = [e["node"]["taken_at_timestamp"] for e in edges]
+        out["Instagram_Followers"] = foll
+        out["Instagram_Likes_Avg"] = sum(likes)/len(likes) if likes else None
+        out["Instagram_Comments_Avg"] = sum(cmts)/len(cmts) if cmts else None
+        if len(times) >= 2:
+            span_days = (times[0]-times[-1])/(3600*24)
+            out["Instagram_Posts_per_Week"] = len(times)/span_days*7
+    return out
+
+def parse_twitter(username):
+    try:
+        j = requests.get(f"https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names={username}").json()[0]
+        foll = j["followers_count"]
+    except:
+        foll = None
+    # engagement
+    from snscrape.modules.twitter import TwitterSearchScraper
+    tweets = list(TwitterSearchScraper(f"from:{username}").get_items())[:5]
+    likes = [t.likeCount for t in tweets]
+    rets  = [t.retweetCount for t in tweets]
+    reps  = [t.replyCount  for t in tweets] if tweets and hasattr(tweets[0], "replyCount") else []
+    return {
+        "Twitter_Followers": foll,
+        "Twitter_Likes_Avg": sum(likes)/len(likes) if likes else None,
+        "Twitter_Retweets_Avg": sum(rets)/len(rets) if rets else None,
+        "Twitter_Replies_Avg":  sum(reps)/len(reps) if reps else None
+    }
+
+def parse_tiktok(html):
+    out = dict.fromkeys(["TikTok_Followers","TikTok_Likes_Avg","TikTok_Comments_Avg","TikTok_Shares_Avg"], None)
+    m = re.search(r'<script id="SIGI_STATE".*?>(.*?)</script>', html, re.DOTALL)
+    if m:
+        data = json.loads(m.group(1))
+        stats = list(data["UserModule"]["users"].values())[0]["stats"]
+        vids  = sorted(data["ItemModule"].values(), key=lambda v:v["stats"]["createTime"], reverse=True)[:5]
+        likes = [v["stats"]["likeCount"] for v in vids]
+        cmts  = [v["stats"]["commentCount"] for v in vids]
+        shr   = [v["stats"]["shareCount"] for v in vids]
+        out["TikTok_Followers"] = stats.get("followerCount")
+        out["TikTok_Likes_Avg"] = sum(likes)/len(likes) if likes else None
+        out["TikTok_Comments_Avg"] = sum(cmts)/len(cmts) if cmts else None
+        out["TikTok_Shares_Avg"]   = sum(shr)/len(shr) if shr else None
+    return out
+
+def parse_youtube(html):
+    out = {"YouTube_Subscribers": None, "YouTube_Views_Avg": None}
+    soup = BeautifulSoup(html, "html.parser")
+    m = soup.find("meta", itemprop="subscriberCount")
+    if m:
+        out["YouTube_Subscribers"] = int(m["content"])
+    return out
+
+def parse_pfr(html):
+    stats = {}
+    soup = BeautifulSoup(html, "html.parser")
+    for tid in ["passing","rushing_and_receiving","defense","kicking","returns"]:
+        tbl = soup.find("table", id=tid)
+        stats[tid] = {}
+        if tbl:
+            row = tbl.find("tr", id="Career") or tbl.find("tr", class_="stat_total")
+            if row:
+                for td in row.find_all("td"):
+                    k = td["data-stat"]; v = td.text.replace(",","")
+                    stats[tid][k] = int(v) if v.isdigit() else None
+    return {
+        "PFR_PassYds": stats["passing"].get("pass_yds"),
+        "PFR_PassTD":  stats["passing"].get("pass_td"),
+        "PFR_RushRecYds": (stats["rushing_and_receiving"].get("rush_yds") or 0)
+                         + (stats["rushing_and_receiving"].get("rec_yds") or 0),
+        "PFR_Tackles": stats["defense"].get("tackle_comb"),
+        "PFR_Sacks":   stats["defense"].get("sk"),
+        "PFR_Int":     stats["defense"].get("int"),
+        "PFR_FG":      stats["kicking"].get("fg"),
+        "PFR_PuntYds": stats["returns"].get("punt_ret_yds")
+    }
+
+def parse_spotrac(html):
+    soup = BeautifulSoup(html, "html.parser")
+    div = soup.find(text=re.compile("Career Earnings", re.I))
+    if div:
+        nxt = div.find_next()
+        amt = re.sub(r"[$,]","", nxt.get_text()) if nxt else ""
+        return int(amt) if amt.isdigit() else None
+    return None
+
+def get_news_count(name):
+    rss = f"https://news.google.com/rss/search?q={name.replace(' ','%20')}"
+    soup = BeautifulSoup(requests.get(rss).text, "xml")
+    return len(soup.find_all("item"))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7) FALLBACK via LLM
+# ─────────────────────────────────────────────────────────────────────────────
+
+def fallback_extract(html, fields):
+    prompt = (
+        "You are a JSON extractor. From this HTML:\n"
+        f"{html[:2000]}\n"
+        "Extract exactly these fields:\n"
+        + ", ".join(fields) +
+        "\nReturn only a flat JSON object."
+    )
+    return json.loads(call_llm(prompt))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8) ENRICHMENT LOOP
+# ─────────────────────────────────────────────────────────────────────────────
+
+def enrich_player(idx, row):
+    name = row["Player"]
+    print(f"[{idx+1}/{len(df)}] {name}")
+
+    # 1) Wikipedia
+    wiki_url  = discover_url("https://en.wikipedia.org", name)
+    wiki_html = requests.get(wiki_url).text if wiki_url else ""
+    wdata     = parse_wikipedia(wiki_html)
+    if any(v is None for v in wdata.values()):
+        wdata = fallback_extract(wiki_html, list(wdata.keys()))
+
+    # 2) Social URLs
+    ig_url   = discover_url("https://www.instagram.com", name, "instagram")
+    tw_url   = discover_url("https://twitter.com",      name, "twitter")
+    tt_url   = discover_url("https://www.tiktok.com",    name, "tiktok")
+    yt_url   = discover_url("https://www.youtube.com",   name, "youtube")
+
+    # 3) Social parses
+    ig_html  = requests.get(ig_url).text if ig_url else ""
+    ig_data  = parse_instagram(ig_html)
+    if ig_data["Instagram_Followers"] is None:
+        ig_data = fallback_extract(ig_html, list(ig_data.keys()))
+
+    tw_user  = tw_url.rstrip("/").split("/")[-1] if tw_url else ""
+    tw_data  = parse_twitter(tw_user)
+
+    tt_html  = requests.get(tt_url).text if tt_url else ""
+    tt_data  = parse_tiktok(tt_html)
+
+    yt_html  = requests.get(yt_url).text if yt_url else ""
+    yt_data  = parse_youtube(yt_html)
+
+    # 4) PFR
+    pfr_url  = discover_url("https://www.pro-football-reference.com", name)
+    pfr_html = requests.get(pfr_url).text if pfr_url else ""
+    pfr_data = parse_pfr(pfr_html)
+
+    # 5) Spotrac
+    spot_url = discover_url("https://www.spotrac.com/nfl/players", name)
+    spot_html= requests.get(spot_url).text if spot_url else ""
+    ce       = parse_spotrac(spot_html)
+
+    # 6) News
+    news_cnt = get_news_count(name)
+
+    # 7) Write back to df
+    for k,v in wdata.items():      df.at[idx, k] = v
+    df.at[idx, "IG_URL"]      = ig_url
+    df.at[idx, "Twitter_URL"] = tw_url
+    df.at[idx, "TikTok_URL"]  = tt_url
+    df.at[idx, "YouTube_URL"] = yt_url
+    for k,v in ig_data.items():    df.at[idx, k] = v
+    for k,v in tw_data.items():    df.at[idx, k] = v
+    for k,v in tt_data.items():    df.at[idx, k] = v
+    for k,v in yt_data.items():    df.at[idx, k] = v
+    for k,v in pfr_data.items():   df.at[idx, k] = v
+    df.at[idx, "Career_Earnings"]      = ce
+    df.at[idx, "News_Headlines_Count"] = news_cnt
+
+for i, row in df.iterrows():
+    enrich_player(i, row)
+    time.sleep(0.5)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9) SAVE
+# ─────────────────────────────────────────────────────────────────────────────
+
+df.to_csv("nfl_2024_gravity_data.csv", index=False)
+print("✅ Saved to nfl_2024_gravity_data.csv")
+```
+
+**Key changes**:
+
+* **No proprietary API** calls—everything runs locally or via Firecrawl.
+* **Open-source Mistral** loaded via `transformers` as the sole LLM.
+* LLM is invoked **only** when a direct parse returns `None`, keeping costs and latency minimal.
+
+This gives you fully automated page discovery, direct scrapes, and intelligent fallbacks—all in one self-contained script.
