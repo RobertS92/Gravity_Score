@@ -114,6 +114,7 @@ nfl_gravity/
 ## Changelog
 
 - July 02, 2025. Initial setup
+- July 04, 2025. Added PostgreSQL database integration with comprehensive NFL player data storage
 
 ## User Preferences
 
