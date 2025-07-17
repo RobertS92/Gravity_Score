@@ -1,0 +1,239 @@
+{
+  "timestamp": "20250717_184140",
+  "generated_at": "2025-07-17T18:41:40.721495",
+  "player_schema": {
+    "height": {
+      "type": "string",
+      "nullable": false,
+      "examples": [
+        "7'1\"",
+        "7'5\"",
+        "7'2\""
+      ],
+      "count": 93,
+      "null_count": 0,
+      "total_records": 93
+    },
+    "data_source": {
+      "type": "string",
+      "nullable": true,
+      "examples": [
+        "nfl.com",
+        "nfl.com",
+        "nfl.com"
+      ],
+      "count": 4,
+      "null_count": 89,
+      "total_records": 93
+    },
+    "wikipedia_url": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "jersey_number": {
+      "type": "integer",
+      "nullable": true,
+      "examples": [
+        36,
+        69,
+        11
+      ],
+      "count": 86,
+      "null_count": 7,
+      "total_records": 93
+    },
+    "instagram_followers": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "draft_year": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "awards": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "college": {
+      "type": "string",
+      "nullable": true,
+      "examples": [
+        "Rutgers",
+        "Florida Atlantic",
+        "Arizona State"
+      ],
+      "count": 92,
+      "null_count": 1,
+      "total_records": 93
+    },
+    "twitter_handle": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "scraped_at": {
+      "type": "datetime",
+      "nullable": false,
+      "examples": [
+        "2025-07-17T18:33:01.618870",
+        "2025-07-17T18:33:06.072712",
+        "2025-07-17T18:33:10.569627"
+      ],
+      "count": 93,
+      "null_count": 0,
+      "total_records": 93
+    },
+    "name": {
+      "type": "string",
+      "nullable": false,
+      "examples": [
+        "Tre Avery",
+        "Evan Anderson",
+        "Brandon Aiyuk"
+      ],
+      "count": 93,
+      "null_count": 0,
+      "total_records": 93
+    },
+    "position": {
+      "type": "string",
+      "nullable": false,
+      "examples": [
+        "CB",
+        "DL",
+        "WR"
+      ],
+      "count": 93,
+      "null_count": 0,
+      "total_records": 93
+    },
+    "weight": {
+      "type": "integer",
+      "nullable": false,
+      "examples": [
+        181,
+        326,
+        200
+      ],
+      "count": 93,
+      "null_count": 0,
+      "total_records": 93
+    },
+    "career_highlights": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "draft_pick": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "age": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "twitter_followers": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "years_pro": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "games_started": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "draft_round": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "games_played": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "team": {
+      "type": "string",
+      "nullable": false,
+      "examples": [
+        "49ers",
+        "49ers",
+        "49ers"
+      ],
+      "count": 93,
+      "null_count": 0,
+      "total_records": 93
+    },
+    "instagram_handle": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    },
+    "birth_date": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 93,
+      "total_records": 93
+    }
+  },
+  "team_schema": {},
+  "record_counts": {
+    "players": 93,
+    "teams": 0
+  }
+}

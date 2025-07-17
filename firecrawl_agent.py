@@ -1,66 +1,109 @@
 """
 Firecrawl Agent for Enhanced Social Media and Web Data Scraping
-Uses Firecrawl API for intelligent web scraping with better success rates
+Uses official Firecrawl SDK with advanced features like structured extraction and mapping
 """
 
 import os
-import requests
-import json
 import time
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+# Import the official Firecrawl SDK
+try:
+    from firecrawl import FirecrawlApp
+    FIRECRAWL_AVAILABLE = True
+except ImportError:
+    FIRECRAWL_AVAILABLE = False
+    logger.warning("Firecrawl SDK not available. Install with: pip install firecrawl-py")
+
+class SocialMediaProfile(BaseModel):
+    """Schema for social media profile extraction."""
+    handle: Optional[str] = Field(description="Social media handle (e.g., @username)")
+    followers: Optional[int] = Field(description="Number of followers")
+    following: Optional[int] = Field(description="Number of following")
+    verified: Optional[bool] = Field(description="Whether the account is verified")
+    bio: Optional[str] = Field(description="Account bio or description")
+    posts_count: Optional[int] = Field(description="Number of posts")
+
+class WikipediaData(BaseModel):
+    """Schema for Wikipedia biographical data extraction."""
+    birth_date: Optional[str] = Field(description="Birth date of the person")
+    birth_place: Optional[str] = Field(description="Birth place of the person")
+    college: Optional[str] = Field(description="College or university attended")
+    draft_info: Optional[str] = Field(description="NFL draft information")
+    career_highlights: Optional[List[str]] = Field(description="Career highlights and achievements")
+    awards: Optional[List[str]] = Field(description="Awards and honors received")
+    pro_bowls: Optional[str] = Field(description="Pro Bowl selections")
+    all_pro: Optional[str] = Field(description="All-Pro selections")
+    hall_of_fame: Optional[bool] = Field(description="Hall of Fame status")
+
+class ContractData(BaseModel):
+    """Schema for contract and salary data extraction."""
+    current_salary: Optional[str] = Field(description="Current year salary")
+    contract_value: Optional[str] = Field(description="Total contract value")
+    contract_years: Optional[str] = Field(description="Contract duration in years")
+    guaranteed_money: Optional[str] = Field(description="Guaranteed money amount")
+    signing_bonus: Optional[str] = Field(description="Signing bonus amount")
+    career_earnings: Optional[str] = Field(description="Total career earnings")
+
 class FirecrawlAgent:
-    """Agent for intelligent web scraping using Firecrawl API."""
+    """Advanced agent for intelligent web scraping using official Firecrawl SDK."""
     
     def __init__(self):
         self.api_key = os.getenv("FIRECRAWL_API_KEY", "your-api-key-here")
-        self.base_url = "https://api.firecrawl.dev"
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-        self.request_delay = 3
+        self.request_delay = 2
         self.max_retries = 3
         
-    def scrape_url(self, url: str, extract_schema: Dict = None) -> Dict:
+        if not FIRECRAWL_AVAILABLE:
+            logger.error("Firecrawl SDK not available")
+            self.app = None
+            return
+            
+        try:
+            self.app = FirecrawlApp(api_key=self.api_key)
+            logger.info("Firecrawl agent initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Firecrawl app: {e}")
+            self.app = None
+        
+    def scrape_url(self, url: str, extract_schema: Dict = None, formats: List[str] = None) -> Dict:
         """
-        Scrape a single URL using Firecrawl.
+        Scrape a single URL using official Firecrawl SDK.
         
         Args:
             url: URL to scrape
             extract_schema: Optional schema for structured data extraction
+            formats: List of output formats (markdown, html, json, etc.)
             
         Returns:
             Dictionary with scraped data
         """
+        if not self.app:
+            return {"error": "Firecrawl SDK not initialized"}
+            
         try:
-            payload = {
-                "url": url,
-                "formats": ["markdown", "structured"],
-                "includeTags": ["meta", "title", "h1", "h2", "h3", "p", "span", "div"],
-                "excludeTags": ["script", "style", "nav", "footer", "header"],
-                "onlyMainContent": True
+            formats = formats or ["markdown", "html"]
+            
+            scrape_params = {
+                "formats": formats,
+                "onlyMainContent": True,
+                "timeout": 30000
             }
             
             if extract_schema:
-                payload["extract"] = extract_schema
+                scrape_params["formats"] = ["json"]
+                scrape_params["jsonOptions"] = {"schema": extract_schema}
             
-            response = requests.post(
-                f"{self.base_url}/v1/scrape",
-                headers=self.headers,
-                json=payload,
-                timeout=30
-            )
+            result = self.app.scrape_url(url, **scrape_params)
             
-            if response.status_code == 200:
-                return response.json()
+            if result.get("success"):
+                return {"success": True, "data": result.get("data", {})}
             else:
-                logger.warning(f"Firecrawl scraping failed for {url}: {response.status_code}")
-                return {"error": f"HTTP {response.status_code}"}
+                return {"error": result.get("error", "Unknown error")}
                 
         except Exception as e:
             logger.error(f"Error scraping {url}: {e}")
@@ -109,7 +152,7 @@ class FirecrawlAgent:
     
     def scrape_player_wikipedia(self, player_name: str, team: str) -> Dict:
         """
-        Scrape Wikipedia page for player biographical information using direct URL construction.
+        Scrape Wikipedia page using Firecrawl's extract endpoint with structured data.
         
         Args:
             player_name: Name of the player
@@ -118,38 +161,38 @@ class FirecrawlAgent:
         Returns:
             Dictionary with Wikipedia data
         """
-        try:
-            # Try direct Wikipedia URL construction
-            potential_urls = self._construct_wikipedia_urls(player_name)
+        if not self.app:
+            return self._fallback_wikipedia_search(player_name, team)
             
-            for wikipedia_url in potential_urls:
-                try:
-                    # Scrape Wikipedia page with structured extraction
-                    extract_schema = {
-                        "type": "object",
-                        "properties": {
-                            "birth_date": {"type": "string", "description": "Birth date of the player"},
-                            "birth_place": {"type": "string", "description": "Birth place of the player"},
-                            "college": {"type": "string", "description": "College attended"},
-                            "draft_info": {"type": "string", "description": "NFL draft information"},
-                            "career_highlights": {"type": "array", "description": "Career highlights and achievements"},
-                            "awards": {"type": "array", "description": "Awards and honors"},
-                            "pro_bowls": {"type": "string", "description": "Pro Bowl selections"},
-                            "all_pro": {"type": "string", "description": "All-Pro selections"}
-                        }
+        try:
+            # Use Firecrawl's extract endpoint for intelligent Wikipedia discovery
+            search_urls = [
+                f"https://www.google.com/search?q=\"{player_name}\"+NFL+{team}+wikipedia",
+                f"https://en.wikipedia.org/wiki/{player_name.replace(' ', '_')}",
+                f"https://en.wikipedia.org/wiki/{player_name.replace(' ', '_')}_(American_football)"
+            ]
+            
+            # Use extract with structured schema for Wikipedia data
+            extract_result = self.app.extract(
+                urls=search_urls,
+                prompt=f"Extract comprehensive biographical information for NFL player {player_name}, including birth date, birth place, college, draft information, career highlights, awards, Pro Bowl selections, and All-Pro selections.",
+                schema=WikipediaData.model_json_schema(),
+                enable_web_search=True
+            )
+            
+            if extract_result.get("success") and extract_result.get("data"):
+                bio_data = extract_result["data"]
+                
+                # Filter out None values and construct response
+                filtered_data = {k: v for k, v in bio_data.items() if v is not None}
+                
+                if filtered_data:
+                    return {
+                        'wikipedia_url': self._find_wikipedia_url(search_urls, player_name),
+                        'biographical_data': filtered_data,
+                        'scraped_at': datetime.now().isoformat(),
+                        'extraction_method': 'firecrawl_extract'
                     }
-                    
-                    wiki_result = self.scrape_url(wikipedia_url, extract_schema)
-                    if wiki_result and 'data' in wiki_result and 'error' not in wiki_result:
-                        return {
-                            'wikipedia_url': wikipedia_url,
-                            'biographical_data': wiki_result['data'].get('extract', {}),
-                            'scraped_at': datetime.now().isoformat()
-                        }
-                        
-                except Exception as url_error:
-                    logger.debug(f"Failed to scrape {wikipedia_url}: {url_error}")
-                    continue
             
         except Exception as e:
             logger.error(f"Error scraping Wikipedia for {player_name}: {e}")
