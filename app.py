@@ -277,6 +277,155 @@ def get_all_players():
         logger.error(f"Error getting all players: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
+@app.route('/api/scrape/comprehensive', methods=['POST'])
+def scrape_comprehensive_data():
+    """Scrape comprehensive data for all players with social media."""
+    try:
+        data = request.get_json()
+        team = data.get('team', '49ers')
+        
+        logger.info(f"Starting comprehensive data scraping for {team}")
+        
+        # Use the comprehensive collector
+        from comprehensive_nfl_collector import ComprehensiveNFLCollector
+        collector = ComprehensiveNFLCollector()
+        
+        # Get sample players for testing
+        sample_players = [
+            {'name': 'Brock Purdy', 'position': 'QB'},
+            {'name': 'Christian McCaffrey', 'position': 'RB'},
+            {'name': 'Deebo Samuel', 'position': 'WR'},
+            {'name': 'George Kittle', 'position': 'TE'},
+            {'name': 'Nick Bosa', 'position': 'DE'}
+        ]
+        
+        all_comprehensive_data = []
+        
+        for player in sample_players:
+            try:
+                logger.info(f"Collecting comprehensive data for {player['name']}")
+                
+                # Collect complete player data
+                player_data = collector.collect_complete_player_data(
+                    player['name'], 
+                    team, 
+                    player['position']
+                )
+                
+                all_comprehensive_data.append(player_data)
+                
+            except Exception as e:
+                logger.error(f"Error collecting data for {player['name']}: {e}")
+                continue
+        
+        return jsonify({
+            "players": all_comprehensive_data,
+            "count": len(all_comprehensive_data),
+            "status": "success",
+            "message": f"Comprehensive data collected for {len(all_comprehensive_data)} players"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in comprehensive scraping: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/social/search', methods=['POST'])
+def search_social_media():
+    """Search and scrape social media data for a specific player."""
+    try:
+        data = request.get_json()
+        player_name = data.get('player_name')
+        team = data.get('team', '49ers')
+        
+        if not player_name:
+            return jsonify({"error": "Player name is required", "status": "error"}), 400
+        
+        logger.info(f"Searching social media for {player_name} ({team})")
+        
+        # Use the web search social scraper
+        from web_search_social_scraper import WebSearchSocialScraper
+        scraper = WebSearchSocialScraper()
+        
+        # Search and scrape social media
+        social_data = scraper.search_and_scrape_social_media(player_name, team)
+        
+        return jsonify({
+            "player_name": player_name,
+            "team": team,
+            "social_media_data": social_data,
+            "status": "success"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error searching social media: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/comprehensive/collect', methods=['POST'])
+def collect_comprehensive_data():
+    """Collect comprehensive NFL data with all required fields."""
+    try:
+        data = request.get_json()
+        team = data.get('team', '49ers')
+        max_players = data.get('max_players', 5)
+        
+        logger.info(f"Starting comprehensive data collection for {team}")
+        
+        # Use the simple comprehensive database
+        from simple_comprehensive_db import SimpleComprehensiveDB
+        db = SimpleComprehensiveDB()
+        
+        # Collect comprehensive data
+        players_data = db.collect_comprehensive_team_data(team, max_players)
+        
+        if players_data:
+            # Save to database
+            db.save_comprehensive_data(players_data, team)
+            
+            return jsonify({
+                "team": team,
+                "players_collected": len(players_data),
+                "status": "success",
+                "message": f"Comprehensive data collected for {len(players_data)} players",
+                "data_fields": [
+                    "Basic Player Info (name, position, team, height, weight, college)",
+                    "Social Media (Twitter, Instagram, TikTok, YouTube followers)",
+                    "Career Statistics (passing, rushing, receiving)",
+                    "Awards and Honors (Pro Bowls, Super Bowl wins)",
+                    "Financial Data (career earnings, contract value)",
+                    "Wikipedia profile and news headlines"
+                ]
+            })
+        else:
+            return jsonify({
+                "team": team,
+                "players_collected": 0,
+                "status": "warning",
+                "message": "No comprehensive data collected"
+            })
+        
+    except Exception as e:
+        logger.error(f"Error in comprehensive data collection: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/comprehensive/summary/<team>')
+def get_comprehensive_summary(team):
+    """Get summary of comprehensive data for a team."""
+    try:
+        from simple_comprehensive_db import SimpleComprehensiveDB
+        db = SimpleComprehensiveDB()
+        
+        summary = db.get_comprehensive_summary(team)
+        
+        return jsonify({
+            "team": team,
+            "summary": summary,
+            "status": "success"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting comprehensive summary: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
 @app.route('/api/scrape/enhanced', methods=['POST'])
 def enhanced_scrape():
     """Enhanced scraping with complete roster extraction."""
