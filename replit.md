@@ -137,6 +137,15 @@ nfl_gravity/
   - Pipeline supports both fast mode (basic fields) and comprehensive mode (all 40+ fields)
   - Ready for production deployment to collect comprehensive data for all ~2,700 NFL players
 
+- July 17, 2025. **ENHANCED AGE COLLECTION & DATABASE VERSIONING**: Implemented advanced age collection with Wikipedia fallback and full database versioning
+  - Built EnhancedAgeCollector with multi-source fallback: NFL.com → ESPN → Wikipedia → birth date calculation
+  - Implemented DatabaseVersioning system with full historical tracking of all player data changes
+  - Database stores current data in main table, historical versions in separate history table
+  - All 74 fields tracked with timestamps, change detection, and version numbering
+  - Web interface always shows latest data while preserving complete historical record
+  - System handles player updates by creating historical snapshots before applying new data
+  - Age collection tries official sources first, falls back to Wikipedia biographical data extraction
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

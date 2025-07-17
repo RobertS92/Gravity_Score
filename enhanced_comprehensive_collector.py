@@ -13,6 +13,8 @@ from social_media_agent import SocialMediaAgent
 from web_search_social_scraper import WebSearchSocialScraper
 from nfl_gravity.extractors.wikipedia import WikipediaExtractor
 from nfl_gravity.core.config import Config
+from database_versioning import DatabaseVersioning
+from enhanced_age_collector import EnhancedAgeCollector
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,8 @@ class EnhancedComprehensiveCollector:
         self.social_agent = SocialMediaAgent()
         self.web_scraper = WebSearchSocialScraper()
         self.wiki_extractor = WikipediaExtractor(self.config)
+        self.db_versioning = DatabaseVersioning()
+        self.age_collector = EnhancedAgeCollector()
         
     def collect_comprehensive_data(self, player_name: str, team: str, position: str = None) -> Dict:
         """Collect comprehensive player data using existing infrastructure."""
@@ -34,6 +38,7 @@ class EnhancedComprehensiveCollector:
             'name': player_name,
             'team': team,
             'position': position,
+            'age': None,  # Will be filled by enhanced age collector
             
             # Social Media Data
             'twitter_handle': None,
