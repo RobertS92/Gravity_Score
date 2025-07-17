@@ -474,6 +474,70 @@ def enhanced_scrape():
         logger.error(f"Enhanced scraping error: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
+@app.route('/api/scrape/comprehensive', methods=['POST'])
+def comprehensive_scrape():
+    """Comprehensive scraping with all 40+ fields using optimized collector."""
+    try:
+        data = request.get_json()
+        teams = data.get('teams', [])
+        
+        if not teams:
+            return jsonify({"error": "No teams specified"}), 400
+        
+        # Import enhanced comprehensive collector with working infrastructure
+        from enhanced_comprehensive_collector import EnhancedComprehensiveCollector
+        from enhanced_nfl_scraper import EnhancedNFLScraper
+        
+        scraper = EnhancedNFLScraper()
+        collector = EnhancedComprehensiveCollector()
+        
+        all_players = []
+        results = {}
+        
+        for team in teams:
+            logger.info(f"Starting comprehensive scraping for {team}")
+            
+            # Extract complete roster first
+            team_players = scraper.extract_complete_team_roster(team)
+            
+            # Then enhance each player with comprehensive data
+            enhanced_players = []
+            for player in team_players:
+                try:
+                    comprehensive_data = collector.collect_comprehensive_data(
+                        player['name'], 
+                        team, 
+                        player.get('position')
+                    )
+                    # Merge basic roster data with comprehensive data
+                    enhanced_player = {**player, **comprehensive_data}
+                    enhanced_players.append(enhanced_player)
+                except Exception as e:
+                    logger.warning(f"Comprehensive enhancement failed for {player['name']}: {e}")
+                    enhanced_players.append(player)  # Keep basic data
+            
+            all_players.extend(enhanced_players)
+            
+            results[team] = {
+                "players_found": len(team_players),
+                "players_enhanced": len(enhanced_players),
+                "status": "success" if enhanced_players else "no_data"
+            }
+            
+            logger.info(f"Completed {team}: {len(enhanced_players)} players with comprehensive data")
+        
+        return jsonify({
+            "status": "success",
+            "total_players": len(all_players),
+            "teams_processed": len(teams),
+            "results": results,
+            "message": f"Successfully collected comprehensive data for {len(all_players)} players from {len(teams)} teams"
+        })
+        
+    except Exception as e:
+        logger.error(f"Comprehensive scraping error: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
 @app.route('/api/players', methods=['POST'])
 def get_players():
     """Get list of players for selected teams."""

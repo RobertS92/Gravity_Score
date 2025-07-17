@@ -243,30 +243,83 @@ class PipelineOrchestrator:
             if not player_name:
                 return None
             
-            # Start with roster data
-            enriched_data = player_data.copy()
-            enriched_data.update({
-                'team': team,
-                'scraped_at': datetime.utcnow()
-            })
-            
-            # Wikipedia enrichment
-            if self.config.enable_wikipedia and not fast_mode:
+            # Use comprehensive collector for all 40+ fields
+            if not fast_mode:
                 try:
-                    wikipedia_url = self.wikipedia_extractor.search_player(player_name, team)
-                    if wikipedia_url:
-                        wikipedia_data = self.wikipedia_extractor.extract_player_data(wikipedia_url)
-                        enriched_data.update(wikipedia_data)
+                    # Import enhanced comprehensive collector with working infrastructure
+                    import sys
+                    import os
+                    sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+                    from enhanced_comprehensive_collector import EnhancedComprehensiveCollector
+                    
+                    # Collect comprehensive data with enhanced collector
+                    collector = EnhancedComprehensiveCollector()
+                    comprehensive_data = collector.collect_comprehensive_data(
+                        player_name, 
+                        team, 
+                        player_data.get('position')
+                    )
+                    
+                    # Map comprehensive data to expected schema
+                    enriched_data = {
+                        'name': player_name,
+                        'team': team,
+                        'position': comprehensive_data.get('Position', player_data.get('position')),
+                        'jersey_number': player_data.get('jersey_number'),
+                        'height': comprehensive_data.get('Height', player_data.get('height')),
+                        'weight': comprehensive_data.get('Weight', player_data.get('weight')),
+                        'age': comprehensive_data.get('age'),
+                        'birth_date': comprehensive_data.get('Birth_Date'),
+                        'college': comprehensive_data.get('College', player_data.get('college')),
+                        'draft_year': comprehensive_data.get('Draft_Year'),
+                        'draft_round': comprehensive_data.get('draft_round'),
+                        'draft_pick': comprehensive_data.get('draft_pick'),
+                        'years_pro': comprehensive_data.get('years_pro'),
+                        'games_played': comprehensive_data.get('games_played'),
+                        'games_started': comprehensive_data.get('games_started'),
+                        'twitter_handle': comprehensive_data.get('Twitter_URL'),
+                        'instagram_handle': comprehensive_data.get('Instagram_URL'),
+                        'twitter_followers': comprehensive_data.get('Twitter_Followers'),
+                        'instagram_followers': comprehensive_data.get('Instagram_Followers'),
+                        'tiktok_followers': comprehensive_data.get('TikTok_Followers'),
+                        'youtube_subscribers': comprehensive_data.get('YouTube_Subscribers'),
+                        'wikipedia_url': comprehensive_data.get('Wikipedia_URL'),
+                        'career_highlights': comprehensive_data.get('career_highlights'),
+                        'awards': comprehensive_data.get('awards'),
+                        'career_earnings': comprehensive_data.get('Career_Earnings_Total'),
+                        'contract_value': comprehensive_data.get('Current_Contract_Value'),
+                        'pro_bowls': comprehensive_data.get('Pro_Bowls'),
+                        'super_bowl_wins': comprehensive_data.get('Super_Bowl_Wins'),
+                        'career_stats': {
+                            'pass_yards': comprehensive_data.get('Career_Pass_Yards'),
+                            'pass_tds': comprehensive_data.get('Career_Pass_TDs'),
+                            'pass_ints': comprehensive_data.get('Career_Pass_INTs'),
+                            'rush_yards': comprehensive_data.get('Career_Rush_Yards'),
+                            'rush_tds': comprehensive_data.get('Career_Rush_TDs'),
+                            'receptions': comprehensive_data.get('Career_Receptions'),
+                            'rec_yards': comprehensive_data.get('Career_Rec_Yards'),
+                            'rec_tds': comprehensive_data.get('Career_Rec_TDs')
+                        },
+                        'data_quality_score': comprehensive_data.get('Data_Quality_Score'),
+                        'data_sources_used': comprehensive_data.get('Data_Sources_Used', []),
+                        'scraped_at': datetime.utcnow()
+                    }
+                    
                 except Exception as e:
-                    self.logger.warning(f"Wikipedia extraction failed for {player_name}: {e}")
-            
-            # Social media enrichment
-            if self.config.enable_social_media and not fast_mode:
-                try:
-                    social_data = self.social_media_extractor.discover_social_profiles(player_name, team)
-                    enriched_data.update(social_data)
-                except Exception as e:
-                    self.logger.warning(f"Social media extraction failed for {player_name}: {e}")
+                    self.logger.error(f"Comprehensive data collection failed for {player_name}: {e}")
+                    # Fallback to basic enrichment
+                    enriched_data = player_data.copy()
+                    enriched_data.update({
+                        'team': team,
+                        'scraped_at': datetime.utcnow()
+                    })
+            else:
+                # Fast mode: basic data only
+                enriched_data = player_data.copy()
+                enriched_data.update({
+                    'team': team,
+                    'scraped_at': datetime.utcnow()
+                })
             
             # Validate and clean data
             validated_player = self.player_validator.validate_and_clean(enriched_data)
