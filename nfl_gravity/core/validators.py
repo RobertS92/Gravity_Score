@@ -21,7 +21,7 @@ class PlayerData(BaseModel):
     jersey_number: Optional[int] = Field(None, ge=0, le=99)
     
     # Physical Stats
-    height: Optional[str] = Field(None, pattern=r'^\d+[\'\-"]\d+["]?$|^\d+\.\d+$')
+    height: Optional[str] = Field(None, pattern=r'^\d+[\'\-"]\d+["]?$|^\d+\.\d+$|^\d+$')
     weight: Optional[int] = Field(None, ge=100, le=500)
     age: Optional[int] = Field(None, ge=18, le=50)
     birth_date: Optional[date] = None
@@ -78,9 +78,9 @@ class PlayerData(BaseModel):
     def validate_position(cls, v):
         """Validate position abbreviation."""
         valid_positions = [
-            'QB', 'RB', 'FB', 'WR', 'TE', 'LT', 'LG', 'C', 'RG', 'RT',
-            'DE', 'DT', 'NT', 'OLB', 'ILB', 'MLB', 'CB', 'S', 'FS', 'SS',
-            'K', 'P', 'LS', 'KR', 'PR'
+            'QB', 'RB', 'FB', 'WR', 'TE', 'LT', 'LG', 'C', 'RG', 'RT', 'G', 'T', 'OL',
+            'DE', 'DT', 'NT', 'OLB', 'ILB', 'MLB', 'CB', 'S', 'FS', 'SS', 'SAF', 'DB',
+            'K', 'P', 'LS', 'KR', 'PR', 'ST'
         ]
         if v.upper() not in valid_positions:
             logger.warning(f"Unknown position: {v}")

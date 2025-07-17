@@ -1,0 +1,51 @@
+Live Logs
+2025-07-17 15:30:55,793 - nfl_gravity - WARNING - Unknown position: G
+2025-07-17 15:30:55,793 - nfl_gravity.validators - ERROR - Validation failed for player data: 1 validation error for PlayerData
+height
+String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$' [type=string_pattern_mismatch, input_value='77', input_type=str]
+For further information visit https://errors.pydantic.dev/2.11/v/string_pattern_mismatch
+2025-07-17 15:30:55,793 - nfl_gravity.validators - WARNING - Discarded field height=77: String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$'
+2025-07-17 15:30:55,794 - nfl_gravity.pipeline - WARNING - Player data validation failed for Connor Colby
+2025-07-17 15:30:56,210 - nfl_gravity.extractors.social_media - INFO - Discovered social profiles for Derrick Canteen
+2025-07-17 15:30:56,211 - nfl_gravity - WARNING - Unknown position: SAF
+2025-07-17 15:30:56,211 - nfl_gravity.validators - ERROR - Validation failed for player data: 1 validation error for PlayerData
+height
+String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$' [type=string_pattern_mismatch, input_value='71', input_type=str]
+For further information visit https://errors.pydantic.dev/2.11/v/string_pattern_mismatch
+2025-07-17 15:30:56,211 - nfl_gravity.validators - WARNING - Discarded field height=71: String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$'
+2025-07-17 15:30:56,212 - nfl_gravity.pipeline - WARNING - Player data validation failed for Derrick Canteen
+2025-07-17 15:30:56,501 - nfl_gravity.extractors.social_media - INFO - Discovered social profiles for Tre Brown
+2025-07-17 15:30:56,501 - nfl_gravity.validators - ERROR - Validation failed for player data: 1 validation error for PlayerData
+height
+String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$' [type=string_pattern_mismatch, input_value='70', input_type=str]
+For further information visit https://errors.pydantic.dev/2.11/v/string_pattern_mismatch
+2025-07-17 15:30:56,501 - nfl_gravity.validators - WARNING - Discarded field height=70: String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$'
+2025-07-17 15:30:56,501 - nfl_gravity.pipeline - WARNING - Player data validation failed for Tre Brown
+2025-07-17 15:30:56,648 - nfl_gravity.extractors.wikipedia - ERROR - Error searching Wikipedia for Alfred Collins: 404 Client Error: Not Found for url: https://en.wikipedia.org/api/rest_v1/page/search?q=Alfred+Collins+NFL+football+49ers&limit=5
+2025-07-17 15:30:57,237 - nfl_gravity.extractors.wikipedia - ERROR - Error searching Wikipedia for Jacob Cowing: 404 Client Error: Not Found for url: https://en.wikipedia.org/api/rest_v1/page/search?q=Jacob+Cowing+NFL+football+49ers&limit=5
+2025-07-17 15:30:58,344 - nfl_gravity.extractors.wikipedia - ERROR - Error searching Wikipedia for Kalia Davis: 404 Client Error: Not Found for url: https://en.wikipedia.org/api/rest_v1/page/search?q=Kalia+Davis+NFL+football+49ers&limit=5
+2025-07-17 15:30:58,751 - nfl_gravity.extractors.social_media - INFO - Discovered social profiles for Alfred Collins
+2025-07-17 15:30:58,751 - nfl_gravity.validators - ERROR - Validation failed for player data: 1 validation error for PlayerData
+height
+String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$' [type=string_pattern_mismatch, input_value='77', input_type=str]
+For further information visit https://errors.pydantic.dev/2.11/v/string_pattern_mismatch
+2025-07-17 15:30:58,751 - nfl_gravity.validators - WARNING - Discarded field height=77: String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$'
+2025-07-17 15:30:58,751 - nfl_gravity.pipeline - WARNING - Player data validation failed for Alfred Collins
+2025-07-17 15:30:58,883 - nfl_gravity.extractors.social_media - INFO - Discovered social profiles for Jacob Cowing
+2025-07-17 15:30:58,883 - nfl_gravity.validators - ERROR - Validation failed for player data: 1 validation error for PlayerData
+height
+String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$' [type=string_pattern_mismatch, input_value='69', input_type=str]
+For further information visit https://errors.pydantic.dev/2.11/v/string_pattern_mismatch
+2025-07-17 15:30:58,884 - nfl_gravity.validators - WARNING - Discarded field height=69: String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$'
+2025-07-17 15:30:58,884 - nfl_gravity.pipeline - WARNING - Player data validation failed for Jacob Cowing
+2025-07-17 15:31:01,012 - nfl_gravity.extractors.social_media - INFO - Discovered social profiles for Kalia Davis
+2025-07-17 15:31:01,012 - nfl_gravity.validators - ERROR - Validation failed for player data: 1 validation error for PlayerData
+height
+String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$' [type=string_pattern_mismatch, input_value='74', input_type=str]
+For further information visit https://errors.pydantic.dev/2.11/v/string_pattern_mismatch
+2025-07-17 15:31:01,012 - nfl_gravity.validators - WARNING - Discarded field height=74: String should match pattern '^\d+[\'\-"]\d+["]?$|^\d+\.\d+$'
+2025-07-17 15:31:01,012 - nfl_gravity.pipeline - WARNING - Player data validation failed for Kalia Davis
+2025-07-17 15:31:01,013 - nfl_gravity.pipeline - INFO - Completed 49ers: 0 players processed
+2025-07-17 15:31:01,014 - nfl_gravity.storage - INFO - Successfully wrote data to data
+2025-07-17 15:31:01,014 - nfl_gravity.pipeline - INFO - Pipeline completed successfully: {'status': 'success', 'teams_processed': 1, 'total_players': 0, 'total_teams': 0, 'output_files': {'schema': ['data/schema_20250717_153101.json'], 'metadata': ['data/metadata_20250717_153101.json']}, 'output_dir': 'data', 'duration': 29.615869, 'errors': []}
+2025-07-17 15:31:01,014 - nfl_gravity - INFO - MCP pipeline completed successfully: 0 players, 0 teams

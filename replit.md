@@ -115,6 +115,7 @@ nfl_gravity/
 
 - July 02, 2025. Initial setup
 - July 04, 2025. Added PostgreSQL database integration with comprehensive NFL player data storage
+- July 17, 2025. Fixed scraper validation issues - now successfully extracts 93 players per team with proper height format and position validation
 
 ## User Preferences
 
