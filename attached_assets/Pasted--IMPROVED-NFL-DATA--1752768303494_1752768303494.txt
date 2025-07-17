@@ -1,0 +1,788 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# IMPROVED NFL DATA PIPELINE - ENHANCED SCRAPING MODULE
+# ─────────────────────────────────────────────────────────────────────────────
+
+import re
+import time
+import requests
+from bs4 import BeautifulSoup
+from typing import Dict, List, Optional, Tuple
+from urllib.parse import quote_plus, unquote
+import random
+import pandas as pd # Added pandas import
+import numpy as np # Added numpy import
+from datetime import datetime # Added datetime import
+
+
+# Assuming config and utils are defined in other cells and executed first.
+# If not, you might need to consolidate or ensure execution order.
+# For Colab, often defining everything in one script or ensuring explicit cell execution order is needed.
+# We will assume config and utils are available in the global scope after their cells run.
+
+# Try to import Firecrawl
+try:
+    from firecrawl import FirecrawlApp
+    # We need to access the config object which should be available globally
+    # after the config cell is executed.
+    # config = Config() # This line might be redundant if Config is global
+    firecrawl_app = FirecrawlApp(api_key=config.FIRECRAWL_API_KEY)
+    FIRECRAWL_AVAILABLE = True
+except ImportError:
+    logger.warning("Firecrawl not available - using basic scraping only")
+    FIRECRAWL_AVAILABLE = False
+    firecrawl_app = None
+except NameError:
+    logger.warning("Config object not found. Ensure config cell is executed.")
+    FIRECRAWL_AVAILABLE = False
+    firecrawl_app = None
+
+
+# Initialize components
+# We need to access config and logger from utils, assuming they are global
+# config = Config() # Redundant if Config is global
+# rate_limiter = RateLimiter(calls_per_minute=config.MAX_CONCURRENT_REQUESTS * 10) # Adjust rate based on config/Firecrawl limits
+# cache_manager = CacheManager() # Assuming CacheManager from utils is available
+
+
+class EnhancedNFLScraper:
+    """Enhanced NFL data scraper with multiple sources and fallbacks"""
+
+    def __init__(self):
+        self.session = requests.Session()
+        # Access config from global scope
+        self.session.headers.update(config.HEADERS)
+        # Access DataValidator from utils
+        self.validator = DataValidator()
+        # Access RateLimiter from utils
+        self.rate_limiter = RateLimiter(calls_per_minute=config.MAX_CONCURRENT_REQUESTS * 10) # Example rate limit
+
+    @retry(max_attempts=3, delay=2)
+    def scrape_url(self, url: str, use_cache: bool = True) -> Optional[BeautifulSoup]:
+        """Scrape URL with caching and error handling"""
+        # Check cache first
+        # Access cache_manager from global scope or self.cache_manager if initialized here
+        # if use_cache:
+        #     cached = cache_manager.get(url) # Or self.cache_manager.get(url)
+        #     if cached:
+        #         logger.debug(f"Using cached response for {url}")
+        #         return BeautifulSoup(cached, 'html.parser')
+
+        # Rate limiting
+        self.rate_limiter.wait_if_needed(url) # Use instance rate limiter
+
+        # Make request
+        logger.debug(f"Scraping: {url}")
+        response = self.session.get(url, timeout=15)
+        response.raise_for_status()
+
+        # Cache response
+        # if use_cache:
+        #     cache_manager.set(url, response.text) # Or self.cache_manager.set(url, response.text)
+
+        return BeautifulSoup(response.text, 'html.parser')
+
+    def search_career_earnings(self, player_name: str) -> Dict[str, any]:
+        """Enhanced career earnings search with multiple sources"""
+        logger.info(f"Searching career earnings for {player_name}")
+
+        results = {
+            "total_career_earnings": None,
+            "source": None,
+            "confidence": "low",
+            "current_contract": None,
+            "sources_checked": []
+        }
+
+        # Method 1: Spotrac
+        spotrac_data = self._search_spotrac_earnings(player_name)
+        if spotrac_data["amount"]:
+            results.update(spotrac_data)
+            results["sources_checked"].append("Spotrac")
+
+        # Method 2: OverTheCap
+        if not results["total_career_earnings"] or results["confidence"] == "low":
+            otc_data = self._search_overthecap_earnings(player_name)
+            if otc_data["amount"] and (not results["total_career_earnings"] or otc_data["amount"] > results["total_career_earnings"]):
+                results.update(otc_data)
+            results["sources_checked"].append("OverTheCap")
+
+        # Method 3: Google Search with enhanced patterns
+        if not results["total_career_earnings"] or results["confidence"] == "low":
+            google_data = self._search_google_earnings(player_name)
+            if google_data["amount"] and (not results["total_career_earnings"] or google_data["confidence"] == "high"):
+                results.update(google_data)
+            results["sources_checked"].append("Google")
+
+        # Method 4: News aggregation
+        if not results["total_career_earnings"] or results["confidence"] == "low":
+            news_data = self._search_news_earnings(player_name)
+            if news_data["amount"]:
+                results.update(news_data)
+            results["sources_checked"].append("News")
+
+        logger.info(f"Earnings search complete: ${results['total_career_earnings']:,}" if results['total_career_earnings'] else "No data found")
+        return results
+
+    @handle_errors(default_return={"amount": None, "source": None, "confidence": "low"})
+    def _search_spotrac_earnings(self, player_name: str) -> Dict[str, any]:
+        """Search Spotrac for earnings data"""
+        # Generate Spotrac URL
+        url = URLGenerator.player_spotrac_url(player_name)
+
+        # Try Firecrawl first if available
+        if FIRECRAWL_AVAILABLE and firecrawl_app:
+            try:
+                result = firecrawl_app.scrape_url(
+                    url,
+                    formats=['json'],
+                    json_options={
+                        'prompt': f"""Extract career earnings for {player_name}:
+                        - Total career earnings
+                        - Current contract value
+                        - Contract details
+                        Return as JSON with keys: career_earnings, current_contract, contract_years"""
+                    },
+                    timeout=30000
+                )
+
+                if hasattr(result, 'data') and result.data:
+                    data = result.data.get('json', {})
+                    if data.get('career_earnings'):
+                        amount = self.validator.parse_currency(data['career_earnings'])
+                        if amount:
+                            return {
+                                "amount": amount,
+                                "total_career_earnings": amount,
+                                "source": "Spotrac (Firecrawl)",
+                                "confidence": "high",
+                                "current_contract": self.validator.parse_currency(data.get('current_contract'))
+                            }
+            except Exception as e:
+                logger.warning(f"Firecrawl failed for Spotrac: {e}")
+
+        # Fallback to direct scraping
+        try:
+            soup = self.scrape_url(url)
+            if soup:
+                # Look for career earnings patterns
+                text = soup.get_text()
+
+                patterns = [
+                    r'Career Earnings[:\s]*\$([0-9,]+(?:\.[0-9]+)?(?:\s*(?:million|M))?)',
+                    r'Total Cash[:\s]*\$([0-9,]+(?:\.[0-9]+)?(?:\s*(?:million|M))?)',
+                    r'Career Value[:\s]*\$([0-9,]+(?:\.[0-9]+)?(?:\s*(?:million|M))?)'
+                ]
+
+                for pattern in patterns:
+                    match = re.search(pattern, text, re.I)
+                    if match:
+                        amount = self.validator.parse_currency(match.group(1))
+                        if amount:
+                            return {
+                                "amount": amount,
+                                "total_career_earnings": amount,
+                                "source": "Spotrac",
+                                "confidence": "high"
+                            }
+        except Exception as e:
+            logger.error(f"Spotrac scraping failed: {e}")
+
+        return {"amount": None, "source": None, "confidence": "low"}
+
+    @handle_errors(default_return={"amount": None, "source": None, "confidence": "low"})
+    def _search_overthecap_earnings(self, player_name: str) -> Dict[str, any]:
+        """Search OverTheCap for earnings data"""
+        name_slug = player_name.lower().replace(' ', '-').replace("'", "")
+        urls = [
+            f"https://overthecap.com/player/{name_slug}/",
+            f"https://overthecap.com/player/{name_slug}/career-earnings/"
+        ]
+
+        for url in urls:
+            try:
+                soup = self.scrape_url(url)
+                if soup:
+                    text = soup.get_text()
+
+                    # Look for earnings table or text
+                    patterns = [
+                        r'Total Cash Earned[:\s]*\$([0-9,]+(?:\.[0-9]+)?)',
+                        r'Career Earnings[:\s]*\$([0-9,]+(?:\.[0-9]+)?)',
+                        r'Total Earnings[:\s]*\$([0-9,]+(?:\.[0-9]+)?)'
+                    ]
+
+                    for pattern in patterns:
+                        match = re.search(pattern, text, re.I)
+                        if match:
+                            amount = self.validator.parse_currency(match.group(1))
+                            if amount:
+                                return {
+                                    "amount": amount,
+                                    "total_career_earnings": amount,
+                                    "source": "OverTheCap",
+                                    "confidence": "high"
+                                }
+            except Exception as e:
+                logger.debug(f"OverTheCap URL failed: {e}")
+
+        return {"amount": None, "source": None, "confidence": "low"}
+
+    @handle_errors(default_return={"amount": None, "source": None, "confidence": "low"})
+    def _search_google_earnings(self, player_name: str) -> Dict[str, any]:
+        """Enhanced Google search for earnings"""
+        queries = [
+            f'"{player_name}" NFL career earnings total -site:twitter.com',
+            f'"{player_name}" total money made NFL career',
+            f'"{player_name}" contract history total value'
+        ]
+
+        best_result = {"amount": None, "source": None, "confidence": "low"}
+
+        for query in queries[:2]:  # Limit queries
+            try:
+                url = f"https://www.google.com/search?q={quote_plus(query)}"
+                time.sleep(random.uniform(3, 5))  # Random delay
+
+                soup = self.scrape_url(url, use_cache=False)
+                if soup:
+                    text = soup.get_text().lower()
+
+                    # Enhanced patterns
+                    patterns = [
+                        rf'{re.escape(player_name.lower())}.*?(?:career earnings|total earnings|made).*?\$(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:million|m)',
+                        rf'(?:career earnings|total earnings).*?{re.escape(player_name.lower())}.*?\$(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:million|m)',
+                        rf'{re.escape(player_name.lower())}.*?(?:signed|contracts? worth).*?\$(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:million|m)'
+                    ]
+
+                    for pattern in patterns:
+                        matches = re.findall(pattern, text, re.I | re.DOTALL)
+                        for match in matches:
+                            amount = self.validator.parse_currency(f"{match} million")
+                            if amount and amount > best_result.get("amount", 0):
+                                best_result = {
+                                    "amount": amount,
+                                    "total_career_earnings": amount,
+                                    "source": f"Google - {query[:30]}...",
+                                    "confidence": "career" in pattern.lower() and "high" or "medium"
+                                }
+            except Exception as e:
+                logger.debug(f"Google search failed: {e}")
+
+        return best_result
+
+    @handle_errors(default_return={"amount": None, "source": None, "confidence": "low"})
+    def _search_news_earnings(self, player_name: str) -> Dict[str, any]:
+        """Search news sources for contract information"""
+        news_sites = ["espn.com", "nfl.com", "cbssports.com", "profootballtalk.nbcsports.com"]
+
+        query = f'"{player_name}" contract extension signed million site:({"|".join(news_sites)})'
+        url = f"https://www.google.com/search?q={quote_plus(query)}&tbs=qdr:y"  # Last year
+
+        try:
+            soup = self.scrape_url(url, use_cache=False)
+            if soup:
+                # Extract article links
+                links = []
+                for a in soup.find_all('a', href=True):
+                    href = a['href']
+                    if '/url?q=' in href and any(site in href for site in news_sites):
+                        actual_url = href.split('/url?q=')[1].split('&')[0]
+                        links.append(unquote(actual_url))
+
+                # Check first few articles
+                contract_values = []
+                for link in links[:3]:
+                    try:
+                        article_soup = self.scrape_url(link)
+                        if article_soup:
+                            text = article_soup.get_text()
+
+                            # Look for contract values
+                            pattern = rf'{re.escape(player_name)}.*?(?:signed|agreed|extension).*?\$(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:million|M)'
+                            matches = re.findall(pattern, text, re.I)
+
+                            for match in matches:
+                                value = self.validator.parse_currency(f"{match} million")
+                                if value:
+                                    contract_values.append(value)
+                    except:
+                        continue
+
+                if contract_values:
+                    # Use the maximum found value
+                    max_value = max(contract_values)
+                    return {
+                        "amount": max_value,
+                        "total_career_earnings": max_value,
+                        "source": "News Aggregation",
+                        "confidence": "medium"
+                    }
+        except Exception as e:
+            logger.debug(f"News search failed: {e}")
+
+        return {"amount": None, "source": None, "confidence": "low"}
+
+    def scrape_player_wikipedia(self, player_name: str) -> Dict[str, any]:
+        """Scrape Wikipedia for player information"""
+        logger.info(f"Scraping Wikipedia for {player_name}")
+
+        player_data = {}
+        url = URLGenerator.player_wikipedia_url(player_name)
+
+        try:
+            soup = self.scrape_url(url)
+            if soup:
+                # Extract from infobox
+                infobox = soup.find('table', class_='infobox')
+                if infobox:
+                    rows = infobox.find_all('tr')
+
+                    for row in rows:
+                        header = row.find('th')
+                        cell = row.find('td')
+
+                        if header and cell:
+                            header_text = header.get_text().strip().lower()
+                            cell_text = cell.get_text().strip()
+
+                            # Map to our data fields
+                            field_mapping = {
+                                'born': 'Birth_Date',
+                                'position': 'Position',
+                                'height': 'Height',
+                                'weight': 'Weight',
+                                'college': 'College',
+                                'nfl draft': 'Draft_Year',
+                                'current team': 'Current_Team'
+                            }
+
+                            for key, field in field_mapping.items():
+                                if key in header_text:
+                                    player_data[field] = self.validator.clean_text(cell_text)
+
+                # Extract achievements from article text
+                article_text = soup.get_text()
+
+                # Pro Bowls
+                pro_bowl_match = re.search(r'(\d+)[×x\-]\s*Pro Bowl', article_text, re.I)
+                if pro_bowl_match:
+                    player_data['Pro_Bowls'] = int(pro_bowl_match.group(1))
+
+                # Super Bowls
+                sb_wins = len(re.findall(r'Super Bowl\s+(?:champion|winner)', article_text, re.I))
+                if sb_wins:
+                    player_data['Super_Bowl_Wins'] = sb_wins
+
+                # All-Pro selections
+                all_pro_first = len(re.findall(r'First-team All-Pro', article_text, re.I))
+                all_pro_second = len(re.findall(r'Second-team All-Pro', article_text, re.I))
+                if all_pro_first:
+                    player_data['All_Pro_First_Team'] = all_pro_first
+                if all_pro_second:
+                    player_data['All_Pro_Second_Team'] = all_pro_second
+
+                player_data['Wikipedia_URL'] = url
+
+        except Exception as e:
+            logger.error(f"Wikipedia scraping failed for {player_name}: {e}")
+
+        return player_data
+
+    def scrape_social_media_data(self, player_name: str) -> Dict[str, any]:
+        """Scrape social media follower counts"""
+        logger.info(f"Searching social media data for {player_name}")
+
+        social_data = {}
+
+        # Search for Instagram followers
+        try:
+            query = f'"{player_name}" instagram followers'
+            url = f"https://www.google.com/search?q={quote_plus(query)}"
+
+            soup = self.scrape_url(url, use_cache=False)
+            if soup:
+                text = soup.get_text().lower()
+
+                # Look for follower counts
+                patterns = [
+                    rf'(\d+(?:\.\d+)?)\s*(?:million|m)\s*(?:instagram\s*)?followers',
+                    rf'(\d+(?:,\d+)*(?:k)?)\s*(?:instagram\s*)?followers'
+                ]
+
+                for pattern in patterns:
+                    match = re.search(pattern, text)
+                    if match:
+                        count_str = match.group(1)
+                        if 'million' in text[match.start():match.end()+20] or 'm' in count_str:
+                            count = float(count_str.replace('m', '').replace(',', '')) * 1000000
+                        elif 'k' in count_str:
+                            count = float(count_str.replace('k', '').replace(',', '')) * 1000
+                        else:
+                            count = float(count_str.replace(',', ''))
+
+                        if count > 1000:  # Sanity check
+                            social_data['Instagram_Followers'] = int(count)
+                            break
+        except Exception as e:
+            logger.debug(f"Instagram search failed: {e}")
+
+        # Similar searches for other platforms
+        platforms = {
+            'twitter': 'Twitter_Followers',
+            'tiktok': 'TikTok_Followers',
+            'youtube subscribers': 'YouTube_Subscribers'
+        }
+
+        for platform, field in platforms.items():
+            if field not in social_data:
+                try:
+                    query = f'"{player_name}" {platform}'
+                    # Similar logic as Instagram
+                    # ... (abbreviated for space)
+                except:
+                    continue
+
+        return social_data
+
+    def collect_team_roster(self, team_slug: str) -> List[Dict[str, any]]:
+        """Collect roster for a specific team"""
+        logger.info(f"Collecting roster for {team_slug}")
+
+        team_info = NFL_TEAMS_DB.get(team_slug, {})
+        roster = []
+
+        # Try official NFL.com roster
+        url = URLGenerator.team_roster_url(team_slug)
+
+        try:
+            soup = self.scrape_url(url)
+            if soup:
+                # Find player entries
+                player_rows = soup.find_all(['tr', 'div'], class_=re.compile(r'player|roster-player'))
+
+                for row in player_rows:
+                    player_data = self._extract_player_from_row(row)
+                    if player_data and player_data.get('name'):
+                        player_data['team_slug'] = team_slug
+                        player_data['team_info'] = team_info
+                        roster.append(player_data)
+
+                logger.info(f"Found {len(roster)} players for {team_info.get('name', team_slug)}")
+
+        except Exception as e:
+            logger.error(f"Failed to scrape roster for {team_slug}: {e}")
+
+        # Fallback to ESPN if needed
+        if not roster:
+            roster = self._scrape_espn_roster(team_slug, team_info)
+
+        return roster
+
+    def _extract_player_from_row(self, row) -> Optional[Dict[str, str]]:
+        """Extract player data from a roster row"""
+        try:
+            player_data = {}
+
+            # Try different patterns for player name
+            name_patterns = [
+                row.find('a', class_=re.compile(r'player-name')),
+                row.find('span', class_=re.compile(r'player-name')),
+                row.find('a', href=re.compile(r'/player/')),
+                row.find(['td', 'div'], attrs={'data-stat': 'player'})
+            ]
+
+            for elem in name_patterns:
+                if elem and elem.get_text().strip():
+                    player_data['name'] = self.validator.clean_text(elem.get_text())
+                    break
+
+            # Extract position
+            pos_elem = row.find(['span', 'td', 'div'], string=re.compile(r'^(QB|RB|WR|TE|K|P|OT|OG|C|DE|DT|LB|CB|S|FS|SS|DB|OL|DL)$'))
+            if pos_elem:
+                player_data['position'] = pos_elem.get_text().strip()
+
+            # Extract jersey number
+            jersey_elem = row.find(['span', 'td', 'div'], string=re.compile(r'^\d{1,2}$'))
+            if jersey_elem:
+                player_data['jersey'] = jersey_elem.get_text().strip()
+
+            return player_data if player_data.get('name') else None
+
+        except Exception as e:
+            logger.debug(f"Failed to extract player from row: {e}")
+            return None
+
+    def _scrape_espn_roster(self, team_slug: str, team_info: Dict) -> List[Dict[str, any]]:
+        """Fallback to ESPN for roster data"""
+        logger.info(f"Trying ESPN roster for {team_slug}")
+        roster = []
+
+        # ESPN team URL mapping (simplified)
+        espn_team_map = {
+            'buffalo-bills': 'buf',
+            'kansas-city-chiefs': 'kc',
+            'dallas-cowboys': 'dal',
+            'green-bay-packers': 'gb',
+            'new-england-patriots': 'ne',
+            # ... add more mappings
+        }
+
+        espn_abbr = espn_team_map.get(team_slug)
+        if espn_abbr:
+            url = f"https://www.espn.com/nfl/team/roster/_/name/{espn_abbr}"
+            try:
+                soup = self.scrape_url(url)
+                if soup:
+                    # ESPN roster parsing logic
+                    player_rows = soup.find_all('tr', class_='Table__TR')
+                    for row in player_rows:
+                        player_data = self._extract_player_from_row(row)
+                        if player_data:
+                            player_data['team_slug'] = team_slug
+                            player_data['team_info'] = team_info
+                            roster.append(player_data)
+            except:
+                pass
+
+        return roster
+
+class ComprehensivePlayerDataCollector:
+    """Collect comprehensive data for individual players"""
+
+    def __init__(self):
+        self.scraper = EnhancedNFLScraper()
+        self.validator = DataValidator()
+
+    def collect_player_data(self, player_name: str, team_info: Optional[Dict] = None) -> Dict[str, any]:
+        """Collect all available data for a player"""
+        logger.info(f"Starting comprehensive data collection for {player_name}")
+
+        # Initialize with all columns
+        player_data = {col: None for col in ALL_DATA_COLUMNS}
+
+        # Basic info
+        player_data['Player_Name'] = player_name
+        player_data['Data_Collection_Date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        if team_info:
+            player_data['Current_Team'] = team_info.get('nickname')
+            player_data['Team_City'] = team_info.get('city')
+            player_data['Team_Full_Name'] = team_info.get('name')
+
+        # Collect from various sources
+        try:
+            # 1. Career earnings
+            earnings_data = self.scraper.search_career_earnings(player_name)
+            if earnings_data['total_career_earnings']:
+                player_data['Career_Earnings_Total'] = earnings_data['total_career_earnings']
+                player_data['Career_Earnings_Source'] = earnings_data['source']
+                player_data['Career_Earnings_Confidence'] = earnings_data['confidence']
+                if earnings_data.get('current_contract'):
+                    player_data['Current_Contract_Value'] = earnings_data['current_contract']
+
+            # 2. Wikipedia data
+            wiki_data = self.scraper.scrape_player_wikipedia(player_name)
+            for key, value in wiki_data.items():
+                if key in player_data:
+                    player_data[key] = value
+
+            # 3. Social media data
+            social_data = self.scraper.scrape_social_media_data(player_name)
+            for key, value in social_data.items():
+                if key in player_data:
+                    player_data[key] = value
+
+            # 4. Career statistics (from Pro Football Reference)
+            stats_data = self._collect_career_stats(player_name)
+            for key, value in stats_data.items():
+                if key in player_data:
+                    player_data[key] = value
+
+            # 5. News and media presence
+            media_data = self._collect_media_presence(player_name)
+            for key, value in media_data.items():
+                if key in player_data:
+                    player_data[key] = value
+
+        except Exception as e:
+            logger.error(f"Error collecting data for {player_name}: {e}")
+
+        # Calculate data quality score
+        from utils import DataQualityAssessor
+        player_data['Data_Quality_Score'] = DataQualityAssessor.calculate_quality_score(player_data)
+
+        # Add metadata
+        player_data['Data_Sources_Used'] = "Wikipedia, Spotrac, Google, Social Media, News"
+        player_data['Collection_Method'] = "Comprehensive Multi-Source Extraction"
+        player_data['Scraping_Success_Rate'] = 100.0  # Can be calculated based on actual success
+
+        # Validate and clean all data
+        player_data = self.validator.validate_player_data(player_data)
+
+        return player_data
+
+    def _collect_career_stats(self, player_name: str) -> Dict[str, any]:
+        """Collect career statistics"""
+        stats_data = {}
+
+        try:
+            # Search for stats
+            query = f'"{player_name}" NFL career statistics yards touchdowns'
+            url = f"https://www.google.com/search?q={quote_plus(query)}"
+
+            soup = self.scraper.scrape_url(url, use_cache=False)
+            if soup:
+                text = soup.get_text()
+
+                # Extract various stats based on position indicators
+                if any(pos in text.lower() for pos in ['quarterback', 'qb']):
+                    # QB stats
+                    patterns = {
+                        'Career_Pass_Yards': r'(\d{1,3},?\d{3,})\s*(?:passing\s*)?yards',
+                        'Career_Pass_TDs': r'(\d{1,3})\s*(?:passing\s*)?(?:touchdowns?|tds?)',
+                        'Career_Pass_INTs': r'(\d{1,3})\s*interceptions?',
+                        'Career_Pass_Rating': r'(\d{2,3}\.?\d?)\s*(?:passer\s*)?rating'
+                    }
+
+                elif any(pos in text.lower() for pos in ['running back', 'rb']):
+                    # RB stats
+                    patterns = {
+                        'Career_Rush_Yards': r'(\d{1,3},?\d{3,})\s*(?:rushing\s*)?yards',
+                        'Career_Rush_TDs': r'(\d{1,3})\s*(?:rushing\s*)?(?:touchdowns?|tds?)',
+                        'Career_Receptions': r'(\d{1,3})\s*(?:receptions?|catches)'
+                    }
+
+                elif any(pos in text.lower() for pos in ['wide receiver', 'wr']):
+                    # WR stats
+                    patterns = {
+                        'Career_Receptions': r'(\d{1,3},?\d{0,3})\s*(?:receptions?|catches)',
+                        'Career_Rec_Yards': r'(\d{1,3},?\d{3,})\s*(?:receiving\s*)?yards',
+                        'Career_Rec_TDs': r'(\d{1,3})\s*(?:receiving\s*)?(?:touchdowns?|tds?)'
+                    }
+                else:
+                    patterns = {}
+
+                # Extract stats
+                for stat_name, pattern in patterns.items():
+                    match = re.search(pattern, text, re.I)
+                    if match:
+                        value = match.group(1).replace(',', '')
+                        stats_data[stat_name] = self.validator.extract_number(value)
+
+        except Exception as e:
+            logger.debug(f"Stats collection failed: {e}")
+
+        return stats_data
+
+    def _collect_media_presence(self, player_name: str) -> Dict[str, any]:
+        """Collect media presence data"""
+        media_data = {}
+
+        try:
+            # Count recent news articles
+            query = f'"{player_name}" NFL'
+            url = f"https://www.google.com/search?q={quote_plus(query)}&tbm=nws&tbs=qdr:m"  # Last month
+
+            soup = self.scraper.scrape_url(url, use_cache=False)
+            if soup:
+                news_items = soup.find_all(['h3', 'div'], class_=re.compile(r'title|headline'))
+                media_data['News_Headlines_Count'] = len(news_items)
+
+                if news_items:
+                    media_data['Recent_Headlines'] = self.validator.clean_text(news_items[0].get_text())[:200]
+
+        except Exception as e:
+            logger.debug(f"Media collection failed: {e}")
+
+        return media_data
+
+# Batch processing utilities
+class BatchProcessor:
+    """Process multiple players efficiently"""
+
+    def __init__(self, max_concurrent: int = 5):
+        self.collector = ComprehensivePlayerDataCollector()
+        self.max_concurrent = max_concurrent
+
+    def process_players(self, players: List[Dict[str, any]], show_progress: bool = True) -> List[Dict[str, any]]:
+        """Process multiple players with progress tracking"""
+        results = []
+
+        if show_progress:
+            progress = ProgressTracker(len(players), "Processing players")
+
+        for i, player_info in enumerate(players):
+            try:
+                player_name = player_info.get('name') or player_info.get('Player')
+                team_info = player_info.get('team_info')
+
+                logger.info(f"Processing player {i+1}/{len(players)}: {player_name}")
+
+                # Collect data
+                player_data = self.collector.collect_player_data(player_name, team_info)
+
+                # Add any additional info from roster
+                player_data['Jersey_Number'] = player_info.get('jersey', '')
+                player_data['Position'] = player_info.get('position', player_data.get('Position'))
+
+                results.append(player_data)
+
+                if show_progress:
+                    progress.update()
+
+                # Rate limiting between players
+                if i < len(players) - 1:
+                    # Access config from global scope
+                    time.sleep(config.FIRECRAWL_DELAY)
+
+            except Exception as e:
+                logger.error(f"Failed to process {player_info}: {e}")
+                # Add minimal data
+                # Access ALL_DATA_COLUMNS from global scope
+                minimal_data = {col: None for col in ALL_DATA_COLUMNS}
+                minimal_data['Player_Name'] = player_info.get('name', 'Unknown')
+                minimal_data['Data_Collection_Date'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                minimal_data['Data_Quality_Score'] = 0.0
+                minimal_data['Collection_Method'] = "Failed - Error during extraction"
+                results.append(minimal_data)
+
+        return results
+
+# Main scraping coordinator
+class NFLDataPipeline:
+    """Main pipeline coordinator"""
+
+    def __init__(self):
+        self.scraper = EnhancedNFLScraper()
+        self.batch_processor = BatchProcessor()
+
+    def collect_individual_players(self, player_names: List[str]) -> List[Dict[str, any]]:
+        """Collect data for individual players"""
+        players = [{'name': name, 'team_info': None} for name in player_names]
+        return self.batch_processor.process_players(players)
+
+    def collect_team_rosters(self, team_slugs: List[str]) -> List[Dict[str, any]]:
+        """Collect rosters for multiple teams"""
+        all_players = []
+
+        # Access ProgressTracker from utils
+        progress = ProgressTracker(len(team_slugs), "Collecting team rosters")
+
+        for team_slug in team_slugs:
+            roster = self.scraper.collect_team_roster(team_slug)
+            all_players.extend(roster)
+            progress.update()
+
+        # Access NFL_TEAMS_DB from global scope
+        logger.info(f"Found {len(all_players)} players for {len(team_slugs)} teams.")
+        return all_players
+
+    def collect_teams_data(self, team_slugs: List[List[str]]) -> List[Dict[str, any]]: # Corrected type hint for team_slugs
+        """Collect complete data for all players from specified teams"""
+        # First collect rosters
+        logger.info(f"Collecting rosters for {len(team_slugs)} teams")
+        all_players = self.collect_team_rosters(team_slugs)
+
+        # Then collect comprehensive data for each player
+        logger.info(f"Collecting comprehensive data for {len(all_players)} players")
+        return self.batch_processor.process_players(all_players)

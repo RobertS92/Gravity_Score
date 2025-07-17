@@ -15,6 +15,15 @@ from ..core.exceptions import StorageError
 from ..core.utils import sanitize_filename, create_output_directory
 
 
+class DateTimeEncoder(json.JSONEncoder):
+    """Custom JSON encoder for datetime objects."""
+    
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+
 class DataWriter:
     """Handles data storage in various formats with schema validation."""
     
@@ -206,7 +215,7 @@ class DataWriter:
             schema_file = os.path.join(output_dir, f"schema_{timestamp}.json")
             
             with open(schema_file, 'w', encoding='utf-8') as f:
-                json.dump(schema_info, f, indent=2, ensure_ascii=False)
+                json.dump(schema_info, f, indent=2, ensure_ascii=False, cls=DateTimeEncoder)
             
             self.logger.debug(f"Wrote schema file: {schema_file}")
             return schema_file
@@ -305,7 +314,7 @@ class DataWriter:
             metadata_file = os.path.join(output_dir, f"metadata_{timestamp}.json")
             
             with open(metadata_file, 'w', encoding='utf-8') as f:
-                json.dump(metadata, f, indent=2, ensure_ascii=False, default=str)
+                json.dump(metadata, f, indent=2, ensure_ascii=False, cls=DateTimeEncoder)
             
             self.logger.debug(f"Wrote metadata file: {metadata_file}")
             return metadata_file

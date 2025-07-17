@@ -1,0 +1,468 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# IMPROVED NFL DATA PIPELINE - CONFIGURATION MODULE
+# ─────────────────────────────────────────────────────────────────────────────
+
+import os
+from dataclasses import dataclass
+from typing import Dict, List, Optional
+from pathlib import Path
+import json
+
+@dataclass
+class Config:
+    """Configuration class for the NFL data pipeline"""
+    
+    # API Configuration
+    FIRECRAWL_API_KEY: str = os.getenv("FIRECRAWL_API_KEY", "your-api-key-here")
+    
+    # Rate Limiting
+    GOOGLE_DELAY: int = 4
+    FIRECRAWL_DELAY: int = 10
+    REQUEST_DELAY: int = 3
+    RETRY_DELAY: int = 30
+    MAX_RETRIES: int = 3
+    
+    # Data Collection
+    MAX_CONCURRENT_REQUESTS: int = 5
+    BATCH_SIZE: int = 10
+    
+    # Output Configuration
+    OUTPUT_DIR: Path = Path("nfl_data_exports")
+    LOG_DIR: Path = Path("logs")
+    
+    # Headers
+    HEADERS: Dict[str, str] = None
+    
+    def __post_init__(self):
+        """Initialize headers and create directories"""
+        if self.HEADERS is None:
+            self.HEADERS = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Cache-Control': 'no-cache',
+                'DNT': '1'
+            }
+        
+        # Create directories
+        self.OUTPUT_DIR.mkdir(exist_ok=True)
+        self.LOG_DIR.mkdir(exist_ok=True)
+    
+    def save_to_file(self, filepath: str = "config.json"):
+        """Save configuration to JSON file"""
+        config_dict = {
+            k: str(v) if isinstance(v, Path) else v 
+            for k, v in self.__dict__.items()
+        }
+        with open(filepath, 'w') as f:
+            json.dump(config_dict, f, indent=2)
+    
+    @classmethod
+    def load_from_file(cls, filepath: str = "config.json") -> 'Config':
+        """Load configuration from JSON file"""
+        if os.path.exists(filepath):
+            with open(filepath, 'r') as f:
+                config_dict = json.load(f)
+            return cls(**config_dict)
+        return cls()
+
+# NFL Teams Database with enhanced metadata
+NFL_TEAMS_DB = {
+    "arizona-cardinals": {
+        "name": "Arizona Cardinals",
+        "city": "Arizona",
+        "nickname": "Cardinals",
+        "conference": "NFC",
+        "division": "West",
+        "stadium": "State Farm Stadium",
+        "founded": 1898
+    },
+    "atlanta-falcons": {
+        "name": "Atlanta Falcons",
+        "city": "Atlanta",
+        "nickname": "Falcons",
+        "conference": "NFC",
+        "division": "South",
+        "stadium": "Mercedes-Benz Stadium",
+        "founded": 1965
+    },
+    "baltimore-ravens": {
+        "name": "Baltimore Ravens",
+        "city": "Baltimore",
+        "nickname": "Ravens",
+        "conference": "AFC",
+        "division": "North",
+        "stadium": "M&T Bank Stadium",
+        "founded": 1996
+    },
+    "buffalo-bills": {
+        "name": "Buffalo Bills",
+        "city": "Buffalo",
+        "nickname": "Bills",
+        "conference": "AFC",
+        "division": "East",
+        "stadium": "Highmark Stadium",
+        "founded": 1960
+    },
+    "carolina-panthers": {
+        "name": "Carolina Panthers",
+        "city": "Carolina",
+        "nickname": "Panthers",
+        "conference": "NFC",
+        "division": "South",
+        "stadium": "Bank of America Stadium",
+        "founded": 1993
+    },
+    "chicago-bears": {
+        "name": "Chicago Bears",
+        "city": "Chicago",
+        "nickname": "Bears",
+        "conference": "NFC",
+        "division": "North",
+        "stadium": "Soldier Field",
+        "founded": 1919
+    },
+    "cincinnati-bengals": {
+        "name": "Cincinnati Bengals",
+        "city": "Cincinnati",
+        "nickname": "Bengals",
+        "conference": "AFC",
+        "division": "North",
+        "stadium": "Paycor Stadium",
+        "founded": 1966
+    },
+    "cleveland-browns": {
+        "name": "Cleveland Browns",
+        "city": "Cleveland",
+        "nickname": "Browns",
+        "conference": "AFC",
+        "division": "North",
+        "stadium": "Cleveland Browns Stadium",
+        "founded": 1946
+    },
+    "dallas-cowboys": {
+        "name": "Dallas Cowboys",
+        "city": "Dallas",
+        "nickname": "Cowboys",
+        "conference": "NFC",
+        "division": "East",
+        "stadium": "AT&T Stadium",
+        "founded": 1960
+    },
+    "denver-broncos": {
+        "name": "Denver Broncos",
+        "city": "Denver",
+        "nickname": "Broncos",
+        "conference": "AFC",
+        "division": "West",
+        "stadium": "Empower Field at Mile High",
+        "founded": 1960
+    },
+    "detroit-lions": {
+        "name": "Detroit Lions",
+        "city": "Detroit",
+        "nickname": "Lions",
+        "conference": "NFC",
+        "division": "North",
+        "stadium": "Ford Field",
+        "founded": 1930
+    },
+    "green-bay-packers": {
+        "name": "Green Bay Packers",
+        "city": "Green Bay",
+        "nickname": "Packers",
+        "conference": "NFC",
+        "division": "North",
+        "stadium": "Lambeau Field",
+        "founded": 1919
+    },
+    "houston-texans": {
+        "name": "Houston Texans",
+        "city": "Houston",
+        "nickname": "Texans",
+        "conference": "AFC",
+        "division": "South",
+        "stadium": "NRG Stadium",
+        "founded": 2002
+    },
+    "indianapolis-colts": {
+        "name": "Indianapolis Colts",
+        "city": "Indianapolis",
+        "nickname": "Colts",
+        "conference": "AFC",
+        "division": "South",
+        "stadium": "Lucas Oil Stadium",
+        "founded": 1953
+    },
+    "jacksonville-jaguars": {
+        "name": "Jacksonville Jaguars",
+        "city": "Jacksonville",
+        "nickname": "Jaguars",
+        "conference": "AFC",
+        "division": "South",
+        "stadium": "TIAA Bank Field",
+        "founded": 1993
+    },
+    "kansas-city-chiefs": {
+        "name": "Kansas City Chiefs",
+        "city": "Kansas City",
+        "nickname": "Chiefs",
+        "conference": "AFC",
+        "division": "West",
+        "stadium": "Arrowhead Stadium",
+        "founded": 1960
+    },
+    "las-vegas-raiders": {
+        "name": "Las Vegas Raiders",
+        "city": "Las Vegas",
+        "nickname": "Raiders",
+        "conference": "AFC",
+        "division": "West",
+        "stadium": "Allegiant Stadium",
+        "founded": 1960
+    },
+    "los-angeles-chargers": {
+        "name": "Los Angeles Chargers",
+        "city": "Los Angeles",
+        "nickname": "Chargers",
+        "conference": "AFC",
+        "division": "West",
+        "stadium": "SoFi Stadium",
+        "founded": 1960
+    },
+    "los-angeles-rams": {
+        "name": "Los Angeles Rams",
+        "city": "Los Angeles",
+        "nickname": "Rams",
+        "conference": "NFC",
+        "division": "West",
+        "stadium": "SoFi Stadium",
+        "founded": 1936
+    },
+    "miami-dolphins": {
+        "name": "Miami Dolphins",
+        "city": "Miami",
+        "nickname": "Dolphins",
+        "conference": "AFC",
+        "division": "East",
+        "stadium": "Hard Rock Stadium",
+        "founded": 1966
+    },
+    "minnesota-vikings": {
+        "name": "Minnesota Vikings",
+        "city": "Minnesota",
+        "nickname": "Vikings",
+        "conference": "NFC",
+        "division": "North",
+        "stadium": "U.S. Bank Stadium",
+        "founded": 1961
+    },
+    "new-england-patriots": {
+        "name": "New England Patriots",
+        "city": "New England",
+        "nickname": "Patriots",
+        "conference": "AFC",
+        "division": "East",
+        "stadium": "Gillette Stadium",
+        "founded": 1960
+    },
+    "new-orleans-saints": {
+        "name": "New Orleans Saints",
+        "city": "New Orleans",
+        "nickname": "Saints",
+        "conference": "NFC",
+        "division": "South",
+        "stadium": "Caesars Superdome",
+        "founded": 1967
+    },
+    "new-york-giants": {
+        "name": "New York Giants",
+        "city": "New York",
+        "nickname": "Giants",
+        "conference": "NFC",
+        "division": "East",
+        "stadium": "MetLife Stadium",
+        "founded": 1925
+    },
+    "new-york-jets": {
+        "name": "New York Jets",
+        "city": "New York",
+        "nickname": "Jets",
+        "conference": "AFC",
+        "division": "East",
+        "stadium": "MetLife Stadium",
+        "founded": 1960
+    },
+    "philadelphia-eagles": {
+        "name": "Philadelphia Eagles",
+        "city": "Philadelphia",
+        "nickname": "Eagles",
+        "conference": "NFC",
+        "division": "East",
+        "stadium": "Lincoln Financial Field",
+        "founded": 1933
+    },
+    "pittsburgh-steelers": {
+        "name": "Pittsburgh Steelers",
+        "city": "Pittsburgh",
+        "nickname": "Steelers",
+        "conference": "AFC",
+        "division": "North",
+        "stadium": "Acrisure Stadium",
+        "founded": 1933
+    },
+    "san-francisco-49ers": {
+        "name": "San Francisco 49ers",
+        "city": "San Francisco",
+        "nickname": "49ers",
+        "conference": "NFC",
+        "division": "West",
+        "stadium": "Levi's Stadium",
+        "founded": 1946
+    },
+    "seattle-seahawks": {
+        "name": "Seattle Seahawks",
+        "city": "Seattle",
+        "nickname": "Seahawks",
+        "conference": "NFC",
+        "division": "West",
+        "stadium": "Lumen Field",
+        "founded": 1976
+    },
+    "tampa-bay-buccaneers": {
+        "name": "Tampa Bay Buccaneers",
+        "city": "Tampa Bay",
+        "nickname": "Buccaneers",
+        "conference": "NFC",
+        "division": "South",
+        "stadium": "Raymond James Stadium",
+        "founded": 1976
+    },
+    "tennessee-titans": {
+        "name": "Tennessee Titans",
+        "city": "Tennessee",
+        "nickname": "Titans",
+        "conference": "AFC",
+        "division": "South",
+        "stadium": "Nissan Stadium",
+        "founded": 1960
+    },
+    "washington-commanders": {
+        "name": "Washington Commanders",
+        "city": "Washington",
+        "nickname": "Commanders",
+        "conference": "NFC",
+        "division": "East",
+        "stadium": "FedExField",
+        "founded": 1932
+    }
+}
+
+# Data column definitions with categories
+DATA_COLUMNS = {
+    "basic_info": [
+        "Player_Name", "Jersey_Number", "Position", "Age", "Height", "Weight",
+        "Birth_Date", "Birth_Place", "Years_Pro", "Current_Team", "Team_City",
+        "Team_Full_Name", "Previous_Teams", "Hometown", "High_School"
+    ],
+    "college_info": [
+        "College", "College_Team", "College_Years", "College_Stats", "College_Awards",
+        "College_Position", "College_Conference", "College_Coach"
+    ],
+    "draft_info": [
+        "Draft_Year", "Draft_Round", "Draft_Pick", "Draft_Team", "Draft_Overall", "Draft_Analysis"
+    ],
+    "career_stats_offense": [
+        "Career_Games", "Career_Starts", "Career_Pass_Attempts", "Career_Pass_Completions",
+        "Career_Pass_Completion_Pct", "Career_Pass_Yards", "Career_Pass_TDs", "Career_Pass_INTs",
+        "Career_Pass_Rating", "Career_QBR", "Career_Sacks_Taken", "Career_Fumbles",
+        "Career_Rush_Attempts", "Career_Rush_Yards", "Career_Rush_TDs", "Career_Rush_YPC",
+        "Career_Rush_Long", "Career_Receptions", "Career_Rec_Yards", "Career_Rec_TDs",
+        "Career_Rec_YPR", "Career_Rec_Long", "Career_Targets", "Career_Drops", "Career_YAC"
+    ],
+    "career_stats_defense": [
+        "Career_Tackles", "Career_Solo_Tackles", "Career_Assist_Tackles", "Career_TFL",
+        "Career_Sacks", "Career_QB_Hits", "Career_Interceptions", "Career_Int_Yards",
+        "Career_Int_TDs", "Career_Pass_Defended", "Career_Fumbles_Forced", "Career_Fumbles_Recovered",
+        "Career_Defensive_TDs", "Career_Safeties", "Career_Blocked_Kicks"
+    ],
+    "career_stats_special": [
+        "Career_FG_Made", "Career_FG_Attempts", "Career_FG_Pct", "Career_FG_Long",
+        "Career_XP_Made", "Career_XP_Attempts", "Career_Punts", "Career_Punt_Avg",
+        "Career_KR_Returns", "Career_KR_Yards", "Career_PR_Returns", "Career_PR_Yards"
+    ],
+    "season_records": [
+        "Best_Season_Pass_Yards", "Best_Season_Pass_TDs", "Best_Season_Rush_Yards",
+        "Best_Season_Rush_TDs", "Best_Season_Rec_Yards", "Best_Season_Rec_TDs",
+        "Best_Season_Tackles", "Best_Season_Sacks", "Best_Season_INTs", "Best_Season_Year"
+    ],
+    "awards": [
+        "Pro_Bowls", "All_Pro_First_Team", "All_Pro_Second_Team", "Super_Bowl_Wins",
+        "Super_Bowl_MVPs", "NFL_MVP", "NFL_OPOY", "NFL_DPOY", "NFL_OROY", "NFL_DROY",
+        "NFL_CPOY", "Walter_Payton_Award", "Hall_of_Fame", "College_Hall_of_Fame",
+        "Awards_Count", "Awards_List", "Team_Records", "NFL_Records"
+    ],
+    "financial": [
+        "Career_Earnings_Total", "Career_Earnings_Source", "Career_Earnings_Confidence",
+        "Current_Contract_Value", "Current_Contract_Years", "Current_Contract_APY",
+        "Current_Contract_Guaranteed", "Current_Contract_Signing_Bonus", "Current_Contract_End",
+        "Previous_Contract_Value", "Rookie_Contract_Value", "Endorsement_Deals",
+        "Net_Worth_Estimate", "Annual_Income", "Contract_History"
+    ],
+    "social_media": [
+        "Instagram_URL", "Instagram_Username", "Instagram_Followers", "Instagram_Following",
+        "Instagram_Posts", "Instagram_Verified", "Twitter_URL", "Twitter_Username",
+        "Twitter_Followers", "Twitter_Following", "Twitter_Posts", "Twitter_Verified",
+        "TikTok_URL", "TikTok_Username", "TikTok_Followers", "TikTok_Following",
+        "TikTok_Posts", "TikTok_Verified", "YouTube_URL", "YouTube_Username",
+        "YouTube_Subscribers", "YouTube_Videos", "YouTube_Views_Total", "YouTube_Verified"
+    ],
+    "media_public": [
+        "Wikipedia_URL", "ESPN_URL", "NFL_Profile_URL", "PFR_URL", "Spotrac_URL",
+        "News_Headlines_Count", "Recent_Headlines", "Media_Mentions_Monthly",
+        "Podcast_Appearances", "TV_Appearances", "Charity_Work", "Public_Speaking"
+    ],
+    "analytics": [
+        "PFF_Overall_Grade", "PFF_Position_Grade", "ESPN_QBR", "DVOA_Rating",
+        "Win_Shares", "AV_Career", "Advanced_Stats_URL", "Performance_Trends"
+    ],
+    "personal": [
+        "Injury_History", "Current_Injury_Status", "Games_Missed_Injury", "Surgery_History",
+        "Family_Info", "Education_Background", "Languages_Spoken", "Hobbies",
+        "Business_Ventures", "Personality_Type"
+    ],
+    "metadata": [
+        "Data_Collection_Date", "Data_Sources_Used", "Data_Quality_Score",
+        "Last_Updated", "Collection_Method", "API_Version", "Scraping_Success_Rate", "Verification_Status"
+    ]
+}
+
+# Flatten all columns into a single list
+ALL_DATA_COLUMNS = [col for category in DATA_COLUMNS.values() for col in category]
+
+# Position groups for filtering
+POSITION_GROUPS = {
+    "offense": {
+        "quarterbacks": ["QB"],
+        "running_backs": ["RB", "FB"],
+        "wide_receivers": ["WR"],
+        "tight_ends": ["TE"],
+        "offensive_line": ["C", "OG", "OT", "G", "T"]
+    },
+    "defense": {
+        "defensive_line": ["DE", "DT", "NT"],
+        "linebackers": ["LB", "ILB", "OLB", "MLB"],
+        "defensive_backs": ["CB", "S", "FS", "SS", "DB"]
+    },
+    "special_teams": {
+        "kickers": ["K", "PK"],
+        "punters": ["P"],
+        "long_snappers": ["LS"]
+    }
+}

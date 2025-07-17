@@ -1,0 +1,49 @@
+{
+  "timestamp": "20250717_160228",
+  "generated_at": "2025-07-17T16:02:28.543361",
+  "player_schema": {
+    "team": {
+      "type": "string",
+      "nullable": false,
+      "examples": [
+        "49ers",
+        "49ers",
+        "49ers"
+      ],
+      "count": 20,
+      "null_count": 0,
+      "total_records": 20
+    },
+    "instagram_followers": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 20,
+      "total_records": 20
+    },
+    "name": {
+      "type": "string",
+      "nullable": false,
+      "examples": [
+        "Isaac Alarcon",
+        "Brandon Aiyuk",
+        "Evan Anderson"
+      ],
+      "count": 20,
+      "null_count": 0,
+      "total_records": 20
+    },
+    "games_started": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 20,
+      "total_records": 20
+    },
+    "scraped_at": {
+      "type": "datetime",
+      "nullable": false,
+      "examples": [
+        

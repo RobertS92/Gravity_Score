@@ -1,0 +1,410 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# IMPROVED NFL DATA PIPELINE - UTILITIES AND ERROR HANDLING
+# ─────────────────────────────────────────────────────────────────────────────
+
+import logging
+import time
+import functools
+from typing import Any, Callable, Dict, Optional, Union
+from datetime import datetime
+import re
+import numpy as np
+import pandas as pd
+from pathlib import Path
+import traceback
+
+# Configure logging
+def setup_logging(log_dir: Path = Path("logs"), log_level: str = "INFO") -> logging.Logger:
+    """Set up logging configuration"""
+    log_dir.mkdir(exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = log_dir / f"nfl_pipeline_{timestamp}.log"
+
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    # File handler
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(formatter)
+
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    # Setup logger
+    logger = logging.getLogger('nfl_pipeline')
+    logger.setLevel(getattr(logging, log_level.upper()))
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    return logger
+
+# Initialize logger
+logger = setup_logging()
+
+# Decorators for error handling and retry logic
+def retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    """Retry decorator with exponential backoff"""
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            attempt = 1
+            current_delay = delay
+
+            while attempt <= max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_attempts:
+                        logger.error(f"Failed after {max_attempts} attempts: {func.__name__}")
+                        raise
+
+                    logger.warning(f"Attempt {attempt} failed for {func.__name__}: {str(e)}")
+                    logger.info(f"Retrying in {current_delay} seconds...")
+                    time.sleep(current_delay)
+
+                    current_delay *= backoff
+                    attempt += 1
+
+        return wrapper
+    return decorator
+
+def handle_errors(default_return: Any = None):
+    """Error handling decorator"""
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"Error in {func.__name__}: {str(e)}")
+                logger.debug(traceback.format_exc())
+                return default_return
+        return wrapper
+    return decorator
+
+# Data validation and cleaning functions
+class DataValidator:
+    """Data validation utilities"""
+
+    @staticmethod
+    def clean_text(text: Optional[str]) -> Optional[str]:
+        """Clean and normalize text data"""
+        if not text or pd.isna(text):
+            return None
+
+        # Convert to string and strip whitespace
+        text = str(text).strip()
+
+        # Remove excessive whitespace
+        text = re.sub(r'\s+', ' ', text)
+
+        # Remove special characters but keep basic punctuation
+        text = re.sub(r'[^\w\s\-\'.,]', '', text)
+
+        return text if text else None
+
+    @staticmethod
+    def extract_number(text: Union[str, float, int]) -> Optional[float]:
+        """Extract numeric value from text"""
+        if isinstance(text, (int, float)):
+            return float(text) if not pd.isna(text) else None
+
+        if not text or pd.isna(text):
+            return None
+
+        # Convert to string and clean
+        text = str(text).lower().replace(',', '').strip()
+
+        # Extract number with optional decimal
+        match = re.search(r'(\d+(?:\.\d+)?)', text)
+        if match:
+            return float(match.group(1))
+
+        return None
+
+    @staticmethod
+    def parse_currency(text: Union[str, float, int]) -> Optional[int]:
+        """Parse currency values from text"""
+        if isinstance(text, (int, float)):
+            return int(text) if not pd.isna(text) else None
+
+        if not text or pd.isna(text):
+            return None
+
+        text = str(text).lower().replace(',', '').replace('$', '').strip()
+
+        # Extract number
+        match = re.search(r'(\d+(?:\.\d+)?)', text)
+        if not match:
+            return None
+
+        value = float(match.group(1))
+
+        # Handle millions/billions
+        if 'billion' in text or 'b' in text:
+            value *= 1_000_000_000
+        elif 'million' in text or 'm' in text:
+            value *= 1_000_000
+        elif 'thousand' in text or 'k' in text:
+            value *= 1_000
+        elif value < 10_000:  # Assume millions if small number
+            value *= 1_000_000
+
+        return int(value)
+
+    @staticmethod
+    def parse_date(text: Union[str, datetime]) -> Optional[str]:
+        """Parse and standardize date formats"""
+        if isinstance(text, datetime):
+            return text.strftime("%Y-%m-%d")
+
+        if not text or pd.isna(text):
+            return None
+
+        text = str(text).strip()
+
+        # Try common date patterns
+        patterns = [
+            r'(\d{4})-(\d{1,2})-(\d{1,2})',  # YYYY-MM-DD
+            r'(\d{1,2})/(\d{1,2})/(\d{4})',  # MM/DD/YYYY
+            r'(\d{1,2})-(\d{1,2})-(\d{4})',  # MM-DD-YYYY
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, text)
+            if match:
+                try:
+                    # Normalize to YYYY-MM-DD
+                    if pattern == patterns[0]:
+                        return f"{match.group(1)}-{match.group(2).zfill(2)}-{match.group(3).zfill(2)}"
+                    else:
+                        return f"{match.group(3)}-{match.group(1).zfill(2)}-{match.group(2).zfill(2)}"
+                except:
+                    continue
+
+        return None
+
+    @staticmethod
+    def validate_player_data(player_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate and clean player data"""
+        cleaned_data = {}
+
+        for key, value in player_data.items():
+            # Skip if value is None or NaN
+            if value is None or pd.isna(value):
+                cleaned_data[key] = None
+                continue
+
+            # Text fields
+            if any(field in key.lower() for field in ['name', 'team', 'position', 'college', 'url']):
+                cleaned_data[key] = DataValidator.clean_text(value)
+
+            # Currency fields
+            elif any(field in key.lower() for field in ['earnings', 'salary', 'contract', 'value', 'bonus']):
+                cleaned_data[key] = DataValidator.parse_currency(value)
+
+            # Date fields
+            elif any(field in key.lower() for field in ['date', 'birth', 'draft']):
+                cleaned_data[key] = DataValidator.parse_date(value)
+
+            # Numeric fields
+            elif any(field in key.lower() for field in ['age', 'yards', 'touchdowns', 'rating', 'followers']):
+                cleaned_data[key] = DataValidator.extract_number(value)
+
+            # Default: keep as is
+            else:
+                cleaned_data[key] = value
+
+        return cleaned_data
+
+# Progress tracking
+class ProgressTracker:
+    """Track and display progress for long-running operations"""
+
+    def __init__(self, total: int, description: str = "Processing"):
+        self.total = total
+        self.current = 0
+        self.description = description
+        self.start_time = time.time()
+
+    def update(self, increment: int = 1):
+        """Update progress"""
+        self.current += increment
+        self._display()
+
+    def _display(self):
+        """Display progress bar"""
+        percent = (self.current / self.total) * 100
+        elapsed = time.time() - self.start_time
+
+        # Estimate time remaining
+        if self.current > 0:
+            rate = elapsed / self.current
+            remaining = (self.total - self.current) * rate
+            eta = f"ETA: {remaining/60:.1f}m"
+        else:
+            eta = "ETA: calculating..."
+
+        # Create progress bar
+        bar_length = 40
+        filled = int(bar_length * self.current / self.total)
+        bar = '█' * filled + '░' * (bar_length - filled)
+
+        # Print progress
+        print(f"\r{self.description}: |{bar}| {percent:.1f}% ({self.current}/{self.total}) {eta}", end="", flush=True)
+
+    def complete(self):
+        """Mark progress as complete"""
+        self.current = self.total
+        self._display()
+        print("\n")
+
+# Rate limiting (placeholder - needs actual implementation with tokens or timers)
+class RateLimiter:
+    """Basic rate limiter"""
+    def __init__(self, calls_per_minute: int):
+        self.calls_per_minute = calls_per_minute
+        self.calls = []
+
+    def wait_if_needed(self, url: str):
+        """Wait if rate limit is about to be exceeded"""
+        # This is a very basic implementation.
+        # A more robust one would use token buckets or similar.
+        # For now, just wait a fixed delay for certain domains.
+        if any(domain in url for domain in ["google.com", "twitter.com", "instagram.com"]):
+             time.sleep(random.uniform(2, 5)) # Random delay for search/social
+
+        elif "firecrawl.dev" in url:
+             time.sleep(10) # Firecrawl specific delay
+
+        else:
+             time.sleep(1) # Default delay
+
+# Cache Management (placeholder)
+class CacheManager:
+    """Basic cache manager"""
+    def __init__(self):
+        self.cache = {}
+
+    def get(self, url: str) -> Optional[str]:
+        """Get cached response"""
+        # This is a dummy cache. In a real application, use a file or database.
+        return None # self.cache.get(url)
+
+    def set(self, url: str, content: str):
+        """Set cached response"""
+        # This is a dummy cache.
+        pass # self.cache[url] = content
+
+# URL Generation
+class URLGenerator:
+    """Generate URLs for various sources"""
+
+    @staticmethod
+    def player_wikipedia_url(player_name: str) -> str:
+        """Generate Wikipedia URL for a player"""
+        return f"https://en.wikipedia.org/wiki/{player_name.replace(' ', '_')}"
+
+    @staticmethod
+    def player_spotrac_url(player_name: str) -> str:
+        """Generate Spotrac URL for a player"""
+        name_slug = player_name.lower().replace(' ', '-').replace("'", "")
+        return f"https://www.spotrac.com/nfl/players/{name_slug}/"
+
+    @staticmethod
+    def team_roster_url(team_slug: str) -> str:
+        """Generate NFL.com roster URL for a team"""
+        return f"https://www.nfl.com/teams/{team_slug}/roster/"
+
+# Data Quality Assessment (placeholder)
+class DataQualityAssessor:
+    """Assess the quality of collected data"""
+
+    @staticmethod
+    def calculate_quality_score(player_data: Dict[str, Any]) -> float:
+        """Calculate a quality score for a player's data"""
+        total_fields = len(player_data)
+        filled_fields = sum(1 for value in player_data.values() if value is not None and not (isinstance(value, (str, list, dict)) and not value))
+
+        if total_fields == 0:
+            return 0.0
+
+        return (filled_fields / total_fields) * 100
+
+    @staticmethod
+    def generate_quality_report(df: pd.DataFrame) -> Dict[str, Any]:
+        """Generate a quality report for the entire dataset"""
+        report = {}
+        if 'Data_Quality_Score' in df.columns:
+            report['average_quality_score'] = float(df['Data_Quality_Score'].mean())
+            report['players_above_80_percent'] = int((df['Data_Quality_Score'] > 80).sum())
+
+        # Count non-nulls for key columns
+        key_columns = ['Career_Earnings_Total', 'Instagram_Followers', 'Pro_Bowls', 'Position', 'College']
+        report['filled_counts'] = {col: int(df[col].notna().sum()) for col in key_columns if col in df.columns}
+
+        return report
+
+# Export Utilities
+def prepare_dataframe_for_export(df: pd.DataFrame) -> pd.DataFrame:
+    """Prepare DataFrame for export by converting non-native types"""
+    for col in df.columns:
+        df[col] = df[col].apply(safe_json_convert)
+    return df
+
+def create_export_summary(df: pd.DataFrame, export_info: Dict[str, Any]) -> str:
+    """Create a summary string for the export"""
+    summary = f"NFL Data Export Summary\n"
+    summary += "="*40 + "\n"
+    summary += f"Filename: {export_info.get('filename', 'N/A')}\n"
+    summary += f"Timestamp: {export_info.get('timestamp', 'N/A')}\n"
+    summary += f"Mode: {export_info.get('mode', 'N/A')}\n"
+    summary += f"Description: {export_info.get('description', 'N/A')}\n"
+    summary += f"Duration: {export_info.get('duration_minutes', 0):.1f} minutes\n"
+    summary += f"Total Players: {len(df):,}\n"
+    summary += f"Total Columns: {len(df.columns)}\n"
+    summary += "="*40 + "\n"
+
+    if 'Data_Quality_Score' in df.columns:
+        summary += f"Average Data Quality Score: {df['Data_Quality_Score'].mean():.1f}%\n"
+
+    if 'Career_Earnings_Total' in df.columns:
+        earnings = df['Career_Earnings_Total'].dropna()
+        if len(earnings) > 0:
+            summary += f"Players with Earnings Data: {len(earnings):,} ({len(earnings)/len(df)*100:.1f}%)\n"
+            summary += f"Total Estimated Earnings: ${earnings.sum():,.0f}\n"
+            summary += f"Average Estimated Earnings: ${earnings.mean():,.0f}\n"
+
+    social_cols = ['Instagram_Followers', 'Twitter_Followers', 'TikTok_Followers']
+    for col in social_cols:
+        if col in df.columns:
+            data = df[col].dropna()
+            if len(data) > 0:
+                platform = col.replace('_Followers', '')
+                summary += f"{platform} Profiles Found: {len(data):,}\n"
+                summary += f"Total {platform} Followers: {data.sum():,.0f}\n"
+
+    summary += "\nSample Data (First 5 rows):\n"
+    sample_cols = ['Player_Name', 'Position', 'Current_Team', 'Career_Earnings_Total', 'Data_Quality_Score']
+    available_cols = [col for col in sample_cols if col in df.columns]
+    if available_cols and len(df) > 0:
+        summary += df[available_cols].head(5).to_string(index=False) + "\n"
+
+    return summary
+
+def safe_json_convert(obj):
+    """Convert numpy types to native Python types for JSON serialization"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif pd.isna(obj):
+        return None
+    return obj

@@ -1,0 +1,49 @@
+{
+  "timestamp": "20250717_160311",
+  "generated_at": "2025-07-17T16:03:11.466992",
+  "player_schema": {
+    "team": {
+      "type": "string",
+      "nullable": false,
+      "examples": [
+        "bears",
+        "bears",
+        "bears"
+      ],
+      "count": 20,
+      "null_count": 0,
+      "total_records": 20
+    },
+    "instagram_followers": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 20,
+      "total_records": 20
+    },
+    "name": {
+      "type": "string",
+      "nullable": false,
+      "examples": [
+        "Tyson Bagent",
+        "Theo Benedet",
+        "Maurice Alexander"
+      ],
+      "count": 20,
+      "null_count": 0,
+      "total_records": 20
+    },
+    "games_started": {
+      "type": "unknown",
+      "nullable": true,
+      "examples": [],
+      "count": 0,
+      "null_count": 20,
+      "total_records": 20
+    },
+    "scraped_at": {
+      "type": "datetime",
+      "nullable": false,
+      "examples": [
+        
