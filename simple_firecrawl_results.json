@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Brock Purdy",
+    "team": "49ers",
+    "position": "Quarterback",
+    "jersey_number": null,
+    "height": "6 ft 1 in (1.85 m)",
+    "weight": "220 lb (100 kg)",
+    "age": 25,
+    "college": "Iowa State",
+    "twitter_handle": null,
+    "instagram_handle": null,
+    "twitter_followers": null,
+    "instagram_followers": null,
+    "current_salary": null,
+    "career_stats": "{\"careerGamesPlayed\": 0, \"careerTouchdowns\": 0, \"careerYards\": 0, \"proBowlSelections\": 0, \"allProSelections\": 0, \"awardsAndAchievements\": []}",
+    "awards": null,
+    "data_sources": [
+      "Wikipedia",
+      "Spotrac",
+      "Pro Football Reference"
+    ],
+    "data_quality_score": 5.5,
+    "collection_timestamp": "2025-07-17T22:07:39.149590",
+    "collection_duration": 38.7
+  },
+  {
+    "name": "Christian McCaffrey",
+    "team": "49ers",
+    "position": "Running back",
+    "jersey_number": null,
+    "height": "5 ft 11 in (1.80 m)",
+    "weight": "210 lb (95 kg)",
+    "age": 29,
+    "college": "Stanford",
+    "twitter_handle": null,
+    "instagram_handle": null,
+    "twitter_followers": null,
+    "instagram_followers": null,
+    "current_salary": null,
+    "career_stats": "{\"careerGamesPlayed\": null, \"careerTouchdowns\": null, \"careerYards\": null, \"proBowlSelections\": null, \"allProSelections\": null, \"awardsAndAchievements\": []}",
+    "awards": null,
+    "data_sources": [
+      "Wikipedia",
+      "Spotrac",
+      "Pro Football Reference"
+    ],
+    "data_quality_score": 5.5,
+    "collection_timestamp": "2025-07-17T22:08:17.854601",
+    "collection_duration": 32.44
+  }
+]

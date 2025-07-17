@@ -525,12 +525,12 @@ def comprehensive_scrape():
         if not teams:
             return jsonify({"error": "No teams specified"}), 400
         
-        # Import enhanced comprehensive collector with working infrastructure
-        from enhanced_comprehensive_collector import EnhancedComprehensiveCollector
+        # Import Firecrawl-powered comprehensive scraper
+        from simple_firecrawl_scraper import SimpleFirecrawlScraper
         from enhanced_nfl_scraper import EnhancedNFLScraper
         
         scraper = EnhancedNFLScraper()
-        collector = EnhancedComprehensiveCollector()
+        firecrawl_scraper = SimpleFirecrawlScraper()
         
         all_players = []
         results = {}
@@ -541,14 +541,13 @@ def comprehensive_scrape():
             # Extract complete roster first
             team_players = scraper.extract_complete_team_roster(team)
             
-            # Then enhance each player with comprehensive data
+            # Then enhance each player with comprehensive data using Firecrawl
             enhanced_players = []
             for player in team_players:
                 try:
-                    comprehensive_data = collector.collect_comprehensive_data(
+                    comprehensive_data = firecrawl_scraper.collect_player_data(
                         player['name'], 
-                        team, 
-                        player.get('position')
+                        team
                     )
                     # Merge basic roster data with comprehensive data
                     enhanced_player = {**player, **comprehensive_data}
@@ -577,6 +576,81 @@ def comprehensive_scrape():
         
     except Exception as e:
         logger.error(f"Comprehensive scraping error: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/scrape/firecrawl', methods=['POST'])
+def firecrawl_scrape():
+    """Enhanced scraping using Firecrawl's advanced extraction capabilities."""
+    try:
+        data = request.get_json()
+        teams = data.get('teams', [])
+        
+        if not teams:
+            return jsonify({"error": "No teams specified"}), 400
+        
+        # Import Firecrawl scraper
+        from simple_firecrawl_scraper import SimpleFirecrawlScraper
+        from enhanced_nfl_scraper import EnhancedNFLScraper
+        
+        roster_scraper = EnhancedNFLScraper()
+        firecrawl_scraper = SimpleFirecrawlScraper()
+        
+        all_players = []
+        results = {}
+        
+        for team in teams:
+            logger.info(f"Starting Firecrawl scraping for {team}")
+            
+            # Extract complete roster first
+            team_players = roster_scraper.extract_complete_team_roster(team)
+            
+            # Then enhance with Firecrawl comprehensive data
+            enhanced_players = firecrawl_scraper.collect_team_roster(team, team_players)
+            
+            all_players.extend(enhanced_players)
+            
+            # Calculate quality metrics
+            avg_quality = sum(p.get('data_quality_score', 0) for p in enhanced_players) / len(enhanced_players) if enhanced_players else 0
+            total_sources = sum(len(p.get('data_sources', [])) for p in enhanced_players)
+            
+            results[team] = {
+                "players_found": len(team_players),
+                "players_enhanced": len(enhanced_players),
+                "avg_quality_score": round(avg_quality, 2),
+                "total_sources_used": total_sources,
+                "unique_sources": list(set(source for p in enhanced_players for source in p.get('data_sources', []))),
+                "status": "completed"
+            }
+            
+            logger.info(f"Completed {team}: {len(enhanced_players)} players, avg quality: {avg_quality:.2f}")
+        
+        # Save to database
+        if all_players:
+            from simple_db_integration import save_players_to_db
+            save_players_to_db(all_players)
+        
+        # Save to CSV for data viewer
+        import pandas as pd
+        df = pd.DataFrame(all_players)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        csv_filename = f"data/firecrawl_players_{timestamp}.csv"
+        
+        # Create data directory if it doesn't exist
+        os.makedirs("data", exist_ok=True)
+        df.to_csv(csv_filename, index=False)
+        
+        return jsonify({
+            "status": "success",
+            "total_players": len(all_players),
+            "teams_processed": len(teams),
+            "results": results,
+            "data_file": csv_filename,
+            "avg_quality_score": round(sum(p.get('data_quality_score', 0) for p in all_players) / len(all_players), 2),
+            "message": f"Successfully scraped {len(all_players)} players using Firecrawl from {len(teams)} teams"
+        })
+        
+    except Exception as e:
+        logger.error(f"Firecrawl scraping error: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
 @app.route('/api/players', methods=['POST'])

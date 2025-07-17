@@ -51,10 +51,23 @@
                             </div>
                             
                             <div class="mb-3">
+                                <label class="form-label">Scraping Mode</label>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="fastMode">
-                                    <label class="form-check-label" for="fastMode">
-                                        Fast Mode (Skip heavy LLM calls)
+                                    <input class="form-check-input" type="radio" name="scrapingMode" id="standardMode" value="standard" checked>
+                                    <label class="form-check-label" for="standardMode">
+                                        Standard Mode (Basic data collection)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="scrapingMode" id="comprehensiveMode" value="comprehensive">
+                                    <label class="form-check-label" for="comprehensiveMode">
+                                        Comprehensive Mode (Enhanced data collection)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="scrapingMode" id="firecrawlMode" value="firecrawl">
+                                    <label class="form-check-label" for="firecrawlMode">
+                                        <strong>Firecrawl Mode</strong> (Advanced AI-powered extraction)
                                     </label>
                                 </div>
                             </div>
@@ -390,7 +403,7 @@
             async startScraping() {
                 const select = document.getElementById('teamSelect');
                 const selectedTeams = Array.from(select.selectedOptions).map(option => option.value);
-                const fastMode = document.getElementById('fastMode').checked;
+                const scrapingMode = document.querySelector('input[name="scrapingMode"]:checked').value;
                 const scrapeBtn = document.getElementById('scrapeBtn');
 
                 if (selectedTeams.length === 0) {
@@ -401,15 +414,23 @@
                 scrapeBtn.disabled = true;
                 scrapeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Scraping...';
 
+                // Determine the API endpoint based on scraping mode
+                let endpoint = '/api/scrape';
+                if (scrapingMode === 'comprehensive') {
+                    endpoint = '/api/scrape/comprehensive';
+                } else if (scrapingMode === 'firecrawl') {
+                    endpoint = '/api/scrape/firecrawl';
+                }
+
                 try {
-                    const response = await fetch('/api/scrape', {
+                    const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                             teams: selectedTeams,
-                            fast: fastMode
+                            fast: scrapingMode === 'standard'
                         })
                     });
 

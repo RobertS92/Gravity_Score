@@ -48,6 +48,7 @@ dependencies = [
     "isort>=6.0.1",
     "pytest>=8.4.1",
     "pytest-mock>=3.14.1",
+    "firecrawl-py",
 ]
 
 [project.optional-dependencies]
