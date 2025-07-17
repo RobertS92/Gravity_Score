@@ -46,6 +46,12 @@ class Config:
     enable_wikipedia: bool = field(default_factory=lambda: os.getenv("ENABLE_WIKIPEDIA", "true").lower() == "true")
     enable_llm: bool = field(default_factory=lambda: os.getenv("ENABLE_LLM", "true").lower() == "true")
     
+    # Firecrawl Configuration
+    firecrawl_api_key: str = field(default_factory=lambda: os.getenv("FIRECRAWL_API_KEY", "your-api-key-here"))
+    google_delay: int = field(default_factory=lambda: int(os.getenv("GOOGLE_DELAY", "4")))
+    firecrawl_delay: int = field(default_factory=lambda: int(os.getenv("FIRECRAWL_DELAY", "10")))
+    retry_delay: int = field(default_factory=lambda: int(os.getenv("RETRY_DELAY", "30")))
+    
     def validate(self) -> List[str]:
         """
         Validate configuration and return list of warnings/errors.

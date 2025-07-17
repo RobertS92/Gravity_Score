@@ -71,9 +71,50 @@ def data_viewer():
 
 @app.route('/api/players/all')
 def get_all_players():
-    """Get all players from the database."""
+    """Get all players from the latest data file with comprehensive data."""
     try:
-        # Return static data for now to test the interface
+        import pandas as pd
+        import os
+        import glob
+        
+        # Find the latest data file
+        data_files = glob.glob('data/**/players_*.csv', recursive=True)
+        if not data_files:
+            return jsonify({"players": [], "count": 0, "status": "no_data"})
+        
+        # Sort by modification time, get the most recent
+        latest_file = max(data_files, key=os.path.getmtime)
+        
+        # Load the data
+        df = pd.read_csv(latest_file)
+        
+        # Convert to dictionary, handling NaN values
+        players_data = df.fillna('').to_dict('records')
+        
+        # Convert all columns to proper types for JSON
+        players = []
+        for player in players_data:
+            clean_player = {}
+            for key, value in player.items():
+                if pd.isna(value) or value == '':
+                    clean_player[key] = None
+                elif isinstance(value, (int, float)) and pd.notna(value):
+                    clean_player[key] = value
+                else:
+                    clean_player[key] = str(value)
+            players.append(clean_player)
+        
+        return jsonify({
+            "players": players,
+            "count": len(players),
+            "status": "success",
+            "columns": list(df.columns),
+            "source_file": latest_file
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting all players: {e}")
+        # Fallback to static data if file loading fails
         players = [
             {
                 'name': 'Israel Abanikanda',

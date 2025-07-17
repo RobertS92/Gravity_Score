@@ -153,9 +153,60 @@ class EnhancedComprehensiveCollector:
         return comprehensive_data
     
     def _collect_social_media_data(self, player_name: str, team: str) -> Dict:
-        """Collect social media data using existing social media agent."""
+        """Collect social media data using Firecrawl agent for better success rates."""
         try:
-            # Use the existing social media agent
+            # Try Firecrawl first for better success rates
+            try:
+                from firecrawl_agent import FirecrawlAgent
+                firecrawl_agent = FirecrawlAgent()
+                social_data = firecrawl_agent.search_social_media_profiles(player_name, team)
+                
+                result = {}
+                
+                # Map Firecrawl social media data
+                if social_data:
+                    # Twitter data
+                    if 'twitter' in social_data and social_data['twitter']:
+                        twitter = social_data['twitter']
+                        result['twitter_handle'] = twitter.get('handle')
+                        result['twitter_followers'] = twitter.get('followers')
+                        result['twitter_following'] = twitter.get('following')
+                        result['twitter_verified'] = twitter.get('verified')
+                        result['twitter_url'] = twitter.get('url')
+                    
+                    # Instagram data
+                    if 'instagram' in social_data and social_data['instagram']:
+                        instagram = social_data['instagram']
+                        result['instagram_handle'] = instagram.get('handle')
+                        result['instagram_followers'] = instagram.get('followers')
+                        result['instagram_following'] = instagram.get('following')
+                        result['instagram_verified'] = instagram.get('verified')
+                        result['instagram_url'] = instagram.get('url')
+                    
+                    # TikTok data
+                    if 'tiktok' in social_data and social_data['tiktok']:
+                        tiktok = social_data['tiktok']
+                        result['tiktok_handle'] = tiktok.get('handle')
+                        result['tiktok_followers'] = tiktok.get('followers')
+                        result['tiktok_following'] = tiktok.get('following')
+                        result['tiktok_url'] = tiktok.get('url')
+                    
+                    # YouTube data
+                    if 'youtube' in social_data and social_data['youtube']:
+                        youtube = social_data['youtube']
+                        result['youtube_handle'] = youtube.get('handle')
+                        result['youtube_subscribers'] = youtube.get('subscribers')
+                        result['youtube_url'] = youtube.get('url')
+                    
+                    result['data_sources'] = ['firecrawl_agent']
+                    
+                if result:
+                    return result
+                    
+            except Exception as firecrawl_error:
+                logger.debug(f"Firecrawl social media collection failed for {player_name}: {firecrawl_error}")
+            
+            # Fallback to existing social media agent
             social_data = self.social_agent.search_player_social_media(player_name, team)
             
             result = {}
@@ -204,9 +255,36 @@ class EnhancedComprehensiveCollector:
             return {}
     
     def _collect_wikipedia_data(self, player_name: str, team: str) -> Dict:
-        """Collect Wikipedia biographical data."""
+        """Collect Wikipedia biographical data using Firecrawl for better success rates."""
         try:
-            # Use existing Wikipedia extractor
+            # Try Firecrawl first for better success rates
+            try:
+                from firecrawl_agent import FirecrawlAgent
+                firecrawl_agent = FirecrawlAgent()
+                wiki_data = firecrawl_agent.scrape_player_wikipedia(player_name, team)
+                
+                result = {}
+                if wiki_data and 'biographical_data' in wiki_data:
+                    bio_data = wiki_data['biographical_data']
+                    result['wikipedia_url'] = wiki_data.get('wikipedia_url')
+                    result['birth_date'] = bio_data.get('birth_date')
+                    result['birth_place'] = bio_data.get('birth_place')
+                    result['college'] = bio_data.get('college')
+                    result['career_highlights'] = bio_data.get('career_highlights')
+                    result['awards'] = bio_data.get('awards')
+                    result['pro_bowls'] = bio_data.get('pro_bowls')
+                    result['all_pro_selections'] = bio_data.get('all_pro')
+                    result['hall_of_fame'] = bio_data.get('hall_of_fame')
+                    
+                    result['data_sources'] = ['firecrawl_agent']
+                    
+                if result:
+                    return result
+                    
+            except Exception as firecrawl_error:
+                logger.debug(f"Firecrawl Wikipedia collection failed for {player_name}: {firecrawl_error}")
+            
+            # Fallback to existing Wikipedia extractor
             wiki_data = self.wiki_extractor.extract_player_data(player_name, team)
             
             result = {}
@@ -260,10 +338,34 @@ class EnhancedComprehensiveCollector:
             return {}
     
     def _collect_contract_data(self, player_name: str, team: str) -> Dict:
-        """Collect contract and financial data."""
+        """Collect contract and financial data using Firecrawl for Spotrac scraping."""
         try:
-            # This would typically use Spotrac or similar APIs
-            # For now, return empty but structured data
+            # Try Firecrawl for Spotrac contract data
+            try:
+                from firecrawl_agent import FirecrawlAgent
+                firecrawl_agent = FirecrawlAgent()
+                contract_data = firecrawl_agent.scrape_contract_data(player_name, team)
+                
+                result = {}
+                if contract_data and 'contract_data' in contract_data:
+                    contract_info = contract_data['contract_data']
+                    result['current_salary'] = contract_info.get('current_salary')
+                    result['career_earnings'] = contract_info.get('career_earnings')
+                    result['contract_years'] = contract_info.get('contract_years')
+                    result['contract_value'] = contract_info.get('contract_value')
+                    result['signing_bonus'] = contract_info.get('signing_bonus')
+                    result['guaranteed_money'] = contract_info.get('guaranteed_money')
+                    result['spotrac_url'] = contract_data.get('spotrac_url')
+                    
+                    result['data_sources'] = ['firecrawl_agent']
+                    
+                if result:
+                    return result
+                    
+            except Exception as firecrawl_error:
+                logger.debug(f"Firecrawl contract collection failed for {player_name}: {firecrawl_error}")
+            
+            # Fallback to structured empty data
             return {
                 'current_salary': None,
                 'career_earnings': None,
