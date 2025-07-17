@@ -1,0 +1,44 @@
+{
+  "extraction_timestamp": "20250717_213420",
+  "generated_at": "2025-07-17T21:34:20.755677",
+  "nfl_gravity_version": "1.0.0",
+  "record_counts": {
+    "players": 93,
+    "teams": 0,
+    "total_records": 93
+  },
+  "data_sources": {
+    "nfl.com": 93
+  },
+  "team_coverage": {
+    "49ers": 93
+  },
+  "position_distribution": {
+    "RB": 6,
+    "WR": 13,
+    "CB": 11,
+    "OT": 9,
+    "DL": 1,
+    "DE": 8,
+    "LB": 8,
+    "C": 3,
+    "SAF": 7,
+    "G": 2,
+    "DT": 6,
+    "TE": 6,
+    "QB": 4,
+    "K": 2,
+    "FB": 1,
+    "DB": 1,
+    "OL": 2,
+    "P": 1,
+    "MLB": 1,
+    "LS": 1
+  },
+  "extraction_summary": {
+    "teams_with_players": 1,
+    "players_with_social_media": 0,
+    "players_with_wikipedia": 0,
+    "avg_fields_per_player": 24.0
+  }
+}

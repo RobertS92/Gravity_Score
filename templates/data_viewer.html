@@ -45,12 +45,14 @@
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-x: auto;
         }
         .dataTables_wrapper {
             padding: 20px;
         }
         .table {
-            font-size: 0.9em;
+            font-size: 0.8em;
+            min-width: 2000px;
         }
         .table th {
             background: #f8f9fa;
@@ -240,18 +242,31 @@
             <table id="playersTable" class="table table-striped table-hover" style="display: none;">
                 <thead>
                     <tr>
-                        <th>Player</th>
+                        <!-- ALL AVAILABLE DATA COLUMNS -->
+                        <th>Name</th>
                         <th>Team</th>
                         <th>Position</th>
                         <th>Jersey #</th>
-                        <th>Age</th>
                         <th>Height</th>
                         <th>Weight</th>
-                        <th>Experience</th>
+                        <th>Age</th>
+                        <th>Birth Date</th>
                         <th>College</th>
-                        <th>Social Media</th>
-                        <th>Status</th>
-                        <th>Last Updated</th>
+                        <th>Draft Year</th>
+                        <th>Draft Round</th>
+                        <th>Draft Pick</th>
+                        <th>Years Pro</th>
+                        <th>Games Played</th>
+                        <th>Games Started</th>
+                        <th>Twitter Handle</th>
+                        <th>Instagram Handle</th>
+                        <th>Twitter Followers</th>
+                        <th>Instagram Followers</th>
+                        <th>Wikipedia URL</th>
+                        <th>Career Highlights</th>
+                        <th>Awards</th>
+                        <th>Data Source</th>
+                        <th>Scraped At</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -297,20 +312,19 @@
 
         function initializeDataTable() {
             playersTable = $('#playersTable').DataTable({
-                pageLength: 50,
-                lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "All"]],
+                pageLength: 25,
+                lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
                 dom: 'Bfrtip',
                 buttons: [
                     'copy', 'csv', 'excel', 'print'
                 ],
                 fixedHeader: true,
-                responsive: true,
+                responsive: false,
+                scrollX: true,
+                scrollCollapse: true,
                 columnDefs: [
                     { targets: [0], className: 'player-details' },
-                    { targets: [1], className: 'text-center' },
-                    { targets: [2], className: 'text-center' },
-                    { targets: [3], className: 'text-center' },
-                    { targets: [4,5,6], className: 'text-center' },
+                    { targets: '_all', className: 'text-center' },
                 ],
                 order: [[0, 'asc']],
                 language: {
@@ -334,7 +348,7 @@
             fetch('/api/players/all')
                 .then(response => response.json())
                 .then(data => {
-                    allPlayersData = data.players || [];
+                    allPlayersData = data.data || data.players || [];
                     updateStatistics();
                     populateFilterOptions();
                     populateTable();
@@ -357,18 +371,31 @@
             
             allPlayersData.forEach(player => {
                 const row = [
+                    // ALL AVAILABLE DATA COLUMNS - EXACT MATCH TO CSV
                     `<strong>${player.name || 'N/A'}</strong>`,
                     `<span class="team-badge badge bg-primary">${player.team || 'N/A'}</span>`,
                     `<span class="position-badge badge bg-secondary">${player.position || 'N/A'}</span>`,
                     player.jersey_number || '-',
-                    player.age || '-',
                     player.height || '-',
-                    player.weight ? `${player.weight} lbs` : '-',
-                    player.experience ? `<span class="experience-badge">${player.experience}</span>` : '-',
+                    player.weight || '-',
+                    player.age || '-',
+                    player.birth_date || '-',
                     player.college || '-',
-                    formatSocialMedia(player),
-                    player.status || 'Active',
-                    formatDate(player.scraped_at || player.updated_at)
+                    player.draft_year || '-',
+                    player.draft_round || '-',
+                    player.draft_pick || '-',
+                    player.years_pro || '-',
+                    player.games_played || '-',
+                    player.games_started || '-',
+                    player.twitter_handle || '-',
+                    player.instagram_handle || '-',
+                    formatNumber(player.twitter_followers),
+                    formatNumber(player.instagram_followers),
+                    player.wikipedia_url ? `<a href="${player.wikipedia_url}" target="_blank">Wiki</a>` : '-',
+                    truncateText(player.career_highlights, 50),
+                    truncateText(player.awards, 50),
+                    player.data_source || '-',
+                    formatDate(player.scraped_at)
                 ];
                 playersTable.row.add(row);
             });
@@ -391,6 +418,27 @@
             if (!dateString) return '-';
             const date = new Date(dateString);
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        function formatNumber(num) {
+            if (!num || num === 0) return '-';
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toString();
+        }
+
+        function truncateText(text, maxLength = 50) {
+            if (!text) return '-';
+            if (text.length <= maxLength) return text;
+            return text.substring(0, maxLength) + '...';
+        }
+
+        function formatArray(arr) {
+            if (!arr || !Array.isArray(arr)) return '-';
+            return arr.join(', ');
         }
 
         function updateStatistics() {
