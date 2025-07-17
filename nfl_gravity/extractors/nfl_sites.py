@@ -24,7 +24,7 @@ class NFLSitesExtractor:
         self.sites = {
             'nfl.com': {
                 'base_url': 'https://www.nfl.com',
-                'roster_path': '/teams/{team}/roster/',
+                'roster_path': '/teams/{team}/roster',
                 'player_path': '/players/{player_id}/'
             },
             'espn.com': {
@@ -131,14 +131,14 @@ class NFLSitesExtractor:
         """Get team name mapping for specific site."""
         if site == 'nfl.com':
             return {
-                '49ers': 'sf', 'bears': 'chi', 'bengals': 'cin', 'bills': 'buf',
-                'broncos': 'den', 'browns': 'cle', 'buccaneers': 'tb', 'cardinals': 'ari',
-                'chargers': 'lac', 'chiefs': 'kc', 'colts': 'ind', 'commanders': 'was',
-                'cowboys': 'dal', 'dolphins': 'mia', 'eagles': 'phi', 'falcons': 'atl',
-                'giants': 'nyg', 'jaguars': 'jax', 'jets': 'nyj', 'lions': 'det',
-                'packers': 'gb', 'panthers': 'car', 'patriots': 'ne', 'raiders': 'lv',
-                'rams': 'lar', 'ravens': 'bal', 'saints': 'no', 'seahawks': 'sea',
-                'steelers': 'pit', 'texans': 'hou', 'titans': 'ten', 'vikings': 'min'
+                '49ers': 'san-francisco-49ers', 'bears': 'chicago-bears', 'bengals': 'cincinnati-bengals', 'bills': 'buffalo-bills',
+                'broncos': 'denver-broncos', 'browns': 'cleveland-browns', 'buccaneers': 'tampa-bay-buccaneers', 'cardinals': 'arizona-cardinals',
+                'chargers': 'los-angeles-chargers', 'chiefs': 'kansas-city-chiefs', 'colts': 'indianapolis-colts', 'commanders': 'washington-commanders',
+                'cowboys': 'dallas-cowboys', 'dolphins': 'miami-dolphins', 'eagles': 'philadelphia-eagles', 'falcons': 'atlanta-falcons',
+                'giants': 'new-york-giants', 'jaguars': 'jacksonville-jaguars', 'jets': 'new-york-jets', 'lions': 'detroit-lions',
+                'packers': 'green-bay-packers', 'panthers': 'carolina-panthers', 'patriots': 'new-england-patriots', 'raiders': 'las-vegas-raiders',
+                'rams': 'los-angeles-rams', 'ravens': 'baltimore-ravens', 'saints': 'new-orleans-saints', 'seahawks': 'seattle-seahawks',
+                'steelers': 'pittsburgh-steelers', 'texans': 'houston-texans', 'titans': 'tennessee-titans', 'vikings': 'minnesota-vikings'
             }
         elif site == 'espn.com':
             return {
@@ -201,18 +201,21 @@ class NFLSitesExtractor:
             # Parse table rows
             for row in roster_table.find_all('tr')[1:]:  # Skip header
                 cells = row.find_all(['td', 'th'])
-                if len(cells) >= 4:
+                if len(cells) >= 3:
+                    # NFL.com roster structure: Player, No, Pos, Status, Height, Weight, Experience, College
                     player_data = {
                         'name': clean_text(cells[0].get_text()),
                         'jersey_number': self._extract_number(cells[1].get_text()),
                         'position': clean_text(cells[2].get_text()),
-                        'height': clean_text(cells[3].get_text()) if len(cells) > 3 else None,
-                        'weight': self._extract_weight(cells[4].get_text()) if len(cells) > 4 else None,
-                        'college': clean_text(cells[5].get_text()) if len(cells) > 5 else None,
+                        'status': clean_text(cells[3].get_text()) if len(cells) > 3 else None,
+                        'height': clean_text(cells[4].get_text()) if len(cells) > 4 else None,
+                        'weight': self._extract_weight(cells[5].get_text()) if len(cells) > 5 else None,
+                        'experience': clean_text(cells[6].get_text()) if len(cells) > 6 else None,
+                        'college': clean_text(cells[7].get_text()) if len(cells) > 7 else None,
                         'data_source': 'nfl.com'
                     }
                     
-                    if player_data['name']:
+                    if player_data['name'] and player_data['name'].strip():
                         players.append(player_data)
         
         return players
