@@ -1,0 +1,807 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# IMPROVED NFL DATA PIPELINE - MAIN APPLICATION
+# ─────────────────────────────────────────────────────────────────────────────
+
+import os
+import sys
+import json
+import pandas as pd
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+import argparse
+
+# Access necessary classes and variables from other cells via global scope
+# Ensure preceding cells defining these objects have been executed.
+
+class NFLDataApplication:
+    """Main application class for the NFL data pipeline"""
+
+    def __init__(self):
+        # Access Config directly from global scope
+        self.config = globals().get('Config')()
+        # Access NFLDataPipeline directly from global scope
+        self.pipeline = globals().get('NFLDataPipeline')()
+        # Access DataValidator directly from global scope
+        self.validator = globals().get('DataValidator')()
+
+        if not self.config or not self.pipeline or not self.validator:
+             print("Initialization Error: Required components (Config, NFLDataPipeline, DataValidator) not found.")
+             print("Please ensure all preceding cells have been executed successfully.")
+             # Optionally, raise a more specific error or handle gracefully
+             # raise RuntimeError("Pipeline initialization failed due to missing components.")
+
+
+    def display_menu(self):
+        """Display the main menu"""
+        print("\n" + "="*80)
+        print("🏈 NFL COMPREHENSIVE DATA COLLECTION SYSTEM")
+        print("="*80)
+        # Access ALL_DATA_COLUMNS directly from global scope
+        print(f"📊 Collects {len(globals().get('ALL_DATA_COLUMNS', []))} data points per player:")
+        print("   • Career earnings from multiple sources")
+        print("   • Social media metrics")
+        print("   • Career statistics and achievements")
+        print("   • Contract and financial data")
+        print("   • Media presence and analytics")
+        print("="*80)
+        print("\n🎯 SELECTION OPTIONS:")
+        print("\n1️⃣  Individual Players (enter specific names)")
+        print("2️⃣  Single Team (all players)")
+        print("3️⃣  Multiple Teams")
+        print("4️⃣  Division (all teams in a division)")
+        print("5️⃣  Conference (AFC or NFC)")
+        print("6️⃣  Players by Position")
+        print("7️⃣  All NFL Teams (complete database)")
+        print("8️⃣  Load Previous Export")
+        print("9️⃣  Exit")
+        print("\n" + "="*80)
+
+    def run_interactive(self):
+        """Run the interactive application"""
+        if not self.config or not self.pipeline or not self.validator:
+            print("Cannot run interactive mode: Pipeline components are missing.")
+            return
+
+        while True:
+            self.display_menu()
+            choice = input("\nEnter your choice (1-9): ").strip()
+
+            if choice == "1":
+                self.handle_individual_players()
+            elif choice == "2":
+                self.handle_single_team()
+            elif choice == "3":
+                self.handle_multiple_teams()
+            elif choice == "4":
+                self.handle_division()
+            elif choice == "5":
+                self.handle_conference()
+            elif choice == "6":
+                self.handle_position_filter()
+            elif choice == "7":
+                self.handle_all_teams()
+            elif choice == "8":
+                self.handle_load_export()
+            elif choice == "9":
+                print("\n👋 Thank you for using NFL Data Pipeline!")
+                break
+            else:
+                print("\n❌ Invalid choice. Please try again.")
+
+    def handle_individual_players(self):
+        """Handle individual player selection"""
+        print("\n👤 INDIVIDUAL PLAYERS")
+        print("-" * 50)
+        print("Enter player names separated by commas.")
+        print("Examples: Josh Allen, Patrick Mahomes, Lamar Jackson")
+
+        player_input = input("\n📝 Enter player names: ").strip()
+        if not player_input:
+            print("❌ No players entered.")
+            return
+
+        player_names = [name.strip() for name in player_input.split(",") if name.strip()]
+
+        print(f"\n✅ Selected {len(player_names)} players:")
+        for i, name in enumerate(player_names, 1):
+            print(f"   {i}. {name}")
+
+        confirm = input("\n❓ Proceed? (y/n): ").lower()
+        if confirm in ['y', 'yes']:
+            self._process_and_export(
+                mode="individual_players",
+                players=player_names,
+                description=f"Individual Players ({len(player_names)})"
+            )
+
+    def handle_single_team(self):
+        """Handle single team selection"""
+        print("\n🏟️  SINGLE TEAM SELECTION")
+        print("-" * 50)
+
+        # Display teams
+        # Access NFL_TEAMS_DB directly from global scope
+        nfl_teams = globals().get('NFL_TEAMS_DB', {})
+        teams_list = list(nfl_teams.items())
+        if not teams_list:
+            print("Error: NFL_TEAMS_DB not found. Please execute the configuration cell.")
+            return
+
+        for i, (slug, info) in enumerate(teams_list, 1):
+            print(f"{i:2d}. {info['name']} ({info['conference']} {info['division']})")
+
+        try:
+            choice = int(input(f"\nEnter team number (1-{len(teams_list)}): "))
+            if 1 <= choice <= len(teams_list):
+                team_slug, team_info = teams_list[choice - 1]
+
+                print(f"\n✅ Selected: {team_info['name']}")
+                print(f"📍 Conference: {team_info['conference']} {team_info['division']}")
+                print(f"🏟️  Stadium: {team_info['stadium']}")
+
+                confirm = input("\n❓ Proceed? (y/n): ").lower()
+                if confirm in ['y', 'yes']:
+                    self._process_and_export(
+                        mode="single_team",
+                        team_slugs=[team_slug],
+                        description=team_info['name']
+                    )
+            else:
+                print("❌ Invalid selection.")
+        except ValueError:
+            print("❌ Please enter a number.")
+
+    def handle_multiple_teams(self):
+        """Handle multiple teams selection"""
+        print("\n🏟️  MULTIPLE TEAMS SELECTION")
+        print("-" * 50)
+
+        # Access NFL_TEAMS_DB directly from global scope
+        nfl_teams = globals().get('NFL_TEAMS_DB', {})
+        teams_list = list(nfl_teams.items())
+        if not teams_list:
+            print("Error: NFL_TEAMS_DB not found. Please execute the configuration cell.")
+            return
+
+        # Display teams in columns
+        for i in range(0, len(teams_list), 2):
+            left = f"{i+1:2d}. {teams_list[i][1]['name']}"
+            right = f"{i+2:2d}. {teams_list[i+1][1]['name']}" if i+1 < len(teams_list) else ""
+            print(f"{left:<40} {right}")
+
+        team_input = input(f"\nEnter team numbers separated by commas: ").strip()
+
+        try:
+            team_numbers = [int(x.strip()) for x in team_input.split(",")]
+            selected_teams = []
+            selected_names = []
+
+            for num in team_numbers:
+                if 1 <= num <= len(teams_list):
+                    slug, info = teams_list[num - 1]
+                    selected_teams.append(slug)
+                    selected_names.append(info['name'])
+
+            if selected_teams:
+                print(f"\n✅ Selected {len(selected_teams)} teams:")
+                for name in selected_names:
+                    print(f"   • {name}")
+
+                confirm = input("\n❓ Proceed? (y/n): ").lower()
+                if confirm in ['y', 'yes']:
+                    self._process_and_export(
+                        mode="multiple_teams",
+                        team_slugs=selected_teams,
+                        description=f"{len(selected_teams)} Teams"
+                    )
+        except ValueError:
+            print("❌ Invalid input.")
+
+    def handle_division(self):
+        """Handle division selection"""
+        print("\n🏆 DIVISION SELECTION")
+        print("-" * 50)
+
+        # Access POSITION_GROUPS directly from global scope
+        position_groups = globals().get('POSITION_GROUPS', {})
+        if not position_groups:
+             print("Error: POSITION_GROUPS not found. Please execute the configuration cell.")
+             return
+
+        divisions = {
+            "1": ("AFC East", ["buffalo-bills", "miami-dolphins", "new-england-patriots", "new-york-jets"]),
+            "2": ("AFC North", ["baltimore-ravens", "cincinnati-bengals", "cleveland-browns", "pittsburgh-steelers"]),
+            "3": ("AFC South", ["houston-texans", "indianapolis-colts", "jacksonville-jaguars", "tennessee-titans"]),
+            "4": ("AFC West", ["denver-broncos", "kansas-city-chiefs", "las-vegas-raiders", "los-angeles-chargers"]),
+            "5": ("NFC East", ["dallas-cowboys", "new-york-giants", "philadelphia-eagles", "washington-commanders"]),
+            "6": ("NFC North", ["chicago-bears", "detroit-lions", "green-bay-packers", "minnesota-vikings"]),
+            "7": ("NFC South", ["atlanta-falcons", "carolina-panthers", "new-orleans-saints", "tampa-bay-buccaneers"]),
+            "8": ("NFC West", ["arizona-cardinals", "los-angles-rams", "san-francisco-49ers", "seattle-seahawks"])
+        }
+
+
+        for key, (name, teams) in divisions.items():
+            print(f"{key}. {name}")
+
+        choice = input("\nSelect division (1-8): ").strip()
+
+        if choice in divisions:
+            div_name, team_slugs = divisions[choice]
+            print(f"\n✅ Selected: {div_name}")
+            print("Teams:")
+            # Access NFL_TEAMS_DB directly from global scope
+            nfl_teams = globals().get('NFL_TEAMS_DB', {})
+            for slug in team_slugs:
+                print(f"   • {nfl_teams.get(slug, {}).get('name', slug)}")
+
+            confirm = input("\n❓ Proceed? (y/n): ").lower()
+            if confirm in ['y', 'yes']:
+                self._process_and_export(
+                    mode="division",
+                    team_slugs=team_slugs,
+                    description=div_name
+                )
+
+    def handle_conference(self):
+        """Handle conference selection"""
+        print("\n🏈 CONFERENCE SELECTION")
+        print("-" * 50)
+        print("1. AFC (American Football Conference)")
+        print("2. NFC (National Football Conference)")
+
+        choice = input("\nSelect conference (1-2): ").strip()
+
+        if choice == "1":
+            conf = "AFC"
+        elif choice == "2":
+            conf = "NFC"
+        else:
+            print("❌ Invalid selection.")
+            return
+
+        # Get all teams in conference
+        # Access NFL_TEAMS_DB directly from global scope
+        nfl_teams = globals().get('NFL_TEAMS_DB', {})
+        team_slugs = [slug for slug, info in nfl_teams.items() if info.get('conference') == conf]
+
+        print(f"\n✅ Selected: {conf} ({len(team_slugs)} teams)")
+
+        confirm = input("\n❓ Proceed? (y/n): ").lower()
+        if confirm in ['y', 'yes']:
+            self._process_and_export(
+                mode="conference",
+                team_slugs=team_slugs,
+                description=f"{conf} Conference"
+            )
+
+    def handle_position_filter(self):
+        """Handle position-based filtering"""
+        print("\n🎯 POSITION SELECTION")
+        print("-" * 50)
+
+        # Access POSITION_GROUPS directly from global scope
+        position_groups = globals().get('POSITION_GROUPS', {})
+        if not position_groups:
+             print("Error: POSITION_GROUPS not found. Please execute the configuration cell.")
+             return
+
+        position_options = {
+            "1": ("Quarterbacks", position_groups['offense']['quarterbacks']),
+            "2": ("Running Backs", position_groups['offense']['running_backs']),
+            "3": ("Wide Receivers", position_groups['offense']['wide_receivers']),
+            "4": ("Tight Ends", position_groups['offense']['tight_ends']),
+            "5": ("Offensive Line", position_groups['offense']['offensive_line']),
+            "6": ("Defensive Line", position_groups['defense']['defensive_line']),
+            "7": ("Linebackers", position_groups['defense']['linebackers']),
+            "8": ("Defensive Backs", position_groups['defense']['defensive_backs']),
+            "9": ("Special Teams", position_groups['special_teams']['kickers'] +
+                                    position_groups['special_teams']['punters'])
+        }
+
+
+        for key, (name, positions) in position_options.items():
+            print(f"{key}. {name} ({', '.join(positions)})")
+
+        choice = input("\nSelect position group (1-9): ").strip()
+
+        if choice in position_options:
+            pos_name, positions = position_options[choice]
+
+            # Ask for team scope
+            print("\nSelect scope:")
+            print("1. All NFL teams")
+            print("2. Specific team(s)")
+
+            scope = input("\nChoice (1-2): ").strip()
+
+            if scope == "1":
+                # Access NFL_TEAMS_DB directly from global scope
+                nfl_teams = globals().get('NFL_TEAMS_DB', {})
+                team_slugs = list(nfl_teams.keys())
+            elif scope == "2":
+                # Let user select teams
+                return self.handle_multiple_teams()  # Reuse team selection
+            else:
+                print("❌ Invalid selection.")
+                return
+
+            print(f"\n✅ Selected: {pos_name} from {len(team_slugs)} teams")
+
+            confirm = input("\n❓ Proceed? (y/n): ").lower()
+            if confirm in ['y', 'yes']:
+                self._process_and_export(
+                    mode="position_filter",
+                    team_slugs=team_slugs,
+                    positions=positions,
+                    description=f"{pos_name} - {len(team_slugs)} teams"
+                )
+
+    def handle_all_teams(self):
+        """Handle complete NFL database collection"""
+        print("\n🌍 COMPLETE NFL DATABASE")
+        print("-" * 50)
+        print("⚠️  WARNING: This will collect data for ALL NFL players!")
+        print("")
+        print("   • 32 NFL teams")
+        print("   • ~2,700+ players")
+        # Access ALL_DATA_COLUMNS directly from global scope
+        print(f"   • {len(globals().get('ALL_DATA_COLUMNS', []))} data points per player")
+        print("   • Estimated time: 200+ hours")
+        print("")
+
+        confirm1 = input("❓ Are you sure? (y/n): ").lower()
+        if confirm1 not in ['y', 'yes']:
+            return
+
+        confirm2 = input("❓ Type 'COLLECT ALL NFL' to confirm: ").strip()
+        if confirm2 == "COLLECT ALL NFL":
+            self._process_and_export(
+                mode="all_nfl",
+                # Access NFL_TEAMS_DB directly from global scope
+                team_slugs=list(globals().get('NFL_TEAMS_DB', {}).keys()),
+                description="Complete NFL Database"
+            )
+        else:
+            print("❌ Confirmation failed.")
+
+    def handle_load_export(self):
+        """Handle loading and analyzing previous export"""
+        print("\n📁 LOAD PREVIOUS EXPORT")
+        print("-" * 50)
+
+        # List available exports
+        # Access self.config directly
+        if not self.config:
+             print("Error: Config not initialized. Cannot load exports.")
+             return
+        exports = list(self.config.OUTPUT_DIR.glob("*.csv"))
+        if not exports:
+            print("❌ No exports found.")
+            return
+
+        exports.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+
+        print("Available exports:")
+        for i, export in enumerate(exports[:10], 1):
+            size_mb = export.stat().st_size / 1024 / 1024
+            mod_time = datetime.fromtimestamp(export.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            print(f"{i:2d}. {export.name} ({size_mb:.1f} MB) - {mod_time}")
+
+        try:
+            choice = int(input("\nSelect export (number): "))
+            if 1 <= choice <= len(exports):
+                self._analyze_export(exports[choice - 1])
+        except ValueError:
+            print("❌ Invalid selection.")
+
+    def _process_and_export(self, mode: str, description: str, **kwargs):
+        """Process data collection and export"""
+        if not self.config or not self.pipeline:
+             print("Processing Error: Pipeline components are missing.")
+             return
+
+        start_time = datetime.now()
+
+        print(f"\n🚀 Starting {description} collection...")
+        print("="*60)
+
+        try:
+            # Collect data based on mode
+            if mode == "individual_players":
+                player_names = kwargs.get('players', [])
+                # Access self.pipeline directly
+                data = self.pipeline.collect_individual_players(player_names)
+
+            elif mode in ["single_team", "multiple_teams", "division", "conference", "all_nfl"]:
+                team_slugs = kwargs.get('team_slugs', [])
+                # Access self.pipeline directly
+                data = self.pipeline.collect_teams_data(team_slugs)
+
+            elif mode == "position_filter":
+                team_slugs = kwargs.get('team_slugs', [])
+                positions = kwargs.get('positions', [])
+                # First get all players from teams
+                # Access self.pipeline directly
+                all_data = self.pipeline.collect_teams_data(team_slugs)
+                # Then filter by position
+                data = [p for p in all_data if p.get('Position') in positions]
+
+            else:
+                raise ValueError(f"Unknown mode: {mode}")
+
+            if not data:
+                print("❌ No data collected.")
+                return
+
+            # Convert to DataFrame
+            df = pd.DataFrame(data)
+
+            # Generate filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # Access self.config directly
+            filename = self.config.OUTPUT_DIR / f"nfl_{mode}_{timestamp}.csv"
+
+            # Prepare for export
+            # Access prepare_dataframe_for_export directly from global scope
+            prepare_df_func = globals().get('prepare_dataframe_for_export')
+            if not prepare_df_func:
+                 print("Export Error: prepare_dataframe_for_export function not found.")
+                 return
+            df_export = prepare_df_func(df)
+
+
+            # Add metadata
+            df_export['Export_Mode'] = mode
+            df_export['Export_Description'] = description
+            df_export['Export_Timestamp'] = datetime.now().isoformat()
+
+            # Export to CSV
+            df_export.to_csv(filename, index=False)
+            # Access logger directly from global scope
+            logger = globals().get('logger')
+            if logger:
+                logger.info(f"Data exported to {filename}")
+            else:
+                 print(f"Data exported to {filename} (Logger not available)")
+
+
+            # Create metadata file
+            metadata = {
+                "export_info": {
+                    "filename": str(filename),
+                    "mode": mode,
+                    "description": description,
+                    "timestamp": datetime.now().isoformat(),
+                    "duration_minutes": (datetime.now() - start_time).seconds / 60
+                },
+                "data_summary": {
+                    "total_players": len(df),
+                    "total_columns": len(df.columns),
+                    "teams_included": kwargs.get('team_slugs', []),
+                    "positions_filtered": kwargs.get('positions', [])
+                },
+                # Access DataQualityAssessor directly from global scope
+                "quality_report": globals().get('DataQualityAssessor').generate_quality_report(df) if globals().get('DataQualityAssessor') else {}
+            }
+
+            metadata_file = filename.with_suffix('.json')
+            # Access safe_json_convert directly from global scope
+            safe_json_convert_func = globals().get('safe_json_convert')
+            if safe_json_convert_func:
+                with open(metadata_file, 'w') as f:
+                    json.dump(metadata, f, indent=2, default=safe_json_convert_func)
+            else:
+                with open(metadata_file, 'w') as f:
+                    json.dump(metadata, f, indent=2)
+                print("Warning: safe_json_convert not available, JSON export might have issues with non-native types.")
+
+
+            # Create summary report
+            # Access create_export_summary directly from global scope
+            create_summary_func = globals().get('create_export_summary')
+            if create_summary_func:
+                summary = create_summary_func(df, metadata["export_info"])
+                summary_file = filename.with_suffix('.txt')
+                summary_file.write_text(summary)
+            else:
+                 print("Warning: create_export_summary function not found. Summary report not generated.")
+
+
+            # Display results
+            print("\n" + "="*80)
+            print("✅ DATA COLLECTION COMPLETE!")
+            print("="*80)
+            print(f"📁 Data exported to: {filename}")
+            print(f"📋 Metadata: {metadata_file}")
+            print(f"📊 Summary: {summary_file}" if create_summary_func else "📊 Summary: Not generated")
+            print(f"⏱️  Duration: {metadata['export_info']['duration_minutes']:.1f} minutes")
+            print(f"👥 Total players: {len(df):,}")
+
+            # Show sample data
+            if len(df) > 0:
+                print("\n📊 SAMPLE DATA:")
+                sample_cols = ['Player_Name', 'Position', 'Current_Team',
+                              'Career_Earnings_Total', 'Data_Quality_Score']
+                available_cols = [col for col in sample_cols if col in df.columns]
+                print(df[available_cols].head(5).to_string(index=False))
+
+            # Quality summary
+            if 'Data_Quality_Score' in df.columns:
+                avg_quality = df['Data_Quality_Score'].mean()
+                print(f"\n📈 Average data quality: {avg_quality:.1f}%")
+
+        except Exception as e:
+            # Access logger directly from global scope
+            logger = globals().get('logger')
+            if logger:
+                logger.error(f"Export failed: {e}")
+            print(f"\n❌ Error during processing: {e}")
+
+    def _analyze_export(self, filepath: Path):
+        """Analyze a previous export"""
+        print(f"\n📊 ANALYZING: {filepath.name}")
+        print("="*60)
+
+        try:
+            # Load data
+            df = pd.read_csv(filepath)
+            print(f"✅ Loaded {len(df):,} players with {len(df.columns)} columns")
+
+            # Load metadata if exists
+            metadata_file = filepath.with_suffix('.json')
+            if metadata_file.exists():
+                with open(metadata_file) as f:
+                    metadata = json.load(f)
+                print(f"📋 Export mode: {metadata['export_info'].get('mode', 'Unknown')}")
+                print(f"📅 Export date: {metadata['export_info'].get('timestamp', 'Unknown')}")
+
+            # Basic statistics
+            print("\n📊 BASIC STATISTICS:")
+            print(f"Total players: {len(df):,}")
+
+            if 'Position' in df.columns:
+                print("\nPlayers by position:")
+                position_counts = df['Position'].value_counts().head(10)
+                for pos, count in position_counts.items():
+                    print(f"  {pos}: {count}")
+
+            if 'Current_Team' in df.columns:
+                print(f"\nUnique teams: {df['Current_Team'].nunique()}")
+
+            # Financial analysis
+            if 'Career_Earnings_Total' in df.columns:
+                earnings = df['Career_Earnings_Total'].dropna()
+                if len(earnings) > 0:
+                    print("\n💰 FINANCIAL ANALYSIS:")
+                    print(f"Players with earnings data: {len(earnings):,} ({len(earnings)/len(df)*100:.1f}%)")
+                    print(f"Total earnings: ${earnings.sum():,.0f}")
+                    print(f"Average earnings: ${earnings.mean():,.0f}")
+                    print(f"Median earnings: ${earnings.median():,.0f}")
+
+                    # Top earners
+                    if 'Player_Name' in df.columns:
+                        top_earners = df.nlargest(5, 'Career_Earnings_Total')[['Player_Name', 'Career_Earnings_Total']]
+                        print("\nTop 5 earners:")
+                        for _, player in top_earners.iterrows():
+                            print(f"  {player['Player_Name']}: ${player['Career_Earnings_Total']:,.0f}")
+
+            # Social media analysis
+            social_cols = ['Instagram_Followers', 'Twitter_Followers', 'TikTok_Followers']
+            available_social = [col for col in social_cols if col in df.columns]
+
+            if available_social:
+                print("\n📱 SOCIAL MEDIA ANALYSIS:")
+                for col in available_social:
+                    data = df[col].dropna()
+                    if len(data) > 0:
+                        platform = col.replace('_Followers', '')
+                        print(f"\n{platform}:")
+                        print(f"  Players with data: {len(data):,}")
+                        print(f"  Total followers: {data.sum():,.0f}")
+                        print(f"  Average followers: {data.mean():,.0f}")
+
+                        # Top followed
+                        if 'Player_Name' in df.columns:
+                            top = df.nlargest(3, col)[['Player_Name', col]]
+                            print(f"  Top 3:")
+                            for _, player in top.iterrows():
+                                print(f"    {player['Player_Name']}: {player[col]:,.0f}")
+
+            # Data quality
+            if 'Data_Quality_Score' in df.columns:
+                print("\n📈 DATA QUALITY:")
+                quality = df['Data_Quality_Score']
+                print(f"Average quality score: {quality.mean():.1f}%")
+                print(f"Players with >80% quality: {(quality > 80).sum():,}")
+                print(f"Players with <50% quality: {(quality < 50).sum():,}")
+
+            # Export options
+            print("\n" + "-"*60)
+            print("OPTIONS:")
+            print("1. Search for specific player")
+            print("2. Filter by team")
+            print("3. Filter by position")
+            print("4. Export filtered data")
+            print("5. Return to main menu")
+
+            while True:
+                choice = input("\nChoice (1-5): ").strip()
+
+                if choice == "1":
+                    self._search_player_in_df(df)
+                elif choice == "2":
+                    self._filter_by_team(df)
+                elif choice == "3":
+                    self._filter_by_position(df)
+                elif choice == "4":
+                    self._export_filtered_data(df)
+                elif choice == "5":
+                    break
+                else:
+                    print("❌ Invalid choice.")
+
+        except Exception as e:
+            # Access logger directly from global scope
+            logger = globals().get('logger')
+            if logger:
+                logger.error(f"Analysis failed: {e}")
+            print(f"❌ Error analyzing file: {e}")
+
+    def _search_player_in_df(self, df: pd.DataFrame):
+        """Search for player in DataFrame"""
+        if 'Player_Name' not in df.columns:
+            print("❌ No player names in dataset.")
+            return
+
+        search = input("\nEnter player name (partial match): ").strip()
+        if not search:
+            return
+
+        matches = df[df['Player_Name'].str.contains(search, case=False, na=False)]
+
+        if len(matches) == 0:
+            print(f"❌ No players found matching '{search}'")
+        else:
+            print(f"\n✅ Found {len(matches)} players:")
+
+            display_cols = ['Player_Name', 'Position', 'Current_Team',
+                          'Career_Earnings_Total', 'Instagram_Followers', 'Data_Quality_Score']
+            available_cols = [col for col in display_cols if col in matches.columns]
+
+            print(matches[available_cols].to_string(index=False))
+
+    def _filter_by_team(self, df: pd.DataFrame):
+        """Filter DataFrame by team"""
+        if 'Current_Team' not in df.columns:
+            print("❌ No team data in dataset.")
+            return
+
+        teams = df['Current_Team'].dropna().unique()
+        print(f"\nAvailable teams ({len(teams)}):")
+        for i, team in enumerate(sorted(teams), 1):
+            print(f"{i:2d}. {team}")
+
+        team_input = input("\nEnter team name or number: ").strip()
+
+        try:
+            # Try as number first
+            idx = int(team_input) - 1
+            if 0 <= idx < len(teams):
+                selected_team = sorted(teams)[idx]
+            else:
+                selected_team = team_input
+        except ValueError:
+            selected_team = team_input
+
+        filtered = df[df['Current_Team'] == selected_team]
+
+        if len(filtered) == 0:
+            print(f"❌ No players found for '{selected_team}'")
+        else:
+            print(f"\n✅ {len(filtered)} players from {selected_team}:")
+
+            display_cols = ['Player_Name', 'Position', 'Jersey_Number',
+                          'Career_Earnings_Total', 'Data_Quality_Score']
+            available_cols = [col for col in display_cols if col in filtered.columns]
+
+            print(filtered[available_cols].to_string(index=False))
+
+    def _filter_by_position(self, df: pd.DataFrame):
+        """Filter DataFrame by position"""
+        if 'Position' not in df.columns:
+            print("❌ No position data in dataset.")
+            return
+
+        positions = df['Position'].dropna().unique()
+        print(f"\nAvailable positions ({len(positions)}):")
+        for i, pos in enumerate(sorted(positions), 1):
+            print(f"{i:2d}. {pos}")
+
+        pos_input = input("\nEnter position: ").strip().upper()
+
+        filtered = df[df['Position'] == pos_input]
+
+        if len(filtered) == 0:
+            print(f"❌ No players found for position '{pos_input}'")
+        else:
+            print(f"\n✅ {len(filtered)} {pos_input} players:")
+
+            display_cols = ['Player_Name', 'Current_Team', 'Career_Earnings_Total',
+                          'Instagram_Followers', 'Data_Quality_Score']
+            available_cols = [col for col in display_cols if col in filtered.columns]
+
+            # Show top 20 by earnings if available
+            if 'Career_Earnings_Total' in filtered.columns:
+                filtered = filtered.nlargest(20, 'Career_Earnings_Total')
+            else:
+                filtered = filtered.head(20)
+
+            print(filtered[available_cols].to_string(index=False))
+
+    def _export_filtered_data(self, df: pd.DataFrame):
+        """Export filtered subset of data"""
+        print("\n📁 EXPORT FILTERED DATA")
+        print("-"*50)
+        print("1. Export by team")
+        print("2. Export by position")
+        print("3. Export top earners")
+        print("4. Export high-quality data only")
+
+        choice = input("\nChoice (1-4): ").strip()
+
+        filtered_df = None
+        suffix = ""
+
+        if choice == "1" and 'Current_Team' in df.columns:
+            team = input("Enter team name: ").strip()
+            filtered_df = df[df['Current_Team'] == team]
+            suffix = f"team_{team.lower().replace(' ', '_')}"
+
+        elif choice == "2" and 'Position' in df.columns:
+            pos = input("Enter position: ").strip().upper()
+            filtered_df = df[df['Position'] == pos]
+            suffix = f"position_{pos.lower()}"
+
+        elif choice == "3" and 'Career_Earnings_Total' in df.columns:
+            top_n = int(input("Top N earners (e.g. 100): ") or "100") # Corrected "e.e" to "e.g."
+            filtered_df = df.nlargest(top_n, 'Career_Earnings_Total')
+            suffix = f"top_{top_n}_earners"
+
+        elif choice == "4" and 'Data_Quality_Score' in df.columns:
+            min_quality = float(input("Minimum quality score (0-100): ") or "80")
+            filtered_df = df[df['Data_Quality_Score'] >= min_quality]
+            suffix = f"quality_{int(min_quality)}plus"
+
+        if filtered_df is not None and len(filtered_df) > 0:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # Access self.config directly
+            filename = self.config.OUTPUT_DIR / f"nfl_filtered_{suffix}_{timestamp}.csv"
+
+            filtered_df.to_csv(filename, index=False)
+            print(f"\n✅ Exported {len(filtered_df)} players to {filename}")
+        else:
+            print("❌ No data to export.")
+
+def main():
+    """Main entry point"""
+    # In Colab environment, avoid argparse to prevent SystemExit
+    # Instead, directly initialize and run the interactive application
+    print("🏈 NFL DATA PIPELINE - STARTING INTERACTIVE MODE...")
+    print("="*80)
+
+    # Access setup_logging directly from global scope
+    setup_logging_func = globals().get('setup_logging')
+    if setup_logging_func:
+        setup_logging_func(log_level='INFO') # Default logging level
+    else:
+        print("Warning: setup_logging function not found. Logging may not be configured.")
+
+
+    # Create and run application
+    app = NFLDataApplication()
+    app.run_interactive()
+
+
+if __name__ == "__main__":
+    main()
