@@ -124,6 +124,11 @@ nfl_gravity/
   - Complete database schema supporting all required fields
   - Excel-like data viewing interface with filtering and export capabilities
   - Comprehensive test suite validating all functionality
+- July 17, 2025. **CRITICAL FIX**: Resolved pipeline bottleneck limiting extraction to 20 players per team
+  - Fixed NFL Gravity MCP orchestrator to process complete rosters (93+ players per team)
+  - Integrated enhanced NFL scraper for comprehensive roster extraction
+  - Confirmed successful extraction of 93 players from 49ers (previously limited to 20)
+  - System now ready to collect all ~2,700 NFL players across 32 teams
 
 ## User Preferences
 

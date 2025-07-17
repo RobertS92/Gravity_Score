@@ -189,8 +189,13 @@ class PipelineOrchestrator:
         players = []
         
         try:
-            # Extract roster from NFL sites
-            roster_data = self.nfl_sites_extractor.extract_team_roster(team, 'nfl.com')
+            # Use enhanced scraper to extract complete roster (93+ players)
+            import sys
+            import os
+            sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+            from enhanced_nfl_scraper import EnhancedNFLScraper
+            enhanced_scraper = EnhancedNFLScraper()
+            roster_data = enhanced_scraper.extract_complete_team_roster(team)
             
             if not roster_data:
                 self.logger.warning(f"No roster data found for {team}")
@@ -202,7 +207,7 @@ class PipelineOrchestrator:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_player = {
                     executor.submit(self._process_single_player, player_data, team, fast_mode): player_data
-                    for player_data in roster_data[:20]  # Limit to first 20 players for demo
+                    for player_data in roster_data  # Process all players in roster
                 }
                 
                 for future in as_completed(future_to_player):
