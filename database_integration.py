@@ -446,5 +446,181 @@ def test_database_connection():
     except Exception as e:
         print(f"❌ Database test failed: {e}")
 
+
+# Helper functions for the web application
+def get_db_connection():
+    """Get a database connection."""
+    return psycopg2.connect(
+        host=os.getenv('PGHOST', 'localhost'),
+        database=os.getenv('PGDATABASE', 'nfl_gravity'),
+        user=os.getenv('PGUSER', 'postgres'),
+        password=os.getenv('PGPASSWORD', 'password'),
+        port=os.getenv('PGPORT', '5432')
+    )
+
+def save_players_to_db(players_data):
+    """Save players data to PostgreSQL database."""
+    try:
+        db = NFLDatabase()
+        
+        for player in players_data:
+            # First, ensure team exists
+            team_data = {
+                'team_full': player.get('team', 'Unknown'),
+                'location': player.get('team', 'Unknown'),
+                'nickname': player.get('team', 'Unknown'),
+                'slug': player.get('team', 'unknown').lower()
+            }
+            
+            team_id = db.insert_team(team_data)
+            
+            # Prepare player data
+            player_data = {
+                'Player': player.get('name'),
+                'Jersey': player.get('jersey_number'),
+                'team_id': team_id,
+                'Age': player.get('age'),
+                'Position': player.get('position'),
+                'CurrentTeam': player.get('team'),
+                'College': player.get('college'),
+                'Instagram_Followers': player.get('instagram_followers'),
+                'Twitter_Followers': player.get('twitter_followers'),
+                'News_Headlines_Count': player.get('news_headlines_count', 0)
+            }
+            
+            db.insert_player(player_data)
+        
+        db.close()
+        logger.info(f"Successfully saved {len(players_data)} players to database")
+        
+    except Exception as e:
+        logger.error(f"Error saving players to database: {e}")
+        raise
+
+def get_all_players_from_db():
+    """Get all players from the database."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute("""
+            SELECT 
+                p.name, p.position, p.jersey_number, p.age, p.current_team as team,
+                p.college, p.data_source, p.scraped_at, p.updated_at,
+                p.instagram_followers, p.twitter_followers, p.news_headlines_count
+            FROM players p
+            ORDER BY p.current_team, p.position, p.name
+        """)
+        
+        players = cursor.fetchall()
+        
+        # Convert to list of dictionaries for JSON serialization
+        result = []
+        for player in players:
+            player_dict = dict(player)
+            # Convert datetime objects to ISO format
+            if player_dict.get('scraped_at'):
+                player_dict['scraped_at'] = player_dict['scraped_at'].isoformat()
+            if player_dict.get('updated_at'):
+                player_dict['updated_at'] = player_dict['updated_at'].isoformat()
+            result.append(player_dict)
+        
+        logger.info(f"Retrieved {len(result)} players from database")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error retrieving players from database: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+def get_players_by_team(team_name):
+    """Get players for a specific team."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute("""
+            SELECT * FROM players 
+            WHERE current_team = %s
+            ORDER BY position, jersey_number
+        """, (team_name,))
+        
+        players = cursor.fetchall()
+        
+        # Convert to list of dictionaries
+        result = []
+        for player in players:
+            player_dict = dict(player)
+            if player_dict.get('scraped_at'):
+                player_dict['scraped_at'] = player_dict['scraped_at'].isoformat()
+            if player_dict.get('updated_at'):
+                player_dict['updated_at'] = player_dict['updated_at'].isoformat()
+            result.append(player_dict)
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error retrieving players for team {team_name}: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+def get_database_stats():
+    """Get statistics about the database."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get total players
+        cursor.execute("SELECT COUNT(*) FROM players")
+        total_players = cursor.fetchone()[0]
+        
+        # Get players by team
+        cursor.execute("""
+            SELECT current_team, COUNT(*) as player_count 
+            FROM players 
+            GROUP BY current_team 
+            ORDER BY player_count DESC
+        """)
+        team_stats = cursor.fetchall()
+        
+        # Get players by position
+        cursor.execute("""
+            SELECT position, COUNT(*) as player_count 
+            FROM players 
+            GROUP BY position 
+            ORDER BY player_count DESC
+        """)
+        position_stats = cursor.fetchall()
+        
+        # Get latest update time
+        cursor.execute("SELECT MAX(updated_at) FROM players")
+        last_updated = cursor.fetchone()[0]
+        
+        return {
+            "total_players": total_players,
+            "teams": len(team_stats),
+            "positions": len(position_stats),
+            "team_stats": team_stats,
+            "position_stats": position_stats,
+            "last_updated": last_updated.isoformat() if last_updated else None
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting database stats: {e}")
+        return {}
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
 if __name__ == "__main__":
     test_database_connection()

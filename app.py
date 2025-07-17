@@ -64,6 +64,267 @@ def get_teams():
     teams = teams_by_sport.get(sport, [])
     return jsonify({"teams": teams})
 
+@app.route('/data')
+def data_viewer():
+    """Data viewer page with Excel-like filtering."""
+    return render_template('data_viewer.html')
+
+@app.route('/api/players/all')
+def get_all_players():
+    """Get all players from the database."""
+    try:
+        # Return static data for now to test the interface
+        players = [
+            {
+                'name': 'Israel Abanikanda',
+                'team': '49ers',
+                'position': 'RB',
+                'jersey_number': '20',
+                'age': 22,
+                'height': '5\'11"',
+                'weight': 216,
+                'college': 'Pittsburgh',
+                'experience': 'Rookie',
+                'status': 'Active',
+                'data_source': 'NFL.com',
+                'twitter_handle': None,
+                'instagram_handle': None,
+                'twitter_followers': None,
+                'instagram_followers': None,
+                'scraped_at': '2025-07-17T16:00:00.000Z',
+                'updated_at': '2025-07-17T16:00:00.000Z'
+            },
+            {
+                'name': 'Brandon Aiyuk',
+                'team': '49ers',
+                'position': 'WR',
+                'jersey_number': '11',
+                'age': 26,
+                'height': '6\'0"',
+                'weight': 205,
+                'college': 'Arizona State',
+                'experience': '5th year',
+                'status': 'Active',
+                'data_source': 'NFL.com',
+                'twitter_handle': None,
+                'instagram_handle': None,
+                'twitter_followers': None,
+                'instagram_followers': None,
+                'scraped_at': '2025-07-17T16:00:00.000Z',
+                'updated_at': '2025-07-17T16:00:00.000Z'
+            },
+            {
+                'name': 'Isaac Alarcon',
+                'team': '49ers',
+                'position': 'OT',
+                'jersey_number': '67',
+                'age': 25,
+                'height': '6\'5"',
+                'weight': 308,
+                'college': 'Weber State',
+                'experience': '2nd year',
+                'status': 'Active',
+                'data_source': 'NFL.com',
+                'twitter_handle': None,
+                'instagram_handle': None,
+                'twitter_followers': None,
+                'instagram_followers': None,
+                'scraped_at': '2025-07-17T16:00:00.000Z',
+                'updated_at': '2025-07-17T16:00:00.000Z'
+            },
+            {
+                'name': 'Nick Bosa',
+                'team': '49ers',
+                'position': 'DE',
+                'jersey_number': '97',
+                'age': 27,
+                'height': '6\'4"',
+                'weight': 266,
+                'college': 'Ohio State',
+                'experience': '6th year',
+                'status': 'Active',
+                'data_source': 'NFL.com',
+                'twitter_handle': None,
+                'instagram_handle': None,
+                'twitter_followers': None,
+                'instagram_followers': None,
+                'scraped_at': '2025-07-17T16:00:00.000Z',
+                'updated_at': '2025-07-17T16:00:00.000Z'
+            },
+            {
+                'name': 'George Kittle',
+                'team': '49ers',
+                'position': 'TE',
+                'jersey_number': '85',
+                'age': 31,
+                'height': '6\'4"',
+                'weight': 250,
+                'college': 'Iowa',
+                'experience': '8th year',
+                'status': 'Active',
+                'data_source': 'NFL.com',
+                'twitter_handle': None,
+                'instagram_handle': None,
+                'twitter_followers': None,
+                'instagram_followers': None,
+                'scraped_at': '2025-07-17T16:00:00.000Z',
+                'updated_at': '2025-07-17T16:00:00.000Z'
+            },
+            {
+                'name': 'Deebo Samuel',
+                'team': '49ers',
+                'position': 'WR',
+                'jersey_number': '19',
+                'age': 28,
+                'height': '6\'0"',
+                'weight': 214,
+                'college': 'South Carolina',
+                'experience': '6th year',
+                'status': 'Active',
+                'data_source': 'NFL.com',
+                'twitter_handle': None,
+                'instagram_handle': None,
+                'twitter_followers': None,
+                'instagram_followers': None,
+                'scraped_at': '2025-07-17T16:00:00.000Z',
+                'updated_at': '2025-07-17T16:00:00.000Z'
+            },
+            {
+                'name': 'Christian McCaffrey',
+                'team': '49ers',
+                'position': 'RB',
+                'jersey_number': '23',
+                'age': 28,
+                'height': '5\'11"',
+                'weight': 205,
+                'college': 'Stanford',
+                'experience': '8th year',
+                'status': 'Active',
+                'data_source': 'NFL.com',
+                'twitter_handle': None,
+                'instagram_handle': None,
+                'twitter_followers': None,
+                'instagram_followers': None,
+                'scraped_at': '2025-07-17T16:00:00.000Z',
+                'updated_at': '2025-07-17T16:00:00.000Z'
+            },
+            {
+                'name': 'Brock Purdy',
+                'team': '49ers',
+                'position': 'QB',
+                'jersey_number': '13',
+                'age': 25,
+                'height': '6\'1"',
+                'weight': 220,
+                'college': 'Iowa State',
+                'experience': '3rd year',
+                'status': 'Active',
+                'data_source': 'NFL.com',
+                'twitter_handle': None,
+                'instagram_handle': None,
+                'twitter_followers': None,
+                'instagram_followers': None,
+                'scraped_at': '2025-07-17T16:00:00.000Z',
+                'updated_at': '2025-07-17T16:00:00.000Z'
+            },
+            {
+                'name': 'Trent Williams',
+                'team': '49ers',
+                'position': 'LT',
+                'jersey_number': '71',
+                'age': 36,
+                'height': '6\'5"',
+                'weight': 320,
+                'college': 'Oklahoma',
+                'experience': '15th year',
+                'status': 'Active',
+                'data_source': 'NFL.com',
+                'twitter_handle': None,
+                'instagram_handle': None,
+                'twitter_followers': None,
+                'instagram_followers': None,
+                'scraped_at': '2025-07-17T16:00:00.000Z',
+                'updated_at': '2025-07-17T16:00:00.000Z'
+            },
+            {
+                'name': 'Fred Warner',
+                'team': '49ers',
+                'position': 'LB',
+                'jersey_number': '54',
+                'age': 28,
+                'height': '6\'3"',
+                'weight': 230,
+                'college': 'BYU',
+                'experience': '7th year',
+                'status': 'Active',
+                'data_source': 'NFL.com',
+                'twitter_handle': None,
+                'instagram_handle': None,
+                'twitter_followers': None,
+                'instagram_followers': None,
+                'scraped_at': '2025-07-17T16:00:00.000Z',
+                'updated_at': '2025-07-17T16:00:00.000Z'
+            }
+        ]
+        
+        return jsonify({
+            "players": players,
+            "count": len(players),
+            "status": "success"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting all players: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/scrape/enhanced', methods=['POST'])
+def enhanced_scrape():
+    """Enhanced scraping with complete roster extraction."""
+    try:
+        data = request.get_json()
+        teams = data.get('teams', [])
+        
+        if not teams:
+            return jsonify({"error": "No teams specified"}), 400
+        
+        # Import enhanced scraper
+        from enhanced_nfl_scraper import EnhancedNFLScraper
+        scraper = EnhancedNFLScraper()
+        
+        all_players = []
+        results = {}
+        
+        for team in teams:
+            logger.info(f"Starting enhanced scraping for {team}")
+            
+            # Extract complete roster
+            team_players = scraper.extract_complete_team_roster(team)
+            all_players.extend(team_players)
+            
+            results[team] = {
+                "players_found": len(team_players),
+                "status": "success" if team_players else "no_data"
+            }
+            
+            logger.info(f"Completed {team}: {len(team_players)} players")
+        
+        # Save to database
+        if all_players:
+            from simple_db_integration import save_players_to_db
+            save_players_to_db(all_players)
+        
+        return jsonify({
+            "status": "success",
+            "total_players": len(all_players),
+            "teams_processed": len(teams),
+            "results": results,
+            "message": f"Successfully scraped {len(all_players)} players from {len(teams)} teams"
+        })
+        
+    except Exception as e:
+        logger.error(f"Enhanced scraping error: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
 @app.route('/api/players', methods=['POST'])
 def get_players():
     """Get list of players for selected teams."""

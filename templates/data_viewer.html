@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFL Player Data Viewer - Excel-like Interface</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/fixedheader/3.4.0/css/fixedHeader.bootstrap5.min.css" rel="stylesheet">
+    <style>
+        .data-viewer {
+            margin: 20px;
+        }
+        .filter-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .stats-cards {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            min-width: 150px;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .dataTables_wrapper {
+            padding: 20px;
+        }
+        .table {
+            font-size: 0.9em;
+        }
+        .table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            border-top: none;
+            white-space: nowrap;
+        }
+        .table td {
+            vertical-align: middle;
+        }
+        .position-badge {
+            font-size: 0.8em;
+            padding: 4px 8px;
+        }
+        .team-badge {
+            font-size: 0.8em;
+            padding: 4px 8px;
+        }
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .filter-group label {
+            font-weight: 600;
+            font-size: 0.9em;
+            color: #495057;
+        }
+        .export-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        .player-details {
+            cursor: pointer;
+        }
+        .player-details:hover {
+            background-color: #f8f9fa;
+        }
+        .social-metrics {
+            display: flex;
+            gap: 10px;
+            font-size: 0.8em;
+        }
+        .social-metric {
+            color: #6c757d;
+        }
+        .height-weight {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        .experience-badge {
+            background: #e9ecef;
+            color: #495057;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid data-viewer">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="mb-0">NFL Player Database</h1>
+                <p class="text-muted">Excel-like interface for comprehensive player data</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" onclick="refreshData()">
+                    <i class="fas fa-sync"></i> Refresh Data
+                </button>
+                <button class="btn btn-success" onclick="exportData()">
+                    <i class="fas fa-download"></i> Export CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="stats-cards">
+            <div class="stat-card">
+                <div class="stat-number" id="totalPlayers">-</div>
+                <div class="stat-label">Total Players</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalTeams">-</div>
+                <div class="stat-label">Teams</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalPositions">-</div>
+                <div class="stat-label">Positions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="avgAge">-</div>
+                <div class="stat-label">Avg Age</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="lastUpdated">-</div>
+                <div class="stat-label">Last Updated</div>
+            </div>
+        </div>
+
+        <!-- Advanced Filters -->
+        <div class="filter-section">
+            <h5><i class="fas fa-filter me-2"></i>Advanced Filters</h5>
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Team</label>
+                    <select class="form-select form-select-sm" id="teamFilter" multiple>
+                        <option value="">All Teams</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Position</label>
+                    <select class="form-select form-select-sm" id="positionFilter" multiple>
+                        <option value="">All Positions</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Age Range</label>
+                    <input type="range" class="form-range" id="ageRange" min="18" max="45" value="35">
+                    <small class="text-muted">Max: <span id="ageValue">35</span></small>
+                </div>
+                <div class="filter-group">
+                    <label>Height Range</label>
+                    <input type="range" class="form-range" id="heightRange" min="60" max="85" value="85">
+                    <small class="text-muted">Max: <span id="heightValue">85</span>"</small>
+                </div>
+                <div class="filter-group">
+                    <label>Weight Range</label>
+                    <input type="range" class="form-range" id="weightRange" min="150" max="350" value="350">
+                    <small class="text-muted">Max: <span id="weightValue">350</span> lbs</small>
+                </div>
+                <div class="filter-group">
+                    <label>Search</label>
+                    <input type="text" class="form-control form-control-sm" id="searchFilter" placeholder="Search players...">
+                </div>
+                <div class="filter-group">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">
+                        <i class="fas fa-times"></i> Clear All
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="table-container">
+            <div class="export-section">
+                <strong>Export Options:</strong>
+                <button class="btn btn-outline-primary btn-sm" onclick="exportFiltered('csv')">
+                    <i class="fas fa-file-csv"></i> CSV
+                </button>
+                <button class="btn btn-outline-success btn-sm" onclick="exportFiltered('excel')">
+                    <i class="fas fa-file-excel"></i> Excel
+                </button>
+                <button class="btn btn-outline-info btn-sm" onclick="exportFiltered('json')">
+                    <i class="fas fa-file-code"></i> JSON
+                </button>
+                <div class="ms-auto">
+                    <span id="filterStatus" class="text-muted">Showing all records</span>
+                </div>
+            </div>
+
+            <div id="loadingSpinner" class="loading">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3">Loading player data...</p>
+            </div>
+
+            <table id="playersTable" class="table table-striped table-hover" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Team</th>
+                        <th>Position</th>
+                        <th>Jersey #</th>
+                        <th>Age</th>
+                        <th>Height</th>
+                        <th>Weight</th>
+                        <th>Experience</th>
+                        <th>College</th>
+                        <th>Social Media</th>
+                        <th>Status</th>
+                        <th>Last Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Player Details Modal -->
+    <div class="modal fade" id="playerModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Player Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="playerDetails">
+                    <!-- Player details will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/fixedheader/3.4.0/js/dataTables.fixedHeader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script>
+        let playersTable;
+        let allPlayersData = [];
+
+        $(document).ready(function() {
+            initializeDataTable();
+            loadPlayersData();
+            setupFilters();
+        });
+
+        function initializeDataTable() {
+            playersTable = $('#playersTable').DataTable({
+                pageLength: 50,
+                lengthMenu: [[25, 50, 100, -1], [25, 50, 100, "All"]],
+                dom: 'Bfrtip',
+                buttons: [
+                    'copy', 'csv', 'excel', 'print'
+                ],
+                fixedHeader: true,
+                responsive: true,
+                columnDefs: [
+                    { targets: [0], className: 'player-details' },
+                    { targets: [1], className: 'text-center' },
+                    { targets: [2], className: 'text-center' },
+                    { targets: [3], className: 'text-center' },
+                    { targets: [4,5,6], className: 'text-center' },
+                ],
+                order: [[0, 'asc']],
+                language: {
+                    search: "Search players:",
+                    lengthMenu: "Show _MENU_ players per page",
+                    info: "Showing _START_ to _END_ of _TOTAL_ players",
+                    emptyTable: "No players found matching your criteria"
+                }
+            });
+
+            // Add click event for player details
+            $('#playersTable tbody').on('click', 'tr', function() {
+                const data = playersTable.row(this).data();
+                if (data && data.length > 0) {
+                    showPlayerDetails(data);
+                }
+            });
+        }
+
+        function loadPlayersData() {
+            fetch('/api/players/all')
+                .then(response => response.json())
+                .then(data => {
+                    allPlayersData = data.players || [];
+                    updateStatistics();
+                    populateFilterOptions();
+                    populateTable();
+                    $('#loadingSpinner').hide();
+                    $('#playersTable').show();
+                })
+                .catch(error => {
+                    console.error('Error loading players:', error);
+                    $('#loadingSpinner').html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Error loading player data. Please try again.
+                        </div>
+                    `);
+                });
+        }
+
+        function populateTable() {
+            playersTable.clear();
+            
+            allPlayersData.forEach(player => {
+                const row = [
+                    `<strong>${player.name || 'N/A'}</strong>`,
+                    `<span class="team-badge badge bg-primary">${player.team || 'N/A'}</span>`,
+                    `<span class="position-badge badge bg-secondary">${player.position || 'N/A'}</span>`,
+                    player.jersey_number || '-',
+                    player.age || '-',
+                    player.height || '-',
+                    player.weight ? `${player.weight} lbs` : '-',
+                    player.experience ? `<span class="experience-badge">${player.experience}</span>` : '-',
+                    player.college || '-',
+                    formatSocialMedia(player),
+                    player.status || 'Active',
+                    formatDate(player.scraped_at || player.updated_at)
+                ];
+                playersTable.row.add(row);
+            });
+            
+            playersTable.draw();
+        }
+
+        function formatSocialMedia(player) {
+            const social = [];
+            if (player.twitter_handle) {
+                social.push(`<i class="fab fa-twitter text-info"></i> ${player.twitter_followers || 0}`);
+            }
+            if (player.instagram_handle) {
+                social.push(`<i class="fab fa-instagram text-danger"></i> ${player.instagram_followers || 0}`);
+            }
+            return social.length > 0 ? `<div class="social-metrics">${social.join(' ')}</div>` : '-';
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        function updateStatistics() {
+            const totalPlayers = allPlayersData.length;
+            const teams = new Set(allPlayersData.map(p => p.team).filter(t => t));
+            const positions = new Set(allPlayersData.map(p => p.position).filter(p => p));
+            const ages = allPlayersData.map(p => p.age).filter(a => a && !isNaN(a));
+            const avgAge = ages.length > 0 ? (ages.reduce((a, b) => a + b) / ages.length).toFixed(1) : '-';
+            
+            const lastUpdated = allPlayersData.length > 0 ? 
+                Math.max(...allPlayersData.map(p => new Date(p.scraped_at || p.updated_at || 0).getTime())) : 0;
+
+            $('#totalPlayers').text(totalPlayers.toLocaleString());
+            $('#totalTeams').text(teams.size);
+            $('#totalPositions').text(positions.size);
+            $('#avgAge').text(avgAge);
+            $('#lastUpdated').text(lastUpdated ? new Date(lastUpdated).toLocaleDateString() : '-');
+        }
+
+        function populateFilterOptions() {
+            const teams = [...new Set(allPlayersData.map(p => p.team).filter(t => t))].sort();
+            const positions = [...new Set(allPlayersData.map(p => p.position).filter(p => p))].sort();
+
+            const teamSelect = $('#teamFilter');
+            const positionSelect = $('#positionFilter');
+
+            teams.forEach(team => {
+                teamSelect.append(`<option value="${team}">${team}</option>`);
+            });
+
+            positions.forEach(position => {
+                positionSelect.append(`<option value="${position}">${position}</option>`);
+            });
+        }
+
+        function setupFilters() {
+            // Range filters
+            $('#ageRange').on('input', function() {
+                $('#ageValue').text(this.value);
+                applyFilters();
+            });
+
+            $('#heightRange').on('input', function() {
+                $('#heightValue').text(this.value);
+                applyFilters();
+            });
+
+            $('#weightRange').on('input', function() {
+                $('#weightValue').text(this.value);
+                applyFilters();
+            });
+
+            // Select filters
+            $('#teamFilter, #positionFilter').on('change', applyFilters);
+            
+            // Search filter
+            $('#searchFilter').on('keyup', debounce(applyFilters, 300));
+        }
+
+        function applyFilters() {
+            if (!playersTable) return;
+
+            const teamFilter = $('#teamFilter').val();
+            const positionFilter = $('#positionFilter').val();
+            const ageMax = parseInt($('#ageRange').val());
+            const heightMax = parseInt($('#heightRange').val());
+            const weightMax = parseInt($('#weightRange').val());
+            const searchTerm = $('#searchFilter').val().toLowerCase();
+
+            let filteredData = allPlayersData;
+
+            // Apply filters
+            if (teamFilter && teamFilter.length > 0) {
+                filteredData = filteredData.filter(p => teamFilter.includes(p.team));
+            }
+
+            if (positionFilter && positionFilter.length > 0) {
+                filteredData = filteredData.filter(p => positionFilter.includes(p.position));
+            }
+
+            if (ageMax < 45) {
+                filteredData = filteredData.filter(p => !p.age || p.age <= ageMax);
+            }
+
+            if (heightMax < 85) {
+                filteredData = filteredData.filter(p => {
+                    if (!p.height) return true;
+                    const heightInches = parseHeightToInches(p.height);
+                    return heightInches <= heightMax;
+                });
+            }
+
+            if (weightMax < 350) {
+                filteredData = filteredData.filter(p => !p.weight || p.weight <= weightMax);
+            }
+
+            if (searchTerm) {
+                filteredData = filteredData.filter(p => 
+                    (p.name && p.name.toLowerCase().includes(searchTerm)) ||
+                    (p.college && p.college.toLowerCase().includes(searchTerm)) ||
+                    (p.position && p.position.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            // Update table
+            allPlayersData = filteredData;
+            populateTable();
+            
+            // Update filter status
+            $('#filterStatus').text(`Showing ${filteredData.length} of ${allPlayersData.length} players`);
+        }
+
+        function parseHeightToInches(height) {
+            if (!height) return 0;
+            const match = height.match(/(\d+)'(\d+)"/);
+            if (match) {
+                return parseInt(match[1]) * 12 + parseInt(match[2]);
+            }
+            return 0;
+        }
+
+        function clearFilters() {
+            $('#teamFilter').val('').trigger('change');
+            $('#positionFilter').val('').trigger('change');
+            $('#ageRange').val(45).trigger('input');
+            $('#heightRange').val(85).trigger('input');
+            $('#weightRange').val(350).trigger('input');
+            $('#searchFilter').val('').trigger('keyup');
+        }
+
+        function showPlayerDetails(data) {
+            const playerName = data[0].replace(/<[^>]*>/g, '');
+            
+            // Find player in original data
+            const player = allPlayersData.find(p => p.name === playerName);
+            
+            if (!player) return;
+
+            const detailsHtml = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4>${player.name}</h4>
+                        <p><strong>Team:</strong> ${player.team || 'N/A'}</p>
+                        <p><strong>Position:</strong> ${player.position || 'N/A'}</p>
+                        <p><strong>Jersey Number:</strong> ${player.jersey_number || 'N/A'}</p>
+                        <p><strong>Height:</strong> ${player.height || 'N/A'}</p>
+                        <p><strong>Weight:</strong> ${player.weight ? player.weight + ' lbs' : 'N/A'}</p>
+                        <p><strong>Age:</strong> ${player.age || 'N/A'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>College:</strong> ${player.college || 'N/A'}</p>
+                        <p><strong>Experience:</strong> ${player.experience || 'N/A'}</p>
+                        <p><strong>Status:</strong> ${player.status || 'Active'}</p>
+                        <p><strong>Data Source:</strong> ${player.data_source || 'N/A'}</p>
+                        <p><strong>Last Updated:</strong> ${formatDate(player.scraped_at || player.updated_at)}</p>
+                    </div>
+                </div>
+                ${player.twitter_handle || player.instagram_handle ? `
+                    <div class="mt-3">
+                        <h5>Social Media</h5>
+                        ${player.twitter_handle ? `<p><i class="fab fa-twitter text-info"></i> @${player.twitter_handle} (${player.twitter_followers || 0} followers)</p>` : ''}
+                        ${player.instagram_handle ? `<p><i class="fab fa-instagram text-danger"></i> @${player.instagram_handle} (${player.instagram_followers || 0} followers)</p>` : ''}
+                    </div>
+                ` : ''}
+            `;
+
+            $('#playerDetails').html(detailsHtml);
+            new bootstrap.Modal(document.getElementById('playerModal')).show();
+        }
+
+        function refreshData() {
+            $('#loadingSpinner').show();
+            $('#playersTable').hide();
+            loadPlayersData();
+        }
+
+        function exportData() {
+            const csv = convertToCSV(allPlayersData);
+            downloadCSV(csv, 'nfl_players.csv');
+        }
+
+        function exportFiltered(format) {
+            const visibleData = playersTable.rows({ search: 'applied' }).data().toArray();
+            
+            if (format === 'csv') {
+                const csv = convertToCSV(allPlayersData);
+                downloadCSV(csv, 'nfl_players_filtered.csv');
+            } else if (format === 'json') {
+                const json = JSON.stringify(allPlayersData, null, 2);
+                downloadJSON(json, 'nfl_players_filtered.json');
+            }
+            // Excel export would need additional library
+        }
+
+        function convertToCSV(data) {
+            if (!data.length) return '';
+            
+            const headers = Object.keys(data[0]);
+            const csv = [
+                headers.join(','),
+                ...data.map(row => 
+                    headers.map(header => {
+                        const value = row[header] || '';
+                        return `"${value.toString().replace(/"/g, '""')}"`;
+                    }).join(',')
+                )
+            ].join('\n');
+            
+            return csv;
+        }
+
+        function downloadCSV(csv, filename) {
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.click();
+        }
+
+        function downloadJSON(json, filename) {
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.click();
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+    </script>
+</body>
+</html>
