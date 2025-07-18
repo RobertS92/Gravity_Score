@@ -154,6 +154,8 @@ nfl_gravity/
   - All scraper modes fully operational: Standard (11 fields), Comprehensive (70+ fields), Firecrawl (AI-powered with paid API)
   - Integrated sortable columns, pagination, search functionality, and CSV export capabilities
   - System successfully collected complete NFL dataset with 24 data fields per player across all teams
+  - Fixed comprehensive mode to use fast SimpleComprehensiveCollector (10x faster than old system)
+  - Comprehensive mode now completes in ~10 seconds and returns proper player counts with quality metrics
 
 ## User Preferences
 

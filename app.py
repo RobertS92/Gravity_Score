@@ -335,54 +335,72 @@ def get_all_players():
 
 @app.route('/api/scrape/comprehensive', methods=['POST'])
 def scrape_comprehensive_data():
-    """Scrape comprehensive data for all players with social media."""
+    """Scrape comprehensive data using fast simple comprehensive collector."""
     try:
         data = request.get_json()
-        team = data.get('team', '49ers')
+        teams = data.get('teams', ['49ers'])
         
-        logger.info(f"Starting comprehensive data scraping for {team}")
+        # Use the fast simple comprehensive collector
+        from simple_comprehensive_collector import SimpleComprehensiveCollector
+        collector = SimpleComprehensiveCollector()
         
-        # Use the comprehensive collector
-        from comprehensive_nfl_collector import ComprehensiveNFLCollector
-        collector = ComprehensiveNFLCollector()
+        all_players = []
+        results = {}
         
-        # Get sample players for testing
-        sample_players = [
-            {'name': 'Brock Purdy', 'position': 'QB'},
-            {'name': 'Christian McCaffrey', 'position': 'RB'},
-            {'name': 'Deebo Samuel', 'position': 'WR'},
-            {'name': 'George Kittle', 'position': 'TE'},
-            {'name': 'Nick Bosa', 'position': 'DE'}
-        ]
+        for team in teams:
+            logger.info(f"Starting comprehensive data scraping for {team}")
+            
+            # Collect comprehensive data for the team (limit to 5 for testing)
+            enhanced_players = collector.collect_team_roster(team, limit_players=5)
+            
+            all_players.extend(enhanced_players)
+            
+            # Calculate quality metrics
+            avg_quality = sum(p.get('data_quality_score', 0) for p in enhanced_players) / len(enhanced_players) if enhanced_players else 0
+            total_sources = sum(len(p.get('data_sources', [])) for p in enhanced_players)
+            
+            results[team] = {
+                "players_found": len(enhanced_players),
+                "players_enhanced": len(enhanced_players),
+                "avg_quality_score": round(avg_quality, 1),
+                "total_sources_used": total_sources,
+                "status": "success" if enhanced_players else "no_data"
+            }
+            
+            logger.info(f"Completed {team}: {len(enhanced_players)} players with comprehensive data (avg quality: {avg_quality:.1f})")
         
-        all_comprehensive_data = []
+        # Save comprehensive data to file
+        import pandas as pd
+        from datetime import datetime
+        import os
         
-        for player in sample_players:
-            try:
-                logger.info(f"Collecting comprehensive data for {player['name']}")
-                
-                # Collect complete player data
-                player_data = collector.collect_complete_player_data(
-                    player['name'], 
-                    team, 
-                    player['position']
-                )
-                
-                all_comprehensive_data.append(player_data)
-                
-            except Exception as e:
-                logger.error(f"Error collecting data for {player['name']}: {e}")
-                continue
+        if all_players:
+            df = pd.DataFrame(all_players)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_filename = f"data/comprehensive_players_{timestamp}.csv"
+            
+            # Create data directory if it doesn't exist
+            os.makedirs("data", exist_ok=True)
+            df.to_csv(csv_filename, index=False)
+            
+            logger.info(f"Saved comprehensive data to {csv_filename}")
+        
+        # Calculate overall metrics
+        total_sources = sum(results[team].get("total_sources_used", 0) for team in results)
+        avg_quality = sum(results[team].get("avg_quality_score", 0) for team in results) / len(results) if results else 0
         
         return jsonify({
-            "players": all_comprehensive_data,
-            "count": len(all_comprehensive_data),
             "status": "success",
-            "message": f"Comprehensive data collected for {len(all_comprehensive_data)} players"
+            "total_players": len(all_players),
+            "teams_processed": len(teams),
+            "results": results,
+            "avg_quality_score": round(avg_quality, 1),
+            "total_sources_used": total_sources,
+            "message": f"Comprehensive data collected for {len(all_players)} players from {len(teams)} teams"
         })
         
     except Exception as e:
-        logger.error(f"Error in comprehensive scraping: {e}")
+        logger.error(f"Error in comprehensive data scraping: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
 @app.route('/api/social/search', methods=['POST'])
@@ -570,11 +588,17 @@ def comprehensive_scrape():
             
             logger.info(f"Completed {team}: {len(enhanced_players)} players with comprehensive data (avg quality: {avg_quality:.1f})")
         
+        # Calculate overall metrics
+        total_sources = sum(results[team].get("total_sources_used", 0) for team in results)
+        avg_quality = sum(results[team].get("avg_quality_score", 0) for team in results) / len(results) if results else 0
+        
         return jsonify({
             "status": "success",
             "total_players": len(all_players),
             "teams_processed": len(teams),
             "results": results,
+            "avg_quality_score": round(avg_quality, 1),
+            "total_sources_used": total_sources,
             "message": f"Successfully collected comprehensive data for {len(all_players)} players from {len(teams)} teams"
         })
         
