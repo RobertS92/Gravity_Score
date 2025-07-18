@@ -198,12 +198,17 @@
                                 <th onclick="sortTable('name')">Name <i class="fas fa-sort"></i></th>
                                 <th onclick="sortTable('team')">Team <i class="fas fa-sort"></i></th>
                                 <th onclick="sortTable('position')">Position <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('jersey_number')">Number <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('jersey_number')"># <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('height')">Height <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('weight')">Weight <i class="fas fa-sort"></i></th>
                                 <th onclick="sortTable('age')">Age <i class="fas fa-sort"></i></th>
                                 <th onclick="sortTable('experience')">Exp <i class="fas fa-sort"></i></th>
                                 <th onclick="sortTable('college')">College <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('twitter_handle')">Twitter <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('instagram_handle')">Instagram <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('current_salary')">Salary <i class="fas fa-sort"></i></th>
+                                <th onclick="sortTable('contract_value')">Contract <i class="fas fa-sort"></i></th>
                                 <th onclick="sortTable('data_quality_score')">Quality <i class="fas fa-sort"></i></th>
-                                <th>Social</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -379,7 +384,7 @@
         if (pageData.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="10" class="text-center text-muted">
+                    <td colspan="15" class="text-center text-muted">
                         <i class="fas fa-search me-2"></i>
                         No players found matching your filters.
                     </td>
@@ -399,18 +404,27 @@
                 </td>
                 <td>${player.position || 'N/A'}</td>
                 <td>${player.jersey_number || '-'}</td>
+                <td>${player.height || 'N/A'}</td>
+                <td>${player.weight || 'N/A'}</td>
                 <td>${player.age || 'N/A'}</td>
                 <td>${player.experience || 'N/A'}</td>
                 <td>${player.college || 'N/A'}</td>
                 <td>
+                    ${player.twitter_handle ? `<a href="#" class="text-primary">${player.twitter_handle}</a>` : '-'}
+                </td>
+                <td>
+                    ${player.instagram_handle ? `<a href="#" class="text-danger">${player.instagram_handle}</a>` : '-'}
+                </td>
+                <td>
+                    ${player.current_salary ? `<span class="text-success">${player.current_salary}</span>` : '-'}
+                </td>
+                <td>
+                    ${player.contract_value ? `<span class="text-info">${player.contract_value}</span>` : '-'}
+                </td>
+                <td>
                     <span class="badge ${getQualityBadgeClass(player.data_quality_score)}">
                         ${(player.data_quality_score || 0).toFixed(1)}
                     </span>
-                </td>
-                <td>
-                    ${player.twitter_handle ? '<i class="fab fa-twitter text-primary me-1"></i>' : ''}
-                    ${player.instagram_handle ? '<i class="fab fa-instagram text-danger me-1"></i>' : ''}
-                    ${player.tiktok_handle ? '<i class="fab fa-tiktok text-dark me-1"></i>' : ''}
                 </td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="viewPlayer('${player.name}')">
@@ -612,7 +626,7 @@
         const tbody = document.getElementById('playersTableBody');
         tbody.innerHTML = `
             <tr>
-                <td colspan="10" class="text-center text-danger">
+                <td colspan="15" class="text-center text-danger">
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     ${message}
                 </td>

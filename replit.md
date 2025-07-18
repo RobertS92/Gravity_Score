@@ -158,6 +158,10 @@ nfl_gravity/
   - Comprehensive mode now collects full rosters (91-92 players per team) with 70 fields each
   - Processing time: ~2 minutes per team with 2.9/5 average data quality score
   - Firecrawl mode operational but experiences rate limiting with heavy API usage (expected behavior)
+  - **CRITICAL FIX**: Resolved column visibility issue - all 70 comprehensive fields now display properly in "View Data" and "All Players" pages
+  - API endpoints now prioritize comprehensive data files over standard files
+  - Table displays all enhanced fields: social media handles, salaries, contracts, biographical data, career statistics
+  - Professional table layout with 15 visible columns including Twitter, Instagram, current salary, contract value, and data quality scores
 
 ## User Preferences
 

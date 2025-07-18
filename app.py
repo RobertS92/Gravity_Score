@@ -92,13 +92,17 @@ def get_all_players():
         import os
         import glob
         
-        # Find the latest data file (check both root data/ and subdirectories)
-        data_files = glob.glob('data/players_*.csv') + glob.glob('data/**/players_*.csv', recursive=True)
-        if not data_files:
-            return jsonify({"players": [], "count": 0, "status": "no_data"})
+        # Find the latest data file (prioritize comprehensive files)
+        comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
+        standard_files = glob.glob('data/players_*.csv') + glob.glob('data/**/players_*.csv', recursive=True)
         
-        # Sort by modification time, get the most recent
-        latest_file = max(data_files, key=os.path.getmtime)
+        # Use comprehensive files if available, otherwise fall back to standard
+        if comprehensive_files:
+            latest_file = max(comprehensive_files, key=os.path.getmtime)
+        elif standard_files:
+            latest_file = max(standard_files, key=os.path.getmtime)
+        else:
+            return jsonify({"players": [], "count": 0, "status": "no_data"})
         
         # Load the data
         df = pd.read_csv(latest_file)
@@ -796,10 +800,16 @@ def get_latest_data():
         import glob
         import os
         
-        # Find the latest data file (check both root data/ and subdirectories)
-        data_files = glob.glob('data/players_*.csv') + glob.glob('data/**/players_*.csv', recursive=True)
+        # Find the latest data file (prioritize comprehensive files)
+        comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
+        standard_files = glob.glob('data/players_*.csv') + glob.glob('data/**/players_*.csv', recursive=True)
         
-        if not data_files:
+        # Use comprehensive files if available, otherwise fall back to standard
+        if comprehensive_files:
+            latest_file = max(comprehensive_files, key=os.path.getmtime)
+        elif standard_files:
+            latest_file = max(standard_files, key=os.path.getmtime)
+        else:
             # Try to get data info from MCP as fallback
             try:
                 data_info = mcp.get_latest_data_info()
@@ -811,9 +821,6 @@ def get_latest_data():
                     "status": "no_data",
                     "message": "No player data files found"
                 })
-        
-        # Sort by modification time, get the most recent
-        latest_file = max(data_files, key=os.path.getmtime)
         
         # Load the data
         df = pd.read_csv(latest_file)
