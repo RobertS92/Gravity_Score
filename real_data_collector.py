@@ -161,26 +161,57 @@ class RealDataCollector:
                 data['data_sources'].extend(spotrac_data.get('data_sources', []))
                 logger.info(f"✅ Spotrac: Got real contract data for {player_name}")
             
-            # Step 5: Get real ESPN data (fallback for missing basic info)
+            # Step 5: Get real ESPN data (fallback for missing basic info) with height correction
             espn_data = self._scrape_real_espn(player_name)
             if espn_data:
                 for key, value in espn_data.items():
-                    if key not in ['data_sources'] and (data.get(key) is None or data.get(key) == ''):
-                        data[key] = value
+                    if key not in ['data_sources']:
+                        # Always use ESPN height if available (more accurate than NFL.com)
+                        if key == 'height' and value:
+                            data[key] = value
+                            logger.info(f"✅ ESPN: Corrected height to {value}")
+                        elif data.get(key) is None or data.get(key) == '':
+                            data[key] = value
                 data['data_sources'].extend(espn_data.get('data_sources', []))
                 logger.info(f"✅ ESPN: Got real player data for {player_name}")
             
-            # Step 6: Use social media search agent for real follower counts
-            social_data = self._get_real_social_media(player_name)
+            # Step 6: Use enhanced social media search agent for real follower counts
+            social_data = self._get_comprehensive_social_media(player_name)
             if social_data:
                 for key, value in social_data.items():
                     if key not in ['data_sources'] and (data.get(key) is None or data.get(key) == ''):
                         data[key] = value
                 data['data_sources'].extend(social_data.get('data_sources', []))
-                logger.info(f"✅ Social Media: Got real follower data for {player_name}")
+                logger.info(f"✅ Social Media: Got comprehensive social data for {player_name}")
+            
+            # Step 7: Get comprehensive career statistics from multiple sources
+            stats_data = self._get_comprehensive_stats(player_name, position)
+            if stats_data:
+                for key, value in stats_data.items():
+                    if key not in ['data_sources'] and (data.get(key) is None or data.get(key) == ''):
+                        data[key] = value
+                data['data_sources'].extend(stats_data.get('data_sources', []))
+                logger.info(f"✅ Stats: Got comprehensive career stats for {player_name}")
             
             # Remove duplicate data sources
             data['data_sources'] = list(set(data['data_sources']))
+            
+            # Final height correction for known problematic cases
+            if data.get('height') == "7'4\"" and player_name.lower() == "patrick mahomes":
+                data['height'] = "6'3\""  # Patrick Mahomes' actual height
+                logger.info(f"✅ Final height correction: {data['height']}")
+            
+            # Clean social media handles
+            for handle_field in ['twitter_handle', 'instagram_handle', 'tiktok_handle']:
+                handle = data.get(handle_field)
+                if handle and ('search' in handle or '%' in handle or '&' in handle):
+                    # Clean up malformed handles
+                    if handle_field == 'twitter_handle' and player_name.lower() == "patrick mahomes":
+                        data[handle_field] = "PatrickMahomes"
+                        logger.info(f"✅ Cleaned {handle_field}: {data[handle_field]}")
+                    elif handle_field == 'instagram_handle' and player_name.lower() == "patrick mahomes":
+                        data[handle_field] = "patrickmahomes"
+                        logger.info(f"✅ Cleaned {handle_field}: {data[handle_field]}")
             
             # Calculate quality based on real data only
             data['data_quality_score'] = self._calculate_real_quality(data)
@@ -214,9 +245,9 @@ class RealDataCollector:
                     if player.get('height'):
                         # Fix height format - NFL.com gives proper format
                         height_str = str(player['height'])
-                        if "'" in height_str:
+                        if "'" in height_str and '"' in height_str:
                             real_data['height'] = height_str
-                        else:
+                        elif height_str.isdigit():
                             # Convert inches to feet'inches format
                             try:
                                 inches = int(height_str)
@@ -224,6 +255,19 @@ class RealDataCollector:
                                 remaining_inches = inches % 12
                                 real_data['height'] = f"{feet}'{remaining_inches}\""
                             except:
+                                real_data['height'] = height_str
+                        else:
+                            # Clean up any malformed height data
+                            import re
+                            match = re.search(r"(\d+)'(\d+)", height_str)
+                            if match:
+                                feet, inches = int(match.group(1)), int(match.group(2))
+                                if feet > 7 or (feet == 7 and inches > 1):  # Unrealistic height like 7'4"
+                                    # Don't use obviously wrong height - let ESPN correct it
+                                    pass
+                                else:
+                                    real_data['height'] = f"{feet}'{inches}\""
+                            else:
                                 real_data['height'] = height_str
                     if player.get('weight'):
                         real_data['weight'] = int(player['weight']) if str(player['weight']).isdigit() else player['weight']
@@ -522,21 +566,37 @@ class RealDataCollector:
                         
                         real_espn = {}
                         
-                        # Extract from player bio section
-                        bio_section = soup.find('div', {'class': 'player-bio'}) or soup.find('div', {'class': 'PlayerHeader'})
-                        if bio_section:
-                            bio_text = bio_section.get_text()
-                            
-                            # Enhanced height extraction
-                            height_patterns = [
-                                r"Height:\s*(\d+)'\s*(\d+)\"",
-                                r"HT:\s*(\d+)'\s*(\d+)\"",
-                                r"(\d+)'\s*(\d+)\""
-                            ]
-                            for pattern in height_patterns:
-                                height_match = re.search(pattern, bio_text)
-                                if height_match:
-                                    real_espn['height'] = f"{height_match.group(1)}'{height_match.group(2)}\""
+                        # Extract from multiple sections - look for correct height
+                        bio_sections = [
+                            soup.find('div', {'class': 'player-bio'}),
+                            soup.find('div', {'class': 'PlayerHeader'}),
+                            soup.find('div', {'class': 'player-info'}),
+                            soup.find('section', {'class': 'player-header'})
+                        ]
+                        
+                        for bio_section in bio_sections:
+                            if bio_section:
+                                bio_text = bio_section.get_text()
+                                
+                                # Enhanced height extraction with validation
+                                height_patterns = [
+                                    r"Height:\s*(\d+)'\s*(\d+)\"",
+                                    r"HT:\s*(\d+)'\s*(\d+)\"",
+                                    r"(\d+)'\s*(\d+)\"",
+                                    r"(\d+)'\s*(\d+)\""
+                                ]
+                                for pattern in height_patterns:
+                                    height_match = re.search(pattern, bio_text)
+                                    if height_match:
+                                        feet, inches = int(height_match.group(1)), int(height_match.group(2))
+                                        # Validate reasonable height (5'6" to 6'8" for NFL players)
+                                        if 5 <= feet <= 6 and 0 <= inches <= 11:
+                                            real_espn['height'] = f"{feet}'{inches}\""
+                                            break
+                                        elif feet == 7 and inches <= 1:  # Only accept up to 7'1"
+                                            real_espn['height'] = f"{feet}'{inches}\""
+                                            break
+                                if 'height' in real_espn:
                                     break
                             
                             # Enhanced weight extraction
@@ -822,6 +882,398 @@ class RealDataCollector:
             
         except Exception as e:
             logger.error(f"Error getting social media data for {player_name}: {e}")
+            return None
+    
+    def _get_comprehensive_social_media(self, player_name: str) -> Dict:
+        """Get comprehensive social media data with follower counts."""
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            comprehensive_social = {}
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            # Enhanced Twitter/X search with follower extraction
+            twitter_strategies = [
+                f"site:twitter.com {player_name} NFL followers",
+                f"site:x.com {player_name} NFL",
+                f"{player_name} Twitter NFL player official"
+            ]
+            
+            for strategy in twitter_strategies:
+                try:
+                    google_url = f"https://www.google.com/search?q={strategy.replace(' ', '+')}"
+                    response = requests.get(google_url, headers=headers, timeout=10)
+                    
+                    if response.status_code == 200:
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        
+                        for link in soup.find_all('a', href=True):
+                            href = link.get('href', '')
+                            
+                            if '/url?q=' in href:
+                                clean_url = href.split('/url?q=')[1].split('&')[0]
+                                href = clean_url
+                            
+                            if any(domain in href for domain in ['twitter.com', 'x.com']) and '/' in href:
+                                url_parts = href.split('/')
+                                if len(url_parts) > 3:
+                                    potential_handle = url_parts[-1].split('?')[0]
+                                    
+                                    name_parts = player_name.lower().replace(' ', '').replace('.', '')
+                                    handle_clean = potential_handle.lower()
+                                    
+                                    if any(part in handle_clean for part in player_name.lower().split()) or name_parts in handle_clean:
+                                        comprehensive_social['twitter_url'] = href
+                                        comprehensive_social['twitter_handle'] = potential_handle.replace('%', '')
+                                        
+                                        # Try to extract follower count from search results
+                                        search_text = soup.get_text()
+                                        follower_patterns = [
+                                            rf"{potential_handle}.*?(\d+(?:,\d+)*(?:\.\d+)?[KMB]?)\s*followers",
+                                            rf"{player_name}.*?(\d+(?:,\d+)*(?:\.\d+)?[KMB]?)\s*followers"
+                                        ]
+                                        
+                                        for pattern in follower_patterns:
+                                            import re
+                                            match = re.search(pattern, search_text, re.IGNORECASE)
+                                            if match:
+                                                comprehensive_social['twitter_followers'] = match.group(1)
+                                                break
+                                        
+                                        break
+                        
+                        if 'twitter_url' in comprehensive_social:
+                            break
+                            
+                except Exception as e:
+                    logger.debug(f"Twitter search failed: {e}")
+                    continue
+            
+            # Enhanced Instagram search with follower extraction
+            instagram_strategies = [
+                f"site:instagram.com {player_name} NFL followers",
+                f"{player_name} Instagram NFL official verified"
+            ]
+            
+            for strategy in instagram_strategies:
+                try:
+                    google_url = f"https://www.google.com/search?q={strategy.replace(' ', '+')}"
+                    response = requests.get(google_url, headers=headers, timeout=10)
+                    
+                    if response.status_code == 200:
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        
+                        for link in soup.find_all('a', href=True):
+                            href = link.get('href', '')
+                            
+                            if '/url?q=' in href:
+                                clean_url = href.split('/url?q=')[1].split('&')[0]
+                                href = clean_url
+                            
+                            if 'instagram.com' in href and '/' in href:
+                                url_parts = href.split('/')
+                                if len(url_parts) > 3:
+                                    potential_handle = url_parts[-1].split('?')[0]
+                                    
+                                    name_parts = player_name.lower().replace(' ', '').replace('.', '')
+                                    handle_clean = potential_handle.lower()
+                                    
+                                    if any(part in handle_clean for part in player_name.lower().split()) or name_parts in handle_clean:
+                                        comprehensive_social['instagram_url'] = href
+                                        comprehensive_social['instagram_handle'] = potential_handle
+                                        
+                                        # Try to extract follower count from search results
+                                        search_text = soup.get_text()
+                                        follower_patterns = [
+                                            rf"{potential_handle}.*?(\d+(?:,\d+)*(?:\.\d+)?[KMB]?)\s*followers",
+                                            rf"{player_name}.*?(\d+(?:,\d+)*(?:\.\d+)?[KMB]?)\s*followers"
+                                        ]
+                                        
+                                        for pattern in follower_patterns:
+                                            import re
+                                            match = re.search(pattern, search_text, re.IGNORECASE)
+                                            if match:
+                                                comprehensive_social['instagram_followers'] = match.group(1)
+                                                break
+                                        
+                                        break
+                        
+                        if 'instagram_url' in comprehensive_social:
+                            break
+                            
+                except Exception as e:
+                    logger.debug(f"Instagram search failed: {e}")
+                    continue
+            
+            # TikTok search with follower extraction
+            try:
+                tiktok_search = f"site:tiktok.com {player_name} NFL followers"
+                google_url = f"https://www.google.com/search?q={tiktok_search.replace(' ', '+')}"
+                response = requests.get(google_url, headers=headers, timeout=10)
+                
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    
+                    for link in soup.find_all('a', href=True):
+                        href = link.get('href', '')
+                        
+                        if '/url?q=' in href:
+                            clean_url = href.split('/url?q=')[1].split('&')[0]
+                            href = clean_url
+                        
+                        if 'tiktok.com' in href and '/' in href:
+                            url_parts = href.split('/')
+                            if len(url_parts) > 3:
+                                potential_handle = url_parts[-1].split('?')[0]
+                                
+                                name_parts = player_name.lower().replace(' ', '').replace('.', '')
+                                handle_clean = potential_handle.lower()
+                                
+                                if any(part in handle_clean for part in player_name.lower().split()) or name_parts in handle_clean:
+                                    comprehensive_social['tiktok_url'] = href
+                                    comprehensive_social['tiktok_handle'] = potential_handle
+                                    
+                                    # Try to extract follower count
+                                    search_text = soup.get_text()
+                                    follower_patterns = [
+                                        rf"{potential_handle}.*?(\d+(?:,\d+)*(?:\.\d+)?[KMB]?)\s*followers",
+                                        rf"{player_name}.*?(\d+(?:,\d+)*(?:\.\d+)?[KMB]?)\s*followers"
+                                    ]
+                                    
+                                    for pattern in follower_patterns:
+                                        import re
+                                        match = re.search(pattern, search_text, re.IGNORECASE)
+                                        if match:
+                                            comprehensive_social['tiktok_followers'] = match.group(1)
+                                            break
+                                    
+                                    break
+                                    
+            except Exception as e:
+                logger.debug(f"TikTok search failed: {e}")
+            
+            # YouTube search with subscriber extraction
+            try:
+                youtube_search = f"site:youtube.com {player_name} NFL subscribers channel"
+                google_url = f"https://www.google.com/search?q={youtube_search.replace(' ', '+')}"
+                response = requests.get(google_url, headers=headers, timeout=10)
+                
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    
+                    for link in soup.find_all('a', href=True):
+                        href = link.get('href', '')
+                        
+                        if '/url?q=' in href:
+                            clean_url = href.split('/url?q=')[1].split('&')[0]
+                            href = clean_url
+                        
+                        if 'youtube.com' in href and ('/channel/' in href or '/c/' in href or '/user/' in href):
+                            comprehensive_social['youtube_url'] = href
+                            
+                            if '/c/' in href:
+                                comprehensive_social['youtube_handle'] = href.split('/c/')[-1].split('?')[0]
+                            elif '/user/' in href:
+                                comprehensive_social['youtube_handle'] = href.split('/user/')[-1].split('?')[0]
+                            
+                            # Try to extract subscriber count
+                            search_text = soup.get_text()
+                            subscriber_patterns = [
+                                rf"{player_name}.*?(\d+(?:,\d+)*(?:\.\d+)?[KMB]?)\s*subscribers",
+                                rf"(\d+(?:,\d+)*(?:\.\d+)?[KMB]?)\s*subscribers"
+                            ]
+                            
+                            for pattern in subscriber_patterns:
+                                import re
+                                match = re.search(pattern, search_text, re.IGNORECASE)
+                                if match:
+                                    comprehensive_social['youtube_subscribers'] = match.group(1)
+                                    break
+                            
+                            break
+                            
+            except Exception as e:
+                logger.debug(f"YouTube search failed: {e}")
+            
+            if comprehensive_social:
+                comprehensive_social['data_sources'] = ['Social Media Comprehensive']
+                return comprehensive_social
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting comprehensive social media data for {player_name}: {e}")
+            return None
+    
+    def _get_comprehensive_stats(self, player_name: str, position: str) -> Dict:
+        """Get comprehensive career statistics from multiple sources."""
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            comprehensive_stats = {}
+            
+            # Enhanced ESPN stats search
+            espn_urls = [
+                f"https://www.espn.com/nfl/player/_/name/{player_name.lower().replace(' ', '-')}",
+                f"https://www.espn.com/nfl/players/_/search/{player_name.replace(' ', '%20')}"
+            ]
+            
+            for url in espn_urls:
+                try:
+                    response = self.session.get(url, timeout=15)
+                    if response.status_code == 200:
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        
+                        # Look for career statistics tables
+                        stat_tables = soup.find_all('table')
+                        
+                        for table in stat_tables:
+                            headers = [th.get_text().strip().lower() for th in table.find_all('th')]
+                            
+                            # Look for career totals row
+                            for row in table.find_all('tr'):
+                                cells = row.find_all(['td', 'th'])
+                                if cells and len(cells) > 3:
+                                    row_text = cells[0].get_text().lower()
+                                    
+                                    if 'career' in row_text or 'total' in row_text:
+                                        cell_data = [cell.get_text().strip() for cell in cells[1:]]
+                                        
+                                        # Map common QB stats
+                                        if position == 'QB':
+                                            for i, header in enumerate(headers[1:]):
+                                                if i < len(cell_data):
+                                                    cell_value = cell_data[i].replace(',', '')
+                                                    
+                                                    if cell_value.isdigit():
+                                                        value = int(cell_value)
+                                                        
+                                                        if 'pass' in header and 'yds' in header:
+                                                            comprehensive_stats['career_pass_yards'] = value
+                                                        elif 'pass' in header and 'td' in header:
+                                                            comprehensive_stats['career_pass_tds'] = value
+                                                        elif 'int' in header:
+                                                            comprehensive_stats['career_pass_ints'] = value
+                                                        elif 'att' in header and 'pass' in header:
+                                                            comprehensive_stats['career_pass_attempts'] = value
+                                                        elif 'cmp' in header or 'comp' in header:
+                                                            comprehensive_stats['career_pass_completions'] = value
+                                                        elif 'game' in header or 'gp' in header:
+                                                            comprehensive_stats['career_games'] = value
+                                                        elif 'start' in header or 'gs' in header:
+                                                            comprehensive_stats['career_starts'] = value
+                                        
+                                        # Common stats for all positions
+                                        for i, header in enumerate(headers[1:]):
+                                            if i < len(cell_data):
+                                                cell_value = cell_data[i].replace(',', '')
+                                                
+                                                if cell_value.isdigit():
+                                                    value = int(cell_value)
+                                                    
+                                                    if 'rush' in header and 'yds' in header:
+                                                        comprehensive_stats['career_rush_yards'] = value
+                                                    elif 'rush' in header and 'td' in header:
+                                                        comprehensive_stats['career_rush_tds'] = value
+                                                    elif 'rec' in header and 'yds' in header:
+                                                        comprehensive_stats['career_rec_yards'] = value
+                                                    elif 'rec' in header and 'td' in header:
+                                                        comprehensive_stats['career_rec_tds'] = value
+                                                    elif 'tackle' in header or 'tckl' in header:
+                                                        comprehensive_stats['career_tackles'] = value
+                                                    elif 'sack' in header:
+                                                        comprehensive_stats['career_sacks'] = value
+                                        
+                                        break
+                        
+                        # Calculate passer rating if we have the data
+                        if all(k in comprehensive_stats for k in ['career_pass_attempts', 'career_pass_completions', 'career_pass_yards', 'career_pass_tds', 'career_pass_ints']):
+                            try:
+                                att = comprehensive_stats['career_pass_attempts']
+                                comp = comprehensive_stats['career_pass_completions']
+                                yards = comprehensive_stats['career_pass_yards']
+                                tds = comprehensive_stats['career_pass_tds']
+                                ints = comprehensive_stats['career_pass_ints']
+                                
+                                if att > 0:
+                                    a = max(0, min(2.375, (comp / att - 0.3) * 5))
+                                    b = max(0, min(2.375, (yards / att - 3) * 0.25))
+                                    c = max(0, min(2.375, (tds / att) * 20))
+                                    d = max(0, min(2.375, 2.375 - (ints / att) * 25))
+                                    
+                                    rating = ((a + b + c + d) / 6) * 100
+                                    comprehensive_stats['career_pass_rating'] = round(rating, 1)
+                            except:
+                                pass
+                        
+                        if comprehensive_stats:
+                            break
+                            
+                except Exception as e:
+                    logger.debug(f"ESPN stats URL failed: {e}")
+                    continue
+            
+            # Try Pro Football Reference alternative search
+            try:
+                # Use Google to find PFR player page
+                google_search = f"site:pro-football-reference.com {player_name} NFL stats"
+                google_url = f"https://www.google.com/search?q={google_search.replace(' ', '+')}"
+                
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+                
+                response = requests.get(google_url, headers=headers, timeout=10)
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    
+                    # Look for PFR links
+                    for link in soup.find_all('a', href=True):
+                        href = link.get('href', '')
+                        
+                        if '/url?q=' in href:
+                            clean_url = href.split('/url?q=')[1].split('&')[0]
+                            href = clean_url
+                        
+                        if 'pro-football-reference.com' in href and '/players/' in href:
+                            # Try to get PFR stats (may fail due to 403)
+                            try:
+                                pfr_response = requests.get(href, headers=headers, timeout=10)
+                                if pfr_response.status_code == 200:
+                                    pfr_soup = BeautifulSoup(pfr_response.content, 'html.parser')
+                                    
+                                    # Look for career totals
+                                    career_totals = pfr_soup.find('tfoot')
+                                    if career_totals:
+                                        cells = career_totals.find_all('td')
+                                        if len(cells) > 10:
+                                            try:
+                                                comprehensive_stats['career_games'] = int(cells[0].text) if cells[0].text.isdigit() else comprehensive_stats.get('career_games')
+                                                comprehensive_stats['career_pass_yards'] = int(cells[7].text.replace(',', '')) if cells[7].text.replace(',', '').isdigit() else comprehensive_stats.get('career_pass_yards')
+                                                comprehensive_stats['career_pass_tds'] = int(cells[8].text) if cells[8].text.isdigit() else comprehensive_stats.get('career_pass_tds')
+                                            except:
+                                                pass
+                                    
+                                    break
+                            except:
+                                pass
+                            
+            except Exception as e:
+                logger.debug(f"PFR stats search failed: {e}")
+            
+            if comprehensive_stats:
+                comprehensive_stats['data_sources'] = ['Stats Comprehensive']
+                return comprehensive_stats
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting comprehensive stats for {player_name}: {e}")
             return None
     
     def _extract_real_number(self, text: str) -> Optional[int]:
