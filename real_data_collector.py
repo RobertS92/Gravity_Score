@@ -297,97 +297,136 @@ class RealDataCollector:
             return None
     
     def _scrape_real_wikipedia(self, player_name: str) -> Dict:
-        """Scrape real biographical data from Wikipedia."""
+        """Scrape comprehensive biographical data from Wikipedia."""
         try:
-            # Search Wikipedia API
-            search_url = "https://en.wikipedia.org/w/api.php"
-            search_params = {
-                'action': 'opensearch',
-                'search': f"{player_name} NFL player",
-                'limit': 3,
-                'format': 'json'
-            }
+            # Enhanced Wikipedia search with multiple strategies
+            search_strategies = [
+                f"{player_name} NFL",
+                f"{player_name} American football",
+                f"{player_name} quarterback",
+                f"{player_name} football player"
+            ]
             
-            response = self.session.get(search_url, params=search_params, timeout=10)
-            if response.status_code == 200:
-                search_results = response.json()
+            for search_term in search_strategies:
+                search_url = "https://en.wikipedia.org/w/api.php"
+                search_params = {
+                    'action': 'opensearch',
+                    'search': search_term,
+                    'limit': 5,
+                    'format': 'json'
+                }
                 
-                if len(search_results) > 3 and search_results[3]:
-                    for wiki_url in search_results[3]:
-                        try:
-                            # Get Wikipedia page
-                            page_response = self.session.get(wiki_url, timeout=10)
-                            if page_response.status_code == 200:
-                                soup = BeautifulSoup(page_response.content, 'html.parser')
-                                
-                                # Verify this is the right player
-                                title = soup.find('h1', {'class': 'firstHeading'})
-                                if title and any(name_part.lower() in title.text.lower() for name_part in player_name.split()):
+                response = self.session.get(search_url, params=search_params, timeout=10)
+                if response.status_code == 200:
+                    search_results = response.json()
+                    
+                    if len(search_results) > 3 and search_results[3]:
+                        for wiki_url in search_results[3]:
+                            try:
+                                # Get Wikipedia page content
+                                page_response = self.session.get(wiki_url, timeout=15)
+                                if page_response.status_code == 200:
+                                    soup = BeautifulSoup(page_response.content, 'html.parser')
                                     
-                                    real_bio = {'wikipedia_url': wiki_url}
-                                    
-                                    # Extract real data from infobox
-                                    infobox = soup.find('table', {'class': 'infobox'})
-                                    if infobox:
-                                        rows = infobox.find_all('tr')
-                                        for row in rows:
-                                            cells = row.find_all(['th', 'td'])
-                                            if len(cells) >= 2:
-                                                key = cells[0].text.strip().lower()
-                                                value = cells[1].text.strip()
+                                    # Verify this is the right player
+                                    title = soup.find('h1', {'class': 'firstHeading'})
+                                    if title and any(name_part.lower() in title.text.lower() for name_part in player_name.split()):
+                                        
+                                        real_bio = {'wikipedia_url': wiki_url}
+                                        
+                                        # Extract comprehensive data from infobox
+                                        infobox = soup.find('table', {'class': 'infobox'})
+                                        if infobox:
+                                            rows = infobox.find_all('tr')
+                                            for row in rows:
+                                                cells = row.find_all(['th', 'td'])
+                                                if len(cells) >= 2:
+                                                    key = cells[0].text.strip().lower()
+                                                    value = cells[1].text.strip()
+                                                    
+                                                    # Enhanced birth date extraction
+                                                    if 'born' in key and value:
+                                                        real_bio['birth_date'] = value
+                                                        # Extract precise age calculation
+                                                        birth_match = re.search(r'(\w+\s+\d+,\s+\d{4})', value)
+                                                        if birth_match:
+                                                            from datetime import datetime
+                                                            try:
+                                                                birth_date = datetime.strptime(birth_match.group(1), '%B %d, %Y')
+                                                                today = datetime.now()
+                                                                age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+                                                                real_bio['age'] = age
+                                                            except:
+                                                                pass
+                                                    
+                                                    elif 'birth' in key and 'place' in key and value:
+                                                        real_bio['birth_place'] = value
+                                                    
+                                                    elif 'high school' in key and value:
+                                                        real_bio['high_school'] = value
+                                                    
+                                                    elif 'college' in key and value:
+                                                        real_bio['college'] = value
+                                                    
+                                                    elif 'height' in key and value:
+                                                        height_match = re.search(r'(\d+)\s*ft\s*(\d+)\s*in', value)
+                                                        if height_match:
+                                                            real_bio['height'] = f"{height_match.group(1)}'{height_match.group(2)}\""
+                                                    
+                                                    elif 'weight' in key and value:
+                                                        weight_match = re.search(r'(\d+)', value)
+                                                        if weight_match:
+                                                            real_bio['weight'] = int(weight_match.group(1))
+                                                    
+                                                    elif 'drafted' in key and value:
+                                                        draft_match = re.search(r'(\d{4}).*?round.*?(\d+)', value.lower())
+                                                        if draft_match:
+                                                            real_bio['draft_year'] = int(draft_match.group(1))
+                                                            real_bio['draft_round'] = int(draft_match.group(2))
+                                                    
+                                                    elif 'position' in key and value:
+                                                        real_bio['position'] = value
+                                                    
+                                                    elif 'number' in key and value:
+                                                        num_match = re.search(r'(\d+)', value)
+                                                        if num_match:
+                                                            real_bio['jersey_number'] = int(num_match.group(1))
+                                        
+                                        # Extract career highlights from text
+                                        content = soup.find('div', {'id': 'mw-content-text'})
+                                        if content:
+                                            text_content = content.get_text()
+                                            
+                                            # Look for awards and achievements
+                                            awards_patterns = [
+                                                r'Pro Bowl.*?(\d{4})',
+                                                r'All-Pro.*?(\d{4})',
+                                                r'MVP.*?(\d{4})',
+                                                r'Super Bowl.*?champion.*?(\d{4})',
+                                                r'Offensive Player.*?Year.*?(\d{4})'
+                                            ]
+                                            
+                                            awards = []
+                                            for pattern in awards_patterns:
+                                                matches = re.findall(pattern, text_content, re.IGNORECASE)
+                                                for match in matches:
+                                                    awards.append(f"{pattern.split('.*?')[0]} {match}")
+                                            
+                                            if awards:
+                                                real_bio['awards'] = ', '.join(awards[:5])  # Top 5 awards
+                                        
+                                        if real_bio and len(real_bio) > 1:  # More than just URL
+                                            real_bio['data_sources'] = ['Wikipedia']
+                                            return real_bio
                                                 
-                                                if 'born' in key and value:
-                                                    real_bio['birth_date'] = value
-                                                    # Extract real age
-                                                    age_match = re.search(r'age (\d+)', value)
-                                                    if age_match:
-                                                        real_bio['age'] = int(age_match.group(1))
-                                                
-                                                elif 'birth' in key and 'place' in key and value:
-                                                    real_bio['birth_place'] = value
-                                                
-                                                elif 'high school' in key and value:
-                                                    real_bio['high_school'] = value
-                                                
-                                                elif 'college' in key and value:
-                                                    real_bio['college'] = value
-                                                
-                                                elif 'nfl draft' in key and value:
-                                                    # Extract real draft info
-                                                    draft_match = re.search(r'(\d{4}).*?round (\d+).*?pick (\d+)', value, re.IGNORECASE)
-                                                    if draft_match:
-                                                        real_bio['draft_year'] = int(draft_match.group(1))
-                                                        real_bio['draft_round'] = int(draft_match.group(2))
-                                                        real_bio['draft_pick'] = int(draft_match.group(3))
-                                    
-                                    # Extract career stats and awards from page text
-                                    page_text = soup.get_text()
-                                    
-                                    # Look for Pro Bowl mentions
-                                    pro_bowl_matches = re.findall(r'Pro Bowl', page_text, re.IGNORECASE)
-                                    if pro_bowl_matches:
-                                        real_bio['pro_bowls'] = len(pro_bowl_matches)
-                                    
-                                    # Look for All-Pro mentions  
-                                    all_pro_matches = re.findall(r'All-Pro', page_text, re.IGNORECASE)
-                                    if all_pro_matches:
-                                        real_bio['all_pros'] = len(all_pro_matches)
-                                    
-                                    # Look for Super Bowl championships
-                                    sb_matches = re.findall(r'Super Bowl', page_text, re.IGNORECASE)
-                                    if sb_matches:
-                                        real_bio['championships'] = len(sb_matches)
-                                    
-                                    real_bio['data_sources'] = ['Wikipedia']
-                                    return real_bio
-                        
-                        except Exception as e:
-                            continue
+                            except Exception as e:
+                                logger.debug(f"Error processing Wikipedia page for {player_name}: {e}")
+                                continue
             
             return None
             
         except Exception as e:
-            logger.error(f"Error scraping real Wikipedia data for {player_name}: {e}")
+            logger.error(f"Error scraping Wikipedia for {player_name}: {e}")
             return None
     
     def _scrape_real_spotrac(self, player_name: str, team: str) -> Dict:
@@ -467,106 +506,313 @@ class RealDataCollector:
             return None
     
     def _scrape_real_espn(self, player_name: str) -> Dict:
-        """Scrape real data from ESPN."""
+        """Scrape comprehensive data from ESPN."""
         try:
-            # ESPN player search
-            search_url = f"https://www.espn.com/nfl/players/_/search/{player_name.replace(' ', '%20')}"
+            # Enhanced ESPN search with multiple approaches
+            search_urls = [
+                f"https://www.espn.com/nfl/players/_/search/{player_name.replace(' ', '%20')}",
+                f"https://www.espn.com/nfl/player/_/name/{player_name.lower().replace(' ', '-')}"
+            ]
             
-            response = self.session.get(search_url, timeout=10)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                
-                real_espn = {}
-                
-                # Extract real player info
-                player_info = soup.find('div', {'class': 'player-info'})
-                if player_info:
-                    info_text = player_info.text
-                    
-                    # Real height
-                    height_match = re.search(r"Height:\s*(\d+)'\s*(\d+)\"", info_text)
-                    if height_match:
-                        real_espn['height'] = f"{height_match.group(1)}'{height_match.group(2)}\""
-                    
-                    # Real weight
-                    weight_match = re.search(r"Weight:\s*(\d+)", info_text)
-                    if weight_match:
-                        real_espn['weight'] = int(weight_match.group(1))
-                    
-                    # Real age
-                    age_match = re.search(r"Age:\s*(\d+)", info_text)
-                    if age_match:
-                        real_espn['age'] = int(age_match.group(1))
-                
-                # Real college
-                college_link = soup.find('a', href=lambda x: x and '/college-football/team/' in x)
-                if college_link:
-                    real_espn['college'] = college_link.text.strip()
-                
-                if real_espn:
-                    real_espn['data_sources'] = ['ESPN']
-                    return real_espn
+            for search_url in search_urls:
+                try:
+                    response = self.session.get(search_url, timeout=15)
+                    if response.status_code == 200:
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        
+                        real_espn = {}
+                        
+                        # Extract from player bio section
+                        bio_section = soup.find('div', {'class': 'player-bio'}) or soup.find('div', {'class': 'PlayerHeader'})
+                        if bio_section:
+                            bio_text = bio_section.get_text()
+                            
+                            # Enhanced height extraction
+                            height_patterns = [
+                                r"Height:\s*(\d+)'\s*(\d+)\"",
+                                r"HT:\s*(\d+)'\s*(\d+)\"",
+                                r"(\d+)'\s*(\d+)\""
+                            ]
+                            for pattern in height_patterns:
+                                height_match = re.search(pattern, bio_text)
+                                if height_match:
+                                    real_espn['height'] = f"{height_match.group(1)}'{height_match.group(2)}\""
+                                    break
+                            
+                            # Enhanced weight extraction
+                            weight_patterns = [
+                                r"Weight:\s*(\d+)",
+                                r"WT:\s*(\d+)",
+                                r"(\d{3})\s*lbs"
+                            ]
+                            for pattern in weight_patterns:
+                                weight_match = re.search(pattern, bio_text)
+                                if weight_match:
+                                    real_espn['weight'] = int(weight_match.group(1))
+                                    break
+                            
+                            # Enhanced age extraction
+                            age_patterns = [
+                                r"Age:\s*(\d+)",
+                                r"(\d+)\s*years old"
+                            ]
+                            for pattern in age_patterns:
+                                age_match = re.search(pattern, bio_text)
+                                if age_match:
+                                    real_espn['age'] = int(age_match.group(1))
+                                    break
+                            
+                            # Extract experience
+                            exp_match = re.search(r"(\d+)\s*year[s]?\s*experience", bio_text, re.IGNORECASE)
+                            if exp_match:
+                                real_espn['experience'] = int(exp_match.group(1))
+                        
+                        # Extract college from multiple locations
+                        college_selectors = [
+                            'a[href*="/college-football/team/"]',
+                            '.player-college',
+                            '.PlayerHeader__College'
+                        ]
+                        
+                        for selector in college_selectors:
+                            college_elem = soup.select_one(selector)
+                            if college_elem:
+                                real_espn['college'] = college_elem.get_text().strip()
+                                break
+                        
+                        # Extract career stats from tables
+                        stat_tables = soup.find_all('table')
+                        for table in stat_tables:
+                            headers = [th.get_text().strip() for th in table.find_all('th')]
+                            
+                            # Look for career totals row
+                            career_row = None
+                            for row in table.find_all('tr'):
+                                cells = row.find_all(['td', 'th'])
+                                if cells and 'career' in cells[0].get_text().lower():
+                                    career_row = row
+                                    break
+                            
+                            if career_row and len(headers) > 5:
+                                cells = career_row.find_all('td')
+                                if len(cells) >= len(headers):
+                                    try:
+                                        for i, header in enumerate(headers):
+                                            if i < len(cells):
+                                                cell_text = cells[i].get_text().strip()
+                                                if cell_text and cell_text.replace(',', '').isdigit():
+                                                    value = int(cell_text.replace(',', ''))
+                                                    
+                                                    # Map common stat headers
+                                                    if 'pass' in header.lower() and 'yd' in header.lower():
+                                                        real_espn['career_pass_yards'] = value
+                                                    elif 'td' in header.lower() and 'pass' in header.lower():
+                                                        real_espn['career_pass_tds'] = value
+                                                    elif 'int' in header.lower():
+                                                        real_espn['career_pass_ints'] = value
+                                                    elif 'game' in header.lower() or 'gp' in header.lower():
+                                                        real_espn['career_games'] = value
+                                    except:
+                                        pass
+                        
+                        # Extract jersey number
+                        jersey_patterns = [
+                            r"#(\d+)",
+                            r"Number:\s*(\d+)"
+                        ]
+                        page_text = soup.get_text()
+                        for pattern in jersey_patterns:
+                            jersey_match = re.search(pattern, page_text)
+                            if jersey_match:
+                                real_espn['jersey_number'] = int(jersey_match.group(1))
+                                break
+                        
+                        # Extract draft information
+                        draft_match = re.search(r"Draft:\s*(\d{4}).*?Round\s*(\d+)", page_text, re.IGNORECASE)
+                        if draft_match:
+                            real_espn['draft_year'] = int(draft_match.group(1))
+                            real_espn['draft_round'] = int(draft_match.group(2))
+                        
+                        if real_espn:
+                            real_espn['data_sources'] = ['ESPN']
+                            return real_espn
+                            
+                except Exception as e:
+                    logger.debug(f"Error with ESPN URL {search_url}: {e}")
+                    continue
             
             return None
             
         except Exception as e:
-            logger.error(f"Error scraping real ESPN data for {player_name}: {e}")
+            logger.error(f"Error scraping ESPN for {player_name}: {e}")
             return None
     
     def _get_real_social_media(self, player_name: str) -> Dict:
-        """Get real social media data using web search agent."""
+        """Get comprehensive social media data using advanced web search."""
         try:
-            # Use web search to find social media profiles
             import requests
             from bs4 import BeautifulSoup
             
             real_social = {}
             
-            # Search for Twitter profile
-            try:
-                twitter_search = f"site:twitter.com {player_name} NFL"
-                google_url = f"https://www.google.com/search?q={twitter_search.replace(' ', '+')}"
-                
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
-                
-                response = requests.get(google_url, headers=headers, timeout=10)
-                if response.status_code == 200:
-                    soup = BeautifulSoup(response.content, 'html.parser')
-                    
-                    # Find Twitter links
-                    for link in soup.find_all('a', href=True):
-                        href = link.get('href', '')
-                        if 'twitter.com' in href and player_name.lower().replace(' ', '') in href.lower():
-                            clean_url = href.split('&')[0].replace('/url?q=', '')
-                            if clean_url.startswith('https://twitter.com/'):
-                                real_social['twitter_url'] = clean_url
-                                real_social['twitter_handle'] = clean_url.split('/')[-1]
-                                break
-            except Exception as e:
-                logger.debug(f"Twitter search failed for {player_name}: {e}")
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
             
-            # Search for Instagram profile
+            # Enhanced Twitter search with multiple strategies
+            twitter_strategies = [
+                f"site:twitter.com {player_name} NFL",
+                f"site:twitter.com {player_name} football",
+                f"site:x.com {player_name} NFL",
+                f"{player_name} Twitter NFL player"
+            ]
+            
+            for strategy in twitter_strategies:
+                try:
+                    google_url = f"https://www.google.com/search?q={strategy.replace(' ', '+')}"
+                    response = requests.get(google_url, headers=headers, timeout=10)
+                    
+                    if response.status_code == 200:
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        
+                        # Look for Twitter/X links in search results
+                        for link in soup.find_all('a', href=True):
+                            href = link.get('href', '')
+                            
+                            # Clean Google redirect URLs
+                            if '/url?q=' in href:
+                                clean_url = href.split('/url?q=')[1].split('&')[0]
+                                href = clean_url
+                            
+                            # Check for Twitter/X profiles
+                            if any(domain in href for domain in ['twitter.com', 'x.com']) and '/' in href:
+                                # Extract handle from URL
+                                url_parts = href.split('/')
+                                if len(url_parts) > 3:
+                                    potential_handle = url_parts[-1].split('?')[0]
+                                    
+                                    # Validate handle matches player name
+                                    name_parts = player_name.lower().replace(' ', '').replace('.', '')
+                                    handle_clean = potential_handle.lower()
+                                    
+                                    if any(part in handle_clean for part in player_name.lower().split()) or name_parts in handle_clean:
+                                        real_social['twitter_url'] = href
+                                        real_social['twitter_handle'] = potential_handle
+                                        break
+                        
+                        if 'twitter_url' in real_social:
+                            break
+                            
+                except Exception as e:
+                    logger.debug(f"Twitter search strategy failed for {player_name}: {e}")
+                    continue
+            
+            # Enhanced Instagram search
+            instagram_strategies = [
+                f"site:instagram.com {player_name} NFL",
+                f"site:instagram.com {player_name} football",
+                f"{player_name} Instagram NFL player"
+            ]
+            
+            for strategy in instagram_strategies:
+                try:
+                    google_url = f"https://www.google.com/search?q={strategy.replace(' ', '+')}"
+                    response = requests.get(google_url, headers=headers, timeout=10)
+                    
+                    if response.status_code == 200:
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        
+                        # Look for Instagram links
+                        for link in soup.find_all('a', href=True):
+                            href = link.get('href', '')
+                            
+                            # Clean Google redirect URLs
+                            if '/url?q=' in href:
+                                clean_url = href.split('/url?q=')[1].split('&')[0]
+                                href = clean_url
+                            
+                            # Check for Instagram profiles
+                            if 'instagram.com' in href and '/' in href:
+                                url_parts = href.split('/')
+                                if len(url_parts) > 3:
+                                    potential_handle = url_parts[-1].split('?')[0]
+                                    
+                                    # Validate handle matches player name
+                                    name_parts = player_name.lower().replace(' ', '').replace('.', '')
+                                    handle_clean = potential_handle.lower()
+                                    
+                                    if any(part in handle_clean for part in player_name.lower().split()) or name_parts in handle_clean:
+                                        real_social['instagram_url'] = href
+                                        real_social['instagram_handle'] = potential_handle
+                                        break
+                        
+                        if 'instagram_url' in real_social:
+                            break
+                            
+                except Exception as e:
+                    logger.debug(f"Instagram search strategy failed for {player_name}: {e}")
+                    continue
+            
+            # Search for TikTok profiles
             try:
-                instagram_search = f"site:instagram.com {player_name} NFL"
-                google_url = f"https://www.google.com/search?q={instagram_search.replace(' ', '+')}"
-                
+                tiktok_search = f"site:tiktok.com {player_name} NFL"
+                google_url = f"https://www.google.com/search?q={tiktok_search.replace(' ', '+')}"
                 response = requests.get(google_url, headers=headers, timeout=10)
+                
                 if response.status_code == 200:
                     soup = BeautifulSoup(response.content, 'html.parser')
                     
-                    # Find Instagram links
                     for link in soup.find_all('a', href=True):
                         href = link.get('href', '')
-                        if 'instagram.com' in href and player_name.lower().replace(' ', '') in href.lower():
-                            clean_url = href.split('&')[0].replace('/url?q=', '')
-                            if clean_url.startswith('https://instagram.com/'):
-                                real_social['instagram_url'] = clean_url
-                                real_social['instagram_handle'] = clean_url.split('/')[-1]
-                                break
+                        
+                        if '/url?q=' in href:
+                            clean_url = href.split('/url?q=')[1].split('&')[0]
+                            href = clean_url
+                        
+                        if 'tiktok.com' in href and '/' in href:
+                            url_parts = href.split('/')
+                            if len(url_parts) > 3:
+                                potential_handle = url_parts[-1].split('?')[0]
+                                
+                                name_parts = player_name.lower().replace(' ', '').replace('.', '')
+                                handle_clean = potential_handle.lower()
+                                
+                                if any(part in handle_clean for part in player_name.lower().split()) or name_parts in handle_clean:
+                                    real_social['tiktok_url'] = href
+                                    real_social['tiktok_handle'] = potential_handle
+                                    break
+                                    
             except Exception as e:
-                logger.debug(f"Instagram search failed for {player_name}: {e}")
+                logger.debug(f"TikTok search failed for {player_name}: {e}")
+            
+            # Search for YouTube channels
+            try:
+                youtube_search = f"site:youtube.com {player_name} NFL channel"
+                google_url = f"https://www.google.com/search?q={youtube_search.replace(' ', '+')}"
+                response = requests.get(google_url, headers=headers, timeout=10)
+                
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    
+                    for link in soup.find_all('a', href=True):
+                        href = link.get('href', '')
+                        
+                        if '/url?q=' in href:
+                            clean_url = href.split('/url?q=')[1].split('&')[0]
+                            href = clean_url
+                        
+                        if 'youtube.com' in href and ('/channel/' in href or '/c/' in href or '/user/' in href):
+                            real_social['youtube_url'] = href
+                            
+                            # Extract channel name
+                            if '/c/' in href:
+                                real_social['youtube_handle'] = href.split('/c/')[-1].split('?')[0]
+                            elif '/user/' in href:
+                                real_social['youtube_handle'] = href.split('/user/')[-1].split('?')[0]
+                            break
+                            
+            except Exception as e:
+                logger.debug(f"YouTube search failed for {player_name}: {e}")
             
             if real_social:
                 real_social['data_sources'] = ['Social Media Search']
