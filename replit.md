@@ -155,7 +155,9 @@ nfl_gravity/
   - Integrated sortable columns, pagination, search functionality, and CSV export capabilities
   - System successfully collected complete NFL dataset with 24 data fields per player across all teams
   - Fixed comprehensive mode to use fast SimpleComprehensiveCollector (10x faster than old system)
-  - Comprehensive mode now completes in ~10 seconds and returns proper player counts with quality metrics
+  - Comprehensive mode now collects full rosters (91-92 players per team) with 70 fields each
+  - Processing time: ~2 minutes per team with 2.9/5 average data quality score
+  - Firecrawl mode operational but experiences rate limiting with heavy API usage (expected behavior)
 
 ## User Preferences
 
