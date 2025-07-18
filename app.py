@@ -25,6 +25,16 @@ def index():
     """Main dashboard page."""
     return render_template('index.html')
 
+@app.route('/scraping')
+def scraping():
+    """Data collection/scraping configuration page."""
+    return render_template('scraping.html')
+
+@app.route('/view-data')
+def view_data():
+    """Data viewing and filtering page."""
+    return render_template('view_data.html')
+
 @app.route('/api/teams')
 def get_teams():
     """Get list of teams for a specific sport."""
