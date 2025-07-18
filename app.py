@@ -92,8 +92,8 @@ def get_all_players():
         import os
         import glob
         
-        # Find the latest data file
-        data_files = glob.glob('data/**/players_*.csv', recursive=True)
+        # Find the latest data file (check both root data/ and subdirectories)
+        data_files = glob.glob('data/players_*.csv') + glob.glob('data/**/players_*.csv', recursive=True)
         if not data_files:
             return jsonify({"players": [], "count": 0, "status": "no_data"})
         
@@ -766,13 +766,67 @@ def get_status():
 
 @app.route('/api/data/latest')
 def get_latest_data():
-    """Get information about the latest scraped data."""
+    """Get the latest scraped player data."""
     try:
-        data_info = mcp.get_latest_data_info()
-        return jsonify(data_info)
+        import pandas as pd
+        import glob
+        import os
+        
+        # Find the latest data file (check both root data/ and subdirectories)
+        data_files = glob.glob('data/players_*.csv') + glob.glob('data/**/players_*.csv', recursive=True)
+        
+        if not data_files:
+            # Try to get data info from MCP as fallback
+            try:
+                data_info = mcp.get_latest_data_info()
+                return jsonify(data_info)
+            except:
+                return jsonify({
+                    "players": [],
+                    "count": 0,
+                    "status": "no_data",
+                    "message": "No player data files found"
+                })
+        
+        # Sort by modification time, get the most recent
+        latest_file = max(data_files, key=os.path.getmtime)
+        
+        # Load the data
+        df = pd.read_csv(latest_file)
+        
+        # Convert to dictionary, handling NaN values
+        players_data = df.fillna('').to_dict('records')
+        
+        # Convert all columns to proper types for JSON
+        players = []
+        for player in players_data:
+            clean_player = {}
+            for key, value in player.items():
+                if pd.isna(value) or value == '':
+                    clean_player[key] = None
+                elif isinstance(value, (int, float)) and pd.notna(value):
+                    clean_player[key] = value
+                else:
+                    clean_player[key] = str(value)
+            players.append(clean_player)
+        
+        return jsonify({
+            "players": players,
+            "count": len(players),
+            "status": "success",
+            "source_file": latest_file,
+            "columns": list(df.columns),
+            "message": f"Loaded {len(players)} players from {latest_file}"
+        })
+        
     except Exception as e:
         logger.error(f"Error getting latest data: {e}")
-        return jsonify({"error": "Failed to get data info"}), 500
+        # Fallback to MCP method
+        try:
+            data_info = mcp.get_latest_data_info()
+            return jsonify(data_info)
+        except:
+            return jsonify({"error": "Failed to get data info", "status": "error"}), 500
 
 @app.route('/api/logs')
 def get_logs():
