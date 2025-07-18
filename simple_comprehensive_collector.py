@@ -181,8 +181,9 @@ class SimpleComprehensiveCollector:
             # Get basic roster first
             team_players = self.roster_scraper.extract_complete_team_roster(team)
             
-            if limit_players:
+            if limit_players and limit_players > 0:
                 team_players = team_players[:limit_players]
+                logger.info(f"Limited to first {limit_players} players for testing")
             
             enhanced_players = []
             

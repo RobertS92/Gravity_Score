@@ -236,12 +236,15 @@
                 }
 
                 const mode = document.getElementById('scrapingMode').value;
+                // Complete list of all 32 NFL teams
                 const teams = [
                     'cardinals', 'falcons', 'ravens', 'bills', 'panthers', 'bears', 'bengals', 'browns',
                     'cowboys', 'broncos', 'lions', 'packers', 'texans', 'colts', 'jaguars', 'chiefs',
                     'raiders', 'chargers', 'rams', 'dolphins', 'vikings', 'patriots', 'saints', 'giants',
                     'jets', '49ers', 'seahawks', 'steelers', 'titans', 'commanders', 'buccaneers', 'eagles'
                 ];
+                
+                console.log(`Starting scraping for all ${teams.length} NFL teams in ${mode} mode`);
 
                 this.isScrapingInProgress = true;
                 this.showStatus('Starting comprehensive NFL data collection...', 0);
