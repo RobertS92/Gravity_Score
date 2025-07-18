@@ -67,6 +67,25 @@ class RealDataCollector:
             'tiktok_url': None,
             'youtube_url': None,
             
+            # Draft Information
+            'draft_pick': None,
+            'draft_round': None,
+            'draft_team': None,
+            'draft_year': None,
+            
+            # Contract Data
+            'contract_value': None,
+            'contract_years': None,
+            'current_salary': None,
+            'cap_hit': None,
+            'guaranteed_money': None,
+            
+            # Achievements
+            'championships': None,
+            'all_pros': None,
+            'pro_bowls': None,
+            'awards': None,
+            
             # Career Statistics
             'career_pass_yards': None,
             'career_pass_tds': None,
@@ -85,31 +104,26 @@ class RealDataCollector:
             'career_pass_attempts': None,
             'career_pass_completions': None,
             
-            # Contract & Financial
-            'current_salary': None,
-            'contract_value': None,
-            'contract_years': None,
-            'signing_bonus': None,
-            'guaranteed_money': None,
-            'cap_hit': None,
-            'dead_money': None,
-            
-            # Awards & Achievements
-            'pro_bowls': None,
-            'all_pros': None,
-            'rookie_of_year': None,
-            'mvp_awards': None,
-            'championships': None,
-            'hall_of_fame': None,
+            # Position-Specific Stats
+            'passing_yards_2023': None,
+            'passing_tds_2023': None,
+            'rushing_yards_2023': None,
+            'rushing_tds_2023': None,
+            'receiving_yards_2023': None,
+            'receiving_tds_2023': None,
+            'tackles_2023': None,
+            'sacks_2023': None,
+            'interceptions_2023': None,
             
             # Biographical
             'birth_date': None,
             'birth_place': None,
             'high_school': None,
-            'draft_year': None,
-            'draft_round': None,
-            'draft_pick': None,
-            'draft_team': None,
+            'rookie_of_year': None,
+            'mvp_awards': None,
+            'hall_of_fame': None,
+            'signing_bonus': None,
+            'dead_money': None,
             
             # URLs
             'wikipedia_url': None,
@@ -195,6 +209,16 @@ class RealDataCollector:
                         data[key] = value
                 data['data_sources'].extend(stats_data.get('data_sources', []))
                 logger.info(f"✅ Stats: Got comprehensive career stats for {player_name}")
+            
+            # Step 8-11: Enhanced AI data extraction
+            from enhanced_ai_extractor import EnhancedAIExtractor
+            ai_extractor = EnhancedAIExtractor()
+            
+            data = ai_extractor.extract_draft_data(player_name, data)
+            data = ai_extractor.extract_contract_data(player_name, data)
+            data = ai_extractor.extract_achievement_data(player_name, data)
+            if position:
+                data = ai_extractor.extract_position_stats(player_name, position, data)
             
             # Remove duplicate data sources
             data['data_sources'] = list(set(data['data_sources']))
@@ -1498,3 +1522,292 @@ class RealDataCollector:
         except Exception as e:
             logger.error(f"Error collecting real data for {team}: {e}")
             return []
+    
+    def _extract_enhanced_draft_data(self, player_name: str, data: Dict) -> Dict:
+        """Extract comprehensive draft information using AI enhancement."""
+        logger.info(f'🏈 Extracting enhanced draft data for {player_name}')
+        
+        # Check if we already have draft info from Wikipedia
+        if data.get('draft_year') or data.get('draft_round'):
+            logger.info(f'✅ Draft data already available from previous sources')
+            return data
+            
+        # Use AI to extract draft information if OpenAI is available
+        if self.openai_client:
+            try:
+                prompt = f"""
+                Find NFL draft information for {player_name}:
+                - Draft year
+                - Draft round  
+                - Draft pick (overall pick number)
+                - Draft team (team that drafted him)
+                
+                Only provide real, verifiable draft information from authentic NFL sources.
+                If the player was undrafted, specify "Undrafted" for relevant fields.
+                
+                Format response as JSON:
+                {{
+                    "draft_year": year_or_null,
+                    "draft_round": round_or_null,
+                    "draft_pick": pick_number_or_null,
+                    "draft_team": "team_name_or_undrafted"
+                }}
+                """
+                
+                response = self.openai_client.chat.completions.create(
+                    model='gpt-4o',
+                    messages=[
+                        {'role': 'system', 'content': 'You are an expert NFL draft historian. Only provide real, verifiable draft data.'},
+                        {'role': 'user', 'content': prompt}
+                    ],
+                    max_tokens=300
+                )
+                
+                draft_text = response.choices[0].message.content
+                
+                # Parse draft information
+                import json
+                try:
+                    draft_data = json.loads(draft_text)
+                    for field, value in draft_data.items():
+                        if value and str(value).lower() not in ['null', 'none', 'unknown']:
+                            data[field] = value
+                    
+                    if any(data.get(field) for field in ['draft_year', 'draft_round', 'draft_pick', 'draft_team']):
+                        data['data_sources'].append('AI Draft Analysis')
+                        logger.info(f'✅ AI draft data extracted: {data.get("draft_year", "N/A")} Round {data.get("draft_round", "N/A")}')
+                except:
+                    logger.debug('Could not parse AI draft response as JSON')
+                    
+            except Exception as e:
+                logger.debug(f'Error extracting draft data with AI: {e}')
+        
+        return data
+    
+    def _extract_enhanced_contract_data(self, player_name: str, data: Dict) -> Dict:
+        """Extract comprehensive contract information using AI enhancement."""
+        logger.info(f'💰 Extracting enhanced contract data for {player_name}')
+        
+        # Check if we already have significant contract info
+        if data.get('current_salary') or data.get('contract_value'):
+            logger.info(f'✅ Contract data already available from previous sources')
+            return data
+            
+        # Use AI to extract contract information if OpenAI is available
+        if self.openai_client:
+            try:
+                prompt = f"""
+                Find current NFL contract information for {player_name} (2024 season):
+                - Current salary/cap hit for 2024
+                - Total contract value (if recent contract)
+                - Contract length in years
+                - Guaranteed money
+                
+                Only provide real, verifiable contract data from sources like Spotrac, ESPN, NFL.com.
+                Use actual dollar amounts, not estimates.
+                
+                Format response as JSON:
+                {{
+                    "current_salary": dollar_amount_or_null,
+                    "contract_value": total_value_or_null,
+                    "contract_years": years_or_null,
+                    "guaranteed_money": guaranteed_amount_or_null
+                }}
+                """
+                
+                response = self.openai_client.chat.completions.create(
+                    model='gpt-4o',
+                    messages=[
+                        {'role': 'system', 'content': 'You are an NFL contract specialist. Only provide real, verifiable financial data.'},
+                        {'role': 'user', 'content': prompt}
+                    ],
+                    max_tokens=400
+                )
+                
+                contract_text = response.choices[0].message.content
+                
+                # Parse contract information
+                import json
+                try:
+                    contract_data = json.loads(contract_text)
+                    for field, value in contract_data.items():
+                        if isinstance(value, (int, float)) and value > 0:
+                            data[field] = int(value)
+                    
+                    if any(data.get(field) for field in ['current_salary', 'contract_value', 'contract_years']):
+                        data['data_sources'].append('AI Contract Analysis')
+                        logger.info(f'✅ AI contract data extracted')
+                except:
+                    logger.debug('Could not parse AI contract response as JSON')
+                    
+            except Exception as e:
+                logger.debug(f'Error extracting contract data with AI: {e}')
+        
+        return data
+    
+    def _extract_enhanced_achievement_data(self, player_name: str, data: Dict) -> Dict:
+        """Extract comprehensive achievement information using AI enhancement."""
+        logger.info(f'🏆 Extracting enhanced achievement data for {player_name}')
+        
+        # Use AI to extract achievement information if OpenAI is available
+        if self.openai_client:
+            try:
+                prompt = f"""
+                Find NFL achievements and awards for {player_name}:
+                - Super Bowl championships (years)
+                - Pro Bowl selections (total count or years)
+                - All-Pro selections (years)
+                - Major individual awards (MVP, OPOY, DPOY, ROTY with years)
+                
+                Only include real, verifiable achievements from official NFL records.
+                
+                Format response as JSON:
+                {{
+                    "championships": "Super Bowl years (comma separated) or empty string",
+                    "pro_bowls": "number of selections or years",
+                    "all_pros": "years (comma separated) or empty string",
+                    "awards": "awards with years (comma separated) or empty string"
+                }}
+                """
+                
+                response = self.openai_client.chat.completions.create(
+                    model='gpt-4o',
+                    messages=[
+                        {'role': 'system', 'content': 'You are an NFL achievement historian. Only provide real, verifiable awards and honors.'},
+                        {'role': 'user', 'content': prompt}
+                    ],
+                    max_tokens=400
+                )
+                
+                achievement_text = response.choices[0].message.content
+                
+                # Parse achievement information
+                import json
+                try:
+                    achievement_data = json.loads(achievement_text)
+                    for field, value in achievement_data.items():
+                        if isinstance(value, str) and value.strip() and value.lower() not in ['unknown', 'none', 'null']:
+                            data[field] = value.strip()
+                    
+                    if any(data.get(field) for field in ['championships', 'pro_bowls', 'all_pros', 'awards']):
+                        data['data_sources'].append('AI Achievement Analysis')
+                        logger.info(f'✅ AI achievement data extracted')
+                except:
+                    logger.debug('Could not parse AI achievement response as JSON')
+                    
+            except Exception as e:
+                logger.debug(f'Error extracting achievement data with AI: {e}')
+        
+        return data
+    
+    def _extract_enhanced_position_stats(self, player_name: str, position: str, data: Dict) -> Dict:
+        """Extract position-specific statistics using AI enhancement."""
+        logger.info(f'📊 Extracting enhanced {position} stats for {player_name}')
+        
+        if not position or not self.openai_client:
+            return data
+        
+        try:
+            # Create position-specific prompts
+            if position.upper() == 'QB':
+                prompt = f"""
+                Find 2023 NFL regular season statistics for quarterback {player_name}:
+                - Passing yards
+                - Passing touchdowns
+                - Passing interceptions
+                - Rushing yards
+                - Rushing touchdowns
+                
+                Only provide real 2023 regular season stats from official NFL sources.
+                
+                Format as JSON:
+                {{
+                    "passing_yards_2023": yards_or_null,
+                    "passing_tds_2023": tds_or_null,
+                    "passing_ints_2023": ints_or_null,
+                    "rushing_yards_2023": yards_or_null,
+                    "rushing_tds_2023": tds_or_null
+                }}
+                """
+            elif position.upper() in ['RB', 'FB']:
+                prompt = f"""
+                Find 2023 NFL regular season statistics for {position} {player_name}:
+                - Rushing yards
+                - Rushing touchdowns
+                - Receiving yards
+                - Receiving touchdowns
+                
+                Only provide real 2023 regular season stats.
+                
+                Format as JSON:
+                {{
+                    "rushing_yards_2023": yards_or_null,
+                    "rushing_tds_2023": tds_or_null,
+                    "receiving_yards_2023": yards_or_null,
+                    "receiving_tds_2023": tds_or_null
+                }}
+                """
+            elif position.upper() in ['WR', 'TE']:
+                prompt = f"""
+                Find 2023 NFL regular season statistics for {position} {player_name}:
+                - Receiving yards
+                - Receiving touchdowns
+                - Receptions
+                
+                Only provide real 2023 regular season stats.
+                
+                Format as JSON:
+                {{
+                    "receiving_yards_2023": yards_or_null,
+                    "receiving_tds_2023": tds_or_null,
+                    "receptions_2023": catches_or_null
+                }}
+                """
+            else:  # Defensive positions
+                prompt = f"""
+                Find 2023 NFL regular season statistics for {position} {player_name}:
+                - Total tackles
+                - Sacks
+                - Interceptions
+                
+                Only provide real 2023 regular season defensive stats.
+                
+                Format as JSON:
+                {{
+                    "tackles_2023": tackles_or_null,
+                    "sacks_2023": sacks_or_null,
+                    "interceptions_2023": ints_or_null
+                }}
+                """
+            
+            response = self.openai_client.chat.completions.create(
+                model='gpt-4o',
+                messages=[
+                    {'role': 'system', 'content': 'You are an NFL statistician. Only provide real, verifiable 2023 season statistics.'},
+                    {'role': 'user', 'content': prompt}
+                ],
+                max_tokens=300
+            )
+            
+            stats_text = response.choices[0].message.content
+            
+            # Parse statistics information
+            import json
+            try:
+                stats_data = json.loads(stats_text)
+                for field, value in stats_data.items():
+                    if isinstance(value, (int, float)) and value >= 0:  # Allow 0 stats
+                        data[field] = int(value)
+                
+                stats_fields = ['passing_yards_2023', 'rushing_yards_2023', 'receiving_yards_2023', 'tackles_2023', 'sacks_2023']
+                if any(data.get(field) is not None for field in stats_fields):
+                    data['data_sources'].append('AI 2023 Season Stats')
+                    logger.info(f'✅ AI 2023 {position} stats extracted')
+            except:
+                logger.debug('Could not parse AI stats response as JSON')
+                
+        except Exception as e:
+            logger.debug(f'Error extracting position stats with AI: {e}')
+        
+        return data
+
