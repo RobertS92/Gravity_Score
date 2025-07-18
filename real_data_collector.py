@@ -28,18 +28,100 @@ class RealDataCollector:
         })
         
     def collect_real_data(self, player_name: str, team: str, position: str = None) -> Dict:
-        """Collect ONLY real data from authentic sources."""
+        """Collect ONLY real data from authentic sources - ALL 70+ FIELDS."""
         logger.info(f"REAL DATA COLLECTION: {player_name} ({team})")
         
-        # Initialize with only confirmed data
+        # Initialize with ALL 70+ fields structure
         data = {
+            # Basic Info
             'name': player_name,
             'team': team,
             'position': position,
+            'jersey_number': None,
+            'status': None,
+            'height': None,
+            'weight': None,
+            'age': None,
+            'experience': None,
+            'college': None,
+            
+            # Social Media
+            'twitter_handle': None,
+            'instagram_handle': None,
+            'tiktok_handle': None,
+            'youtube_handle': None,
+            'twitter_followers': None,
+            'instagram_followers': None,
+            'tiktok_followers': None,
+            'youtube_subscribers': None,
+            'twitter_following': None,
+            'instagram_following': None,
+            'tiktok_following': None,
+            'twitter_verified': None,
+            'instagram_verified': None,
+            'twitter_url': None,
+            'instagram_url': None,
+            'tiktok_url': None,
+            'youtube_url': None,
+            
+            # Career Statistics
+            'career_pass_yards': None,
+            'career_pass_tds': None,
+            'career_pass_ints': None,
+            'career_pass_rating': None,
+            'career_rush_yards': None,
+            'career_rush_tds': None,
+            'career_receptions': None,
+            'career_rec_yards': None,
+            'career_rec_tds': None,
+            'career_tackles': None,
+            'career_sacks': None,
+            'career_interceptions': None,
+            'career_games': None,
+            'career_starts': None,
+            'career_pass_attempts': None,
+            'career_pass_completions': None,
+            
+            # Contract & Financial
+            'current_salary': None,
+            'contract_value': None,
+            'contract_years': None,
+            'signing_bonus': None,
+            'guaranteed_money': None,
+            'cap_hit': None,
+            'dead_money': None,
+            
+            # Awards & Achievements
+            'pro_bowls': None,
+            'all_pros': None,
+            'rookie_of_year': None,
+            'mvp_awards': None,
+            'championships': None,
+            'hall_of_fame': None,
+            
+            # Biographical
+            'birth_date': None,
+            'birth_place': None,
+            'high_school': None,
+            'draft_year': None,
+            'draft_round': None,
+            'draft_pick': None,
+            'draft_team': None,
+            
+            # URLs
+            'wikipedia_url': None,
+            'nfl_com_url': None,
+            'espn_url': None,
+            'pff_url': None,
+            'spotrac_url': None,
+            
+            # Metadata
             'data_sources': [],
             'last_updated': datetime.now().isoformat(),
             'data_source': 'real_data_only',
-            'scraped_at': datetime.now().isoformat()
+            'scraped_at': datetime.now().isoformat(),
+            'data_quality_score': 0.0,
+            'comprehensive_enhanced': True
         }
         
         try:
@@ -47,42 +129,63 @@ class RealDataCollector:
             nfl_data = self._scrape_real_nfl_com(player_name, team)
             if nfl_data:
                 data.update(nfl_data)
+                data['data_sources'].extend(nfl_data.get('data_sources', []))
                 logger.info(f"✅ NFL.com: Got real data for {player_name}")
             
-            # Step 2: Get real Pro Football Reference stats
-            pfr_data = self._scrape_real_pfr(player_name)
-            if pfr_data:
-                data.update(pfr_data)
-                logger.info(f"✅ PFR: Got real career stats for {player_name}")
-            
-            # Step 3: Get real Wikipedia biographical data
+            # Step 2: Get real Wikipedia biographical data (fallback for missing NFL.com data)
             wiki_data = self._scrape_real_wikipedia(player_name)
             if wiki_data:
-                data.update(wiki_data)
+                # Only use Wikipedia data if not already present from NFL.com
+                for key, value in wiki_data.items():
+                    if key not in ['data_sources'] and (data.get(key) is None or data.get(key) == ''):
+                        data[key] = value
+                data['data_sources'].extend(wiki_data.get('data_sources', []))
                 logger.info(f"✅ Wikipedia: Got real bio data for {player_name}")
+            
+            # Step 3: Get real Pro Football Reference stats (fallback for career stats)
+            pfr_data = self._scrape_real_pfr(player_name)
+            if pfr_data:
+                # Only use PFR data if not already present
+                for key, value in pfr_data.items():
+                    if key not in ['data_sources'] and (data.get(key) is None or data.get(key) == ''):
+                        data[key] = value
+                data['data_sources'].extend(pfr_data.get('data_sources', []))
+                logger.info(f"✅ PFR: Got real career stats for {player_name}")
             
             # Step 4: Get real Spotrac contract data
             spotrac_data = self._scrape_real_spotrac(player_name, team)
             if spotrac_data:
-                data.update(spotrac_data)
+                for key, value in spotrac_data.items():
+                    if key not in ['data_sources'] and (data.get(key) is None or data.get(key) == ''):
+                        data[key] = value
+                data['data_sources'].extend(spotrac_data.get('data_sources', []))
                 logger.info(f"✅ Spotrac: Got real contract data for {player_name}")
             
-            # Step 5: Get real ESPN data
+            # Step 5: Get real ESPN data (fallback for missing basic info)
             espn_data = self._scrape_real_espn(player_name)
             if espn_data:
-                data.update(espn_data)
+                for key, value in espn_data.items():
+                    if key not in ['data_sources'] and (data.get(key) is None or data.get(key) == ''):
+                        data[key] = value
+                data['data_sources'].extend(espn_data.get('data_sources', []))
                 logger.info(f"✅ ESPN: Got real player data for {player_name}")
             
-            # Step 6: Use social media APIs for real follower counts
+            # Step 6: Use social media search agent for real follower counts
             social_data = self._get_real_social_media(player_name)
             if social_data:
-                data.update(social_data)
+                for key, value in social_data.items():
+                    if key not in ['data_sources'] and (data.get(key) is None or data.get(key) == ''):
+                        data[key] = value
+                data['data_sources'].extend(social_data.get('data_sources', []))
                 logger.info(f"✅ Social Media: Got real follower data for {player_name}")
+            
+            # Remove duplicate data sources
+            data['data_sources'] = list(set(data['data_sources']))
             
             # Calculate quality based on real data only
             data['data_quality_score'] = self._calculate_real_quality(data)
             
-            logger.info(f"REAL DATA COMPLETE: {player_name} - {data['data_quality_score']:.1f}/5.0")
+            logger.info(f"REAL DATA COMPLETE: {player_name} - {data['data_quality_score']:.1f}/5.0 - {len([v for v in data.values() if v is not None and str(v).strip()])} fields")
             
             return data
             
@@ -91,7 +194,7 @@ class RealDataCollector:
             return data
     
     def _scrape_real_nfl_com(self, player_name: str, team: str) -> Dict:
-        """Scrape real data from NFL.com only."""
+        """Scrape real data from NFL.com only - AUTHENTIC DATA."""
         try:
             # Get real roster data
             team_players = self.roster_scraper.extract_complete_team_roster(team)
@@ -106,10 +209,24 @@ class RealDataCollector:
                         real_data['jersey_number'] = player['jersey_number']
                     if player.get('position'):
                         real_data['position'] = player['position']
+                    if player.get('status'):
+                        real_data['status'] = player['status']
                     if player.get('height'):
-                        real_data['height'] = player['height']
+                        # Fix height format - NFL.com gives proper format
+                        height_str = str(player['height'])
+                        if "'" in height_str:
+                            real_data['height'] = height_str
+                        else:
+                            # Convert inches to feet'inches format
+                            try:
+                                inches = int(height_str)
+                                feet = inches // 12
+                                remaining_inches = inches % 12
+                                real_data['height'] = f"{feet}'{remaining_inches}\""
+                            except:
+                                real_data['height'] = height_str
                     if player.get('weight'):
-                        real_data['weight'] = player['weight']
+                        real_data['weight'] = int(player['weight']) if str(player['weight']).isdigit() else player['weight']
                     if player.get('college'):
                         real_data['college'] = player['college']
                     if player.get('experience'):
@@ -117,6 +234,9 @@ class RealDataCollector:
                         # Calculate real age from experience (NFL players typically start at 22)
                         if str(player['experience']).isdigit():
                             real_data['age'] = 22 + int(player['experience'])
+                    
+                    # Create NFL.com URL
+                    real_data['nfl_com_url'] = f"https://www.nfl.com/teams/{team}/roster/"
                     
                     real_data['data_sources'] = ['NFL.com']
                     return real_data
@@ -128,14 +248,52 @@ class RealDataCollector:
             return None
     
     def _scrape_real_pfr(self, player_name: str) -> Dict:
-        """Scrape real career statistics from Pro Football Reference."""
+        """Scrape real career statistics from ESPN (PFR alternative)."""
         try:
-            # Skip PFR for now due to 403 errors - will implement alternative approach
-            logger.info(f"Skipping PFR for {player_name} - implementing alternative stats source")
+            # Use ESPN as PFR alternative due to 403 errors
+            search_url = f"https://www.espn.com/nfl/players/_/search/{player_name.replace(' ', '%20')}"
+            
+            response = self.session.get(search_url, timeout=10)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Find player link
+                player_links = soup.find_all('a', href=True)
+                for link in player_links:
+                    if '/nfl/player/' in link.get('href', '') and player_name.lower() in link.text.lower():
+                        player_url = f"https://www.espn.com{link['href']}"
+                        
+                        # Get player stats page
+                        stats_response = self.session.get(player_url, timeout=10)
+                        if stats_response.status_code == 200:
+                            stats_soup = BeautifulSoup(stats_response.content, 'html.parser')
+                            
+                            real_stats = {}
+                            
+                            # Extract career stats from tables
+                            stat_tables = stats_soup.find_all('table')
+                            for table in stat_tables:
+                                rows = table.find_all('tr')
+                                for row in rows:
+                                    cells = row.find_all('td')
+                                    if len(cells) > 5:
+                                        # Look for career totals
+                                        if 'career' in cells[0].text.lower() or 'total' in cells[0].text.lower():
+                                            try:
+                                                real_stats['career_games'] = int(cells[1].text) if cells[1].text.isdigit() else None
+                                                real_stats['career_pass_yards'] = int(cells[2].text.replace(',', '')) if cells[2].text.replace(',', '').isdigit() else None
+                                                real_stats['career_pass_tds'] = int(cells[3].text) if cells[3].text.isdigit() else None
+                                            except (ValueError, IndexError):
+                                                pass
+                            
+                            if real_stats:
+                                real_stats['data_sources'] = ['ESPN Stats']
+                                return real_stats
+            
             return None
             
         except Exception as e:
-            logger.error(f"Error scraping real PFR data for {player_name}: {e}")
+            logger.error(f"Error scraping ESPN stats for {player_name}: {e}")
             return None
     
     def _scrape_real_wikipedia(self, player_name: str) -> Dict:
@@ -356,17 +514,68 @@ class RealDataCollector:
             return None
     
     def _get_real_social_media(self, player_name: str) -> Dict:
-        """Get real social media data using APIs."""
+        """Get real social media data using web search agent."""
         try:
-            # This would use real social media APIs
-            # For now, return None to indicate no real data available
-            # In production, would use Twitter API v2, Instagram Basic Display API, etc.
+            # Use web search to find social media profiles
+            import requests
+            from bs4 import BeautifulSoup
             
-            logger.info(f"Social media APIs not configured - skipping for {player_name}")
+            real_social = {}
+            
+            # Search for Twitter profile
+            try:
+                twitter_search = f"site:twitter.com {player_name} NFL"
+                google_url = f"https://www.google.com/search?q={twitter_search.replace(' ', '+')}"
+                
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+                
+                response = requests.get(google_url, headers=headers, timeout=10)
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    
+                    # Find Twitter links
+                    for link in soup.find_all('a', href=True):
+                        href = link.get('href', '')
+                        if 'twitter.com' in href and player_name.lower().replace(' ', '') in href.lower():
+                            clean_url = href.split('&')[0].replace('/url?q=', '')
+                            if clean_url.startswith('https://twitter.com/'):
+                                real_social['twitter_url'] = clean_url
+                                real_social['twitter_handle'] = clean_url.split('/')[-1]
+                                break
+            except Exception as e:
+                logger.debug(f"Twitter search failed for {player_name}: {e}")
+            
+            # Search for Instagram profile
+            try:
+                instagram_search = f"site:instagram.com {player_name} NFL"
+                google_url = f"https://www.google.com/search?q={instagram_search.replace(' ', '+')}"
+                
+                response = requests.get(google_url, headers=headers, timeout=10)
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    
+                    # Find Instagram links
+                    for link in soup.find_all('a', href=True):
+                        href = link.get('href', '')
+                        if 'instagram.com' in href and player_name.lower().replace(' ', '') in href.lower():
+                            clean_url = href.split('&')[0].replace('/url?q=', '')
+                            if clean_url.startswith('https://instagram.com/'):
+                                real_social['instagram_url'] = clean_url
+                                real_social['instagram_handle'] = clean_url.split('/')[-1]
+                                break
+            except Exception as e:
+                logger.debug(f"Instagram search failed for {player_name}: {e}")
+            
+            if real_social:
+                real_social['data_sources'] = ['Social Media Search']
+                return real_social
+            
             return None
             
         except Exception as e:
-            logger.error(f"Error getting real social media data for {player_name}: {e}")
+            logger.error(f"Error getting social media data for {player_name}: {e}")
             return None
     
     def _extract_real_number(self, text: str) -> Optional[int]:
@@ -382,18 +591,25 @@ class RealDataCollector:
     
     def _calculate_real_quality(self, data: Dict) -> float:
         """Calculate quality score based on real data only."""
-        # Count only fields with real data
-        total_possible_fields = 50  # Approximate number of meaningful fields
+        # Count only fields with real data (excluding metadata)
+        metadata_fields = ['data_sources', 'last_updated', 'scraped_at', 'data_source', 'comprehensive_enhanced']
+        
         filled_fields = 0
+        total_fields = 0
         
         for key, value in data.items():
-            if key not in ['data_sources', 'last_updated', 'scraped_at', 'data_source']:
-                if value is not None and str(value).strip():
+            if key not in metadata_fields:
+                total_fields += 1
+                if value is not None and str(value).strip() and str(value) != 'None':
                     filled_fields += 1
         
         # Calculate quality score (0-5)
-        quality_score = (filled_fields / total_possible_fields) * 5.0
-        return min(5.0, round(quality_score, 1))
+        if total_fields > 0:
+            quality_score = (filled_fields / total_fields) * 5.0
+        else:
+            quality_score = 0.0
+            
+        return round(quality_score, 1)
     
     def collect_team_roster(self, team: str, limit_players: int = None) -> List[Dict]:
         """Collect REAL DATA ONLY for entire team."""
