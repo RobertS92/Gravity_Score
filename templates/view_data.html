@@ -194,27 +194,13 @@
                 <div class="table-responsive">
                     <table class="table table-striped table-hover" id="playersTable">
                         <thead class="table-dark">
-                            <tr>
-                                <th onclick="sortTable('name')">Name <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('team')">Team <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('position')">Position <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('jersey_number')"># <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('height')">Height <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('weight')">Weight <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('age')">Age <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('experience')">Exp <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('college')">College <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('twitter_handle')">Twitter <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('instagram_handle')">Instagram <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('current_salary')">Salary <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('contract_value')">Contract <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable('data_quality_score')">Quality <i class="fas fa-sort"></i></th>
-                                <th>Actions</th>
+                            <tr id="tableHeader">
+                                <!-- Headers will be dynamically generated from data -->
                             </tr>
                         </thead>
                         <tbody id="playersTableBody">
                             <tr>
-                                <td colspan="15" class="text-center text-muted">
+                                <td colspan="100" class="text-center text-muted">
                                     <div class="spinner-border spinner-border-sm me-2" role="status"></div>
                                     Loading comprehensive player data with all 70+ fields...
                                 </td>
@@ -291,6 +277,9 @@
             allPlayers = data.players || [];
             filteredPlayers = [...allPlayers];
             
+            // Generate dynamic table headers from ALL columns
+            generateTableHeaders();
+            
             updateSummaryStats();
             applyFilters();
             
@@ -298,6 +287,41 @@
             console.error('Error loading player data:', error);
             showError('Failed to load player data. Please try again.');
         }
+    }
+
+    function generateTableHeaders() {
+        const headerRow = document.getElementById('tableHeader');
+        
+        if (allPlayers.length === 0) {
+            headerRow.innerHTML = '<th>Loading...</th>';
+            return;
+        }
+        
+        // Get all unique columns from the data
+        const allColumns = new Set();
+        allPlayers.forEach(player => {
+            Object.keys(player).forEach(key => allColumns.add(key));
+        });
+        
+        // Convert to array and sort for consistent display
+        const columns = Array.from(allColumns).sort();
+        
+        // Generate header HTML for ALL columns
+        let headerHTML = '';
+        columns.forEach(column => {
+            // Format column name for display
+            const displayName = column.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            headerHTML += `<th onclick="sortTable('${column}')" style="min-width: 120px;">
+                ${displayName} <i class="fas fa-sort"></i>
+            </th>`;
+        });
+        
+        // Add actions column
+        headerHTML += '<th style="min-width: 80px;">Actions</th>';
+        
+        headerRow.innerHTML = headerHTML;
+        
+        console.log(`Generated ${columns.length} columns for comprehensive view`);
     }
 
     function populateTeamFilter() {
@@ -382,9 +406,10 @@
         const pageData = filteredPlayers.slice(start, end);
 
         if (pageData.length === 0) {
+            const columnCount = document.querySelectorAll('#tableHeader th').length;
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="15" class="text-center text-muted">
+                    <td colspan="${columnCount}" class="text-center text-muted">
                         <i class="fas fa-search me-2"></i>
                         No players found matching your filters.
                     </td>
@@ -393,46 +418,60 @@
             return;
         }
 
-        tbody.innerHTML = pageData.map(player => `
-            <tr>
-                <td>
-                    <strong>${player.name || 'N/A'}</strong>
-                    ${player.status === 'injured' ? '<span class="badge bg-danger ms-1">Injured</span>' : ''}
-                </td>
-                <td>
-                    <span class="badge bg-secondary">${(player.team || 'N/A').toUpperCase()}</span>
-                </td>
-                <td>${player.position || 'N/A'}</td>
-                <td>${player.jersey_number || '-'}</td>
-                <td>${player.height || 'N/A'}</td>
-                <td>${player.weight || 'N/A'}</td>
-                <td>${player.age || 'N/A'}</td>
-                <td>${player.experience || 'N/A'}</td>
-                <td>${player.college || 'N/A'}</td>
-                <td>
-                    ${player.twitter_handle ? `<a href="#" class="text-primary">${player.twitter_handle}</a>` : '-'}
-                </td>
-                <td>
-                    ${player.instagram_handle ? `<a href="#" class="text-danger">${player.instagram_handle}</a>` : '-'}
-                </td>
-                <td>
-                    ${player.current_salary ? `<span class="text-success">${player.current_salary}</span>` : '-'}
-                </td>
-                <td>
-                    ${player.contract_value ? `<span class="text-info">${player.contract_value}</span>` : '-'}
-                </td>
-                <td>
-                    <span class="badge ${getQualityBadgeClass(player.data_quality_score)}">
-                        ${(player.data_quality_score || 0).toFixed(1)}
-                    </span>
-                </td>
+        // Get all unique columns from the data
+        const allColumns = new Set();
+        allPlayers.forEach(player => {
+            Object.keys(player).forEach(key => allColumns.add(key));
+        });
+        const columns = Array.from(allColumns).sort();
+
+        // Generate table rows with ALL columns
+        tbody.innerHTML = pageData.map(player => {
+            let rowHTML = '<tr>';
+            
+            // Add data for each column
+            columns.forEach(column => {
+                const value = player[column];
+                let cellContent = '';
+                
+                // Special formatting for certain columns
+                if (column === 'name') {
+                    cellContent = `<strong>${value || 'N/A'}</strong>`;
+                } else if (column === 'team') {
+                    cellContent = `<span class="badge bg-secondary">${(value || 'N/A').toUpperCase()}</span>`;
+                } else if (column === 'data_quality_score') {
+                    cellContent = `<span class="badge ${getQualityBadgeClass(value)}">${(value || 0).toFixed(1)}</span>`;
+                } else if (column.includes('salary') || column.includes('contract') || column.includes('earnings')) {
+                    cellContent = `<span class="text-success">${value || '-'}</span>`;
+                } else if (column.includes('twitter') && column.includes('handle')) {
+                    cellContent = value ? `<a href="#" class="text-primary">${value}</a>` : '-';
+                } else if (column.includes('instagram') && column.includes('handle')) {
+                    cellContent = value ? `<a href="#" class="text-danger">${value}</a>` : '-';
+                } else if (column.includes('followers') || column.includes('subscribers')) {
+                    cellContent = value ? `<span class="badge bg-info">${value.toLocaleString()}</span>` : '-';
+                } else if (column.includes('url')) {
+                    cellContent = value ? `<a href="${value}" target="_blank" class="text-primary"><i class="fas fa-external-link-alt"></i></a>` : '-';
+                } else {
+                    // Default formatting
+                    cellContent = value || '-';
+                }
+                
+                rowHTML += `<td style="min-width: 120px;">${cellContent}</td>`;
+            });
+            
+            // Add actions column
+            rowHTML += `
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="viewPlayer('${player.name}')">
                         <i class="fas fa-eye"></i>
                     </button>
                 </td>
-            </tr>
-        `).join('');
+            </tr>`;
+            
+            return rowHTML;
+        }).join('');
+        
+        console.log(`Displayed ${columns.length} columns for ${pageData.length} players`);
     }
 
     function getQualityBadgeClass(score) {
@@ -624,9 +663,10 @@
 
     function showError(message) {
         const tbody = document.getElementById('playersTableBody');
+        const columnCount = document.querySelectorAll('#tableHeader th').length || 100;
         tbody.innerHTML = `
             <tr>
-                <td colspan="15" class="text-center text-danger">
+                <td colspan="${columnCount}" class="text-center text-danger">
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     ${message}
                 </td>
