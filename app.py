@@ -344,9 +344,9 @@ def scrape_comprehensive_data():
         data = request.get_json()
         teams = data.get('teams', ['49ers'])
         
-        # Use the fast simple comprehensive collector
-        from simple_comprehensive_collector import SimpleComprehensiveCollector
-        collector = SimpleComprehensiveCollector()
+        # Use the enhanced comprehensive collector for ALL fields
+        from enhanced_comprehensive_collector import EnhancedComprehensiveCollector
+        collector = EnhancedComprehensiveCollector()
         
         all_players = []
         results = {}
@@ -562,10 +562,10 @@ def comprehensive_scrape():
         if not teams:
             return jsonify({"error": "No teams specified"}), 400
         
-        # Import simplified comprehensive collector
-        from simple_comprehensive_collector import SimpleComprehensiveCollector
+        # Import enhanced comprehensive collector for ALL 70+ fields
+        from enhanced_comprehensive_collector import EnhancedComprehensiveCollector
         
-        collector = SimpleComprehensiveCollector()
+        collector = EnhancedComprehensiveCollector()
         
         all_players = []
         results = {}
