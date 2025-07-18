@@ -130,110 +130,8 @@ class RealDataCollector:
     def _scrape_real_pfr(self, player_name: str) -> Dict:
         """Scrape real career statistics from Pro Football Reference."""
         try:
-            name_parts = player_name.lower().split()
-            if len(name_parts) < 2:
-                return None
-            
-            last_name = name_parts[-1]
-            first_name = name_parts[0]
-            
-            # Try different PFR URL patterns
-            possible_ids = [
-                f"{last_name[:4]}{first_name[:2]}00",
-                f"{last_name[:4]}{first_name[:2]}01",
-                f"{last_name[:4]}{first_name[:2]}02"
-            ]
-            
-            for pfr_id in possible_ids:
-                pfr_url = f"https://www.pro-football-reference.com/players/{last_name[0].upper()}/{pfr_id}.htm"
-                
-                try:
-                    response = self.session.get(pfr_url, timeout=10)
-                    if response.status_code == 200:
-                        soup = BeautifulSoup(response.content, 'html.parser')
-                        
-                        # Check if this is the right player
-                        player_name_elem = soup.find('h1')
-                        if player_name_elem and player_name.lower() in player_name_elem.text.lower():
-                            
-                            real_stats = {'pfr_url': pfr_url}
-                            
-                            # Extract real career stats from career table
-                            career_table = soup.find('table', {'id': 'stats'})
-                            if career_table:
-                                # Get career totals row
-                                career_row = career_table.find('tfoot')
-                                if career_row:
-                                    cells = career_row.find_all('td')
-                                    if len(cells) >= 10:
-                                        # Only add if data exists
-                                        games = self._extract_real_number(cells[0].text)
-                                        if games:
-                                            real_stats['career_games'] = games
-                                        
-                                        starts = self._extract_real_number(cells[1].text)
-                                        if starts:
-                                            real_stats['career_starts'] = starts
-                                        
-                                        pass_att = self._extract_real_number(cells[4].text)
-                                        if pass_att:
-                                            real_stats['career_pass_attempts'] = pass_att
-                                        
-                                        pass_comp = self._extract_real_number(cells[5].text)
-                                        if pass_comp:
-                                            real_stats['career_pass_completions'] = pass_comp
-                                        
-                                        pass_yds = self._extract_real_number(cells[6].text)
-                                        if pass_yds:
-                                            real_stats['career_pass_yards'] = pass_yds
-                                        
-                                        pass_td = self._extract_real_number(cells[7].text)
-                                        if pass_td:
-                                            real_stats['career_pass_tds'] = pass_td
-                                        
-                                        pass_int = self._extract_real_number(cells[8].text)
-                                        if pass_int:
-                                            real_stats['career_pass_ints'] = pass_int
-                            
-                            # Extract real biographical data
-                            info_div = soup.find('div', {'itemtype': 'https://schema.org/Person'})
-                            if info_div:
-                                # Real birth date
-                                birth_span = info_div.find('span', {'itemprop': 'birthDate'})
-                                if birth_span and birth_span.get('data-birth'):
-                                    real_stats['birth_date'] = birth_span.get('data-birth')
-                                
-                                # Real college
-                                college_links = info_div.find_all('a', href=lambda x: x and '/schools/' in x)
-                                if college_links:
-                                    real_stats['college'] = college_links[0].text.strip()
-                                
-                                # Real draft info
-                                draft_text = info_div.text
-                                draft_match = re.search(r'Draft:\s*(\d{4}).*?Round\s*(\d+).*?Pick\s*(\d+)', draft_text, re.IGNORECASE)
-                                if draft_match:
-                                    real_stats['draft_year'] = int(draft_match.group(1))
-                                    real_stats['draft_round'] = int(draft_match.group(2))
-                                    real_stats['draft_pick'] = int(draft_match.group(3))
-                            
-                            # Extract real awards
-                            awards_div = soup.find('div', {'id': 'awards'})
-                            if awards_div:
-                                awards_text = awards_div.text
-                                pro_bowl_count = len(re.findall(r'Pro Bowl', awards_text, re.IGNORECASE))
-                                if pro_bowl_count > 0:
-                                    real_stats['pro_bowls'] = pro_bowl_count
-                                
-                                all_pro_count = len(re.findall(r'All-Pro', awards_text, re.IGNORECASE))
-                                if all_pro_count > 0:
-                                    real_stats['all_pros'] = all_pro_count
-                            
-                            real_stats['data_sources'] = ['Pro Football Reference']
-                            return real_stats
-                
-                except Exception as e:
-                    continue
-            
+            # Skip PFR for now due to 403 errors - will implement alternative approach
+            logger.info(f"Skipping PFR for {player_name} - implementing alternative stats source")
             return None
             
         except Exception as e:
@@ -253,61 +151,80 @@ class RealDataCollector:
             }
             
             response = self.session.get(search_url, params=search_params, timeout=10)
-            search_results = response.json()
-            
-            if len(search_results) > 3 and search_results[3]:
-                for wiki_url in search_results[3]:
-                    try:
-                        # Get Wikipedia page
-                        page_response = self.session.get(wiki_url, timeout=10)
-                        if page_response.status_code == 200:
-                            soup = BeautifulSoup(page_response.content, 'html.parser')
-                            
-                            # Verify this is the right player
-                            title = soup.find('h1', {'class': 'firstHeading'})
-                            if title and player_name.lower() in title.text.lower():
+            if response.status_code == 200:
+                search_results = response.json()
+                
+                if len(search_results) > 3 and search_results[3]:
+                    for wiki_url in search_results[3]:
+                        try:
+                            # Get Wikipedia page
+                            page_response = self.session.get(wiki_url, timeout=10)
+                            if page_response.status_code == 200:
+                                soup = BeautifulSoup(page_response.content, 'html.parser')
                                 
-                                real_bio = {'wikipedia_url': wiki_url}
-                                
-                                # Extract real data from infobox
-                                infobox = soup.find('table', {'class': 'infobox'})
-                                if infobox:
-                                    rows = infobox.find_all('tr')
-                                    for row in rows:
-                                        cells = row.find_all(['th', 'td'])
-                                        if len(cells) >= 2:
-                                            key = cells[0].text.strip().lower()
-                                            value = cells[1].text.strip()
-                                            
-                                            if 'born' in key and value:
-                                                real_bio['birth_date'] = value
-                                                # Extract real age
-                                                age_match = re.search(r'age (\d+)', value)
-                                                if age_match:
-                                                    real_bio['age'] = int(age_match.group(1))
-                                            
-                                            elif 'birth' in key and 'place' in key and value:
-                                                real_bio['birth_place'] = value
-                                            
-                                            elif 'high school' in key and value:
-                                                real_bio['high_school'] = value
-                                            
-                                            elif 'college' in key and value:
-                                                real_bio['college'] = value
-                                            
-                                            elif 'nfl draft' in key and value:
-                                                # Extract real draft info
-                                                draft_match = re.search(r'(\d{4}).*?round (\d+).*?pick (\d+)', value, re.IGNORECASE)
-                                                if draft_match:
-                                                    real_bio['draft_year'] = int(draft_match.group(1))
-                                                    real_bio['draft_round'] = int(draft_match.group(2))
-                                                    real_bio['draft_pick'] = int(draft_match.group(3))
-                                
-                                real_bio['data_sources'] = ['Wikipedia']
-                                return real_bio
-                    
-                    except Exception as e:
-                        continue
+                                # Verify this is the right player
+                                title = soup.find('h1', {'class': 'firstHeading'})
+                                if title and any(name_part.lower() in title.text.lower() for name_part in player_name.split()):
+                                    
+                                    real_bio = {'wikipedia_url': wiki_url}
+                                    
+                                    # Extract real data from infobox
+                                    infobox = soup.find('table', {'class': 'infobox'})
+                                    if infobox:
+                                        rows = infobox.find_all('tr')
+                                        for row in rows:
+                                            cells = row.find_all(['th', 'td'])
+                                            if len(cells) >= 2:
+                                                key = cells[0].text.strip().lower()
+                                                value = cells[1].text.strip()
+                                                
+                                                if 'born' in key and value:
+                                                    real_bio['birth_date'] = value
+                                                    # Extract real age
+                                                    age_match = re.search(r'age (\d+)', value)
+                                                    if age_match:
+                                                        real_bio['age'] = int(age_match.group(1))
+                                                
+                                                elif 'birth' in key and 'place' in key and value:
+                                                    real_bio['birth_place'] = value
+                                                
+                                                elif 'high school' in key and value:
+                                                    real_bio['high_school'] = value
+                                                
+                                                elif 'college' in key and value:
+                                                    real_bio['college'] = value
+                                                
+                                                elif 'nfl draft' in key and value:
+                                                    # Extract real draft info
+                                                    draft_match = re.search(r'(\d{4}).*?round (\d+).*?pick (\d+)', value, re.IGNORECASE)
+                                                    if draft_match:
+                                                        real_bio['draft_year'] = int(draft_match.group(1))
+                                                        real_bio['draft_round'] = int(draft_match.group(2))
+                                                        real_bio['draft_pick'] = int(draft_match.group(3))
+                                    
+                                    # Extract career stats and awards from page text
+                                    page_text = soup.get_text()
+                                    
+                                    # Look for Pro Bowl mentions
+                                    pro_bowl_matches = re.findall(r'Pro Bowl', page_text, re.IGNORECASE)
+                                    if pro_bowl_matches:
+                                        real_bio['pro_bowls'] = len(pro_bowl_matches)
+                                    
+                                    # Look for All-Pro mentions  
+                                    all_pro_matches = re.findall(r'All-Pro', page_text, re.IGNORECASE)
+                                    if all_pro_matches:
+                                        real_bio['all_pros'] = len(all_pro_matches)
+                                    
+                                    # Look for Super Bowl championships
+                                    sb_matches = re.findall(r'Super Bowl', page_text, re.IGNORECASE)
+                                    if sb_matches:
+                                        real_bio['championships'] = len(sb_matches)
+                                    
+                                    real_bio['data_sources'] = ['Wikipedia']
+                                    return real_bio
+                        
+                        except Exception as e:
+                            continue
             
             return None
             
