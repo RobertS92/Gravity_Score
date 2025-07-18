@@ -876,6 +876,40 @@ def get_logs():
         logger.error(f"Error reading logs: {e}")
         return jsonify({"error": "Failed to read logs"}), 500
 
+@app.route('/test-scraper')
+def test_scraper_page():
+    """Test scraper page for 3 specific players."""
+    return render_template('test_scraper.html')
+
+@app.route('/api/test/players', methods=['POST'])
+def test_players():
+    """Test real data scraping for specific players."""
+    try:
+        data = request.get_json()
+        players = data.get('players', ['Lamar Jackson', 'Josh Allen', 'Patrick Mahomes'])
+        
+        # Import the test scraper
+        from test_player_scraper import TestPlayerScraper
+        
+        scraper = TestPlayerScraper()
+        
+        # Run the test
+        logger.info(f"Starting real data test for players: {players}")
+        
+        results = scraper.test_three_players()
+        field_comparison = scraper.get_all_field_comparison(results)
+        
+        return jsonify({
+            "status": "success",
+            "test_results": results,
+            "field_comparison": field_comparison,
+            "message": f"Real data test completed for {len(players)} players"
+        })
+        
+    except Exception as e:
+        logger.error(f"Player test error: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
 if __name__ == '__main__':
     # Ensure data and logs directories exist
     os.makedirs("data", exist_ok=True)
