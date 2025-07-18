@@ -530,12 +530,10 @@ def comprehensive_scrape():
         if not teams:
             return jsonify({"error": "No teams specified"}), 400
         
-        # Import Firecrawl-powered comprehensive scraper
-        from simple_firecrawl_scraper import SimpleFirecrawlScraper
-        from enhanced_nfl_scraper import EnhancedNFLScraper
+        # Import simplified comprehensive collector
+        from simple_comprehensive_collector import SimpleComprehensiveCollector
         
-        scraper = EnhancedNFLScraper()
-        firecrawl_scraper = SimpleFirecrawlScraper()
+        collector = SimpleComprehensiveCollector()
         
         all_players = []
         results = {}
@@ -543,33 +541,24 @@ def comprehensive_scrape():
         for team in teams:
             logger.info(f"Starting comprehensive scraping for {team}")
             
-            # Extract complete roster first
-            team_players = scraper.extract_complete_team_roster(team)
-            
-            # Then enhance each player with comprehensive data using Firecrawl
-            enhanced_players = []
-            for player in team_players:
-                try:
-                    comprehensive_data = firecrawl_scraper.collect_player_data(
-                        player['name'], 
-                        team
-                    )
-                    # Merge basic roster data with comprehensive data
-                    enhanced_player = {**player, **comprehensive_data}
-                    enhanced_players.append(enhanced_player)
-                except Exception as e:
-                    logger.warning(f"Comprehensive enhancement failed for {player['name']}: {e}")
-                    enhanced_players.append(player)  # Keep basic data
+            # Collect comprehensive data for the team (limit to 10 players for testing)
+            enhanced_players = collector.collect_team_roster(team, limit_players=10)
             
             all_players.extend(enhanced_players)
             
+            # Calculate quality metrics
+            avg_quality = sum(p.get('data_quality_score', 0) for p in enhanced_players) / len(enhanced_players) if enhanced_players else 0
+            total_sources = sum(len(p.get('data_sources', [])) for p in enhanced_players)
+            
             results[team] = {
-                "players_found": len(team_players),
+                "players_found": len(enhanced_players),
                 "players_enhanced": len(enhanced_players),
+                "avg_quality_score": round(avg_quality, 1),
+                "total_sources_used": total_sources,
                 "status": "success" if enhanced_players else "no_data"
             }
             
-            logger.info(f"Completed {team}: {len(enhanced_players)} players with comprehensive data")
+            logger.info(f"Completed {team}: {len(enhanced_players)} players with comprehensive data (avg quality: {avg_quality:.1f})")
         
         return jsonify({
             "status": "success",
