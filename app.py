@@ -69,6 +69,11 @@ def data_viewer():
     """Data viewer page with Excel-like filtering."""
     return render_template('data_viewer.html')
 
+@app.route('/players')
+def all_players():
+    """All NFL players page with comprehensive team support."""
+    return render_template('players.html')
+
 @app.route('/api/players/all')
 def get_all_players():
     """Get all players from the latest data file with comprehensive data."""
@@ -588,66 +593,106 @@ def firecrawl_scrape():
         if not teams:
             return jsonify({"error": "No teams specified"}), 400
         
-        # Import Firecrawl scraper
-        from simple_firecrawl_scraper import SimpleFirecrawlScraper
-        from enhanced_nfl_scraper import EnhancedNFLScraper
-        
-        roster_scraper = EnhancedNFLScraper()
-        firecrawl_scraper = SimpleFirecrawlScraper()
-        
-        all_players = []
-        results = {}
-        
-        for team in teams:
-            logger.info(f"Starting Firecrawl scraping for {team}")
+        try:
+            # Import Firecrawl scraper with fallback
+            from simple_firecrawl_scraper import SimpleFirecrawlScraper
+            from enhanced_nfl_scraper import EnhancedNFLScraper
             
-            # Extract complete roster first
-            team_players = roster_scraper.extract_complete_team_roster(team)
+            roster_scraper = EnhancedNFLScraper()
+            firecrawl_scraper = SimpleFirecrawlScraper()
             
-            # Then enhance with Firecrawl comprehensive data
-            enhanced_players = firecrawl_scraper.collect_team_roster(team, team_players)
+            all_players = []
+            results = {}
+            firecrawl_available = True
             
-            all_players.extend(enhanced_players)
+            for team in teams:
+                logger.info(f"Starting Firecrawl scraping for {team}")
+                
+                # Extract complete roster first
+                team_players = roster_scraper.extract_complete_team_roster(team)
+                
+                try:
+                    # Try Firecrawl enhancement
+                    enhanced_players = firecrawl_scraper.collect_team_roster(team, team_players)
+                    
+                    # Check if Firecrawl is working (402 = payment required)
+                    if not enhanced_players or all(len(p.get('data_sources', [])) == 0 for p in enhanced_players):
+                        firecrawl_available = False
+                        raise Exception("Firecrawl API unavailable (payment required)")
+                        
+                except Exception as fe:
+                    logger.warning(f"Firecrawl unavailable for {team}: {fe}")
+                    firecrawl_available = False
+                    # Fallback to basic roster data with enhanced fields
+                    enhanced_players = []
+                    for player in team_players:
+                        enhanced_player = {
+                            **player,
+                            'data_quality_score': 3.0,  # Basic score for roster-only data
+                            'data_sources': ['NFL.com'],
+                            'twitter_handle': None,
+                            'instagram_handle': None,
+                            'tiktok_handle': None,
+                            'youtube_handle': None,
+                            'contract_value': None,
+                            'wikipedia_url': None,
+                            'career_stats': None
+                        }
+                        enhanced_players.append(enhanced_player)
+                
+                all_players.extend(enhanced_players)
+                
+                # Calculate quality metrics
+                avg_quality = sum(p.get('data_quality_score', 0) for p in enhanced_players) / len(enhanced_players) if enhanced_players else 0
+                total_sources = sum(len(p.get('data_sources', [])) for p in enhanced_players)
+                
+                results[team] = {
+                    "players_found": len(team_players),
+                    "players_enhanced": len(enhanced_players),
+                    "avg_quality_score": round(avg_quality, 2),
+                    "total_sources_used": total_sources,
+                    "unique_sources": list(set(source for p in enhanced_players for source in p.get('data_sources', []))),
+                    "status": "completed_with_fallback" if not firecrawl_available else "completed"
+                }
+                
+                logger.info(f"Completed {team}: {len(enhanced_players)} players, avg quality: {avg_quality:.2f}")
             
-            # Calculate quality metrics
-            avg_quality = sum(p.get('data_quality_score', 0) for p in enhanced_players) / len(enhanced_players) if enhanced_players else 0
-            total_sources = sum(len(p.get('data_sources', [])) for p in enhanced_players)
+            # Save to database
+            if all_players:
+                try:
+                    from simple_db_integration import save_players_to_db
+                    save_players_to_db(all_players)
+                except Exception as db_error:
+                    logger.warning(f"Database save failed: {db_error}")
             
-            results[team] = {
-                "players_found": len(team_players),
-                "players_enhanced": len(enhanced_players),
-                "avg_quality_score": round(avg_quality, 2),
-                "total_sources_used": total_sources,
-                "unique_sources": list(set(source for p in enhanced_players for source in p.get('data_sources', []))),
-                "status": "completed"
-            }
+            # Save to CSV for data viewer
+            import pandas as pd
+            df = pd.DataFrame(all_players)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_filename = f"data/firecrawl_players_{timestamp}.csv"
             
-            logger.info(f"Completed {team}: {len(enhanced_players)} players, avg quality: {avg_quality:.2f}")
-        
-        # Save to database
-        if all_players:
-            from simple_db_integration import save_players_to_db
-            save_players_to_db(all_players)
-        
-        # Save to CSV for data viewer
-        import pandas as pd
-        df = pd.DataFrame(all_players)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        csv_filename = f"data/firecrawl_players_{timestamp}.csv"
-        
-        # Create data directory if it doesn't exist
-        os.makedirs("data", exist_ok=True)
-        df.to_csv(csv_filename, index=False)
-        
-        return jsonify({
-            "status": "success",
-            "total_players": len(all_players),
-            "teams_processed": len(teams),
-            "results": results,
-            "data_file": csv_filename,
-            "avg_quality_score": round(sum(p.get('data_quality_score', 0) for p in all_players) / len(all_players), 2),
-            "message": f"Successfully scraped {len(all_players)} players using Firecrawl from {len(teams)} teams"
-        })
+            # Create data directory if it doesn't exist
+            os.makedirs("data", exist_ok=True)
+            df.to_csv(csv_filename, index=False)
+            
+            status_message = f"Successfully scraped {len(all_players)} players from {len(teams)} teams"
+            if not firecrawl_available:
+                status_message += " (using fallback mode - Firecrawl API unavailable)"
+            
+            return jsonify({
+                "status": "success",
+                "total_players": len(all_players),
+                "teams_processed": len(teams),
+                "results": results,
+                "data_file": csv_filename,
+                "avg_quality_score": round(sum(p.get('data_quality_score', 0) for p in all_players) / len(all_players), 2) if all_players else 0,
+                "firecrawl_available": firecrawl_available,
+                "message": status_message
+            })
+            
+        except ImportError as ie:
+            logger.error(f"Import error in Firecrawl scraping: {ie}")
+            return jsonify({"error": f"Import error: {ie}", "status": "error"}), 500
         
     except Exception as e:
         logger.error(f"Firecrawl scraping error: {e}")

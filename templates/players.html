@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFL Player Database - All Teams</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/style.css" rel="stylesheet">
+    <style>
+        .table-container {
+            max-height: 70vh;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+        }
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 100;
+        }
+        .filter-input {
+            max-width: 200px;
+        }
+        .quality-badge {
+            font-size: 0.75rem;
+        }
+        .data-sources {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-football-ball me-2"></i>NFL Gravity Score
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/">
+                    <i class="fas fa-home me-1"></i>Dashboard
+                </a>
+                <a class="nav-link active" href="/players">
+                    <i class="fas fa-users me-1"></i>All Players
+                </a>
+                <a class="nav-link" href="/data">
+                    <i class="fas fa-table me-1"></i>Data Viewer
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4><i class="fas fa-users me-2"></i>NFL Player Database - All Teams</h4>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary" id="scrapeAllBtn">
+                                <i class="fas fa-sync me-2"></i>Scrape All Teams
+                            </button>
+                            <button class="btn btn-success" id="exportBtn">
+                                <i class="fas fa-download me-2"></i>Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Control Panel -->
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Filter by Team:</label>
+                                <select class="form-select filter-input" id="teamFilter">
+                                    <option value="">All Teams</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Filter by Position:</label>
+                                <select class="form-select filter-input" id="positionFilter">
+                                    <option value="">All Positions</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Search Player:</label>
+                                <input type="text" class="form-control filter-input" id="nameFilter" placeholder="Player name...">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Scraping Mode:</label>
+                                <select class="form-select filter-input" id="scrapingMode">
+                                    <option value="standard">Standard Mode</option>
+                                    <option value="comprehensive">Comprehensive Mode</option>
+                                    <option value="firecrawl">Firecrawl Mode</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Status Panel -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="alert alert-info" id="statusAlert" style="display: none;">
+                                    <div id="statusMessage"></div>
+                                    <div class="progress mt-2" style="height: 6px;">
+                                        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Data Stats -->
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <div class="border rounded p-2 text-center">
+                                    <div class="fw-bold text-primary" id="totalPlayers">0</div>
+                                    <small class="text-muted">Total Players</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="border rounded p-2 text-center">
+                                    <div class="fw-bold text-success" id="totalTeams">0</div>
+                                    <small class="text-muted">Teams Covered</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="border rounded p-2 text-center">
+                                    <div class="fw-bold text-info" id="avgQuality">0.0</div>
+                                    <small class="text-muted">Avg Quality Score</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="border rounded p-2 text-center">
+                                    <div class="fw-bold text-warning" id="lastUpdated">Never</div>
+                                    <small class="text-muted">Last Updated</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Player Table -->
+                        <div class="table-container">
+                            <table class="table table-striped table-hover mb-0">
+                                <thead class="table-dark sticky-header">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Team</th>
+                                        <th>Position</th>
+                                        <th>Age</th>
+                                        <th>Height</th>
+                                        <th>Weight</th>
+                                        <th>Experience</th>
+                                        <th>College</th>
+                                        <th>Contract Value</th>
+                                        <th>Social Media</th>
+                                        <th>Quality</th>
+                                        <th>Sources</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="playersTableBody">
+                                    <tr>
+                                        <td colspan="12" class="text-center text-muted py-4">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            No player data available. Click "Scrape All Teams" to collect data.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class NFLPlayersApp {
+            constructor() {
+                this.players = [];
+                this.filteredPlayers = [];
+                this.isScrapingInProgress = false;
+                this.init();
+            }
+
+            async init() {
+                this.setupEventListeners();
+                await this.loadPlayers();
+                this.updateStats();
+                this.populateFilters();
+            }
+
+            setupEventListeners() {
+                document.getElementById('scrapeAllBtn').addEventListener('click', () => {
+                    this.scrapeAllTeams();
+                });
+
+                document.getElementById('exportBtn').addEventListener('click', () => {
+                    this.exportToCSV();
+                });
+
+                document.getElementById('teamFilter').addEventListener('change', () => {
+                    this.applyFilters();
+                });
+
+                document.getElementById('positionFilter').addEventListener('change', () => {
+                    this.applyFilters();
+                });
+
+                document.getElementById('nameFilter').addEventListener('input', () => {
+                    this.applyFilters();
+                });
+
+                // Auto-refresh during scraping
+                setInterval(() => {
+                    if (this.isScrapingInProgress) {
+                        this.checkScrapingProgress();
+                    }
+                }, 3000);
+            }
+
+            async loadPlayers() {
+                try {
+                    const response = await fetch('/api/players/all');
+                    const data = await response.json();
+                    this.players = data.players || [];
+                    this.filteredPlayers = [...this.players];
+                    this.renderTable();
+                } catch (error) {
+                    console.error('Error loading players:', error);
+                }
+            }
+
+            async scrapeAllTeams() {
+                if (this.isScrapingInProgress) {
+                    alert('Scraping is already in progress');
+                    return;
+                }
+
+                const mode = document.getElementById('scrapingMode').value;
+                const teams = [
+                    'cardinals', 'falcons', 'ravens', 'bills', 'panthers', 'bears', 'bengals', 'browns',
+                    'cowboys', 'broncos', 'lions', 'packers', 'texans', 'colts', 'jaguars', 'chiefs',
+                    'raiders', 'chargers', 'rams', 'dolphins', 'vikings', 'patriots', 'saints', 'giants',
+                    'jets', '49ers', 'seahawks', 'steelers', 'titans', 'commanders', 'buccaneers', 'eagles'
+                ];
+
+                this.isScrapingInProgress = true;
+                this.showStatus('Starting comprehensive NFL data collection...', 0);
+
+                let endpoint = '/api/scrape';
+                if (mode === 'comprehensive') {
+                    endpoint = '/api/scrape/comprehensive';
+                } else if (mode === 'firecrawl') {
+                    endpoint = '/api/scrape/firecrawl';
+                }
+
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ teams: teams })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        this.showStatus(`Successfully collected data for ${result.total_players} players from ${result.teams_processed} teams`, 100);
+                        await this.loadPlayers();
+                        this.updateStats();
+                        this.populateFilters();
+                    } else {
+                        this.showStatus(`Error: ${result.error}`, 0, 'danger');
+                    }
+                } catch (error) {
+                    this.showStatus(`Network error: ${error.message}`, 0, 'danger');
+                }
+
+                this.isScrapingInProgress = false;
+            }
+
+            async checkScrapingProgress() {
+                try {
+                    const response = await fetch('/api/status');
+                    const status = await response.json();
+                    
+                    if (status.state === 'running') {
+                        this.showStatus('Data collection in progress...', 50);
+                    }
+                } catch (error) {
+                    console.error('Error checking progress:', error);
+                }
+            }
+
+            showStatus(message, progress, type = 'info') {
+                const alert = document.getElementById('statusAlert');
+                const messageDiv = document.getElementById('statusMessage');
+                const progressBar = document.getElementById('progressBar');
+
+                alert.className = `alert alert-${type}`;
+                alert.style.display = 'block';
+                messageDiv.textContent = message;
+                progressBar.style.width = `${progress}%`;
+
+                if (progress === 100 || type === 'danger') {
+                    setTimeout(() => {
+                        alert.style.display = 'none';
+                    }, 5000);
+                }
+            }
+
+            populateFilters() {
+                const teams = [...new Set(this.players.map(p => p.team))].sort();
+                const positions = [...new Set(this.players.map(p => p.position))].sort();
+
+                const teamFilter = document.getElementById('teamFilter');
+                const positionFilter = document.getElementById('positionFilter');
+
+                teamFilter.innerHTML = '<option value="">All Teams</option>';
+                teams.forEach(team => {
+                    teamFilter.innerHTML += `<option value="${team}">${team}</option>`;
+                });
+
+                positionFilter.innerHTML = '<option value="">All Positions</option>';
+                positions.forEach(pos => {
+                    positionFilter.innerHTML += `<option value="${pos}">${pos}</option>`;
+                });
+            }
+
+            applyFilters() {
+                const teamFilter = document.getElementById('teamFilter').value;
+                const positionFilter = document.getElementById('positionFilter').value;
+                const nameFilter = document.getElementById('nameFilter').value.toLowerCase();
+
+                this.filteredPlayers = this.players.filter(player => {
+                    const matchesTeam = !teamFilter || player.team === teamFilter;
+                    const matchesPosition = !positionFilter || player.position === positionFilter;
+                    const matchesName = !nameFilter || player.name.toLowerCase().includes(nameFilter);
+                    
+                    return matchesTeam && matchesPosition && matchesName;
+                });
+
+                this.renderTable();
+                this.updateStats();
+            }
+
+            renderTable() {
+                const tbody = document.getElementById('playersTableBody');
+                
+                if (this.filteredPlayers.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="12" class="text-center text-muted py-4">
+                                <i class="fas fa-search me-2"></i>
+                                No players found matching current filters.
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                tbody.innerHTML = this.filteredPlayers.map(player => `
+                    <tr>
+                        <td><strong>${player.name || 'N/A'}</strong></td>
+                        <td><span class="badge bg-primary">${player.team || 'N/A'}</span></td>
+                        <td><span class="badge bg-secondary">${player.position || 'N/A'}</span></td>
+                        <td>${player.age || 'N/A'}</td>
+                        <td>${player.height || 'N/A'}</td>
+                        <td>${player.weight ? player.weight + ' lbs' : 'N/A'}</td>
+                        <td>${player.experience || player.years_pro || 'N/A'}</td>
+                        <td>${player.college || 'N/A'}</td>
+                        <td>${player.contract_value || player.current_salary || 'N/A'}</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                ${player.twitter_handle ? `<a href="https://twitter.com/${player.twitter_handle}" target="_blank" class="badge bg-info text-decoration-none">X</a>` : ''}
+                                ${player.instagram_handle ? `<a href="https://instagram.com/${player.instagram_handle}" target="_blank" class="badge bg-danger text-decoration-none">IG</a>` : ''}
+                                ${player.tiktok_handle ? `<a href="https://tiktok.com/@${player.tiktok_handle}" target="_blank" class="badge bg-dark text-decoration-none">TT</a>` : ''}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge quality-badge ${this.getQualityBadgeClass(player.data_quality_score || 0)}">
+                                ${(player.data_quality_score || 0).toFixed(1)}
+                            </span>
+                        </td>
+                        <td>
+                            <small class="data-sources">
+                                ${(player.data_sources || []).join(', ') || 'Standard'}
+                            </small>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            getQualityBadgeClass(score) {
+                if (score >= 8) return 'bg-success';
+                if (score >= 6) return 'bg-warning';
+                if (score >= 4) return 'bg-info';
+                return 'bg-secondary';
+            }
+
+            updateStats() {
+                const totalPlayers = this.filteredPlayers.length;
+                const totalTeams = new Set(this.filteredPlayers.map(p => p.team)).size;
+                const avgQuality = totalPlayers > 0 ? 
+                    this.filteredPlayers.reduce((sum, p) => sum + (p.data_quality_score || 0), 0) / totalPlayers : 0;
+
+                document.getElementById('totalPlayers').textContent = totalPlayers;
+                document.getElementById('totalTeams').textContent = totalTeams;
+                document.getElementById('avgQuality').textContent = avgQuality.toFixed(1);
+                document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+            }
+
+            exportToCSV() {
+                if (this.filteredPlayers.length === 0) {
+                    alert('No data to export');
+                    return;
+                }
+
+                const headers = [
+                    'Name', 'Team', 'Position', 'Age', 'Height', 'Weight', 'Experience', 'College',
+                    'Contract Value', 'Twitter', 'Instagram', 'TikTok', 'Quality Score', 'Data Sources'
+                ];
+
+                const csvContent = [
+                    headers.join(','),
+                    ...this.filteredPlayers.map(player => [
+                        player.name || '',
+                        player.team || '',
+                        player.position || '',
+                        player.age || '',
+                        player.height || '',
+                        player.weight || '',
+                        player.experience || player.years_pro || '',
+                        player.college || '',
+                        player.contract_value || player.current_salary || '',
+                        player.twitter_handle || '',
+                        player.instagram_handle || '',
+                        player.tiktok_handle || '',
+                        player.data_quality_score || 0,
+                        (player.data_sources || []).join('; ')
+                    ].map(field => `"${field}"`).join(','))
+                ].join('\n');
+
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `nfl_players_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            }
+        }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new NFLPlayersApp();
+        });
+    </script>
+</body>
+</html>

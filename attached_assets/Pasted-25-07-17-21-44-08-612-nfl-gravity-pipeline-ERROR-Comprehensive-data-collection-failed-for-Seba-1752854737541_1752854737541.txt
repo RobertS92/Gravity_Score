@@ -1,0 +1,51 @@
+25-07-17 21:44:08,612 - nfl_gravity.pipeline - ERROR - Comprehensive data collection failed for Sebastian Valdez: No module named 'sqlalchemy'
+2025-07-17 21:44:08,612 - nfl_gravity.pipeline - ERROR - Comprehensive data collection failed for Fred Warner: cannot import name 'EnhancedComprehensiveCollector' from 'enhanced_comprehensive_collector' (/home/runner/workspace/enhanced_comprehensive_collector.py)
+2025-07-17 21:44:08,613 - nfl_gravity.validators - INFO - Successfully validated player: Sebastian Valdez
+2025-07-17 21:44:08,613 - nfl_gravity.pipeline - ERROR - Comprehensive data collection failed for Jon Weeks: cannot import name 'EnhancedComprehensiveCollector' from 'enhanced_comprehensive_collector' (/home/runner/workspace/enhanced_comprehensive_collector.py)
+2025-07-17 21:44:08,613 - nfl_gravity.validators - INFO - Successfully validated player: Fred Warner
+2025-07-17 21:44:08,613 - nfl_gravity.pipeline - ERROR - Comprehensive data collection failed for Jordan Watkins: cannot import name 'EnhancedComprehensiveCollector' from 'enhanced_comprehensive_collector' (/home/runner/workspace/enhanced_comprehensive_collector.py)
+2025-07-17 21:44:08,613 - nfl_gravity.pipeline - ERROR - Comprehensive data collection failed for CJ West: cannot import name 'EnhancedComprehensiveCollector' from 'enhanced_comprehensive_collector' (/home/runner/workspace/enhanced_comprehensive_collector.py)
+2025-07-17 21:44:08,614 - nfl_gravity.validators - INFO - Successfully validated player: Jon Weeks
+2025-07-17 21:44:08,616 - nfl_gravity.pipeline - ERROR - Comprehensive data collection failed for Mykel Williams: No module named 'sqlalchemy'
+2025-07-17 21:44:08,617 - nfl_gravity.validators - INFO - Successfully validated player: Jordan Watkins
+2025-07-17 21:44:08,617 - nfl_gravity.validators - INFO - Successfully validated player: CJ West
+2025-07-17 21:44:08,618 - nfl_gravity.validators - INFO - Successfully validated player: Mykel Williams
+2025-07-17 21:44:08,619 - nfl_gravity.pipeline - ERROR - Comprehensive data collection failed for Trent Williams: No module named 'sqlalchemy'
+2025-07-17 21:44:08,620 - nfl_gravity.pipeline - ERROR - Comprehensive data collection failed for Brayden Willis: cannot import name 'EnhancedComprehensiveCollector' from 'enhanced_comprehensive_collector' (/home/runner/workspace/enhanced_comprehensive_collector.py)
+2025-07-17 21:44:08,620 - nfl_gravity.pipeline - ERROR - Comprehensive data collection failed for Dee Winters: cannot import name 'EnhancedComprehensiveCollector' from 'enhanced_comprehensive_collector' (/home/runner/workspace/enhanced_comprehensive_collector.py)
+2025-07-17 21:44:08,620 - nfl_gravity - WARNING - Unknown position: OT
+2025-07-17 21:44:08,620 - nfl_gravity.validators - INFO - Successfully validated player: Brayden Willis
+2025-07-17 21:44:08,620 - nfl_gravity.pipeline - ERROR - Comprehensive data collection failed for Nick Zakelj: cannot import name 'EnhancedComprehensiveCollector' from 'enhanced_comprehensive_collector' (/home/runner/workspace/enhanced_comprehensive_collector.py)
+2025-07-17 21:44:08,620 - nfl_gravity - WARNING - Unknown position: LB
+2025-07-17 21:44:08,621 - nfl_gravity.validators - INFO - Successfully validated player: Trent Williams
+2025-07-17 21:44:08,621 - nfl_gravity - WARNING - Unknown position: OT
+2025-07-17 21:44:08,621 - nfl_gravity.validators - INFO - Successfully validated player: Dee Winters
+2025-07-17 21:44:08,621 - nfl_gravity.validators - INFO - Successfully validated player: Nick Zakelj
+2025-07-17 21:44:08,623 - nfl_gravity.pipeline - INFO - Completed 49ers: 93 players processed
+2025-07-17 21:44:08,640 - nfl_gravity.storage - INFO - Wrote 93 player records to 3 files
+2025-07-17 21:44:08,641 - nfl_gravity.storage - INFO - Successfully wrote data to data
+2025-07-17 21:44:08,641 - nfl_gravity.pipeline - INFO - Pipeline completed successfully: {'status': 'success', 'teams_processed': 1, 'total_players': 93, 'total_teams': 0, 'output_files': {'players': ['data/players_20250717_214408.parquet', 'data/players_20250717_214408.csv.gz', 'data/players_20250717_214408.csv'], 'schema': ['data/schema_20250717_214408.json'], 'metadata': ['data/metadata_20250717_214408.json']}, 'output_dir': 'data', 'duration': 13.756881, 'errors': []}
+2025-07-17 21:44:08,641 - nfl_gravity - INFO - MCP pipeline completed successfully: 93 players, 0 teams
+2025-07-17 22:06:29,588 - nfl_gravity - INFO - NFL Gravity MCP initialized
+2025-07-17 22:06:30,011 - nfl_gravity.llm - INFO - LLM adapter initialized with provider: openai
+2025-07-17 22:06:31,576 - nfl_gravity - INFO - NFL Gravity MCP initialized
+2025-07-17 22:06:32,247 - nfl_gravity.llm - INFO - LLM adapter initialized with provider: openai
+2025-07-17 22:07:35,943 - nfl_gravity - INFO - NFL Gravity MCP initialized
+2025-07-17 22:07:36,343 - nfl_gravity.llm - INFO - LLM adapter initialized with provider: openai
+2025-07-17 22:09:01,982 - nfl_gravity - INFO - NFL Gravity MCP initialized
+2025-07-17 22:09:02,448 - nfl_gravity.llm - INFO - LLM adapter initialized with provider: openai
+2025-07-17 22:09:08,883 - nfl_gravity - INFO - NFL Gravity MCP initialized
+2025-07-17 22:09:09,453 - nfl_gravity.llm - INFO - LLM adapter initialized with provider: openai
+2025-07-17 22:09:46,913 - nfl_gravity - INFO - NFL Gravity MCP initialized
+2025-07-17 22:09:47,344 - nfl_gravity.llm - INFO - LLM adapter initialized with provider: openai
+2025-07-17 22:10:35,674 - nfl_gravity - INFO - NFL Gravity MCP initialized
+2025-07-17 22:10:36,198 - nfl_gravity.llm - INFO - LLM adapter initialized with provider: openai
+2025-07-17 22:10:37,771 - nfl_gravity - INFO - NFL Gravity MCP initialized
+2025-07-17 22:10:38,179 - nfl_gravity.llm - INFO - LLM adapter initialized with provider: openai
+2025-07-18 10:08:06,460 - nfl_gravity - INFO - NFL Gravity MCP initialized
+2025-07-18 10:08:07,659 - nfl_gravity.llm - INFO - LLM adapter initialized with provider: openai
+2025-07-18 10:08:09,502 - nfl_gravity - INFO - NFL Gravity MCP initialized
+2025-07-18 10:08:10,072 - nfl_gravity.llm - INFO - LLM adapter initialized with provider: openai
+2025-07-18 15:04:46,186 - nfl_gravity - INFO - NFL Gravity MCP initialized
+2025-07-18 15:04:46,232 - nfl_gravity.llm - INFO - LLM adapter initialized with provider: openai
+Latest Data
