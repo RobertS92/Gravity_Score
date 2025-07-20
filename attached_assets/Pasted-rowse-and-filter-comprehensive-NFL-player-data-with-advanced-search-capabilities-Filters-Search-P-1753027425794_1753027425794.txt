@@ -1,0 +1,36 @@
+rowse and filter comprehensive NFL player data with advanced search capabilities.
+
+ Filters
+Search Players 
+Team 
+Position 
+Experience 
+Age Range
+
+
+College 
+Social Media
+Has Twitter
+Has Instagram
+Data Quality 
+ Data Summary
+160
+Total Players
+32
+Teams
+2.9
+Avg Quality
+ Player Data
+ 
+Showing 1-50 of 160 players
+
+Age 	All Pros 	Birth Date 	Birth Place 	Cap Hit 	Career Interceptions	Career Pass Ints 	Career Pass Rating 	Career Pass Tds 	Career Pass Yards 	Career Rec Tds 	Career Rec Yards 	Career Receptions 	Career Rush Tds 	Career Rush Yards 	Career Sacks	Career Tackles 	Championships	College 	Comprehensive Enhanced 	Contract Value 	Contract Years 	Current Salary 	Data Quality Score 	Data Source	Data Sources	Dead Money	Draft Pick 	Draft Round	Draft Team 	Draft Year 	Espn Url 	Experience 	Guaranteed Money 	Hall Of Fame	Height 	High School	Instagram Followers 	Instagram Following 	Instagram Handle	Instagram Url 	Instagram Verified 	Jersey Number 	Last Updated 	Mvp Awards	Name 	Nfl Com Url 	Pff Url 	Position 	Pro Bowls 	Rookie Of Year 	Scraped At 	Signing Bonus 	Spotrac Url 	Status 	Team 	Tiktok Followers 	Tiktok Following 	Tiktok Handle 	Tiktok Url 	Twitter Followers 	Twitter Following 	Twitter Handle 	Twitter Url 	Twitter Verified 	Weight 	Wikipedia Url	Youtube Handle 	Youtube Subscribers	Youtube Url	Actions
+-	-	-	City, State	-	-	-	-	-	-	-	-	-	-	-	-	-	-	Illinois	true	$10,000,000	4	$2,500,000	2.9	nfl.com	['Wikipedia', 'NFL.com']	-	-	-	-	-	-	2	-	-	7'6"	High School Name	15,000	-	isaiahadams	-	-	74	2025-07-18T17:22:52.746362	-	Isaiah Adams	-	-	G	-	-	2025-07-18T17:22:52.745699	-		ACT	CARDINALS	-	-	-	-	10,000	-	@isaiahadams	-	-	316		-	-	-	
+-	-	-	City, State	-	-	-	-	-	-	-	-	-	-	-	-	-	-	Washington	true	$10,000,000	4	$2,500,000	2.9	nfl.com	['Wikipedia', 'NFL.com']	-	-	-	-	-	-	2	-	-	7'0"	High School Name	15,000	-	andrebaccellia	-	-	82	2025-07-18T17:22:52.846648	-	Andre Baccellia	-	-	WR	-	-	2025-07-18T17:22:52.745718	-		ACT	CARDINALS	-	-	-	-	10,000	-	@andrebaccellia	-	-	175		-	-	-	
+-	-	-	City, State	-	-	-	-	-	-	-	-	-	-	-	-	-	-	Washington	true	$10,000,000	4	$2,500,000	2.9	nfl.com	['Wikipedia', 'NFL.com']	-	-	-	-	-	-	9	-	-	7'0"	High School Name	15,000	-	buddabaker	-	-	3	2025-07-18T17:22:52.946950	-	Budda Baker	-	-	S	-	-	2025-07-18T17:22:52.745726	-		ACT	CARDINALS	-	-	-	-	10,000	-	@buddabaker	-	-	195		-	-	-	
+-	-	-	City, State	-	-	-	-	-	-	-	-	-	-	-	-	-	-	SMU	true	$10,000,000	4	$2,500,000	2.9	nfl.com	['Wikipedia', 'NFL.com']	-	-	-	-	-	-	14	-	-	7'5"	High School Name	15,000	-	kelvinbeachum	-	-	68	2025-07-18T17:22:53.047231	-	Kelvin Beachum	-	-	OT	-	-	2025-07-18T17:22:52.745735	-		ACT	CARDINALS	-	-	-	-	10,000	-	@kelvinbeachum	-	-	308		-	-	-	
+-	-	-	City, State	-	-	-	-	-	-	-	-	-	-	-	-	-	-	Florida State	true	$10,000,000	4	$2,500,000	2.9	nfl.com	['Wikipedia', 'NFL.com']	-	-	-	-	-	-	2	-	-	7'2"	High School Name	15,000	-	treybenson	-	-	33	2025-07-18T17:22:53.147505	-	Trey Benson	-	-	RB	-	-	2025-07-18T17:22:52.745743	-		ACT	CARDINALS	-	-	-	-	10,000	-	@treybenson	-	-	216		-	-	-	
+-	-	-	City, State	-	-	-	-	-	-	-	-	-	-	-	-	-	-	San Diego	true	$10,000,000	4	$2,500,000	2.9	nfl.com	['Wikipedia', 'NFL.com']	-	-	-	-	-	-	9	-	-	7'0"	High School Name	15,000	-	jamalagnew	-	-	14	2025-07-18T17:23:02.613900	-	Jamal Agnew	-	-	WR	-	-	2025-07-18T17:23:02.612886	-		ACT	FALCONS	-	-	-	-	10,000	-	@jamalagnew	-	-	190		-	-	-	
+-	-	-	City, State	-	-	-	-	-	-	-	-	-	-	-	-	-	-	BYU	true	$10,000,000	4	$2,500,000	2.9	nfl.com	['Wikipedia', 'NFL.com']	-	-	-	-	-	-	4	-	-	7'1"	High School Name	15,000	-	tylerallgeier	-	-	25	2025-07-18T17:23:02.714244	-	Tyler Allgeier	-	-	RB	-	-	2025-07-18T17:23:02.612909	-		ACT	FALCONS	-	-	-	-	10,000	-	@tylerallgeier	-	-	225		-	-	-	
+-	-	-	City, State	-	-	-	-	-	-	-	-	-	-	-	-	-	-	Montana State	true	$10,000,000	4	$2,500,000	2.9	nfl.com	['Wikipedia', 'NFL.com']	-	-	-	-	-	-	4	-	-	7'6"	High School Name	15,000	-	troyandersen	-	-	44	2025-07-18T17:23:02.814572	-	Troy Andersen	-	-	LB	-	-	2025-07-18T17:23:02.612994	-		ACT	FALCONS	-	-	-	-	10,000	-	@troyandersen	-	-	239		-	-	-	
+-	-	-	City, State	-	-

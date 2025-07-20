@@ -276,6 +276,15 @@ nfl_gravity/
   - **Zero Simulated Data**: Comprehensive collector uses only authentic sources - Wikipedia, NFL.com, Spotrac, social media search
   - **Production Ready**: Comprehensive scraping system ready to collect all 70+ fields for complete NFL roster (~2,700 players)
 
+- July 20, 2025. **ENHANCED MULTI-SOURCE DATA COLLECTION**: Comprehensive scraper now extracts experience, contract values, and career stats from real sources
+  - **Experience Data**: Real NFL seasons played extracted from ESPN rosters and Wikipedia career years
+  - **Contract Values**: Total contract value, current salary, guaranteed money from Spotrac and Over The Cap
+  - **Career Statistics**: Passing yards, rushing yards, Pro Bowls, All-Pros from Pro Football Reference
+  - **Social Media Metrics**: Real Twitter/Instagram handles discovered from NFL.com, ESPN player pages
+  - **Multiple Source Integration**: Wikipedia (bio), ESPN (experience), Spotrac (contracts), PFR (stats), NFL.com (social media)
+  - **Zero Simulation**: All data scraped from authentic NFL sources - no fake or placeholder data
+  - **Enhanced Fields**: Now collects experience, contract_value, current_salary, career stats, social handles with real metrics
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
