@@ -504,6 +504,73 @@ def get_comprehensive_summary(team):
         logger.error(f"Error getting comprehensive summary: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
+@app.route('/api/scrape/standard', methods=['POST'])
+def scrape_standard():
+    """Standard NFL scraping endpoint - basic roster extraction."""
+    try:
+        data = request.get_json()
+        teams = data.get('teams', ['49ers'])
+        
+        logger.info(f"Starting standard scraping for teams: {teams}")
+        
+        # Import the enhanced scraper
+        from enhanced_nfl_scraper import EnhancedNFLScraper
+        scraper = EnhancedNFLScraper()
+        
+        all_players = []
+        results = {}
+        
+        for team in teams:
+            logger.info(f"Scraping {team}")
+            
+            try:
+                # Use the correct method name from enhanced scraper
+                players = scraper.extract_complete_team_roster(team)
+                all_players.extend(players)
+                
+                results[team] = {
+                    "players_count": len(players),
+                    "status": "success"
+                }
+                
+                logger.info(f"✅ {team}: {len(players)} players")
+                
+            except Exception as e:
+                logger.error(f"Error scraping {team}: {e}")
+                results[team] = {
+                    "players_count": 0,
+                    "status": "error",
+                    "error": str(e)
+                }
+        
+        # Save to CSV file
+        if all_players:
+            import pandas as pd
+            from datetime import datetime
+            import os
+            
+            df = pd.DataFrame(all_players)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_filename = f"data/players_{timestamp}.csv"
+            
+            # Create data directory if it doesn't exist
+            os.makedirs("data", exist_ok=True)
+            df.to_csv(csv_filename, index=False)
+            
+            logger.info(f"Saved standard data to {csv_filename}")
+        
+        return jsonify({
+            "status": "success",
+            "total_players": len(all_players),
+            "teams_processed": len(teams),
+            "results": results,
+            "message": f"Standard scraping completed for {len(all_players)} players"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in standard scraping: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
 @app.route('/api/scrape/enhanced', methods=['POST'])
 def enhanced_scrape():
     """Enhanced scraping with complete roster extraction."""
