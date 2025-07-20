@@ -92,34 +92,62 @@ def get_all_players():
         import os
         import glob
         
-        # Find the latest data file (prioritize largest dataset)
-        comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
-        standard_files = glob.glob('data/players_*.csv') + glob.glob('data/**/players_*.csv', recursive=True)
+        # PRIORITIZE FILES WITH CORRECT HEIGHTS (6'0" not 7'0"+) - SAME LOGIC AS /api/data/latest
+        all_files = (glob.glob('data/height_corrected_*players*.csv') + 
+                    glob.glob('data/corrected_*players*.csv') + 
+                    glob.glob('data/players_*.csv') + 
+                    glob.glob('data/comprehensive_players_*.csv') + 
+                    glob.glob('data/**/players_*.csv', recursive=True))
         
-        all_files = comprehensive_files + standard_files
         if not all_files:
             return jsonify({"players": [], "count": 0, "status": "no_data"})
         
-        # Always prioritize the file with the MOST players (not most recent)
-        latest_file = None
-        max_players = 0
+        # Find the largest file with realistic heights
+        best_file = None
+        max_players_with_good_heights = 0
         
         for file_path in all_files:
             try:
                 df_temp = pd.read_csv(file_path)
-                player_count = len(df_temp)
-                # Always choose the file with more players
-                if player_count > max_players:
-                    max_players = player_count
-                    latest_file = file_path
-            except Exception:
+                if len(df_temp) > 0 and 'height' in df_temp.columns:
+                    # Check if heights are realistic
+                    sample_heights = df_temp['height'].dropna().head(3)
+                    realistic_heights = 0
+                    
+                    for height in sample_heights:
+                        if height and isinstance(height, str) and "'" in height:
+                            parts = height.replace('"', '').split("'")
+                            if len(parts) == 2 and parts[0].isdigit():
+                                feet = int(parts[0])
+                                if 5 <= feet <= 6:  # Realistic NFL player height
+                                    realistic_heights += 1
+                    
+                    # If most heights are realistic and file is large enough
+                    if realistic_heights >= 2 and len(df_temp) > max_players_with_good_heights:
+                        max_players_with_good_heights = len(df_temp)
+                        best_file = file_path
+            except:
                 continue
         
-        if not latest_file:
+        # Fallback to largest file if no file with good heights found
+        if not best_file:
+            largest_file = None
+            max_players = 0
+            for file_path in all_files:
+                try:
+                    df_temp = pd.read_csv(file_path)
+                    if len(df_temp) > max_players:
+                        max_players = len(df_temp)
+                        largest_file = file_path
+                except:
+                    continue
+            best_file = largest_file
+        
+        if not best_file:
             return jsonify({"players": [], "count": 0, "status": "no_data"})
         
         # Load the data
-        df = pd.read_csv(latest_file)
+        df = pd.read_csv(best_file)
         
         # Convert to dictionary, handling NaN values
         players_data = df.fillna('').to_dict('records')
@@ -142,7 +170,7 @@ def get_all_players():
             "count": len(players),
             "status": "success",
             "columns": list(df.columns),
-            "source_file": latest_file
+            "source_file": best_file
         })
         
     except Exception as e:
@@ -878,7 +906,7 @@ def get_latest_data():
             "players": players,
             "count": len(players),
             "status": "success",
-            "source_file": latest_file,
+            "source_file": best_file,
             "columns": list(df.columns),
             "message": f"Loaded {len(players)} players from {latest_file}"
         })
