@@ -167,12 +167,16 @@ class EnhancedNFLScraper:
                         name_link = name_cell.find('a')
                         name = name_link.get_text().strip() if name_link else name_cell.get_text().strip()
                         
+                        # Get raw height and convert immediately
+                        raw_height = cells[4].get_text().strip() if len(cells) > 4 else None
+                        converted_height = self._convert_height_from_inches(raw_height)
+                        
                         player_data = {
                             'name': name,
                             'jersey_number': self._extract_number(cells[1].get_text()),
                             'position': cells[2].get_text().strip(),
                             'status': cells[3].get_text().strip() if len(cells) > 3 else None,
-                            'height': cells[4].get_text().strip() if len(cells) > 4 else None,
+                            'height': converted_height,
                             'weight': self._extract_weight(cells[5].get_text()) if len(cells) > 5 else None,
                             'experience': cells[6].get_text().strip() if len(cells) > 6 else None,
                             'college': cells[7].get_text().strip() if len(cells) > 7 else None,
@@ -375,15 +379,28 @@ class EnhancedNFLScraper:
         if cleaned.get('name'):
             cleaned['name'] = re.sub(r'[^\w\s\-\.]', '', cleaned['name']).strip()
         
-        # Standardize height format
+        # FIXED: NFL.com stores height as total inches - convert to feet'inches"
         if cleaned.get('height'):
             height = cleaned['height']
-            if isinstance(height, str):
-                # Convert various height formats to standard format
-                height_match = re.search(r'(\d+)[\'\-\s]*(\d+)', height)
-                if height_match:
+            if isinstance(height, str) and height.strip():
+                height_clean = height.strip()
+                # NFL.com format: just total inches (e.g., "76" = 6'4")
+                if re.match(r'^\d+$', height_clean):
+                    total_inches = int(height_clean)
+                    feet = total_inches // 12
+                    inches = total_inches % 12
+                    cleaned['height'] = f"{feet}'{inches}\""
+                # Already in feet'inches" format
+                elif re.search(r"\d+'\d+\"", height_clean):
+                    cleaned['height'] = height_clean
+                # Format like "6-3" or "6 3"
+                elif re.search(r'(\d+)[-\s](\d+)', height_clean):
+                    height_match = re.search(r'(\d+)[-\s](\d+)', height_clean)
                     feet, inches = height_match.groups()
                     cleaned['height'] = f"{feet}'{inches}\""
+                else:
+                    # Unknown format, keep original
+                    cleaned['height'] = height_clean
         
         # Ensure weight is integer
         if cleaned.get('weight') and isinstance(cleaned['weight'], str):
@@ -411,6 +428,23 @@ class EnhancedNFLScraper:
         weight_text = re.sub(r'(lbs?|pounds?)', '', str(text), flags=re.IGNORECASE)
         match = re.search(r'\d+', weight_text)
         return int(match.group()) if match else None
+    
+    def _convert_height_from_inches(self, height_str: str) -> Optional[str]:
+        """Convert height from total inches to feet'inches\" format."""
+        if not height_str or not height_str.strip():
+            return None
+        
+        height_clean = height_str.strip()
+        
+        # NFL.com format: just total inches (e.g., "76" = 6'4")
+        if re.match(r'^\d+$', height_clean):
+            total_inches = int(height_clean)
+            feet = total_inches // 12
+            inches = total_inches % 12
+            return f"{feet}'{inches}\""
+        
+        # Already in correct format
+        return height_clean
 
 
 def main():
