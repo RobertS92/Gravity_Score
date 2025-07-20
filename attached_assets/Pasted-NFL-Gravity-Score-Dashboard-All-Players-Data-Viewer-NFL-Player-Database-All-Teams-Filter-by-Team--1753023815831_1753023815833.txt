@@ -1,0 +1,295 @@
+NFL Gravity Score
+Dashboard
+All Players
+Data Viewer
+NFL Player Database - All Teams
+Filter by Team: 
+Filter by Position: 
+Search Player: 
+Scraping Mode: 
+2910
+Total Players
+32
+Teams Covered
+0.0
+Avg Quality Score
+7/20/2025, 10:03:03 AM
+Last Updated
+Name	Team	Position	Age	Height	Weight	Experience	College	Contract Value	Social Media	Quality	Sources
+Andre Baccellia	cardinals	WR	N/A	7'0"	175 lbs	N/A	Washington	N/A	
+0.0	Standard
+Isaiah Adams	cardinals	G	N/A	7'6"	316 lbs	N/A	Illinois	N/A	
+0.0	Standard
+Budda Baker	cardinals	S	N/A	7'0"	195 lbs	N/A	Washington	N/A	
+0.0	Standard
+Trey Benson	cardinals	RB	N/A	7'2"	216 lbs	N/A	Florida State	N/A	
+0.0	Standard
+Kelvin Beachum	cardinals	OT	N/A	7'5"	308 lbs	N/A	SMU	N/A	
+0.0	Standard
+Joey Blount	cardinals	SAF	N/A	7'3"	201 lbs	N/A	Virginia	N/A	
+0.0	Standard
+Aaron Brewer	cardinals	LS	N/A	7'7"	232 lbs	N/A	San Diego State	N/A	
+0.0	Standard
+Jacoby Brissett	cardinals	QB	N/A	7'6"	235 lbs	N/A	N.C. State	N/A	
+0.0	Standard
+Ekow Boye-Doe	cardinals	CB	N/A	7'2"	177 lbs	N/A	Kansas State	N/A	
+0.0	Standard
+Evan Brown	cardinals	C	N/A	7'5"	320 lbs	N/A	SMU	N/A	
+0.0	Standard
+Elliott Brown	cardinals	LB	N/A	7'7"	240 lbs	N/A	Virginia	N/A	
+0.0	Standard
+Sean Murphy-Bunting	cardinals	CB	N/A	7'2"	195 lbs	N/A	Central Michigan	N/A	
+0.0	Standard
+Denzel Burke	cardinals	CB	N/A	7'1"	186 lbs	N/A	Ohio State	N/A	
+0.0	Standard
+Baron Browning	cardinals	LB	N/A	7'5"	240 lbs	N/A	Ohio State	N/A	
+0.0	Standard
+Calais Campbell	cardinals	DE	N/A	8'0"	307 lbs	N/A	Miami	N/A	
+0.0	Standard
+Jordan Burch	cardinals	LB	N/A	7'6"	279 lbs	N/A	Oregon	N/A	
+0.0	Standard
+Oscar Cardenas	cardinals	TE	N/A	7'6"	265 lbs	N/A	Texas-San Antonio	N/A	
+0.0	Standard
+Jeremiah Byers	cardinals	OT	N/A	7'6"	320 lbs	N/A	Florida State	N/A	
+0.0	Standard
+Michael Carter	cardinals	RB	N/A	6'8"	201 lbs	N/A	North Carolina	N/A	
+0.0	Standard
+KeiTrel Clark	cardinals	CB	N/A	7'0"	181 lbs	N/A	Louisville	N/A	
+0.0	Standard
+L.J. Collier	cardinals	DE	N/A	7'5"	291 lbs	N/A	TCU	N/A	
+0.0	Standard
+Hayden Conner	cardinals	G	N/A	7'8"	314 lbs	N/A	Texas	N/A	
+0.0	Standard
+James Conner	cardinals	RB	N/A	7'3"	233 lbs	N/A	Pittsburgh	N/A	
+0.0	Standard
+Kitan Crawford	cardinals	SAF	N/A	7'1"	202 lbs	N/A	Nevada	N/A	
+0.0	Standard
+Zaven Collins	cardinals	LB	N/A	7'6"	260 lbs	N/A	Tulsa	N/A	
+0.0	Standard
+McClendon Curtis	cardinals	G	N/A	7'8"	325 lbs	N/A	Tennessee-Chattanooga	N/A	
+0.0	Standard
+DeeJay Dallas	cardinals	RB	N/A	7'0"	214 lbs	N/A	Miami	N/A	
+0.0	Standard
+Jaden Davis	cardinals	DB	N/A	7'0"	182 lbs	N/A	Miami	N/A	
+0.0	Standard
+Jake Curhan	cardinals	OT	N/A	7'8"	316 lbs	N/A	California	N/A	
+0.0	Standard
+Josiah Deguara	cardinals	TE	N/A	7'4"	238 lbs	N/A	Cincinnati	N/A	
+0.0	Standard
+Emari Demercado	cardinals	RB	N/A	6'9"	215 lbs	N/A	TCU	N/A	
+0.0	Standard
+Greg Dortch	cardinals	WR	N/A	6'7"	175 lbs	N/A	Wake Forest	N/A	
+0.0	Standard
+Simi Fehoko	cardinals	WR	N/A	7'6"	218 lbs	N/A	Stanford	N/A	
+0.0	Standard
+Akeem Davis-Gaither	cardinals	LB	N/A	7'4"	238 lbs	N/A	Appalachian State	N/A	
+0.0	Standard
+Hjalte Froholdt	cardinals	G	N/A	7'7"	310 lbs	N/A	Arkansas	N/A	
+0.0	Standard
+Jon Gaines II	cardinals	G	N/A	7'6"	303 lbs	N/A	UCLA	N/A	
+0.0	Standard
+Blake Gillikin	cardinals	P	N/A	7'4"	196 lbs	N/A	Penn State	N/A	
+0.0	Standard
+Marvin Harrison Jr.	cardinals	WR	N/A	7'5"	209 lbs	N/A	Ohio State	N/A	
+0.0	Standard
+Bryson Green	cardinals	WR	N/A	7'3"	207 lbs	N/A	Wisconsin	N/A	
+0.0	Standard
+Josh Fryar	cardinals	OT	N/A	7'7"	320 lbs	N/A	Ohio State	N/A	
+0.0	Standard
+Darren Hall	cardinals	CB	N/A	7'2"	190 lbs	N/A	San Diego State	N/A	
+0.0	Standard
+Anthony Goodlow	cardinals	DE	N/A	7'7"	283 lbs	N/A	Oklahoma State	N/A	
+0.0	Standard
+Will Johnson	cardinals	CB	N/A	7'4"	194 lbs	N/A	Michigan	N/A	
+0.0	Standard
+Elijah Higgins	cardinals	TE	N/A	7'5"	234 lbs	N/A	Stanford	N/A	
+0.0	Standard
+Trishton Jackson	cardinals	WR	N/A	7'3"	191 lbs	N/A	Syracuse	N/A	
+0.0	Standard
+Patrick Jenkins	cardinals	DE	N/A	7'4"	293 lbs	N/A	Tulane	N/A	
+0.0	Standard
+Sincere Haynesworth	cardinals	OL	N/A	7'3"	300 lbs	N/A	Tulane	N/A	
+0.0	Standard
+Christian Jones	cardinals	OT	N/A	7'7"	305 lbs	N/A	Texas	N/A	
+0.0	Standard
+Zay Jones	cardinals	WR	N/A	7'4"	200 lbs	N/A	East Carolina	N/A	
+0.0	Standard
+Jaylon Jones	cardinals	DB	N/A	7'1"	190 lbs	N/A	Mississippi	N/A	
+0.0	Standard
+Paris Johnson Jr.	cardinals	OT	N/A	7'8"	313 lbs	N/A	Ohio State	N/A	
+0.0	Standard
+Elijah Jones	cardinals	CB	N/A	7'3"	185 lbs	N/A	Boston College	N/A	
+0.0	Standard
+Justin Jones	cardinals	DT	N/A	7'5"	309 lbs	N/A	N.C. State	N/A	
+0.0	Standard
+Bam Knight	cardinals	RB	N/A	7'1"	209 lbs	N/A	N.C. State	N/A	
+0.0	Standard
+Nick Leverett	cardinals	G	N/A	7'6"	310 lbs	N/A	Rice	N/A	
+0.0	Standard
+Trey McBride	cardinals	TE	N/A	7'6"	246 lbs	N/A	Colorado State	N/A	
+0.0	Standard
+Max Melton	cardinals	CB	N/A	7'1"	187 lbs	N/A	Rutgers	N/A	
+0.0	Standard
+Vi Jones	cardinals	LB	N/A	7'4"	225 lbs	N/A	N.C. State	N/A	
+0.0	Standard
+Kyler Murray	cardinals	QB	N/A	7'0"	207 lbs	N/A	Oklahoma	N/A	
+0.0	Standard
+PJ Mustipher	cardinals	DT	N/A	7'6"	318 lbs	N/A	Penn State	N/A	
+0.0	Standard
+Royce Newman	cardinals	G	N/A	7'7"	310 lbs	N/A	Mississippi	N/A	
+0.0	Standard
+Bilal Nichols	cardinals	DT	N/A	7'5"	313 lbs	N/A	Delaware	N/A	
+0.0	Standard
+Walter Nolen	cardinals	DT	N/A	7'6"	296 lbs	N/A	Mississippi	N/A	
+0.0	Standard
+Tejhaun Palmer	cardinals	WR	N/A	7'4"	210 lbs	N/A	UAB	N/A	
+0.0	Standard
+Tip Reiman	cardinals	TE	N/A	7'7"	271 lbs	N/A	Illinois	N/A	
+0.0	Standard
+BJ Ojulari	cardinals	LB	N/A	7'4"	248 lbs	N/A	LSU	N/A	
+0.0	Standard
+Jammie Robinson	cardinals	SAF	N/A	7'1"	195 lbs	N/A	Florida State	N/A	
+0.0	Standard
+Owen Pappoe	cardinals	LB	N/A	7'2"	225 lbs	N/A	Auburn	N/A	
+0.0	Standard
+J.J. Russell	cardinals	ILB	N/A	7'3"	225 lbs	N/A	Memphis	N/A	
+0.0	Standard
+Darius Robinson	cardinals	DL	N/A	7'7"	285 lbs	N/A	Missouri	N/A	
+0.0	Standard
+Chad Ryland	cardinals	K	N/A	7'2"	195 lbs	N/A	Maryland	N/A	
+0.0	Standard
+Dante Stills	cardinals	DT	N/A	7'6"	286 lbs	N/A	West Virginia	N/A	
+0.0	Standard
+Josh Sweat	cardinals	OLB	N/A	7'7"	265 lbs	N/A	Florida State	N/A	
+0.0	Standard
+Valentin Senn	cardinals	OT	N/A	7'9"	310 lbs	N/A	Connecticut	N/A	
+0.0	Standard
+Elijah Simmons	cardinals	DL	N/A	7'3"	334 lbs	N/A	Tennessee	N/A	
+0.0	Standard
+Jalen Thompson	cardinals	DB	N/A	7'1"	190 lbs	N/A	Washington State	N/A	
+0.0	Standard
+Dadrion Taylor-Demerson	cardinals	DB	N/A	7'0"	197 lbs	N/A	Texas Tech	N/A	
+0.0	Standard
+Starling Thomas V	cardinals	CB	N/A	7'0"	194 lbs	N/A	UAB	N/A	
+0.0	Standard
+Cody Simon	cardinals	LB	N/A	7'4"	229 lbs	N/A	Ohio State	N/A	
+0.0	Standard
+Dalvin Tomlinson	cardinals	DE	N/A	7'5"	325 lbs	N/A	Alabama	N/A	
+0.0	Standard
+Clayton Tune	cardinals	QB	N/A	7'5"	220 lbs	N/A	Houston	N/A	
+0.0	Standard
+Xavier Thomas	cardinals	LB	N/A	7'4"	245 lbs	N/A	Clemson	N/A	
+0.0	Standard
+Travis Vokolek	cardinals	TE	N/A	7'8"	260 lbs	N/A	Nebraska	N/A	
+0.0	Standard
+Jonah Williams	cardinals	OT	N/A	7'7"	312 lbs	N/A	Alabama	N/A	
+0.0	Standard
+Quez Watkins	cardinals	WR	N/A	7'2"	193 lbs	N/A	Southern Mississippi	N/A	
+0.0	Standard
+Xavier Weaver	cardinals	WR	N/A	7'3"	169 lbs	N/A	Colorado	N/A	
+0.0	Standard
+Garrett Williams	cardinals	CB	N/A	7'0"	192 lbs	N/A	Syracuse	N/A	
+0.0	Standard
+Benton Whitley	cardinals	LB	N/A	7'6"	260 lbs	N/A	Holy Cross	N/A	
+0.0	Standard
+Michael Wilson	cardinals	WR	N/A	7'4"	213 lbs	N/A	Stanford	N/A	
+0.0	Standard
+Mack Wilson	cardinals	LB	N/A	7'3"	246 lbs	N/A	Alabama	N/A	
+0.0	Standard
+Mykal Walker	cardinals	LB	N/A	7'5"	230 lbs	N/A	Fresno State	N/A	
+0.0	Standard
+Jamal Agnew	falcons	WR	N/A	7'0"	190 lbs	N/A	San Diego	N/A	
+0.0	Standard
+Simeon Barrow Jr.	falcons	DL	N/A	7'3"	283 lbs	N/A	Miami	N/A	
+0.0	Standard
+Matthew Bergeron	falcons	OL	N/A	7'7"	315 lbs	N/A	Syracuse	N/A	
+0.0	Standard
+Troy Andersen	falcons	LB	N/A	7'6"	239 lbs	N/A	Montana State	N/A	
+0.0	Standard
+Jessie Bates	falcons	FS	N/A	7'3"	210 lbs	N/A	Wake Forest	N/A	
+0.0	Standard
+Tyler Allgeier	falcons	RB	N/A	7'1"	225 lbs	N/A	BYU	N/A	
+0.0	Standard
+Chris Blair	falcons	WR	N/A	7'4"	215 lbs	N/A	Alcorn State	N/A	
+0.0	Standard
+JD Bertrand	falcons	LB	N/A	7'3"	230 lbs	N/A	Notre Dame	N/A	
+0.0	Standard
+Nate Carter	falcons	RB	N/A	7'0"	202 lbs	N/A	Michigan State	N/A	
+0.0	Standard
+Billy Bowman Jr.	falcons	SAF	N/A	7'0"	192 lbs	N/A	Oklahoma	N/A	
+0.0	Standard
+Cobee Bryant	falcons	CB	N/A	7'2"	180 lbs	N/A	Kansas	N/A	
+0.0	Standard
+Natrone Brooks	falcons	DB	N/A	7'1"	176 lbs	N/A	Southern Mississippi	N/A	
+0.0	Standard
+Matthew Cindric	falcons	OL	N/A	7'6"	295 lbs	N/A	California	N/A	
+0.0	Standard
+Jashaun Corbin	falcons	RB	N/A	7'1"	200 lbs	N/A	Florida State	N/A	
+0.0	Standard
+Kirk Cousins	falcons	QB	N/A	7'5"	205 lbs	N/A	Michigan State	N/A	
+0.0	Standard
+Brandon Dorlus	falcons	DE	N/A	7'5"	295 lbs	N/A	Oregon	N/A	
+0.0	Standard
+Elijah Dotson	falcons	RB	N/A	6'9"	202 lbs	N/A	Northern Colorado	N/A	
+0.0	Standard
+Dylan Drummond	falcons	WR	N/A	7'2"	190 lbs	N/A	Eastern Michigan	N/A	
+0.0	Standard
+Dee Alford	falcons	DB	N/A	7'1"	180 lbs	N/A	Tusculum College	N/A	
+0.0	Standard
+Mike Ford	falcons	DB	N/A	7'2"	194 lbs	N/A	Southeast Missouri State	N/A	
+0.0	Standard
+Leonard Floyd	falcons	DE	N/A	7'5"	240 lbs	N/A	Georgia	N/A	
+0.0	Standard
+Feleipe Franks	falcons	TE	N/A	7'8"	234 lbs	N/A	Arkansas	N/A	
+0.0	Standard
+Jordan Fuller	falcons	SAF	N/A	7'4"	203 lbs	N/A	Ohio State	N/A	
+0.0	Standard
+Morgan Fox	falcons	DE	N/A	7'5"	259 lbs	N/A	Colorado State (Pueblo)	N/A	
+0.0	Standard
+Divine Deablo	falcons	LB	N/A	7'5"	226 lbs	N/A	Virginia Tech	N/A	
+0.0	Standard
+Michael Gonzalez	falcons	OL	N/A	7'6"	305 lbs	N/A	Louisville	N/A	
+0.0	Standard
+Arnold Ebiketie	falcons	LB	N/A	7'4"	250 lbs	N/A	Penn State	N/A	
+0.0	Standard
+TaQuon Graham	falcons	DT	N/A	7'6"	300 lbs	N/A	Texas	N/A	
+0.0	Standard
+Kaden Elliss	falcons	LB	N/A	7'4"	240 lbs	N/A	Idaho	N/A	
+0.0	Standard
+Joshua Gray	falcons	G	N/A	7'7"	299 lbs	N/A	Oregon State	N/A	
+0.0	Standard
+Jovaughn Gwyn	falcons	G	N/A	7'4"	310 lbs	N/A	South Carolina	N/A	
+0.0	Standard
+DeMarcco Hellams	falcons	SAF	N/A	7'3"	203 lbs	N/A	Alabama	N/A	
+0.0	Standard
+Zach Harrison	falcons	DE	N/A	7'7"	270 lbs	N/A	Ohio State	N/A	
+0.0	Standard
+Kyle Hinton	falcons	G	N/A	7'4"	315 lbs	N/A	Washburn	N/A	
+0.0	Standard
+KhaDarel Hodge	falcons	WR	N/A	7'4"	208 lbs	N/A	Prairie View A&M	N/A	
+0.0	Standard
+Mike Hughes	falcons	CB	N/A	7'0"	191 lbs	N/A	UCF	N/A	
+0.0	Standard
+Lamar Jackson	falcons	CB	N/A	7'4"	208 lbs	N/A	Nebraska	N/A	
+0.0	Standard
+Nikola Kalinic	falcons	TE	N/A	7'6"	245 lbs	N/A	York (Canada)	N/A	
+0.0	Standard
+Emory Jones	falcons	QB	N/A	7'4"	210 lbs	N/A	Cincinnati	N/A	
+0.0	Standard
+Kevin King	falcons	CB	N/A	7'5"	200 lbs	N/A	Washington	N/A	
+0.0	Standard
+Khalid Kareem	falcons	LB	N/A	7'6"	268 lbs	N/A	Notre Dame	N/A	
+0.0	Standard
+Caleb Johnson	falcons	LB	N/A	7'4"	220 lbs	N/A	Houston Christian University	N/A	
+0.0	Standard
+Younghoe Koo	falcons	K	N/A	7'0"	195 lbs	N/A	Georgia Southern	N/A	
+0.0	Standard
+Drake London	falcons	WR	N/A	7'6"	213 lbs	N/A	USC	N/A	
+0.0	Standard
+Nick Kubitz	falcons	ILB	N/A	7'5"	229 lbs	N/A	North Dakota State	N/A	
+0.0	Standard
+Chris Lindstrom	falcons	G	N/A	7'5"	310 lbs	N/A	Boston College	N/A	
+0.0	Standard
+Dontae Manning	falcons	CB	N/A	7'0"	190 lbs	N/A	Oregon	N/A	
+0.0	Standard
+LaCale London	falcons	DT	N/A	7'5"	330 lbs	N/A	Western Illinois	N/

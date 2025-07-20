@@ -1,0 +1,92 @@
+name,jersey_number,position,status,height,weight,experience,college,team,data_source,scraped_at,data_quality_score
+Isaiah Adams,74.0,G,ACT,"6'4""",316,2,Illinois,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Andre Baccellia,82.0,WR,ACT,"5'10""",175,2,Washington,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Budda Baker,3.0,S,ACT,"5'10""",195,9,Washington,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Kelvin Beachum,68.0,OT,ACT,"6'3""",308,14,SMU,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Trey Benson,33.0,RB,ACT,"6'0""",216,2,Florida State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Joey Blount,32.0,SAF,ACT,"6'1""",201,4,Virginia,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Ekow Boye-Doe,35.0,CB,ACT,"6'0""",177,2,Kansas State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Aaron Brewer,46.0,LS,ACT,"6'5""",232,14,San Diego State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Jacoby Brissett,7.0,QB,ACT,"6'4""",235,10,N.C. State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Elliott Brown,41.0,LB,ACT,"6'5""",240,R,Virginia,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Evan Brown,62.0,C,ACT,"6'3""",320,7,SMU,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Baron Browning,5.0,LB,ACT,"6'3""",240,5,Ohio State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Sean Murphy-Bunting,23.0,CB,RSN,"6'0""",195,7,Central Michigan,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Jordan Burch,52.0,LB,ACT,"6'4""",279,R,Oregon,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Denzel Burke,29.0,CB,ACT,"5'11""",186,R,Ohio State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Jeremiah Byers,67.0,OT,ACT,"6'4""",320,R,Florida State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Calais Campbell,93.0,DE,ACT,"6'8""",307,18,Miami,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Oscar Cardenas,45.0,TE,ACT,"6'4""",265,R,Texas-San Antonio,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Michael Carter,22.0,RB,ACT,"5'8""",201,4,North Carolina,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+KeiTrel Clark,13.0,CB,ACT,"5'10""",181,3,Louisville,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+L.J. Collier,91.0,DE,ACT,"6'3""",291,7,TCU,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Zaven Collins,25.0,LB,ACT,"6'4""",260,5,Tulsa,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Hayden Conner,58.0,G,ACT,"6'6""",314,R,Texas,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+James Conner,6.0,RB,ACT,"6'1""",233,9,Pittsburgh,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Kitan Crawford,36.0,SAF,ACT,"5'11""",202,R,Nevada,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Jake Curhan,64.0,OT,ACT,"6'6""",316,5,California,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+McClendon Curtis,66.0,G,ACT,"6'6""",325,2,Tennessee-Chattanooga,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+DeeJay Dallas,20.0,RB,ACT,"5'10""",214,6,Miami,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Jaden Davis,39.0,DB,ACT,"5'10""",182,1,Miami,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Akeem Davis-Gaither,27.0,LB,ACT,"6'2""",238,6,Appalachian State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Josiah Deguara,47.0,TE,ACT,"6'2""",238,5,Cincinnati,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Emari Demercado,31.0,RB,ACT,"5'9""",215,3,TCU,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Greg Dortch,4.0,WR,ACT,"5'7""",175,5,Wake Forest,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Simi Fehoko,80.0,WR,ACT,"6'4""",218,5,Stanford,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Hjalte Froholdt,72.0,G,ACT,"6'5""",310,7,Arkansas,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Josh Fryar,78.0,OT,ACT,"6'5""",320,R,Ohio State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Jon Gaines II,59.0,G,ACT,"6'4""",303,3,UCLA,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Blake Gillikin,12.0,P,ACT,"6'2""",196,6,Penn State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Anthony Goodlow,95.0,DE,ACT,"6'5""",283,1,Oklahoma State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Bryson Green,30.0,WR,ACT,"6'1""",207,R,Wisconsin,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Darren Hall,30.0,CB,ACT,"6'0""",190,4,San Diego State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Marvin Harrison Jr.,18.0,WR,ACT,"6'3""",209,2,Ohio State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Sincere Haynesworth,61.0,OL,ACT,"6'1""",300,1,Tulane,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Elijah Higgins,84.0,TE,ACT,"6'3""",234,3,Stanford,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Trishton Jackson,86.0,WR,ACT,"6'1""",191,3,Syracuse,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Patrick Jenkins,,DE,ACT,"6'2""",293,R,Tulane,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Will Johnson,,CB,UDF,"6'2""",194,R,Michigan,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Paris Johnson Jr.,70.0,OT,ACT,"6'6""",313,3,Ohio State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Christian Jones,75.0,OT,ACT,"6'5""",305,2,Texas,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Elijah Jones,28.0,CB,ACT,"6'1""",185,2,Boston College,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Zay Jones,17.0,WR,ACT,"6'2""",200,9,East Carolina,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Jaylon Jones,37.0,DB,ACT,"5'11""",190,4,Mississippi,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Justin Jones,98.0,DT,ACT,"6'3""",309,8,N.C. State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Vi Jones,53.0,LB,ACT,"6'2""",225,3,N.C. State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Bam Knight,35.0,RB,ACT,"5'11""",209,3,N.C. State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Nick Leverett,60.0,G,ACT,"6'4""",310,5,Rice,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Trey McBride,85.0,TE,ACT,"6'4""",246,4,Colorado State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Max Melton,16.0,CB,ACT,"5'11""",187,2,Rutgers,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Kyler Murray,1.0,QB,ACT,"5'10""",207,7,Oklahoma,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+PJ Mustipher,79.0,DT,ACT,"6'4""",318,1,Penn State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Royce Newman,71.0,G,ACT,"6'5""",310,5,Mississippi,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Bilal Nichols,92.0,DT,ACT,"6'3""",313,8,Delaware,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Walter Nolen,97.0,DT,ACT,"6'4""",296,R,Mississippi,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+BJ Ojulari,9.0,LB,ACT,"6'2""",248,3,LSU,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Tejhaun Palmer,83.0,WR,ACT,"6'2""",210,1,UAB,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Owen Pappoe,44.0,LB,ACT,"6'0""",225,3,Auburn,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Tip Reiman,87.0,TE,ACT,"6'5""",271,2,Illinois,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Darius Robinson,56.0,DL,ACT,"6'5""",285,2,Missouri,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Jammie Robinson,26.0,SAF,ACT,"5'11""",195,3,Florida State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+J.J. Russell,51.0,ILB,ACT,"6'1""",225,4,Memphis,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Chad Ryland,38.0,K,ACT,"6'0""",195,3,Maryland,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Valentin Senn,69.0,OT,ACT,"6'7""",310,R,Connecticut,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Elijah Simmons,96.0,DL,ACT,"6'1""",334,R,Tennessee,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Cody Simon,50.0,LB,ACT,"6'2""",229,R,Ohio State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Dante Stills,55.0,DT,ACT,"6'4""",286,3,West Virginia,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Josh Sweat,10.0,OLB,ACT,"6'5""",265,8,Florida State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Dadrion Taylor-Demerson,42.0,DB,ACT,"5'10""",197,2,Texas Tech,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Xavier Thomas,54.0,LB,ACT,"6'2""",245,2,Clemson,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Starling Thomas V,24.0,CB,ACT,"5'10""",194,3,UAB,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Jalen Thompson,34.0,DB,ACT,"5'11""",190,7,Washington State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Dalvin Tomlinson,94.0,DE,ACT,"6'3""",325,9,Alabama,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Clayton Tune,15.0,QB,ACT,"6'3""",220,3,Houston,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Travis Vokolek,81.0,TE,ACT,"6'6""",260,2,Nebraska,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Mykal Walker,43.0,LB,ACT,"6'3""",230,6,Fresno State,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Quez Watkins,16.0,WR,ACT,"6'0""",193,5,Southern Mississippi,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Xavier Weaver,89.0,WR,ACT,"6'1""",169,2,Colorado,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Benton Whitley,49.0,LB,ACT,"6'4""",260,4,Holy Cross,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Jonah Williams,73.0,OT,ACT,"6'5""",312,7,Alabama,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Garrett Williams,21.0,CB,ACT,"5'10""",192,3,Syracuse,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Mack Wilson,2.0,LB,ACT,"6'1""",246,7,Alabama,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0
+Michael Wilson,14.0,WR,ACT,"6'2""",213,3,Stanford,cardinals,nfl.com,2025-07-20T15:05:00.139239,1.0

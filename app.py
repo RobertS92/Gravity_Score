@@ -790,24 +790,58 @@ def get_latest_data():
         import glob
         import os
         
-        # FIXED: Find the file with the MOST players (not just prioritize comprehensive)
-        all_files = glob.glob('data/comprehensive_players_*.csv') + glob.glob('data/players_*.csv') + glob.glob('data/**/players_*.csv', recursive=True)
+        # PRIORITIZE FILES WITH CORRECT HEIGHTS (6'0" not 7'0"+)
+        all_files = (glob.glob('data/height_corrected_*players*.csv') + 
+                    glob.glob('data/corrected_*players*.csv') + 
+                    glob.glob('data/players_*.csv') + 
+                    glob.glob('data/comprehensive_players_*.csv') + 
+                    glob.glob('data/**/players_*.csv', recursive=True))
         
-        # Find the file with the most players
-        largest_file = None
-        max_players = 0
+        # Find the largest file with realistic heights
+        best_file = None
+        max_players_with_good_heights = 0
         
         for file_path in all_files:
             try:
                 df_temp = pd.read_csv(file_path)
-                if len(df_temp) > max_players:
-                    max_players = len(df_temp)
-                    largest_file = file_path
+                if len(df_temp) > 0 and 'height' in df_temp.columns:
+                    # Check if heights are realistic
+                    sample_heights = df_temp['height'].dropna().head(3)
+                    realistic_heights = 0
+                    
+                    for height in sample_heights:
+                        if height and isinstance(height, str) and "'" in height:
+                            parts = height.replace('"', '').split("'")
+                            if len(parts) == 2 and parts[0].isdigit():
+                                feet = int(parts[0])
+                                if 5 <= feet <= 6:  # Realistic NFL player height
+                                    realistic_heights += 1
+                    
+                    # If most heights are realistic and file is large enough
+                    if realistic_heights >= 2 and len(df_temp) > max_players_with_good_heights:
+                        max_players_with_good_heights = len(df_temp)
+                        best_file = file_path
             except:
                 continue
         
-        if largest_file:
-            latest_file = largest_file
+        # Fallback to largest file if no file with good heights found
+        if not best_file:
+            largest_file = None
+            max_players = 0
+            for file_path in all_files:
+                try:
+                    df_temp = pd.read_csv(file_path)
+                    if len(df_temp) > max_players:
+                        max_players = len(df_temp)
+                        largest_file = file_path
+                except:
+                    continue
+            best_file = largest_file
+        
+        latest_file = best_file
+        
+        if latest_file:
+            pass  # Continue with file processing
         else:
             # Try to get data info from MCP as fallback
             try:
