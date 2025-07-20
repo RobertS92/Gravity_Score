@@ -33,7 +33,7 @@ def scraping():
 @app.route('/view-data')
 def view_data():
     """Data viewing and filtering page."""
-    return render_template('view_data.html')
+    return render_template('data_viewer.html')
 
 @app.route('/api/teams')
 def get_teams():
