@@ -212,11 +212,13 @@ def get_players_history():
         import glob
         from datetime import datetime
         
-        # Get all historical data files
+        # PRIORITIZE COMPREHENSIVE FILES for /data page - this shows all 70+ columns
         comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
+        age_files = glob.glob('data/players_with_ages_*.csv') + glob.glob('data/priority_players_with_ages_*.csv')
         standard_files = glob.glob('data/players_*.csv')
         
-        all_files = comprehensive_files + standard_files
+        # For /data page, prioritize comprehensive files first to show all columns
+        all_files = comprehensive_files + age_files + standard_files
         
         if not all_files:
             return jsonify({"history": [], "count": 0, "status": "no_data"})
@@ -837,13 +839,31 @@ def get_latest_data():
         import glob
         import os
         
-        # PRIORITIZE AGE DATA FILES FIRST (same as players API)
+        # PRIORITIZE COMPREHENSIVE FILES FIRST for /data page to show all 70+ columns
+        comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
         age_files = glob.glob('data/players_with_ages_*.csv') + glob.glob('data/priority_players_with_ages_*.csv')
         
-        # Use age files if available (same logic as players API)
         best_file = None
         
-        if age_files:
+        # First: Try to use comprehensive files (for full column display)
+        if comprehensive_files:
+            # Find largest comprehensive file
+            largest_comprehensive_file = None
+            max_comprehensive_players = 0
+            
+            for file_path in comprehensive_files:
+                try:
+                    df_temp = pd.read_csv(file_path)
+                    if len(df_temp) > max_comprehensive_players:
+                        max_comprehensive_players = len(df_temp)
+                        largest_comprehensive_file = file_path
+                except:
+                    continue
+            
+            best_file = largest_comprehensive_file
+        
+        # Fallback: Use age files if no comprehensive files
+        elif age_files:
             # Find largest age file
             largest_age_file = None
             max_age_players = 0
