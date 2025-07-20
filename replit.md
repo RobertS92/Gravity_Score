@@ -234,6 +234,14 @@ nfl_gravity/
   - **Real Data Verification**: Patrick Mahomes test confirms authentic extraction across all 39 fields with 5 data sources
   - **Production Ready**: All scrapers operational, tested, and ready for full NFL dataset collection
 
+- July 20, 2025. **FIXED VIEW DATA DISPLAY & COMPREHENSIVE SCRAPING LIMITS**: Critical UI and processing fixes applied
+  - **Fixed View Data API**: Now correctly prioritizes largest dataset (2,910 players) instead of small comprehensive files (10 players)
+  - **Removed Comprehensive Limits**: Comprehensive scraping now processes full team rosters (92+ players) instead of 10-player limit
+  - **API Prioritization Fix**: View Data always shows file with most players regardless of recency or type
+  - **Full Team Processing**: Comprehensive mode now handles complete NFL rosters for all teams without artificial limits
+  - **Verified Functionality**: Chiefs comprehensive scraping confirmed processing 92 players with full AI enhancement
+  - **Production Ready**: All display issues resolved, comprehensive scraping ready for full 32-team deployment
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

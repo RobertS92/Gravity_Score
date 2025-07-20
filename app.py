@@ -100,15 +100,17 @@ def get_all_players():
         if not all_files:
             return jsonify({"players": [], "count": 0, "status": "no_data"})
         
-        # Choose the file with the most data (largest file size or most recent large file)
+        # Always prioritize the file with the MOST players (not most recent)
         latest_file = None
         max_players = 0
         
         for file_path in all_files:
             try:
                 df_temp = pd.read_csv(file_path)
-                if len(df_temp) > max_players:
-                    max_players = len(df_temp)
+                player_count = len(df_temp)
+                # Always choose the file with more players
+                if player_count > max_players:
+                    max_players = player_count
                     latest_file = file_path
             except Exception:
                 continue
@@ -275,8 +277,8 @@ def scrape_comprehensive_data():
         for team in teams:
             logger.info(f"Starting comprehensive data scraping for {team}")
             
-            # Collect comprehensive data for the team (limit to 10 for testing to avoid timeout)
-            enhanced_players = collector.collect_team_roster(team, limit_players=10)
+            # Collect comprehensive data for the entire team (no limits for full production scraping)
+            enhanced_players = collector.collect_team_roster(team, limit_players=None)
             
             all_players.extend(enhanced_players)
             
