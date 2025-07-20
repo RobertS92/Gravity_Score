@@ -1,0 +1,72 @@
+### TASK: Enrich athlete profiles by retrieving and parsing unstructured data from three external sources: Google News, Social Bios, and Wikipedia.
+
+---
+
+### INPUT:
+A dictionary for each athlete containing:
+- name
+- twitter_handle
+- instagram_handle
+- wikipedia_url
+
+---
+
+### OUTPUT:
+Augmented fields to be added to the dataset per athlete:
+
+#### 📘 From Wikipedia:
+- `wiki_awards_mentions`: List of awards, honors, recognitions detected in the page
+- `wiki_injury_mentions`: Any injury-related entries (section or sentence)
+- `wiki_charity_mentions`: Keywords related to philanthropy, nonprofits, or foundations
+- `wiki_controversy_mentions`: Any public legal/PR issues found ("arrest", "suspension", etc.)
+- `wiki_positive_sentiment_score`: VADER/TextBlob sentiment of key sections
+- `wiki_negative_sentiment_score`: Same, for negative polarity
+
+#### 📰 From Google News:
+- `news_mentions_30d`: Number of news articles mentioning the player in last 30 days
+- `news_positive_articles_count`: Number of positively classified articles
+- `news_negative_articles_count`: Number of negatively classified articles
+- `news_latest_titles`: Top 5 headlines with links and timestamps
+- `buzz_spike_score`: % increase vs previous 30-day baseline (if history available)
+- `controversial_keywords`: ["suspended", "fined", "released", "arrested"] occurrences
+
+#### 📲 From Social Media Bios (Twitter, Instagram):
+- `bio_keywords`: Extracted relevant keywords (e.g., "Entrepreneur", "Vegan", "Nike Athlete")
+- `bio_sponsor_alignment`: Cosine similarity between bio and known brand descriptions (if embeddings available)
+- `bio_sentiment`: Polarity score of bio text (range -1 to 1)
+- `bio_named_entities`: Brands, orgs, or affiliations mentioned (NER extraction)
+
+---
+
+### LLM Subtasks:
+
+1. **Wikipedia**
+   - Fetch Wikipedia content from URL
+   - Extract:
+     - Award mentions → keywords like "Pro Bowl", "All-Pro", "MVP"
+     - Injury history → look for “torn”, “out for”, “missed season”, etc.
+     - Philanthropy → keywords like “charity”, “founded”, “donated”
+     - Controversy → “arrested”, “fined”, “banned”, “controversy”
+   - Run sentiment analysis per section
+
+2. **Google News**
+   - Use player name to query Google News
+   - Collect top 20 headlines from the past 30 days
+   - Classify each headline:
+     - Is it positive, neutral, or negative?
+     - Does it mention buzzwords like “deal”, “endorsement”, “injury”, “arrest”?
+   - Count, summarize, and calculate buzz/spike score if time series available
+
+3. **Social Media Bios**
+   - Scrape or extract bios from handles (or use stored bios)
+   - Perform:
+     - Sentiment analysis
+     - NER (detect brand affiliations, sponsors, causes)
+     - Cosine similarity between bio and a corpus of brand positioning statements
+     - Pull keywords and hashtags for alignment modeling
+
+---
+
+### NOTE:
+Use schema-aligned field names for output. Normalize scores to 0–1 where applicable. Store original text (bios, headlines, wiki sections) as optional fields for traceability.
+
