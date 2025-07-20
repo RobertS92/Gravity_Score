@@ -1,0 +1,125 @@
+🧠 LLM Agent Instruction Set: Gravity Score System (Production Implementation)
+🏗️ High-Level Purpose
+You are tasked with building a production-ready Gravity Score system for athletes that uses structured data, unstructured web data, and machine learning to calculate each component score, learn optimal weights, and output a final Gravity Score for each athlete.
+✅ Global Rules
+You must not simulate or hardcode values (e.g., don't write "brand_score = 0.7" manually). Every score must be computed from real data.
+You must design the system to work on real athlete datasets from CSV files.
+All components should be implemented as modular Python functions.
+You must include actual ML training, NLP text processing, and data normalization steps.
+Use public data scraping, APIs, or mock data ingestion code if required (but actual code must be functional).
+📦 Input Format
+A CSV file with one row per athlete, including:
+Basic info: name, position, team, age, etc.
+Stats: passing, rushing, receiving, defense
+Awards: MVPs, All-Pro, championships, etc.
+Social: followers, bios, handles, links
+Contract: salary, cap hit, dead money, bonus
+Enrichment columns (or to be added): Wikipedia link, recent news, follower growth
+🔧 Tasks & Steps (Modular Components)
+💠 1. BRAND POWER
+🛠 Instructions:
+Ingest all social metrics (*_followers, *_verified, *_following)
+Normalize follower counts across athletes
+Scrape or ingest social bios (Twitter, IG)
+Run sentiment analysis on bios (e.g., VADER)
+Run SBERT embeddings on bios + compute cosine similarity to brand themes
+Count Google News mentions in the last 30 days using SerpAPI or a Google News scraping tool
+Classify article sentiment (BERT, TextBlob, or VADER)
+Count sponsorship or brand deal mentions via NER or keyword matching in news
+✅ Output:
+A brand_score ∈ [0, 1] per athlete
+Include bio_sentiment, news_mentions_30d, and brand_similarity_score in the output for interpretation
+💠 2. PROOF
+🛠 Instructions:
+Normalize statistical features by position group (e.g., passing yards for QBs only)
+Calculate award score from weighted sum (e.g., MVP=5, All-Pro=3)
+Scan Wikipedia or news for keywords like "record", "led league", “historic” using NLP
+Train a regression model to predict WAR or performance percentile (if labeled)
+✅ Output:
+A proof_score ∈ [0, 1] per athlete
+Include raw award_score, normalized stat_score, and text-extracted terms
+💠 3. PROXIMITY
+🛠 Instructions:
+Map team to a predefined market tier (NYG = Tier 1 = 1.0, IND = Tier 3 = 0.5)
+Map position to visibility index (QB = 1.0, OL = 0.5)
+Map college to a prestige score (use a lookup table or frequency-based metric)
+Extract location-based features (birth_place, high_school) to add optional exposure signals
+Search bios/news for brand or event mentions with NER and track presence of sponsorship
+✅ Output:
+A proximity_score ∈ [0, 1]
+Return subcomponents (market_score, position_score, college_score) as traceable fields
+💠 4. VELOCITY
+🛠 Instructions:
+Calculate follower_growth_rate over the past 60 days from historical snapshots (or mock)
+Compute YoY delta in salary, bonus, or performance stats
+Detect buzz spikes by comparing recent headline frequency to previous months
+Run NLP on recent news to track sentiment shift
+Identify breakout trajectory using delta-based features or time-series trend detection
+✅ Output:
+A velocity_score ∈ [0, 1]
+Return subfeatures: growth_rate, buzz_spike_score, stat_delta_score
+💠 5. RISK
+🛠 Instructions:
+Parse status for injury/suspension flags
+Parse Wikipedia or news for “controversy” or “injury” section using NLP
+Run sentiment classification on negative headlines (BERT or sentiment classifier)
+Compute age-adjusted risk by comparing age to known decline curves (e.g., RB vs QB)
+Analyze contract volatility: high dead_money with low guaranteed_money = high risk
+✅ Output:
+A risk_score ∈ [0, 1]
+Include flags: injury_count, controversy_mentions, contract_risk_score
+📉 COMPOSITE SCORE MODELING
+🛠 Instructions:
+Normalize all component scores to [0, 1]
+Construct X = [brand_score, proof_score, proximity_score, velocity_score, risk_score]
+Construct y = composite_target as:
+y = (
+  0.4 * endorsement_income_normalized +
+  0.2 * contract_value_normalized +
+  0.2 * media_mentions_normalized +
+  0.1 * follower_growth_rate_normalized +
+  0.1 * war_or_performance_score
+)
+Train a model (start with LinearRegression) to predict y from X
+Save the model weights and calculate:
+gravity_score = (
+    w1 * brand_score +
+    w2 * proof_score +
+    w3 * proximity_score +
+    w4 * velocity_score -
+    w5 * risk_score
+)
+✅ Output:
+The final gravity_score per athlete (float)
+The learned weights {brand, proof, proximity, velocity, risk}
+Store and save the full enriched dataset with all intermediate fields
+📊 Final Output Format (per player):
+{
+  "name": "Player X",
+  "brand_score": 0.86,
+  "proof_score": 0.91,
+  "proximity_score": 0.78,
+  "velocity_score": 0.85,
+  "risk_score": 0.22,
+  "gravity_score": 0.89,
+  "gravity_tier": "Tier 1 Asset",
+  "weights": {
+    "brand": 0.21,
+    "proof": 0.29,
+    "proximity": 0.15,
+    "velocity": 0.25,
+    "risk": 0.10
+  }
+}
+🧠 Agent Architecture Expectations
+Use modular, testable Python functions:
+compute_brand_score(row), compute_proximity_score(row), etc.
+Provide train_meta_model(X, y) to learn weights
+Persist trained models (joblib.dump)
+Export full gravity_score_dataset.csv with all fields
+(Optional) Generate streamlit_dashboard.py to explore player scores interactively
+❌ Do NOT:
+Hardcode any component scores
+Simulate data unless generating realistic mock inputs
+Output fake values in JSON without real computation
+Skip any ML/NLP processing specified
