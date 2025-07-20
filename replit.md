@@ -268,6 +268,14 @@ nfl_gravity/
   - **Realistic Age Range**: NFL players displaying authentic ages from 21-42 years (average 26.3 years)
   - **Zero Simulated Data**: All age data extracted from real sources (Wikipedia biographical data, ESPN rosters, NFL.com profiles)
 
+- July 20, 2025. **COMPREHENSIVE DATA PAGE FIXES & COLUMN ORDERING**: Complete overhaul of /data page to show all 70+ comprehensive columns
+  - **Fixed /data Page API**: Now prioritizes comprehensive files over standard files to display all 70+ authentic data columns
+  - **Comprehensive Scraper Enhanced**: Integrated real data collection from Wikipedia, NFL.com, Spotrac with authentic sources only
+  - **Perfect Column Order**: /view-data page now shows Name → Age → Position as first three columns as requested
+  - **All 70+ Fields Displayed**: Social media handles, salaries, career stats, biographical data, contract details, awards
+  - **Zero Simulated Data**: Comprehensive collector uses only authentic sources - Wikipedia, NFL.com, Spotrac, social media search
+  - **Production Ready**: Comprehensive scraping system ready to collect all 70+ fields for complete NFL roster (~2,700 players)
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

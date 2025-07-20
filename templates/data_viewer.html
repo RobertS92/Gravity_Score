@@ -257,12 +257,12 @@
                     <tr>
                         <!-- COMPREHENSIVE DATA COLUMNS - ALL 84 FIELDS -->
                         <th>Name</th>
-                        <th>Team</th>
+                        <th>Age</th>
                         <th>Position</th>
+                        <th>Team</th>
                         <th>Jersey #</th>
                         <th>Height</th>
                         <th>Weight</th>
-                        <th>Age</th>
                         <th>College</th>
                         <th>Experience</th>
                         <th>Twitter</th>
@@ -404,14 +404,14 @@
             
             allPlayersData.forEach(player => {
                 const row = [
-                    // COMPREHENSIVE DATA COLUMNS - ALL 43 DISPLAYED FIELDS
+                    // COMPREHENSIVE DATA COLUMNS - NAME, AGE, POSITION FIRST
                     `<strong>${player.name || 'N/A'}</strong>`,
-                    `<span class="team-badge badge bg-primary">${player.team || 'N/A'}</span>`,
+                    player.age || '-',
                     `<span class="position-badge badge bg-secondary">${player.position || 'N/A'}</span>`,
+                    `<span class="team-badge badge bg-primary">${player.team || 'N/A'}</span>`,
                     player.jersey_number || '-',
                     player.height || '-',
                     player.weight ? `${player.weight} lbs` : '-',
-                    player.age || '-',
                     player.college || '-',
                     player.experience || '-',
                     player.twitter_handle || '-',
