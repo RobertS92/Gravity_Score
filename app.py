@@ -133,208 +133,117 @@ def get_all_players():
         
     except Exception as e:
         logger.error(f"Error getting all players: {e}")
-        # Fallback to static data if file loading fails
-        players = [
-            {
-                'name': 'Israel Abanikanda',
-                'team': '49ers',
-                'position': 'RB',
-                'jersey_number': '20',
-                'age': 22,
-                'height': '5\'11"',
-                'weight': 216,
-                'college': 'Pittsburgh',
-                'experience': 'Rookie',
-                'status': 'Active',
-                'data_source': 'NFL.com',
-                'twitter_handle': None,
-                'instagram_handle': None,
-                'twitter_followers': None,
-                'instagram_followers': None,
-                'scraped_at': '2025-07-17T16:00:00.000Z',
-                'updated_at': '2025-07-17T16:00:00.000Z'
-            },
-            {
-                'name': 'Brandon Aiyuk',
-                'team': '49ers',
-                'position': 'WR',
-                'jersey_number': '11',
-                'age': 26,
-                'height': '6\'0"',
-                'weight': 205,
-                'college': 'Arizona State',
-                'experience': '5th year',
-                'status': 'Active',
-                'data_source': 'NFL.com',
-                'twitter_handle': None,
-                'instagram_handle': None,
-                'twitter_followers': None,
-                'instagram_followers': None,
-                'scraped_at': '2025-07-17T16:00:00.000Z',
-                'updated_at': '2025-07-17T16:00:00.000Z'
-            },
-            {
-                'name': 'Isaac Alarcon',
-                'team': '49ers',
-                'position': 'OT',
-                'jersey_number': '67',
-                'age': 25,
-                'height': '6\'5"',
-                'weight': 308,
-                'college': 'Weber State',
-                'experience': '2nd year',
-                'status': 'Active',
-                'data_source': 'NFL.com',
-                'twitter_handle': None,
-                'instagram_handle': None,
-                'twitter_followers': None,
-                'instagram_followers': None,
-                'scraped_at': '2025-07-17T16:00:00.000Z',
-                'updated_at': '2025-07-17T16:00:00.000Z'
-            },
-            {
-                'name': 'Nick Bosa',
-                'team': '49ers',
-                'position': 'DE',
-                'jersey_number': '97',
-                'age': 27,
-                'height': '6\'4"',
-                'weight': 266,
-                'college': 'Ohio State',
-                'experience': '6th year',
-                'status': 'Active',
-                'data_source': 'NFL.com',
-                'twitter_handle': None,
-                'instagram_handle': None,
-                'twitter_followers': None,
-                'instagram_followers': None,
-                'scraped_at': '2025-07-17T16:00:00.000Z',
-                'updated_at': '2025-07-17T16:00:00.000Z'
-            },
-            {
-                'name': 'George Kittle',
-                'team': '49ers',
-                'position': 'TE',
-                'jersey_number': '85',
-                'age': 31,
-                'height': '6\'4"',
-                'weight': 250,
-                'college': 'Iowa',
-                'experience': '8th year',
-                'status': 'Active',
-                'data_source': 'NFL.com',
-                'twitter_handle': None,
-                'instagram_handle': None,
-                'twitter_followers': None,
-                'instagram_followers': None,
-                'scraped_at': '2025-07-17T16:00:00.000Z',
-                'updated_at': '2025-07-17T16:00:00.000Z'
-            },
-            {
-                'name': 'Deebo Samuel',
-                'team': '49ers',
-                'position': 'WR',
-                'jersey_number': '19',
-                'age': 28,
-                'height': '6\'0"',
-                'weight': 214,
-                'college': 'South Carolina',
-                'experience': '6th year',
-                'status': 'Active',
-                'data_source': 'NFL.com',
-                'twitter_handle': None,
-                'instagram_handle': None,
-                'twitter_followers': None,
-                'instagram_followers': None,
-                'scraped_at': '2025-07-17T16:00:00.000Z',
-                'updated_at': '2025-07-17T16:00:00.000Z'
-            },
-            {
-                'name': 'Christian McCaffrey',
-                'team': '49ers',
-                'position': 'RB',
-                'jersey_number': '23',
-                'age': 28,
-                'height': '5\'11"',
-                'weight': 205,
-                'college': 'Stanford',
-                'experience': '8th year',
-                'status': 'Active',
-                'data_source': 'NFL.com',
-                'twitter_handle': None,
-                'instagram_handle': None,
-                'twitter_followers': None,
-                'instagram_followers': None,
-                'scraped_at': '2025-07-17T16:00:00.000Z',
-                'updated_at': '2025-07-17T16:00:00.000Z'
-            },
-            {
-                'name': 'Brock Purdy',
-                'team': '49ers',
-                'position': 'QB',
-                'jersey_number': '13',
-                'age': 25,
-                'height': '6\'1"',
-                'weight': 220,
-                'college': 'Iowa State',
-                'experience': '3rd year',
-                'status': 'Active',
-                'data_source': 'NFL.com',
-                'twitter_handle': None,
-                'instagram_handle': None,
-                'twitter_followers': None,
-                'instagram_followers': None,
-                'scraped_at': '2025-07-17T16:00:00.000Z',
-                'updated_at': '2025-07-17T16:00:00.000Z'
-            },
-            {
-                'name': 'Trent Williams',
-                'team': '49ers',
-                'position': 'LT',
-                'jersey_number': '71',
-                'age': 36,
-                'height': '6\'5"',
-                'weight': 320,
-                'college': 'Oklahoma',
-                'experience': '15th year',
-                'status': 'Active',
-                'data_source': 'NFL.com',
-                'twitter_handle': None,
-                'instagram_handle': None,
-                'twitter_followers': None,
-                'instagram_followers': None,
-                'scraped_at': '2025-07-17T16:00:00.000Z',
-                'updated_at': '2025-07-17T16:00:00.000Z'
-            },
-            {
-                'name': 'Fred Warner',
-                'team': '49ers',
-                'position': 'LB',
-                'jersey_number': '54',
-                'age': 28,
-                'height': '6\'3"',
-                'weight': 230,
-                'college': 'BYU',
-                'experience': '7th year',
-                'status': 'Active',
-                'data_source': 'NFL.com',
-                'twitter_handle': None,
-                'instagram_handle': None,
-                'twitter_followers': None,
-                'instagram_followers': None,
-                'scraped_at': '2025-07-17T16:00:00.000Z',
-                'updated_at': '2025-07-17T16:00:00.000Z'
-            }
-        ]
+        # Return error instead of fallback data - we only want real data
+        return jsonify({
+            "players": [],
+            "count": 0,
+            "status": "error",
+            "error": f"Failed to load player data: {str(e)}",
+            "message": "No authentic player data available. Please run data collection first."
+        })
+
+@app.route('/api/players/history')
+def get_players_history():
+    """Get historical player data for time series analysis."""
+    try:
+        import pandas as pd
+        import os
+        import glob
+        from datetime import datetime
+        
+        # Get all historical data files
+        comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
+        standard_files = glob.glob('data/players_*.csv')
+        
+        all_files = comprehensive_files + standard_files
+        
+        if not all_files:
+            return jsonify({"history": [], "count": 0, "status": "no_data"})
+        
+        # Sort files by modification time (newest first)
+        all_files.sort(key=os.path.getmtime, reverse=True)
+        
+        history_data = []
+        
+        for file_path in all_files:
+            try:
+                df = pd.read_csv(file_path)
+                
+                # Extract timestamp from filename
+                filename = os.path.basename(file_path)
+                timestamp_str = filename.split('_')[-2] + '_' + filename.split('_')[-1].replace('.csv', '')
+                
+                file_info = {
+                    "filename": filename,
+                    "timestamp": timestamp_str,
+                    "player_count": len(df),
+                    "column_count": len(df.columns),
+                    "file_size": os.path.getsize(file_path),
+                    "data_type": "comprehensive" if "comprehensive" in filename else "standard",
+                    "teams": df['team'].unique().tolist() if 'team' in df.columns else [],
+                    "avg_quality": df['data_quality_score'].mean() if 'data_quality_score' in df.columns else None
+                }
+                
+                history_data.append(file_info)
+                
+            except Exception as e:
+                logger.warning(f"Could not read file {file_path}: {e}")
+                continue
         
         return jsonify({
-            "players": players,
-            "count": len(players),
+            "history": history_data,
+            "count": len(history_data),
             "status": "success"
         })
         
     except Exception as e:
-        logger.error(f"Error getting all players: {e}")
+        logger.error(f"Error getting player history: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/players/file/<filename>')
+def get_players_from_file(filename):
+    """Get players from a specific historical file."""
+    try:
+        import pandas as pd
+        import os
+        
+        # Validate filename for security
+        if not filename.endswith('.csv') or '..' in filename:
+            return jsonify({"error": "Invalid filename"}), 400
+        
+        file_path = os.path.join('data', filename)
+        
+        if not os.path.exists(file_path):
+            return jsonify({"error": "File not found"}), 404
+        
+        df = pd.read_csv(file_path)
+        
+        # Convert to dictionary, handling NaN values
+        players_data = df.fillna('').to_dict('records')
+        
+        # Convert all columns to proper types for JSON
+        players = []
+        for player in players_data:
+            clean_player = {}
+            for key, value in player.items():
+                if pd.isna(value) or value == '':
+                    clean_player[key] = None
+                elif isinstance(value, (int, float)) and pd.notna(value):
+                    clean_player[key] = value
+                else:
+                    clean_player[key] = str(value)
+            players.append(clean_player)
+        
+        return jsonify({
+            "players": players,
+            "count": len(players),
+            "status": "success",
+            "columns": list(df.columns),
+            "source_file": filename
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting players from file {filename}: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
 @app.route('/api/scrape/comprehensive', methods=['POST'])

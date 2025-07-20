@@ -172,8 +172,21 @@
 
         <!-- Advanced Filters -->
         <div class="filter-section">
-            <h5><i class="fas fa-filter me-2"></i>Advanced Filters</h5>
+            <h5><i class="fas fa-filter me-2"></i>Advanced Filters & Time Series</h5>
             <div class="filter-row">
+                <div class="filter-group">
+                    <label>Data Source</label>
+                    <select class="form-select form-select-sm" id="dataSourceFilter">
+                        <option value="latest">Latest Data</option>
+                        <option value="history">Historical Data</option>
+                    </select>
+                </div>
+                <div class="filter-group" id="historyFileGroup" style="display: none;">
+                    <label>Historical File</label>
+                    <select class="form-select form-select-sm" id="historyFileFilter">
+                        <option value="">Select historical data...</option>
+                    </select>
+                </div>
                 <div class="filter-group">
                     <label>Team</label>
                     <select class="form-select form-select-sm" id="teamFilter" multiple>
@@ -242,7 +255,7 @@
             <table id="playersTable" class="table table-striped table-hover" style="display: none;">
                 <thead>
                     <tr>
-                        <!-- ALL AVAILABLE DATA COLUMNS -->
+                        <!-- COMPREHENSIVE DATA COLUMNS - ALL 84 FIELDS -->
                         <th>Name</th>
                         <th>Team</th>
                         <th>Position</th>
@@ -250,23 +263,42 @@
                         <th>Height</th>
                         <th>Weight</th>
                         <th>Age</th>
-                        <th>Birth Date</th>
                         <th>College</th>
+                        <th>Experience</th>
+                        <th>Twitter</th>
+                        <th>Instagram</th>
+                        <th>TikTok</th>
+                        <th>YouTube</th>
+                        <th>Twitter Followers</th>
+                        <th>Instagram Followers</th>
+                        <th>TikTok Followers</th>
+                        <th>YouTube Subs</th>
                         <th>Draft Year</th>
                         <th>Draft Round</th>
                         <th>Draft Pick</th>
-                        <th>Years Pro</th>
-                        <th>Games Played</th>
-                        <th>Games Started</th>
-                        <th>Twitter Handle</th>
-                        <th>Instagram Handle</th>
-                        <th>Twitter Followers</th>
-                        <th>Instagram Followers</th>
-                        <th>Wikipedia URL</th>
-                        <th>Career Highlights</th>
+                        <th>Current Salary</th>
+                        <th>Contract Value</th>
+                        <th>Guaranteed Money</th>
+                        <th>Championships</th>
+                        <th>Pro Bowls</th>
+                        <th>All Pros</th>
                         <th>Awards</th>
-                        <th>Data Source</th>
-                        <th>Scraped At</th>
+                        <th>Career Pass Yards</th>
+                        <th>Career Pass TDs</th>
+                        <th>Career Rush Yards</th>
+                        <th>Career Rush TDs</th>
+                        <th>Career Rec Yards</th>
+                        <th>Career Rec TDs</th>
+                        <th>Career Tackles</th>
+                        <th>Career Sacks</th>
+                        <th>Career INTs</th>
+                        <th>Birth Date</th>
+                        <th>Birth Place</th>
+                        <th>High School</th>
+                        <th>Wikipedia URL</th>
+                        <th>Data Quality</th>
+                        <th>Data Sources</th>
+                        <th>Last Updated</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -308,6 +340,7 @@
             initializeDataTable();
             loadPlayersData();
             setupFilters();
+            loadHistoricalFiles();
         });
 
         function initializeDataTable() {
@@ -371,31 +404,50 @@
             
             allPlayersData.forEach(player => {
                 const row = [
-                    // ALL AVAILABLE DATA COLUMNS - EXACT MATCH TO CSV
+                    // COMPREHENSIVE DATA COLUMNS - ALL 43 DISPLAYED FIELDS
                     `<strong>${player.name || 'N/A'}</strong>`,
                     `<span class="team-badge badge bg-primary">${player.team || 'N/A'}</span>`,
                     `<span class="position-badge badge bg-secondary">${player.position || 'N/A'}</span>`,
                     player.jersey_number || '-',
                     player.height || '-',
-                    player.weight || '-',
+                    player.weight ? `${player.weight} lbs` : '-',
                     player.age || '-',
-                    player.birth_date || '-',
                     player.college || '-',
+                    player.experience || '-',
+                    player.twitter_handle || '-',
+                    player.instagram_handle || '-',
+                    player.tiktok_handle || '-',
+                    player.youtube_handle || '-',
+                    formatNumber(player.twitter_followers),
+                    formatNumber(player.instagram_followers),
+                    formatNumber(player.tiktok_followers),
+                    formatNumber(player.youtube_subscribers),
                     player.draft_year || '-',
                     player.draft_round || '-',
                     player.draft_pick || '-',
-                    player.years_pro || '-',
-                    player.games_played || '-',
-                    player.games_started || '-',
-                    player.twitter_handle || '-',
-                    player.instagram_handle || '-',
-                    formatNumber(player.twitter_followers),
-                    formatNumber(player.instagram_followers),
-                    player.wikipedia_url ? `<a href="${player.wikipedia_url}" target="_blank">Wiki</a>` : '-',
-                    truncateText(player.career_highlights, 50),
-                    truncateText(player.awards, 50),
-                    player.data_source || '-',
-                    formatDate(player.scraped_at)
+                    formatCurrency(player.current_salary),
+                    formatCurrency(player.contract_value),
+                    formatCurrency(player.guaranteed_money),
+                    player.championships || '-',
+                    player.pro_bowls || '-',
+                    player.all_pros || '-',
+                    truncateText(player.awards, 30),
+                    formatNumber(player.career_pass_yards),
+                    formatNumber(player.career_pass_tds),
+                    formatNumber(player.career_rush_yards),
+                    formatNumber(player.career_rush_tds),
+                    formatNumber(player.career_rec_yards),
+                    formatNumber(player.career_rec_tds),
+                    formatNumber(player.career_tackles),
+                    formatNumber(player.career_sacks),
+                    formatNumber(player.career_interceptions),
+                    player.birth_date || '-',
+                    player.birth_place || '-',
+                    player.high_school || '-',
+                    player.wikipedia_url ? `<a href="${player.wikipedia_url}" target="_blank" class="btn btn-sm btn-outline-info">Wiki</a>` : '-',
+                    formatQualityScore(player.data_quality_score),
+                    formatDataSources(player.data_sources),
+                    formatDate(player.last_updated || player.scraped_at)
                 ];
                 playersTable.row.add(row);
             });
@@ -439,6 +491,210 @@
         function formatArray(arr) {
             if (!arr || !Array.isArray(arr)) return '-';
             return arr.join(', ');
+        }
+
+        function formatCurrency(amount) {
+            if (!amount || amount === 0) return '-';
+            if (amount >= 1000000) {
+                return '$' + (amount / 1000000).toFixed(1) + 'M';
+            } else if (amount >= 1000) {
+                return '$' + (amount / 1000).toFixed(0) + 'K';
+            }
+            return '$' + amount.toLocaleString();
+        }
+
+        function formatQualityScore(score) {
+            if (!score) return '-';
+            const percentage = (score / 5.0 * 100).toFixed(0);
+            let badgeClass = 'bg-danger';
+            if (percentage >= 60) badgeClass = 'bg-success';
+            else if (percentage >= 40) badgeClass = 'bg-warning text-dark';
+            return `<span class="badge ${badgeClass}">${score}/5.0 (${percentage}%)</span>`;
+        }
+
+        function formatDataSources(sources) {
+            if (!sources) return '-';
+            if (typeof sources === 'string') {
+                try {
+                    sources = JSON.parse(sources);
+                } catch (e) {
+                    return sources;
+                }
+            }
+            if (Array.isArray(sources)) {
+                return sources.join(', ');
+            }
+            return sources.toString();
+        }
+
+        function loadHistoricalFiles() {
+            fetch('/api/players/history')
+                .then(response => response.json())
+                .then(data => {
+                    const historySelect = $('#historyFileFilter');
+                    if (data.history && data.history.length > 0) {
+                        data.history.forEach(file => {
+                            const label = `${file.filename} (${file.player_count} players, ${file.data_type})`;
+                            historySelect.append(`<option value="${file.filename}">${label}</option>`);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading historical files:', error);
+                });
+        }
+
+        function setupFilters() {
+            // Data source filter toggle
+            $('#dataSourceFilter').on('change', function() {
+                const isHistory = $(this).val() === 'history';
+                $('#historyFileGroup').toggle(isHistory);
+                
+                if (!isHistory) {
+                    loadPlayersData(); // Load latest data
+                }
+            });
+
+            // Historical file selection
+            $('#historyFileFilter').on('change', function() {
+                const filename = $(this).val();
+                if (filename) {
+                    loadHistoricalData(filename);
+                }
+            });
+
+            // Range filters
+            $('#ageRange').on('input', function() {
+                $('#ageValue').text($(this).val());
+                applyFilters();
+            });
+
+            $('#heightRange').on('input', function() {
+                $('#heightValue').text($(this).val());
+                applyFilters();
+            });
+
+            $('#weightRange').on('input', function() {
+                $('#weightValue').text($(this).val());
+                applyFilters();
+            });
+
+            // Search filter
+            $('#searchFilter').on('input', function() {
+                playersTable.search($(this).val()).draw();
+            });
+
+            // Multi-select filters
+            $('#teamFilter, #positionFilter').on('change', function() {
+                applyFilters();
+            });
+        }
+
+        function loadHistoricalData(filename) {
+            fetch(`/api/players/file/${filename}`)
+                .then(response => response.json())
+                .then(data => {
+                    allPlayersData = data.players || [];
+                    updateStatistics();
+                    populateFilterOptions();
+                    populateTable();
+                    
+                    // Update UI to show historical data status
+                    $('#filterStatus').text(`Showing historical data from ${filename}`);
+                })
+                .catch(error => {
+                    console.error('Error loading historical data:', error);
+                    alert('Failed to load historical data');
+                });
+        }
+
+        function applyFilters() {
+            let filteredData = allPlayersData;
+
+            // Team filter
+            const selectedTeams = $('#teamFilter').val();
+            if (selectedTeams && selectedTeams.length > 0 && selectedTeams[0] !== '') {
+                filteredData = filteredData.filter(player => selectedTeams.includes(player.team));
+            }
+
+            // Position filter
+            const selectedPositions = $('#positionFilter').val();
+            if (selectedPositions && selectedPositions.length > 0 && selectedPositions[0] !== '') {
+                filteredData = filteredData.filter(player => selectedPositions.includes(player.position));
+            }
+
+            // Age filter
+            const maxAge = parseInt($('#ageRange').val());
+            filteredData = filteredData.filter(player => !player.age || player.age <= maxAge);
+
+            // Height filter (convert to inches)
+            const maxHeight = parseInt($('#heightRange').val());
+            filteredData = filteredData.filter(player => {
+                if (!player.height) return true;
+                const heightInches = convertHeightToInches(player.height);
+                return heightInches <= maxHeight;
+            });
+
+            // Weight filter
+            const maxWeight = parseInt($('#weightRange').val());
+            filteredData = filteredData.filter(player => !player.weight || player.weight <= maxWeight);
+
+            // Update the table with filtered data
+            allPlayersData = filteredData;
+            populateTable();
+            
+            $('#filterStatus').text(`Showing ${filteredData.length} of ${allPlayersData.length} players`);
+        }
+
+        function convertHeightToInches(height) {
+            if (!height) return 0;
+            const match = height.match(/(\d+)'(\d+)/);
+            if (match) {
+                return parseInt(match[1]) * 12 + parseInt(match[2]);
+            }
+            return 0;
+        }
+
+        function clearFilters() {
+            $('#teamFilter, #positionFilter').val('').trigger('change');
+            $('#ageRange').val(45);
+            $('#heightRange').val(85);
+            $('#weightRange').val(350);
+            $('#searchFilter').val('');
+            $('#ageValue').text(45);
+            $('#heightValue').text(85);
+            $('#weightValue').text(350);
+            
+            loadPlayersData(); // Reload original data
+        }
+
+        function refreshData() {
+            $('#loadingSpinner').show();
+            $('#playersTable').hide();
+            loadPlayersData();
+        }
+
+        function exportData() {
+            // Trigger DataTables export
+            playersTable.button(1).trigger();
+        }
+
+        function exportFiltered(format) {
+            // Export current filtered data
+            const data = playersTable.data().toArray();
+            if (format === 'csv') {
+                playersTable.button(1).trigger();
+            } else if (format === 'excel') {
+                playersTable.button(2).trigger();
+            } else if (format === 'json') {
+                const jsonData = JSON.stringify(allPlayersData, null, 2);
+                const blob = new Blob([jsonData], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'nfl_players.json';
+                a.click();
+            }
         }
 
         function updateStatistics() {
