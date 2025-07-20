@@ -401,8 +401,13 @@ class SimpleComprehensiveCollector:
             nfl_stats = self._extract_nfl_stats(player_name, position)
             stats_data.update(nfl_stats)
             
+            # Use Wikipedia as fallback for missing stats
+            if position and len(stats_data) < 3:
+                wiki_stats = self._get_wikipedia_stats_fallback(player_name, position)
+                stats_data.update(wiki_stats)
+                
             # Use AI prompting for missing position-specific stats
-            if position and not stats_data:
+            if position and len(stats_data) < 5:
                 ai_stats = self._get_ai_position_stats(player_name, position)
                 stats_data.update(ai_stats)
                 
@@ -675,6 +680,148 @@ class SimpleComprehensiveCollector:
             
         except Exception as e:
             logger.warning(f"AI stats extraction failed for {player_name}: {e}")
+            return {}
+    
+    def _get_wikipedia_stats_fallback(self, player_name: str, position: str) -> Dict:
+        """Use Wikipedia pages as fallback for stats with AI search prompting."""
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            import re
+            
+            stats_data = {}
+            
+            # Search for player's Wikipedia page
+            wiki_search_url = f"https://en.wikipedia.org/w/api.php"
+            search_params = {
+                'action': 'query',
+                'format': 'json',
+                'list': 'search',
+                'srsearch': f'"{player_name}" NFL football player',
+                'srlimit': 3
+            }
+            
+            search_response = requests.get(wiki_search_url, params=search_params, timeout=10)
+            if search_response.status_code == 200:
+                search_data = search_response.json()
+                
+                if search_data.get('query', {}).get('search'):
+                    # Try the first search result
+                    page_title = search_data['query']['search'][0]['title']
+                    
+                    # Get page content
+                    content_params = {
+                        'action': 'query',
+                        'format': 'json',
+                        'titles': page_title,
+                        'prop': 'extracts',
+                        'exintro': False,
+                        'explaintext': True,
+                        'exsectionformat': 'wiki'
+                    }
+                    
+                    content_response = requests.get(wiki_search_url, params=content_params, timeout=10)
+                    if content_response.status_code == 200:
+                        content_data = content_response.json()
+                        pages = content_data.get('query', {}).get('pages', {})
+                        
+                        for page_id, page_info in pages.items():
+                            extract = page_info.get('extract', '')
+                            
+                            if extract:
+                                # Use AI to extract position-specific stats from Wikipedia text
+                                ai_wiki_stats = self._extract_stats_from_text_with_ai(extract, player_name, position)
+                                stats_data.update(ai_wiki_stats)
+                                
+                                # Also try manual extraction for common patterns
+                                manual_stats = self._extract_stats_from_wikipedia_text(extract, position)
+                                stats_data.update(manual_stats)
+            
+            return stats_data
+            
+        except Exception as e:
+            logger.warning(f"Wikipedia stats fallback failed for {player_name}: {e}")
+            return {}
+    
+    def _extract_stats_from_text_with_ai(self, text: str, player_name: str, position: str) -> Dict:
+        """Use AI to extract career statistics from Wikipedia text."""
+        try:
+            import os
+            if not os.getenv('OPENAI_API_KEY'):
+                return {}
+            
+            from openai import OpenAI
+            client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+            
+            # Create position-specific prompt for Wikipedia text analysis
+            position_prompts = {
+                'QB': f"Extract quarterback career statistics for {player_name} from this Wikipedia text. Look for: career passing yards, touchdown passes, interceptions, completion percentage, games played, seasons. Return only verified numbers.",
+                'RB': f"Extract running back career statistics for {player_name} from this Wikipedia text. Look for: career rushing yards, rushing touchdowns, receptions, receiving yards, total touchdowns, games played. Return only verified numbers.",
+                'WR': f"Extract wide receiver career statistics for {player_name} from this Wikipedia text. Look for: career receptions, receiving yards, receiving touchdowns, targets, longest reception, games played. Return only verified numbers.",
+                'TE': f"Extract tight end career statistics for {player_name} from this Wikipedia text. Look for: career receptions, receiving yards, receiving touchdowns, targets, games played. Return only verified numbers.",
+                'LB': f"Extract linebacker career statistics for {player_name} from this Wikipedia text. Look for: career tackles, sacks, interceptions, forced fumbles, games played. Return only verified numbers.",
+                'CB': f"Extract cornerback career statistics for {player_name} from this Wikipedia text. Look for: career tackles, interceptions, pass deflections, forced fumbles, games played. Return only verified numbers.",
+                'S': f"Extract safety career statistics for {player_name} from this Wikipedia text. Look for: career tackles, interceptions, sacks, forced fumbles, games played. Return only verified numbers."
+            }
+            
+            prompt = position_prompts.get(position, f"Extract NFL career statistics for {position} {player_name} from this Wikipedia text.")
+            
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": f"You are analyzing Wikipedia text about NFL player {player_name}. Extract only verified career statistics mentioned in the text. Return data as JSON with field names like career_pass_yards, career_rush_yards, career_receptions, career_tackles, career_sacks, career_interceptions, pro_bowls, etc. If a statistic is not mentioned in the text, do not include it. Only extract numbers that are explicitly stated."},
+                    {"role": "user", "content": f"{prompt}\\n\\nWikipedia text: {text[:2000]}"}
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=500,
+                timeout=15
+            )
+            
+            import json
+            result = json.loads(response.choices[0].message.content)
+            logger.info(f"✅ AI Wikipedia extraction: Got {len(result)} stats for {player_name}")
+            return result
+            
+        except Exception as e:
+            logger.warning(f"AI Wikipedia text extraction failed for {player_name}: {e}")
+            return {}
+    
+    def _extract_stats_from_wikipedia_text(self, text: str, position: str) -> Dict:
+        """Extract stats using pattern matching from Wikipedia text."""
+        try:
+            import re
+            stats = {}
+            
+            # Common stat patterns
+            patterns = {
+                'career_pass_yards': r'(\d{1,3}(?:,\d{3})*)\s*(?:career\s*)?passing\s*yards',
+                'career_pass_tds': r'(\d+)\s*(?:career\s*)?(?:passing\s*)?(?:touchdown|TD)(?:\s*pass)',
+                'career_rush_yards': r'(\d{1,3}(?:,\d{3})*)\s*(?:career\s*)?rushing\s*yards',
+                'career_rush_tds': r'(\d+)\s*(?:career\s*)?rushing\s*(?:touchdown|TD)',
+                'career_receptions': r'(\d{1,3}(?:,\d{3})*)\s*(?:career\s*)?receptions',
+                'career_rec_yards': r'(\d{1,3}(?:,\d{3})*)\s*(?:career\s*)?receiving\s*yards',
+                'career_tackles': r'(\d{1,3}(?:,\d{3})*)\s*(?:career\s*)?tackles',
+                'career_sacks': r'(\d+(?:\.\d+)?)\s*(?:career\s*)?sacks',
+                'career_interceptions': r'(\d+)\s*(?:career\s*)?interceptions',
+                'pro_bowls': r'(\d+)(?:-time)?\s*Pro\s*Bowl'
+            }
+            
+            for field, pattern in patterns.items():
+                matches = re.findall(pattern, text, re.IGNORECASE)
+                if matches:
+                    try:
+                        value = matches[0].replace(',', '')
+                        if '.' in value:
+                            stats[field] = float(value)
+                        else:
+                            stats[field] = int(value)
+                    except:
+                        pass
+            
+            return stats
+            
+        except Exception as e:
+            logger.warning(f"Manual Wikipedia text extraction failed: {e}")
             return {}
     
     def _get_overthecap_data(self, player_name: str, team: str) -> Dict:

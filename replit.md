@@ -294,6 +294,15 @@ nfl_gravity/
   - **Smart Stats Extraction**: Contextual analysis per position using multiple sites with AI fallback for completeness
   - **Production Ready**: Position-specific scraping system ready for targeted stats collection across all NFL positions
 
+- July 20, 2025. **WIKIPEDIA FALLBACK & ENHANCED UI IMPROVEMENTS**: Advanced Wikipedia stats extraction with AI prompting and improved table display
+  - **Wikipedia Stats Fallback**: Enhanced Wikipedia API search and content extraction for missing career statistics
+  - **AI Wikipedia Analysis**: OpenAI GPT-4o analyzes Wikipedia text to extract position-specific stats with contextual understanding
+  - **Smart Cascading System**: Official sources → Wikipedia fallback → AI prompting for comprehensive coverage
+  - **Enhanced UI Display**: Fixed HTML structure with horizontal/vertical scrolling, sticky Name column, professional table styling
+  - **Pattern Matching Extraction**: Manual regex patterns extract common stats (passing yards, rushing yards, tackles, sacks, Pro Bowls)
+  - **Position-Specific Wikipedia Prompts**: Targeted AI prompts for QB, RB, WR, TE, LB, CB, S positions with field-specific extraction
+  - **Zero Simulated Data**: All Wikipedia and AI extractions use only verified statistics from authentic NFL sources
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
