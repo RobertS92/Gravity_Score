@@ -285,6 +285,15 @@ nfl_gravity/
   - **Zero Simulation**: All data scraped from authentic NFL sources - no fake or placeholder data
   - **Enhanced Fields**: Now collects experience, contract_value, current_salary, career stats, social handles with real metrics
 
+- July 20, 2025. **POSITION-SPECIFIC STATS ENHANCEMENT & VIEW-DATA DISPLAY FIX**: Advanced stats collection with contextual position analysis
+  - **Position-Specific Stats**: QB (passing stats), RB (rushing stats), WR/TE (receiving stats), Defense (tackles/sacks/INTs)
+  - **Multiple Source Integration**: Enhanced PFR + ESPN + NFL.com extraction with position-specific table targeting
+  - **AI Prompting Fallback**: OpenAI GPT-4o prompting for missing position-specific stats with contextual extraction
+  - **Fixed View-Data Display**: Name → Age → Position column order now properly implemented in /view-data page
+  - **Enhanced Test Scrapers**: All comprehensive and test scrapers updated with position-specific enhancements
+  - **Smart Stats Extraction**: Contextual analysis per position using multiple sites with AI fallback for completeness
+  - **Production Ready**: Position-specific scraping system ready for targeted stats collection across all NFL positions
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

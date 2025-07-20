@@ -402,12 +402,14 @@
         function populateTable() {
             playersTable.clear();
             
+            // Sort data to ensure consistent ordering and build proper row arrays
             allPlayersData.forEach(player => {
                 const row = [
-                    // COMPREHENSIVE DATA COLUMNS - NAME, AGE, POSITION FIRST
+                    // FIRST THREE COLUMNS: NAME → AGE → POSITION
                     `<strong>${player.name || 'N/A'}</strong>`,
                     player.age || '-',
                     `<span class="position-badge badge bg-secondary">${player.position || 'N/A'}</span>`,
+                    // REMAINING COLUMNS IN LOGICAL ORDER
                     `<span class="team-badge badge bg-primary">${player.team || 'N/A'}</span>`,
                     player.jersey_number || '-',
                     player.height || '-',
