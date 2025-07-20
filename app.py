@@ -30,6 +30,11 @@ def scraping():
     """Data collection/scraping configuration page."""
     return render_template('scraping.html')
 
+@app.route('/data-collection')
+def data_collection():
+    """Data collection/scraping configuration page (alternative route)."""
+    return render_template('scraping.html')
+
 @app.route('/view-data')
 def view_data():
     """Data viewing and filtering page."""
@@ -83,6 +88,11 @@ def data_viewer():
 def all_players():
     """All NFL players page with comprehensive team support."""
     return render_template('players.html')
+
+@app.route('/test-scraper')
+def test_scraper():
+    """Test scraper page for individual player testing."""
+    return render_template('test_scraper.html')
 
 @app.route('/api/players/all')
 def get_all_players():
