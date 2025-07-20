@@ -117,6 +117,12 @@ class SimpleComprehensiveCollector:
             contract_data = self._get_contract_data(player_name, team)
             comprehensive_data.update(contract_data)
             
+            # Use Wikipedia fallback for any missing non-social data fields
+            missing_fields = self._identify_missing_fields(comprehensive_data)
+            if missing_fields:
+                wikipedia_data = self._get_wikipedia_comprehensive_fallback(player_name, position, missing_fields)
+                comprehensive_data.update(wikipedia_data)
+            
             # Update quality score based on data collected
             fields_with_data = sum(1 for v in comprehensive_data.values() if v is not None and v != '')
             total_fields = len(comprehensive_data)
@@ -822,6 +828,247 @@ class SimpleComprehensiveCollector:
             
         except Exception as e:
             logger.warning(f"Manual Wikipedia text extraction failed: {e}")
+            return {}
+    
+    def _identify_missing_fields(self, data: Dict) -> List[str]:
+        """Identify missing non-social media fields that should be filled from Wikipedia."""
+        
+        # Define core fields that should be filled (excluding social media)
+        core_fields = [
+            'birth_date', 'birth_place', 'high_school', 'college',
+            'draft_year', 'draft_round', 'draft_pick', 'draft_team',
+            'experience', 'championships', 'pro_bowls', 'all_pros', 'awards',
+            'career_pass_yards', 'career_pass_tds', 'career_rush_yards', 'career_rush_tds',
+            'career_receptions', 'career_rec_yards', 'career_rec_tds',
+            'career_tackles', 'career_sacks', 'career_interceptions',
+            'current_salary', 'contract_value', 'guaranteed_money'
+        ]
+        
+        missing_fields = []
+        for field in core_fields:
+            if field not in data or data[field] in [None, '', 'N/A', 'Unknown']:
+                missing_fields.append(field)
+        
+        return missing_fields
+    
+    def _get_wikipedia_comprehensive_fallback(self, player_name: str, position: str, missing_fields: List[str]) -> Dict:
+        """Use Wikipedia as comprehensive fallback for any missing non-social data fields."""
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            import re
+            
+            fallback_data = {}
+            
+            # Search for player's Wikipedia page
+            wiki_search_url = f"https://en.wikipedia.org/w/api.php"
+            search_params = {
+                'action': 'query',
+                'format': 'json',
+                'list': 'search',
+                'srsearch': f'"{player_name}" NFL football player',
+                'srlimit': 5
+            }
+            
+            search_response = requests.get(wiki_search_url, params=search_params, timeout=10)
+            if search_response.status_code == 200:
+                search_data = search_response.json()
+                
+                if search_data.get('query', {}).get('search'):
+                    # Try the first search result
+                    page_title = search_data['query']['search'][0]['title']
+                    
+                    # Get full page content including infobox
+                    content_params = {
+                        'action': 'parse',
+                        'format': 'json',
+                        'page': page_title,
+                        'prop': 'wikitext'
+                    }
+                    
+                    content_response = requests.get(wiki_search_url, params=content_params, timeout=10)
+                    if content_response.status_code == 200:
+                        content_data = content_response.json()
+                        wikitext = content_data.get('parse', {}).get('wikitext', {}).get('*', '')
+                        
+                        if wikitext:
+                            # Extract data from infobox and text
+                            infobox_data = self._extract_from_wikipedia_infobox(wikitext, missing_fields)
+                            fallback_data.update(infobox_data)
+                            
+                            # Extract career stats from text
+                            text_data = self._extract_from_wikipedia_text_comprehensive(wikitext, missing_fields, position)
+                            fallback_data.update(text_data)
+                            
+                            # Use AI to extract remaining missing fields
+                            if missing_fields and len(fallback_data) < len(missing_fields) // 2:
+                                ai_data = self._extract_missing_fields_with_ai(wikitext, player_name, missing_fields)
+                                fallback_data.update(ai_data)
+            
+            if fallback_data:
+                logger.info(f"✅ Wikipedia fallback: Got {len(fallback_data)} fields for {player_name}")
+            
+            return fallback_data
+            
+        except Exception as e:
+            logger.warning(f"Wikipedia comprehensive fallback failed for {player_name}: {e}")
+            return {}
+    
+    def _extract_from_wikipedia_infobox(self, wikitext: str, missing_fields: List[str]) -> Dict:
+        """Extract data from Wikipedia infobox."""
+        try:
+            import re
+            
+            infobox_data = {}
+            
+            # Find the infobox
+            infobox_match = re.search(r'\{\{Infobox NFL player(.*?)\}\}', wikitext, re.DOTALL | re.IGNORECASE)
+            if infobox_match:
+                infobox_content = infobox_match.group(1)
+                
+                # Extract common infobox fields
+                field_patterns = {
+                    'birth_date': r'\|\s*birth_date\s*=\s*([^\n\|]+)',
+                    'birth_place': r'\|\s*birth_place\s*=\s*([^\n\|]+)',
+                    'high_school': r'\|\s*high_school\s*=\s*([^\n\|]+)',
+                    'college': r'\|\s*college\s*=\s*([^\n\|]+)',
+                    'draft_year': r'\|\s*draft(?:year|edyear)\s*=\s*(\d{4})',
+                    'draft_round': r'\|\s*draftround\s*=\s*(\d+)',
+                    'draft_pick': r'\|\s*draftpick\s*=\s*(\d+)',
+                    'position': r'\|\s*position\s*=\s*([^\n\|]+)',
+                    'experience': r'\|\s*years\s*=\s*(\d+)'
+                }
+                
+                for field, pattern in field_patterns.items():
+                    if field in missing_fields:
+                        match = re.search(pattern, infobox_content, re.IGNORECASE)
+                        if match:
+                            value = match.group(1).strip()
+                            # Clean up wiki formatting
+                            value = re.sub(r'\[\[([^\]]*\|)?([^\]]+)\]\]', r'\2', value)
+                            value = re.sub(r'\{\{[^}]+\}\}', '', value)
+                            value = value.strip()
+                            if value and value != '':
+                                infobox_data[field] = value
+            
+            return infobox_data
+            
+        except Exception as e:
+            logger.warning(f"Infobox extraction failed: {e}")
+            return {}
+    
+    def _extract_from_wikipedia_text_comprehensive(self, wikitext: str, missing_fields: List[str], position: str) -> Dict:
+        """Extract comprehensive data from Wikipedia text content."""
+        try:
+            import re
+            
+            text_data = {}
+            
+            # Career statistics patterns
+            stat_patterns = {
+                'career_pass_yards': r'(\d{1,3}(?:,\d{3})*)\s*(?:career\s*)?passing\s*yards',
+                'career_pass_tds': r'(\d+)\s*(?:career\s*)?(?:passing\s*)?(?:touchdown|TD)(?:\s*pass)',
+                'career_rush_yards': r'(\d{1,3}(?:,\d{3})*)\s*(?:career\s*)?rushing\s*yards',
+                'career_rush_tds': r'(\d+)\s*(?:career\s*)?rushing\s*(?:touchdown|TD)',
+                'career_receptions': r'(\d{1,3}(?:,\d{3})*)\s*(?:career\s*)?receptions',
+                'career_rec_yards': r'(\d{1,3}(?:,\d{3})*)\s*(?:career\s*)?receiving\s*yards',
+                'career_rec_tds': r'(\d+)\s*(?:career\s*)?receiving\s*(?:touchdown|TD)',
+                'career_tackles': r'(\d{1,3}(?:,\d{3})*)\s*(?:career\s*)?tackles',
+                'career_sacks': r'(\d+(?:\.\d+)?)\s*(?:career\s*)?sacks',
+                'career_interceptions': r'(\d+)\s*(?:career\s*)?interceptions',
+                'pro_bowls': r'(\d+)(?:-time)?\s*Pro\s*Bowl',
+                'all_pros': r'(\d+)(?:-time)?\s*All-Pro',
+                'championships': r'(\d+)\s*Super\s*Bowl'
+            }
+            
+            # Awards and honors patterns
+            if 'awards' in missing_fields:
+                awards_section = re.search(r'(Awards|Honors|Achievements).*?(?=\n==|\Z)', wikitext, re.DOTALL | re.IGNORECASE)
+                if awards_section:
+                    awards_text = awards_section.group(0)
+                    awards = []
+                    
+                    # Look for common awards
+                    award_patterns = [
+                        r'NFL MVP', r'Super Bowl MVP', r'Pro Bowl', r'All-Pro',
+                        r'Rookie of the Year', r'Comeback Player', r'Man of the Year'
+                    ]
+                    
+                    for pattern in award_patterns:
+                        matches = re.findall(pattern, awards_text, re.IGNORECASE)
+                        awards.extend(matches)
+                    
+                    if awards:
+                        text_data['awards'] = ', '.join(set(awards))
+            
+            # Extract statistics
+            for field, pattern in stat_patterns.items():
+                if field in missing_fields:
+                    matches = re.findall(pattern, wikitext, re.IGNORECASE)
+                    if matches:
+                        try:
+                            value = matches[0].replace(',', '')
+                            if '.' in value:
+                                text_data[field] = float(value)
+                            else:
+                                text_data[field] = int(value)
+                        except:
+                            pass
+            
+            # Extract draft information
+            if any(field.startswith('draft_') for field in missing_fields):
+                draft_match = re.search(r'drafted.*?(\d{4}).*?round\s*(\d+).*?pick\s*(\d+)', wikitext, re.IGNORECASE)
+                if draft_match:
+                    if 'draft_year' in missing_fields:
+                        text_data['draft_year'] = int(draft_match.group(1))
+                    if 'draft_round' in missing_fields:
+                        text_data['draft_round'] = int(draft_match.group(2))
+                    if 'draft_pick' in missing_fields:
+                        text_data['draft_pick'] = int(draft_match.group(3))
+            
+            return text_data
+            
+        except Exception as e:
+            logger.warning(f"Comprehensive text extraction failed: {e}")
+            return {}
+    
+    def _extract_missing_fields_with_ai(self, wikitext: str, player_name: str, missing_fields: List[str]) -> Dict:
+        """Use AI to extract remaining missing fields from Wikipedia text."""
+        try:
+            import os
+            if not os.getenv('OPENAI_API_KEY'):
+                return {}
+            
+            from openai import OpenAI
+            client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+            
+            # Create targeted prompt for missing fields
+            fields_list = ', '.join(missing_fields)
+            
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": f"You are analyzing Wikipedia content for NFL player {player_name}. Extract only the following missing fields if they are mentioned in the text: {fields_list}. Return data as JSON with exact field names. If a field is not mentioned, do not include it. Only extract verified information."},
+                    {"role": "user", "content": f"Extract these specific fields for {player_name}: {fields_list}\\n\\nWikipedia content: {wikitext[:3000]}"}
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=600,
+                timeout=15
+            )
+            
+            import json
+            result = json.loads(response.choices[0].message.content)
+            
+            # Filter to only requested missing fields
+            filtered_result = {k: v for k, v in result.items() if k in missing_fields}
+            
+            if filtered_result:
+                logger.info(f"✅ AI Wikipedia extraction: Got {len(filtered_result)} missing fields for {player_name}")
+            
+            return filtered_result
+            
+        except Exception as e:
+            logger.warning(f"AI missing fields extraction failed for {player_name}: {e}")
             return {}
     
     def _get_overthecap_data(self, player_name: str, team: str) -> Dict:

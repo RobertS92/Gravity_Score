@@ -303,6 +303,15 @@ nfl_gravity/
   - **Position-Specific Wikipedia Prompts**: Targeted AI prompts for QB, RB, WR, TE, LB, CB, S positions with field-specific extraction
   - **Zero Simulated Data**: All Wikipedia and AI extractions use only verified statistics from authentic NFL sources
 
+- July 20, 2025. **COMPREHENSIVE WIKIPEDIA FALLBACK FOR ALL MISSING FIELDS**: Intelligent missing field detection and Wikipedia-first fallback system
+  - **Automatic Missing Field Detection**: System identifies all missing non-social media fields automatically before collection
+  - **Wikipedia-First Fallback**: Uses Wikipedia as primary fallback for ANY missing data field (not just stats)
+  - **Comprehensive Infobox Extraction**: Extracts birth_date, birth_place, college, draft info, experience from Wikipedia infoboxes
+  - **Advanced Text Pattern Matching**: Career statistics, awards, championships, Pro Bowls extracted from Wikipedia text content
+  - **Targeted AI Field Extraction**: AI specifically targets remaining missing fields from Wikipedia content
+  - **Smart Coverage Optimization**: Prioritizes Wikipedia over AI for authentic data, uses AI only for remaining gaps
+  - **Zero Simulated Data Guarantee**: All fallback methods extract only verified information from authentic Wikipedia sources
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
