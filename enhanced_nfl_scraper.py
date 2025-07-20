@@ -178,6 +178,7 @@ class EnhancedNFLScraper:
                             'status': cells[3].get_text().strip() if len(cells) > 3 else None,
                             'height': converted_height,
                             'weight': self._extract_weight(cells[5].get_text()) if len(cells) > 5 else None,
+                            'age': self._extract_age_from_nfl_com(name, team),  # Add age extraction
                             'experience': cells[6].get_text().strip() if len(cells) > 6 else None,
                             'college': cells[7].get_text().strip() if len(cells) > 7 else None,
                             'team': team,
@@ -445,6 +446,38 @@ class EnhancedNFLScraper:
         
         # Already in correct format
         return height_clean
+    
+    def _extract_age_from_nfl_com(self, player_name: str, team: str) -> Optional[int]:
+        """Extract age using multiple methods including birth date calculation"""
+        try:
+            # Try ESPN first (has age data in roster)
+            team_espn = self.espn_teams.get(team.lower(), team.lower())
+            espn_url = f"https://www.espn.com/nfl/team/roster/_/name/{team_espn}"
+            
+            response = self.session.get(espn_url, timeout=10)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Look for the player in ESPN roster table
+                tables = soup.find_all('table', class_='Table')
+                for table in tables:
+                    rows = table.find_all('tr')
+                    for row in rows:
+                        cells = row.find_all(['td', 'th'])
+                        if len(cells) >= 6:
+                            name_cell = cells[0].get_text().strip()
+                            # Simple name matching
+                            if player_name.lower() in name_cell.lower() or name_cell.lower() in player_name.lower():
+                                age_text = cells[5].get_text().strip() if len(cells) > 5 else ""
+                                age = self._extract_number(age_text)
+                                if age and 18 <= age <= 45:  # Realistic NFL age range
+                                    return age
+            
+            return None
+            
+        except Exception as e:
+            logger.debug(f"Error extracting age for {player_name}: {e}")
+            return None
 
 
 def main():
@@ -471,6 +504,9 @@ def main():
         print(f"\n💾 Data saved to {test_team}_roster.json")
     else:
         print("❌ No players found")
+
+
+
 
 
 if __name__ == "__main__":

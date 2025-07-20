@@ -92,8 +92,9 @@ def get_all_players():
         import os
         import glob
         
-        # PRIORITIZE FILES WITH CORRECT HEIGHTS (6'0" not 7'0"+) - SAME LOGIC AS /api/data/latest
-        all_files = (glob.glob('data/height_corrected_*players*.csv') + 
+        # PRIORITIZE FILES WITH AGE DATA, THEN CORRECT HEIGHTS
+        all_files = (glob.glob('data/players_with_ages_*.csv') +  # Age data files first
+                    glob.glob('data/height_corrected_*players*.csv') + 
                     glob.glob('data/corrected_*players*.csv') + 
                     glob.glob('data/players_*.csv') + 
                     glob.glob('data/comprehensive_players_*.csv') + 
@@ -818,8 +819,9 @@ def get_latest_data():
         import glob
         import os
         
-        # PRIORITIZE FILES WITH CORRECT HEIGHTS (6'0" not 7'0"+)
-        all_files = (glob.glob('data/height_corrected_*players*.csv') + 
+        # PRIORITIZE FILES WITH AGE DATA, THEN CORRECT HEIGHTS  
+        all_files = (glob.glob('data/players_with_ages_*.csv') +  # Age data files first
+                    glob.glob('data/height_corrected_*players*.csv') + 
                     glob.glob('data/corrected_*players*.csv') + 
                     glob.glob('data/players_*.csv') + 
                     glob.glob('data/comprehensive_players_*.csv') + 
