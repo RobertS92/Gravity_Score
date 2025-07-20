@@ -40,6 +40,31 @@ def view_data():
     """Data viewing and filtering page."""
     return render_template('data_viewer.html')
 
+@app.route('/api/scrape/progress')
+def get_scrape_progress():
+    """Get real-time scraping progress for all modes."""
+    try:
+        # This would integrate with actual scraping progress in production
+        # For now, return mock progress data structure
+        return jsonify({
+            "status": "idle",  # idle, running, completed, error
+            "overall_progress": 0,
+            "current_team": None,
+            "current_player": None,
+            "teams_completed": 0,
+            "total_teams": 0,
+            "players_processed": 0,
+            "current_team_progress": 0,
+            "current_team_total": 0,
+            "eta_seconds": 0,
+            "avg_quality": 0.0,
+            "scraping_mode": None,
+            "start_time": None
+        })
+    except Exception as e:
+        logger.error(f"Progress API error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/teams')
 def get_teams():
     """Get list of teams for a specific sport."""

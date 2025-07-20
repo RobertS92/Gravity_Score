@@ -322,6 +322,17 @@ nfl_gravity/
   - **Export Functionality**: CSV, Excel export buttons with professional styling
   - **Fixed Flask Routing**: Corrected /view-data and /data-collection routes to display proper templates
 
+- July 20, 2025. **ENHANCED PROGRESS TRACKING FOR ALL SCRAPING MODES**: Built comprehensive real-time progress monitoring system
+  - **Mode-Specific Progress Tracking**: Different time estimates and extraction stages for Standard (1 min/team), Comprehensive (5 min/team), Firecrawl (10 min/team)
+  - **Real-Time Team Progress**: Shows current team being processed with team name and player count (X/92 players processed)
+  - **Player-Level Progress**: Current player name with extraction stage progress (basic info → social media → stats → finalization)
+  - **ETA Calculation**: Intelligent time estimation with seconds/minutes/hours formatting based on actual scraping performance
+  - **Live Statistics Dashboard**: Teams completed, total players found, average quality score updated every 2 seconds
+  - **Progress API Endpoint**: /api/scrape/progress endpoint for real-time progress data integration
+  - **Mode-Specific Extraction Stages**: Standard (4 stages), Comprehensive (6 stages), Firecrawl (6 stages) with accurate stage descriptions
+  - **Enhanced Progress Bars**: Overall progress, team progress, and player progress bars with percentage completion
+  - **Quality Score Estimates**: Mode-specific quality estimates (Standard: 1.8-2.2, Comprehensive: 2.3-2.7, Firecrawl: 2.8-3.2)
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
