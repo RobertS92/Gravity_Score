@@ -388,16 +388,22 @@
         
         // Update progress
         updateProgress(100);
-        updateStatus(`✅ Scraping completed successfully! Collected ${result.total_players || 0} players.`, 'success');
         
-        // Update results
-        document.getElementById('totalPlayers').textContent = result.total_players || 0;
-        document.getElementById('teamsProcessed').textContent = result.teams_processed || 0;
-        document.getElementById('avgQuality').textContent = (result.avg_quality_score || 0).toFixed(1);
-        document.getElementById('totalSources').textContent = result.total_sources_used || 0;
+        // Update results - handle different API response formats
+        const totalPlayers = result.total_players || result.players_count || (result.players ? result.players.length : 0) || 0;
+        const teamsProcessed = result.teams_processed || result.teams_count || (result.teams ? result.teams.length : 0) || 0;
+        const avgQuality = result.avg_quality_score || result.average_quality || result.quality_score || 0;
+        const totalSources = result.total_sources_used || result.sources_count || result.data_sources || 0;
         
-        addLogEntry(`✅ Scraping completed: ${result.total_players || 0} players from ${result.teams_processed || 0} teams`);
-        addLogEntry(`📊 Average quality score: ${(result.avg_quality_score || 0).toFixed(1)}`);
+        updateStatus(`✅ Scraping completed successfully! Collected ${totalPlayers} players.`, 'success');
+        
+        document.getElementById('totalPlayers').textContent = totalPlayers;
+        document.getElementById('teamsProcessed').textContent = teamsProcessed;
+        document.getElementById('avgQuality').textContent = avgQuality.toFixed(1);
+        document.getElementById('totalSources').textContent = totalSources;
+        
+        addLogEntry(`✅ Scraping completed: ${totalPlayers} players from ${teamsProcessed} teams`);
+        addLogEntry(`📊 Average quality score: ${avgQuality.toFixed(1)}`);
     }
 
     function handleScrapingError(error) {

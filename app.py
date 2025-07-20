@@ -92,16 +92,28 @@ def get_all_players():
         import os
         import glob
         
-        # Find the latest data file (prioritize comprehensive files)
+        # Find the latest data file (prioritize largest dataset)
         comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
         standard_files = glob.glob('data/players_*.csv') + glob.glob('data/**/players_*.csv', recursive=True)
         
-        # Use comprehensive files if available, otherwise fall back to standard
-        if comprehensive_files:
-            latest_file = max(comprehensive_files, key=os.path.getmtime)
-        elif standard_files:
-            latest_file = max(standard_files, key=os.path.getmtime)
-        else:
+        all_files = comprehensive_files + standard_files
+        if not all_files:
+            return jsonify({"players": [], "count": 0, "status": "no_data"})
+        
+        # Choose the file with the most data (largest file size or most recent large file)
+        latest_file = None
+        max_players = 0
+        
+        for file_path in all_files:
+            try:
+                df_temp = pd.read_csv(file_path)
+                if len(df_temp) > max_players:
+                    max_players = len(df_temp)
+                    latest_file = file_path
+            except Exception:
+                continue
+        
+        if not latest_file:
             return jsonify({"players": [], "count": 0, "status": "no_data"})
         
         # Load the data
