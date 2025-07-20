@@ -69,7 +69,7 @@ def get_scrape_progress():
 def get_teams():
     """Get list of teams for a specific sport."""
     sport = request.args.get('sport', 'nfl')
-    
+
     teams_by_sport = {
         'nfl': [
             "49ers", "bears", "bengals", "bills", "broncos", "browns", "buccaneers",
@@ -100,7 +100,7 @@ def get_teams():
             "oilers", "canucks", "ducks", "kings", "sharks", "coyotes", "knights", "kraken"
         ]
     }
-    
+
     teams = teams_by_sport.get(sport, [])
     return jsonify({"teams": teams})
 
@@ -126,18 +126,18 @@ def get_all_players():
         import pandas as pd
         import os
         import glob
-        
+
         # PRIORITIZE AGE DATA FILES FIRST
         age_files = glob.glob('data/players_with_ages_*.csv') + glob.glob('data/priority_players_with_ages_*.csv')
-        
+
         best_file = None
-        
+
         # Use age files if available
         if age_files:
             # Find largest age file
             largest_age_file = None
             max_age_players = 0
-            
+
             for file_path in age_files:
                 try:
                     df_temp = pd.read_csv(file_path)
@@ -146,9 +146,9 @@ def get_all_players():
                         largest_age_file = file_path
                 except:
                     continue
-            
+
             best_file = largest_age_file
-        
+
         # Fallback to other files if no age files
         if not best_file:
             all_files = (glob.glob('data/height_corrected_*players*.csv') + 
@@ -156,10 +156,10 @@ def get_all_players():
                         glob.glob('data/players_*.csv') + 
                         glob.glob('data/comprehensive_players_*.csv') + 
                         glob.glob('data/**/players_*.csv', recursive=True))
-            
+
             # Find largest file with realistic heights
             max_players_with_good_heights = 0
-            
+
             for file_path in all_files:
                 try:
                     df_temp = pd.read_csv(file_path)
@@ -167,7 +167,7 @@ def get_all_players():
                         # Check if heights are realistic
                         sample_heights = df_temp['height'].dropna().head(3)
                         realistic_heights = 0
-                        
+
                         for height in sample_heights:
                             if height and isinstance(height, str) and "'" in height:
                                 parts = height.replace('"', '').split("'")
@@ -175,14 +175,14 @@ def get_all_players():
                                     feet = int(parts[0])
                                     if 5 <= feet <= 6:  # Realistic NFL player height
                                         realistic_heights += 1
-                        
+
                         # If most heights are realistic and file is large enough
                         if realistic_heights >= 2 and len(df_temp) > max_players_with_good_heights:
                             max_players_with_good_heights = len(df_temp)
                             best_file = file_path
                 except:
                     continue
-            
+
             # Final fallback to largest file
             if not best_file:
                 largest_file = None
@@ -196,16 +196,16 @@ def get_all_players():
                     except:
                         continue
                 best_file = largest_file
-        
+
         if not best_file:
             return jsonify({"players": [], "count": 0, "status": "no_data"})
-        
+
         # Load the data
         df = pd.read_csv(best_file)
-        
+
         # Convert to dictionary, handling NaN values
         players_data = df.fillna('').to_dict('records')
-        
+
         # Convert all columns to proper types for JSON
         players = []
         for player in players_data:
@@ -218,7 +218,7 @@ def get_all_players():
                 else:
                     clean_player[key] = str(value)
             players.append(clean_player)
-        
+
         return jsonify({
             "players": players,
             "count": len(players),
@@ -226,7 +226,7 @@ def get_all_players():
             "columns": list(df.columns),
             "source_file": best_file
         })
-        
+
     except Exception as e:
         logger.error(f"Error getting all players: {e}")
         # Return error instead of fallback data - we only want real data
@@ -246,31 +246,31 @@ def get_players_history():
         import os
         import glob
         from datetime import datetime
-        
+
         # PRIORITIZE COMPREHENSIVE FILES for /data page - this shows all 70+ columns
         comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
         age_files = glob.glob('data/players_with_ages_*.csv') + glob.glob('data/priority_players_with_ages_*.csv')
         standard_files = glob.glob('data/players_*.csv')
-        
+
         # For /data page, prioritize comprehensive files first to show all columns
         all_files = comprehensive_files + age_files + standard_files
-        
+
         if not all_files:
             return jsonify({"history": [], "count": 0, "status": "no_data"})
-        
+
         # Sort files by modification time (newest first)
         all_files.sort(key=os.path.getmtime, reverse=True)
-        
+
         history_data = []
-        
+
         for file_path in all_files:
             try:
                 df = pd.read_csv(file_path)
-                
+
                 # Extract timestamp from filename
                 filename = os.path.basename(file_path)
                 timestamp_str = filename.split('_')[-2] + '_' + filename.split('_')[-1].replace('.csv', '')
-                
+
                 file_info = {
                     "filename": filename,
                     "timestamp": timestamp_str,
@@ -281,19 +281,19 @@ def get_players_history():
                     "teams": df['team'].unique().tolist() if 'team' in df.columns else [],
                     "avg_quality": df['data_quality_score'].mean() if 'data_quality_score' in df.columns else None
                 }
-                
+
                 history_data.append(file_info)
-                
+
             except Exception as e:
                 logger.warning(f"Could not read file {file_path}: {e}")
                 continue
-        
+
         return jsonify({
             "history": history_data,
             "count": len(history_data),
             "status": "success"
         })
-        
+
     except Exception as e:
         logger.error(f"Error getting player history: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -304,21 +304,21 @@ def get_players_from_file(filename):
     try:
         import pandas as pd
         import os
-        
+
         # Validate filename for security
         if not filename.endswith('.csv') or '..' in filename:
             return jsonify({"error": "Invalid filename"}), 400
-        
+
         file_path = os.path.join('data', filename)
-        
+
         if not os.path.exists(file_path):
             return jsonify({"error": "File not found"}), 404
-        
+
         df = pd.read_csv(file_path)
-        
+
         # Convert to dictionary, handling NaN values
         players_data = df.fillna('').to_dict('records')
-        
+
         # Convert all columns to proper types for JSON
         players = []
         for player in players_data:
@@ -331,7 +331,7 @@ def get_players_from_file(filename):
                 else:
                     clean_player[key] = str(value)
             players.append(clean_player)
-        
+
         return jsonify({
             "players": players,
             "count": len(players),
@@ -339,7 +339,7 @@ def get_players_from_file(filename):
             "columns": list(df.columns),
             "source_file": filename
         })
-        
+
     except Exception as e:
         logger.error(f"Error getting players from file {filename}: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -350,26 +350,26 @@ def scrape_comprehensive_data():
     try:
         data = request.get_json()
         teams = data.get('teams', ['49ers'])
-        
+
         # Use the REAL DATA COLLECTOR - NO SIMULATED DATA EVER
         from real_data_collector import RealDataCollector
         collector = RealDataCollector()
-        
+
         all_players = []
         results = {}
-        
+
         for team in teams:
             logger.info(f"Starting comprehensive data scraping for {team}")
-            
+
             # Collect comprehensive data for the entire team (no limits for full production scraping)
             enhanced_players = collector.collect_team_roster(team, limit_players=None)
-            
+
             all_players.extend(enhanced_players)
-            
+
             # Calculate quality metrics
             avg_quality = sum(p.get('data_quality_score', 0) for p in enhanced_players) / len(enhanced_players) if enhanced_players else 0
             total_sources = sum(len(p.get('data_sources', [])) for p in enhanced_players)
-            
+
             results[team] = {
                 "players_found": len(enhanced_players),
                 "players_enhanced": len(enhanced_players),
@@ -377,29 +377,29 @@ def scrape_comprehensive_data():
                 "total_sources_used": total_sources,
                 "status": "success" if enhanced_players else "no_data"
             }
-            
+
             logger.info(f"Completed {team}: {len(enhanced_players)} players with comprehensive data (avg quality: {avg_quality:.1f})")
-        
+
         # Save comprehensive data to file
         import pandas as pd
         from datetime import datetime
         import os
-        
+
         if all_players:
             df = pd.DataFrame(all_players)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             csv_filename = f"data/comprehensive_players_{timestamp}.csv"
-            
+
             # Create data directory if it doesn't exist
             os.makedirs("data", exist_ok=True)
             df.to_csv(csv_filename, index=False)
-            
+
             logger.info(f"Saved comprehensive data to {csv_filename}")
-        
+
         # Calculate overall metrics
         total_sources = sum(results[team].get("total_sources_used", 0) for team in results)
         avg_quality = sum(results[team].get("avg_quality_score", 0) for team in results) / len(results) if results else 0
-        
+
         return jsonify({
             "status": "success",
             "total_players": len(all_players),
@@ -409,7 +409,7 @@ def scrape_comprehensive_data():
             "total_sources_used": total_sources,
             "message": f"Comprehensive data collected for {len(all_players)} players from {len(teams)} teams"
         })
-        
+
     except Exception as e:
         logger.error(f"Error in comprehensive data scraping: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -421,26 +421,26 @@ def search_social_media():
         data = request.get_json()
         player_name = data.get('player_name')
         team = data.get('team', '49ers')
-        
+
         if not player_name:
             return jsonify({"error": "Player name is required", "status": "error"}), 400
-        
+
         logger.info(f"Searching social media for {player_name} ({team})")
-        
+
         # Use the web search social scraper
         from web_search_social_scraper import WebSearchSocialScraper
         scraper = WebSearchSocialScraper()
-        
+
         # Search and scrape social media
         social_data = scraper.search_and_scrape_social_media(player_name, team)
-        
+
         return jsonify({
             "player_name": player_name,
             "team": team,
             "social_media_data": social_data,
             "status": "success"
         })
-        
+
     except Exception as e:
         logger.error(f"Error searching social media: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -452,20 +452,20 @@ def collect_comprehensive_data():
         data = request.get_json()
         team = data.get('team', '49ers')
         max_players = data.get('max_players', 5)
-        
+
         logger.info(f"Starting comprehensive data collection for {team}")
-        
+
         # Use the simple comprehensive database
         from simple_comprehensive_db import SimpleComprehensiveDB
         db = SimpleComprehensiveDB()
-        
+
         # Collect comprehensive data
         players_data = db.collect_comprehensive_team_data(team, max_players)
-        
+
         if players_data:
             # Save to database
             db.save_comprehensive_data(players_data, team)
-            
+
             return jsonify({
                 "team": team,
                 "players_collected": len(players_data),
@@ -487,7 +487,7 @@ def collect_comprehensive_data():
                 "status": "warning",
                 "message": "No comprehensive data collected"
             })
-        
+
     except Exception as e:
         logger.error(f"Error in comprehensive data collection: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -498,15 +498,15 @@ def get_comprehensive_summary(team):
     try:
         from simple_comprehensive_db import SimpleComprehensiveDB
         db = SimpleComprehensiveDB()
-        
+
         summary = db.get_comprehensive_summary(team)
-        
+
         return jsonify({
             "team": team,
             "summary": summary,
             "status": "success"
         })
-        
+
     except Exception as e:
         logger.error(f"Error getting comprehensive summary: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -517,31 +517,31 @@ def scrape_standard():
     try:
         data = request.get_json()
         teams = data.get('teams', ['49ers'])
-        
+
         logger.info(f"Starting standard scraping for teams: {teams}")
-        
+
         # Import the enhanced scraper
         from enhanced_nfl_scraper import EnhancedNFLScraper
         scraper = EnhancedNFLScraper()
-        
+
         all_players = []
         results = {}
-        
+
         for team in teams:
             logger.info(f"Scraping {team}")
-            
+
             try:
                 # Use the correct method name from enhanced scraper
                 players = scraper.extract_complete_team_roster(team)
                 all_players.extend(players)
-                
+
                 results[team] = {
                     "players_count": len(players),
                     "status": "success"
                 }
-                
+
                 logger.info(f"✅ {team}: {len(players)} players")
-                
+
             except Exception as e:
                 logger.error(f"Error scraping {team}: {e}")
                 results[team] = {
@@ -549,23 +549,23 @@ def scrape_standard():
                     "status": "error",
                     "error": str(e)
                 }
-        
+
         # Save to CSV file
         if all_players:
             import pandas as pd
             from datetime import datetime
             import os
-            
+
             df = pd.DataFrame(all_players)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             csv_filename = f"data/players_{timestamp}.csv"
-            
+
             # Create data directory if it doesn't exist
             os.makedirs("data", exist_ok=True)
             df.to_csv(csv_filename, index=False)
-            
+
             logger.info(f"Saved standard data to {csv_filename}")
-        
+
         return jsonify({
             "status": "success",
             "total_players": len(all_players),
@@ -573,7 +573,7 @@ def scrape_standard():
             "results": results,
             "message": f"Standard scraping completed for {len(all_players)} players"
         })
-        
+
     except Exception as e:
         logger.error(f"Error in standard scraping: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -584,36 +584,36 @@ def enhanced_scrape():
     try:
         data = request.get_json()
         teams = data.get('teams', [])
-        
+
         if not teams:
             return jsonify({"error": "No teams specified"}), 400
-        
+
         # Import enhanced scraper
         from enhanced_nfl_scraper import EnhancedNFLScraper
         scraper = EnhancedNFLScraper()
-        
+
         all_players = []
         results = {}
-        
+
         for team in teams:
             logger.info(f"Starting enhanced scraping for {team}")
-            
+
             # Extract complete roster
             team_players = scraper.extract_complete_team_roster(team)
             all_players.extend(team_players)
-            
+
             results[team] = {
                 "players_found": len(team_players),
                 "status": "success" if team_players else "no_data"
             }
-            
+
             logger.info(f"Completed {team}: {len(team_players)} players")
-        
+
         # Save to database
         if all_players:
             from simple_db_integration import save_players_to_db
             save_players_to_db(all_players)
-        
+
         return jsonify({
             "status": "success",
             "total_players": len(all_players),
@@ -621,7 +621,7 @@ def enhanced_scrape():
             "results": results,
             "message": f"Successfully scraped {len(all_players)} players from {len(teams)} teams"
         })
-        
+
     except Exception as e:
         logger.error(f"Enhanced scraping error: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -632,30 +632,30 @@ def comprehensive_scrape():
     try:
         data = request.get_json()
         teams = data.get('teams', [])
-        
+
         if not teams:
             return jsonify({"error": "No teams specified"}), 400
-        
+
         # Import REAL DATA COLLECTOR - NO SIMULATED DATA EVER
         from real_data_collector import RealDataCollector
-        
+
         collector = RealDataCollector()
-        
+
         all_players = []
         results = {}
-        
+
         for team in teams:
             logger.info(f"Starting comprehensive scraping for {team}")
-            
+
             # Collect comprehensive data for the team (all players when not testing)
             enhanced_players = collector.collect_team_roster(team, limit_players=None)
-            
+
             all_players.extend(enhanced_players)
-            
+
             # Calculate quality metrics
             avg_quality = sum(p.get('data_quality_score', 0) for p in enhanced_players) / len(enhanced_players) if enhanced_players else 0
             total_sources = sum(len(p.get('data_sources', [])) for p in enhanced_players)
-            
+
             results[team] = {
                 "players_found": len(enhanced_players),
                 "players_enhanced": len(enhanced_players),
@@ -663,13 +663,13 @@ def comprehensive_scrape():
                 "total_sources_used": total_sources,
                 "status": "success" if enhanced_players else "no_data"
             }
-            
+
             logger.info(f"Completed {team}: {len(enhanced_players)} players with comprehensive data (avg quality: {avg_quality:.1f})")
-        
+
         # Calculate overall metrics
         total_sources = sum(results[team].get("total_sources_used", 0) for team in results)
         avg_quality = sum(results[team].get("avg_quality_score", 0) for team in results) / len(results) if results else 0
-        
+
         return jsonify({
             "status": "success",
             "total_players": len(all_players),
@@ -679,7 +679,7 @@ def comprehensive_scrape():
             "total_sources_used": total_sources,
             "message": f"Successfully collected comprehensive data for {len(all_players)} players from {len(teams)} teams"
         })
-        
+
     except Exception as e:
         logger.error(f"Comprehensive scraping error: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -690,37 +690,37 @@ def firecrawl_scrape():
     try:
         data = request.get_json()
         teams = data.get('teams', [])
-        
+
         if not teams:
             return jsonify({"error": "No teams specified"}), 400
-        
+
         try:
             # Import Firecrawl scraper with fallback
             from simple_firecrawl_scraper import SimpleFirecrawlScraper
             from enhanced_nfl_scraper import EnhancedNFLScraper
-            
+
             roster_scraper = EnhancedNFLScraper()
             firecrawl_scraper = SimpleFirecrawlScraper()
-            
+
             all_players = []
             results = {}
             firecrawl_available = True
-            
+
             for team in teams:
                 logger.info(f"Starting Firecrawl scraping for {team}")
-                
+
                 # Extract complete roster first
                 team_players = roster_scraper.extract_complete_team_roster(team)
-                
+
                 try:
                     # Try Firecrawl enhancement
                     enhanced_players = firecrawl_scraper.collect_team_roster(team, team_players)
-                    
+
                     # Check if Firecrawl is working (402 = payment required)
                     if not enhanced_players or all(len(p.get('data_sources', [])) == 0 for p in enhanced_players):
                         firecrawl_available = False
                         raise Exception("Firecrawl API unavailable (payment required)")
-                        
+
                 except Exception as fe:
                     logger.warning(f"Firecrawl unavailable for {team}: {fe}")
                     firecrawl_available = False
@@ -740,13 +740,13 @@ def firecrawl_scrape():
                             'career_stats': None
                         }
                         enhanced_players.append(enhanced_player)
-                
+
                 all_players.extend(enhanced_players)
-                
+
                 # Calculate quality metrics
                 avg_quality = sum(p.get('data_quality_score', 0) for p in enhanced_players) / len(enhanced_players) if enhanced_players else 0
                 total_sources = sum(len(p.get('data_sources', [])) for p in enhanced_players)
-                
+
                 results[team] = {
                     "players_found": len(team_players),
                     "players_enhanced": len(enhanced_players),
@@ -755,9 +755,9 @@ def firecrawl_scrape():
                     "unique_sources": list(set(source for p in enhanced_players for source in p.get('data_sources', []))),
                     "status": "completed_with_fallback" if not firecrawl_available else "completed"
                 }
-                
+
                 logger.info(f"Completed {team}: {len(enhanced_players)} players, avg quality: {avg_quality:.2f}")
-            
+
             # Save to database
             if all_players:
                 try:
@@ -765,21 +765,21 @@ def firecrawl_scrape():
                     save_players_to_db(all_players)
                 except Exception as db_error:
                     logger.warning(f"Database save failed: {db_error}")
-            
+
             # Save to CSV for data viewer
             import pandas as pd
             df = pd.DataFrame(all_players)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             csv_filename = f"data/firecrawl_players_{timestamp}.csv"
-            
+
             # Create data directory if it doesn't exist
             os.makedirs("data", exist_ok=True)
             df.to_csv(csv_filename, index=False)
-            
+
             status_message = f"Successfully scraped {len(all_players)} players from {len(teams)} teams"
             if not firecrawl_available:
                 status_message += " (using fallback mode - Firecrawl API unavailable)"
-            
+
             return jsonify({
                 "status": "success",
                 "total_players": len(all_players),
@@ -790,11 +790,11 @@ def firecrawl_scrape():
                 "firecrawl_available": firecrawl_available,
                 "message": status_message
             })
-            
+
         except ImportError as ie:
             logger.error(f"Import error in Firecrawl scraping: {ie}")
             return jsonify({"error": f"Import error: {ie}", "status": "error"}), 500
-        
+
     except Exception as e:
         logger.error(f"Firecrawl scraping error: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -805,7 +805,7 @@ def get_players():
     try:
         data = request.get_json()
         teams = data.get('teams', [])
-        
+
         # Mock player data - in a real app, this would come from a database
         mock_players = []
         for team in teams:
@@ -816,9 +816,9 @@ def get_players():
                     'position': ['QB', 'RB', 'WR', 'TE', 'K'][i],
                     'team': team.upper()
                 })
-        
+
         return jsonify({"players": mock_players})
-        
+
     except Exception as e:
         logger.error(f"Error getting players: {e}")
         return jsonify({"error": "Failed to get players"}), 500
@@ -830,25 +830,26 @@ def scrape_data():
         data = request.get_json()
         teams = data.get('teams', [])
         fast_mode = data.get('fast', False)
-        
+
         if not teams:
             return jsonify({"error": "No teams specified"}), 400
-        
+
         logger.info(f"Starting scrape for teams: {teams}")
-        
+
         # Run the scraping pipeline
         results = mcp.run_pipeline(
             teams=teams,
-            fast_mode=fast_mode,
+            fast```python
+mode=fast_mode,
             output_dir="data"
         )
-        
+
         return jsonify({
             "status": "success",
             "message": f"Successfully scraped data for {len(teams)} teams",
             "results": results
         })
-        
+
     except NFLGravityError as e:
         logger.error(f"NFL Gravity error: {e}")
         return jsonify({"error": str(e)}), 400
@@ -873,19 +874,19 @@ def get_latest_data():
         import pandas as pd
         import glob
         import os
-        
+
         # PRIORITIZE COMPREHENSIVE FILES FIRST for /data page to show all 70+ columns
         comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
         age_files = glob.glob('data/players_with_ages_*.csv') + glob.glob('data/priority_players_with_ages_*.csv')
-        
+
         best_file = None
-        
+
         # First: Try to use comprehensive files (for full column display)
         if comprehensive_files:
             # Find largest comprehensive file
             largest_comprehensive_file = None
             max_comprehensive_players = 0
-            
+
             for file_path in comprehensive_files:
                 try:
                     df_temp = pd.read_csv(file_path)
@@ -894,15 +895,15 @@ def get_latest_data():
                         largest_comprehensive_file = file_path
                 except:
                     continue
-            
+
             best_file = largest_comprehensive_file
-        
+
         # Fallback: Use age files if no comprehensive files
         elif age_files:
             # Find largest age file
             largest_age_file = None
             max_age_players = 0
-            
+
             for file_path in age_files:
                 try:
                     df_temp = pd.read_csv(file_path)
@@ -911,9 +912,9 @@ def get_latest_data():
                         largest_age_file = file_path
                 except:
                     continue
-            
+
             best_file = largest_age_file
-        
+
         # Fallback to other files if no age files
         if not best_file:
             all_files = (glob.glob('data/height_corrected_*players*.csv') + 
@@ -921,10 +922,10 @@ def get_latest_data():
                         glob.glob('data/players_*.csv') + 
                         glob.glob('data/comprehensive_players_*.csv') + 
                         glob.glob('data/**/players_*.csv', recursive=True))
-            
+
             # Find largest file with realistic heights
             max_players_with_good_heights = 0
-            
+
             for file_path in all_files:
                 try:
                     df_temp = pd.read_csv(file_path)
@@ -932,7 +933,7 @@ def get_latest_data():
                         # Check if heights are realistic
                         sample_heights = df_temp['height'].dropna().head(3)
                         realistic_heights = 0
-                        
+
                         for height in sample_heights:
                             if height and isinstance(height, str) and "'" in height:
                                 parts = height.replace('"', '').split("'")
@@ -940,14 +941,14 @@ def get_latest_data():
                                     feet = int(parts[0])
                                     if 5 <= feet <= 6:  # Realistic NFL player height
                                         realistic_heights += 1
-                        
+
                         # If most heights are realistic and file is large enough
                         if realistic_heights >= 2 and len(df_temp) > max_players_with_good_heights:
                             max_players_with_good_heights = len(df_temp)
                             best_file = file_path
                 except:
                     continue
-            
+
             # Final fallback to largest file
             if not best_file:
                 largest_file = None
@@ -961,9 +962,9 @@ def get_latest_data():
                     except:
                         continue
                 best_file = largest_file
-        
+
         latest_file = best_file
-        
+
         if latest_file:
             pass  # Continue with file processing
         else:
@@ -978,13 +979,13 @@ def get_latest_data():
                     "status": "no_data",
                     "message": "No player data files found"
                 })
-        
+
         # Load the data
         df = pd.read_csv(latest_file)
-        
+
         # Convert to dictionary, handling NaN values
         players_data = df.fillna('').to_dict('records')
-        
+
         # Convert all columns to proper types for JSON
         players = []
         for player in players_data:
@@ -997,7 +998,7 @@ def get_latest_data():
                 else:
                     clean_player[key] = str(value)
             players.append(clean_player)
-        
+
         return jsonify({
             "players": players,
             "count": len(players),
@@ -1006,7 +1007,7 @@ def get_latest_data():
             "columns": list(df.columns),
             "message": f"Loaded {len(players)} players from {latest_file}"
         })
-        
+
     except Exception as e:
         logger.error(f"Error getting latest data: {e}")
         # Fallback to MCP method
@@ -1044,25 +1045,25 @@ def test_players():
     try:
         data = request.get_json()
         players = data.get('players', ['Lamar Jackson', 'Josh Allen', 'Patrick Mahomes'])
-        
+
         # Import the test scraper
         from test_player_scraper import TestPlayerScraper
-        
+
         scraper = TestPlayerScraper()
-        
+
         # Run the test
         logger.info(f"Starting real data test for players: {players}")
-        
+
         results = scraper.test_three_players()
         field_comparison = scraper.get_all_field_comparison(results)
-        
+
         return jsonify({
             "status": "success",
             "test_results": results,
             "field_comparison": field_comparison,
             "message": f"Real data test completed for {len(players)} players"
         })
-        
+
     except Exception as e:
         logger.error(f"Player test error: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -1071,5 +1072,638 @@ if __name__ == '__main__':
     # Ensure data and logs directories exist
     os.makedirs("data", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
-    
+
     app.run(host='0.0.0.0', port=5000, debug=True)
+"""
+Flask web application to demonstrate the NFL Gravity package functionality.
+"""
+import os
+import json
+import logging
+from datetime import datetime
+from flask import Flask, render_template, request, jsonify, send_file
+from nfl_gravity.mcp import MCP
+from nfl_gravity.core.config import Config
+from nfl_gravity.core.exceptions import NFLGravityError
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
+
+# Initialize MCP instance
+config = Config()
+mcp = MCP(config)
+
+@app.route('/')
+def index():
+    """Main dashboard page."""
+    return render_template('index.html')
+
+@app.route('/scraping')
+def scraping():
+    """Data collection/scraping configuration page."""
+    return render_template('scraping.html')
+
+@app.route('/data-collection')
+def data_collection():
+    """Data collection/scraping configuration page (alternative route)."""
+    return render_template('scraping.html')
+
+@app.route('/view-data')
+def view_data():
+    """Data viewing and filtering page."""
+    return render_template('data_viewer.html')
+
+@app.route('/api/scrape/progress')
+def get_scrape_progress():
+    """Get real-time scraping progress for all modes."""
+    try:
+        # This would integrate with actual scraping progress in production
+        # For now, return mock progress data structure
+        return jsonify({
+            "status": "idle",  # idle, running, completed, error
+            "overall_progress": 0,
+            "current_team": None,
+            "current_player": None,
+            "teams_completed": 0,
+            "total_teams": 0,
+            "players_processed": 0,
+            "current_team_progress": 0,
+            "current_team_total": 0,
+            "eta_seconds": 0,
+            "avg_quality": 0.0,
+            "scraping_mode": None,
+            "start_time": None
+        })
+    except Exception as e:
+        logger.error(f"Progress API error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/teams')
+def get_teams():
+    """Get list of teams for a specific sport."""
+    sport = request.args.get('sport', 'nfl')
+
+    teams_by_sport = {
+        'nfl': [
+            "49ers", "bears", "bengals", "bills", "broncos", "browns", "buccaneers",
+            "cardinals", "chargers", "chiefs", "colts", "commanders", "cowboys",
+            "dolphins", "eagles", "falcons", "giants", "jaguars", "jets", "lions",
+            "packers", "panthers", "patriots", "raiders", "rams", "ravens",
+            "saints", "seahawks", "steelers", "texans", "titans", "vikings"
+        ],
+        'nba': [
+            "lakers", "warriors", "celtics", "heat", "bulls", "knicks", "nets",
+            "sixers", "bucks", "raptors", "hawks", "hornets", "magic", "wizards",
+            "pistons", "pacers", "cavaliers", "nuggets", "jazz", "thunder",
+            "trail-blazers", "kings", "clippers", "suns", "mavericks", "rockets",
+            "spurs", "pelicans", "grizzlies", "timberwolves"
+        ],
+        'mlb': [
+            "yankees", "red-sox", "blue-jays", "orioles", "rays", "white-sox",
+            "guardians", "tigers", "royals", "twins", "astros", "angels",
+            "athletics", "mariners", "rangers", "braves", "marlins", "mets",
+            "phillies", "nationals", "cubs", "reds", "brewers", "pirates",
+            "cardinals", "diamondbacks", "rockies", "dodgers", "padres", "giants"
+        ],
+        'nhl': [
+            "bruins", "sabres", "red-wings", "panthers", "canadiens", "senators",
+            "lightning", "maple-leafs", "hurricanes", "blue-jackets", "devils",
+            "islanders", "rangers", "flyers", "penguins", "capitals", "blackhawks",
+            "avalanche", "stars", "wild", "predators", "blues", "jets", "flames",
+            "oilers", "canucks", "ducks", "kings", "sharks", "coyotes", "knights", "kraken"
+        ]
+    }
+
+    teams = teams_by_sport.get(sport, [])
+    return jsonify({"teams": teams})
+
+@app.route('/data')
+def data_viewer():
+    """Data viewer page with Excel-like filtering."""
+    return render_template('data_viewer.html')
+
+@app.route('/players')
+def all_players():
+    """All NFL players page with comprehensive team support."""
+    return render_template('players.html')
+
+@app.route('/test-scraper')
+def test_scraper():
+    """Test scraper page for individual player testing."""
+    return render_template('test_scraper.html')
+
+@app.route('/api/players/all')
+def get_all_players():
+    """Get all players from the latest data file with comprehensive data."""
+    try:
+        import pandas as pd
+        import os
+        import glob
+
+        # PRIORITIZE AGE DATA FILES FIRST
+        age_files = glob.glob('data/players_with_ages_*.csv') + glob.glob('data/priority_players_with_ages_*.csv')
+
+        best_file = None
+
+        # Use age files if available
+        if age_files:
+            # Find largest age file
+            largest_age_file = None
+            max_age_players = 0
+
+            for file_path in age_files:
+                try:
+                    df_temp = pd.read_csv(file_path)
+                    if len(df_temp) > max_age_players:
+                        max_age_players = len(df_temp)
+                        largest_age_file = file_path
+                except:
+                    continue
+
+            best_file = largest_age_file
+
+        # Fallback to other files if no age files
+        if not best_file:
+            all_files = (glob.glob('data/height_corrected_*players*.csv') + 
+                        glob.glob('data/corrected_*players*.csv') + 
+                        glob.glob('data/players_*.csv') + 
+                        glob.glob('data/comprehensive_players_*.csv') + 
+                        glob.glob('data/**/players_*.csv', recursive=True))
+
+            # Find largest file with realistic heights
+            max_players_with_good_heights = 0
+
+            for file_path in all_files:
+                try:
+                    df_temp = pd.read_csv(file_path)
+                    if len(df_temp) > 0 and 'height' in df_temp.columns:
+                        # Check if heights are realistic
+                        sample_heights = df_temp['height'].dropna().head(3)
+                        realistic_heights = 0
+
+                        for height in sample_heights:
+                            if height and isinstance(height, str) and "'" in height:
+                                parts = height.replace('"', '').split("'")
+                                if len(parts) == 2 and parts[0].isdigit():
+                                    feet = int(parts[0])
+                                    if 5 <= feet <= 6:  # Realistic NFL player height
+                                        realistic_heights += 1
+
+                        # If most heights are realistic and file is large enough
+                        if realistic_heights >= 2 and len(df_temp) > max_players_with_good_heights:
+                            max_players_with_good_heights = len(df_temp)
+                            best_file = file_path
+                except:
+                    continue
+
+            # Final fallback to largest file
+            if not best_file:
+                largest_file = None
+                max_players = 0
+                for file_path in all_files:
+                    try:
+                        df_temp = pd.read_csv(file_path)
+                        if len(df_temp) > max_players:
+                            max_players = len(df_temp)
+                            largest_file = file_path
+                    except:
+                        continue
+                best_file = largest_file
+
+        if not best_file:
+            return jsonify({"players": [], "count": 0, "status": "no_data"})
+
+        # Load the data
+        df = pd.read_csv(best_file)
+
+        # Convert to dictionary, handling NaN values
+        players_data = df.fillna('').to_dict('records')
+
+        # Convert all columns to proper types for JSON
+        players = []
+        for player in players_data:
+            clean_player = {}
+            for key, value in player.items():
+                if pd.isna(value) or value == '':
+                    clean_player[key] = None
+                elif isinstance(value, (int, float)) and pd.notna(value):
+                    clean_player[key] = value
+                else:
+                    clean_player[key] = str(value)
+            players.append(clean_player)
+
+        return jsonify({
+            "players": players,
+            "count": len(players),
+            "status": "success",
+            "columns": list(df.columns),
+            "source_file": best_file
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting all players: {e}")
+        # Return error instead of fallback data - we only want real data
+        return jsonify({
+            "players": [],
+            "count": 0,
+            "status": "error",
+            "error": f"Failed to load player data: {str(e)}",
+            "message": "No authentic player data available. Please run data collection first."
+        })
+
+@app.route('/api/players/history')
+def get_players_history():
+    """Get historical player data for time series analysis."""
+    try:
+        import pandas as pd
+        import os
+        import glob
+        from datetime import datetime
+
+        # PRIORITIZE COMPREHENSIVE FILES for /data page - this shows all 70+ columns
+        comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
+        age_files = glob.glob('data/players_with_ages_*.csv') + glob.glob('data/priority_players_with_ages_*.csv')
+        standard_files = glob.glob('data/players_*.csv')
+
+        # For /data page, prioritize comprehensive files first to show all columns
+        all_files = comprehensive_files + age_files + standard_files
+
+        if not all_files:
+            return jsonify({"history": [], "count": 0, "status": "no_data"})
+
+        # Sort files by modification time (newest first)
+        all_files.sort(key=os.path.getmtime, reverse=True)
+
+        history_data = []
+
+        for file_path in all_files:
+            try:
+                df = pd.read_csv(file_path)
+
+                # Extract timestamp from filename
+                filename = os.path.basename(file_path)
+                timestamp_str = filename.split('_')[-2] + '_' + filename.split('_')[-1].replace('.csv', '')
+
+                file_info = {
+                    "filename": filename,
+                    "timestamp": timestamp_str,
+                    "player_count": len(df),
+                    "column_count": len(df.columns),
+                    "file_size": os.path.getsize(file_path),
+                    "data_type": "comprehensive" if "comprehensive" in filename else "standard",
+                    "teams": df['team'].unique().tolist() if 'team' in df.columns else [],
+                    "avg_quality": df['data_quality_score'].mean() if 'data_quality_score' in df.columns else None
+                }
+
+                history_data.append(file_info)
+
+            except Exception as e:
+                logger.warning(f"Could not read file {file_path}: {e}")
+                continue
+
+        return jsonify({
+            "history": history_data,
+            "count": len(history_data),
+            "status": "success"
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting player history: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/players/file/<filename>')
+def get_players_from_file(filename):
+    """Get players from a specific historical file."""
+    try:
+        import pandas as pd
+        import os
+
+        # Validate filename for security
+        if not filename.endswith('.csv') or '..' in filename:
+            return jsonify({"error": "Invalid filename"}), 400
+
+        file_path = os.path.join('data', filename)
+
+        if not os.path.exists(file_path):
+            return jsonify({"error": "File not found"}), 404
+
+        df = pd.read_csv(file_path)
+
+        # Convert to dictionary, handling NaN values
+        players_data = df.fillna('').to_dict('records')
+
+        # Convert all columns to proper types for JSON
+        players = []
+        for player in players_data:
+            clean_player = {}
+            for key, value in player.items():
+                if pd.isna(value) or value == '':
+                    clean_player[key] = None
+                elif isinstance(value, (int, float)) and pd.notna(value):
+                    clean_player[key] = value
+                else:
+                    clean_player[key] = str(value)
+            players.append(clean_player)
+
+        return jsonify({
+            "players": players,
+            "count": len(players),
+            "status": "success",
+            "columns": list(df.columns),
+            "source_file": filename
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting players from file {filename}: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/scrape/comprehensive', methods=['POST'])
+def scrape_comprehensive_data():
+    """Scrape comprehensive data using fast simple comprehensive collector."""
+    try:
+        data = request.get_json()
+        teams = data.get('teams', ['49ers'])
+
+        # Use the REAL DATA COLLECTOR - NO SIMULATED DATA EVER
+        from real_data_collector import RealDataCollector
+        collector = RealDataCollector()
+
+        all_players = []
+        results = {}
+
+        for team in teams:
+            logger.info(f"Starting comprehensive data scraping for {team}")
+
+            # Collect comprehensive data for the entire team (no limits for full production scraping)
+            enhanced_players = collector.collect_team_roster(team, limit_players=None)
+
+            all_players.extend(enhanced_players)
+
+            # Calculate quality metrics
+            avg_quality = sum(p.get('data_quality_score', 0) for p in enhanced_players) / len(enhanced_players) if enhanced_players else 0
+            total_sources = sum(len(p.get('data_sources', [])) for p in enhanced_players)
+
+            results[team] = {
+                "players_found": len(enhanced_players),
+                "players_enhanced": len(enhanced_players),
+                "avg_quality_score": round(avg_quality, 1),
+                "total_sources_used": total_sources,
+                "status": "success" if enhanced_players else "no_data"
+            }
+
+            logger.info(f"Completed {team}: {len(enhanced_players)} players with comprehensive data (avg quality: {avg_quality:.1f})")
+
+        # Save comprehensive data to file
+        import pandas as pd
+        from datetime import datetime
+        import os
+
+        if all_players:
+            df = pd.DataFrame(all_players)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_filename = f"data/comprehensive_players_{timestamp}.csv"
+
+            # Create data directory if it doesn't exist
+            os.makedirs("data", exist_ok=True)
+            df.to_csv(csv_filename, index=False)
+
+            logger.info(f"Saved comprehensive data to {csv_filename}")
+
+        # Calculate overall metrics
+        total_sources = sum(results[team].get("total_sources_used", 0) for team in results)
+        avg_quality = sum(results[team].get("avg_quality_score", 0) for team in results) / len(results) if results else 0
+
+        return jsonify({
+            "status": "success",
+            "total_players": len(all_players),
+            "teams_processed": len(teams),
+            "results": results,
+            "avg_quality_score": round(avg_quality, 1),
+            "total_sources_used": total_sources,
+            "message": f"Comprehensive data collected for {len(all_players)} players from {len(teams)} teams"
+        })
+
+    except Exception as e:
+        logger.error(f"Error in comprehensive data scraping: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/social/search', methods=['POST'])
+def search_social_media():
+    """Search and scrape social media data for a specific player."""
+    try:
+        data = request.get_json()
+        player_name = data.get('player_name')
+        team = data.get('team', '49ers')
+
+        if not player_name:
+            return jsonify({"error": "Player name is required", "status": "error"}), 400
+
+        logger.info(f"Searching social media for {player_name} ({team})")
+
+        # Use the web search social scraper
+        from web_search_social_scraper import WebSearchSocialScraper
+        scraper = WebSearchSocialScraper()
+
+        # Search and scrape social media
+        social_data = scraper.search_and_scrape_social_media(player_name, team)
+
+        return jsonify({
+            "player_name": player_name,
+            "team": team,
+            "social_media_data": social_data,
+            "status": "success"
+        })
+
+    except Exception as e:
+        logger.error(f"Error searching social media: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/comprehensive/collect', methods=['POST'])
+def collect_comprehensive_data():
+    """Collect comprehensive NFL data with all required fields."""
+    try:
+        data = request.get_json()
+        team = data.get('team', '49ers')
+        max_players = data.get('max_players', 5)
+
+        logger.info(f"Starting comprehensive data collection for {team}")
+
+        # Use the simple comprehensive database
+        from simple_comprehensive_db import SimpleComprehensiveDB
+        db = SimpleComprehensiveDB()
+
+        # Collect comprehensive data
+        players_data = db.collect_comprehensive_team_data(team, max_players)
+
+        if players_data:
+            # Save to database
+            db.save_comprehensive_data(players_data, team)
+
+            return jsonify({
+                "team": team,
+                "players_collected": len(players_data),
+                "status": "success",
+                "message": f"Comprehensive data collected for {len(players_data)} players",
+                "data_fields": [
+                    "Basic Player Info (name, position, team, height, weight, college)",
+                    "Social Media (Twitter, Instagram, TikTok, YouTube followers)",
+                    "Career Statistics (passing, rushing, receiving)",
+                    "Awards and Honors (Pro Bowls, Super Bowl wins)",
+                    "Financial Data (career earnings, contract value)",
+                    "Wikipedia profile and news headlines"
+                ]
+            })
+        else:
+            return jsonify({
+                "team": team,
+                "players_collected": 0,
+                "status": "warning",
+                "message": "No comprehensive data collected"
+            })
+
+    except Exception as e:
+        logger.error(f"Error in comprehensive data collection: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/comprehensive/summary/<team>')
+def get_comprehensive_summary(team):
+    """Get summary of comprehensive data for a team."""
+    try:
+        from simple_comprehensive_db import SimpleComprehensiveDB
+        db = SimpleComprehensiveDB()
+
+        summary = db.get_comprehensive_summary(team)
+
+        return jsonify({
+            "team": team,
+            "summary": summary,
+            "status": "success"
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting comprehensive summary: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/scrape/standard', methods=['POST'])
+def scrape_standard():
+    """Standard NFL scraping endpoint - basic roster extraction."""
+    try:
+        data = request.get_json()
+        teams = data.get('teams', ['49ers'])
+
+        logger.info(f"Starting standard scraping for teams: {teams}")
+
+        # Import the enhanced scraper
+        from enhanced_nfl_scraper import EnhancedNFLScraper
+        scraper = EnhancedNFLScraper()
+
+        all_players = []
+        results = {}
+
+        for team in teams:
+            logger.info(f"Scraping {team}")
+
+            try:
+                # Use the correct method name from enhanced scraper
+                players = scraper.extract_complete_team_roster(team)
+                all_players.extend(players)
+
+                results[team] = {
+                    "players_count": len(players),
+                    "status": "success"
+                }
+
+                logger.info(f"✅ {team}: {len(players)} players")
+
+            except Exception as e:
+                logger.error(f"Error scraping {team}: {e}")
+                results[team] = {
+                    "players_count": 0,
+                    "status": "error",
+                    "error": str(e)
+                }
+
+        # Save to CSV file
+        if all_players:
+            import pandas as pd
+            from datetime import datetime
+            import os
+
+            df = pd.DataFrame(all_players)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_filename = f"data/players_{timestamp}.csv"
+
+            # Create data directory if it doesn't exist
+            os.makedirs("data", exist_ok=True)
+            df.to_csv(csv_filename, index=False)
+
+            logger.info(f"Saved standard data to {csv_filename}")
+
+        return jsonify({
+            "status": "success",
+            "total_players": len(all_players),
+            "teams_processed": len(teams),
+            "results": results,
+            "message": f"Standard scraping completed for {len(all_players)} players"
+        })
+
+    except Exception as e:
+        logger.error(f"Error in standard scraping: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/scrape/enhanced', methods=['POST'])
+def enhanced_scrape():
+    """Enhanced scraping with complete roster extraction."""
+    try:
+        data = request.get_json()
+        teams = data.get('teams', [])
+
+        if not teams:
+            return jsonify({"error": "No teams specified"}), 400
+
+        # Import enhanced scraper
+        from enhanced_nfl_scraper import EnhancedNFLScraper
+        scraper = EnhancedNFLScraper()
+
+        all_players = []
+        results = {}
+
+        for team in teams:
+            logger.info(f"Starting enhanced scraping for {team}")
+
+            # Extract complete roster
+            team_players = scraper.extract_complete_team_roster(team)
+            all_players.extend(team_players)
+
+            results[team] = {
+                "players_found": len(team_players),
+                "status": "success" if team_players else "no_data"
+            }
+
+            logger.info(f"Completed {team}: {len(team_players)} players")
+
+        # Save to database
+        if all_players:
+            from simple_db_integration import save_players_to_db
+            save_players_to_db(all_players)
+
+        return jsonify({
+            "status": "success",
+            "total_players": len(all_players),
+            "teams_processed": len(teams),
+            "results": results,
+            "message": f"Successfully scraped {len(all_players)} players from {len(teams)} teams"
+        })
+
+    except Exception as e:
+        logger.error(f"Enhanced scraping error: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/scrape/comprehensive', methods=['POST'])
+def comprehensive_scrape():
+    """Comprehensive scraping with all 40+ fields using optimized collector."""
+    try:
+        data = request.get_json()
