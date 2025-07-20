@@ -790,15 +790,24 @@ def get_latest_data():
         import glob
         import os
         
-        # Find the latest data file (prioritize comprehensive files)
-        comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
-        standard_files = glob.glob('data/players_*.csv') + glob.glob('data/**/players_*.csv', recursive=True)
+        # FIXED: Find the file with the MOST players (not just prioritize comprehensive)
+        all_files = glob.glob('data/comprehensive_players_*.csv') + glob.glob('data/players_*.csv') + glob.glob('data/**/players_*.csv', recursive=True)
         
-        # Use comprehensive files if available, otherwise fall back to standard
-        if comprehensive_files:
-            latest_file = max(comprehensive_files, key=os.path.getmtime)
-        elif standard_files:
-            latest_file = max(standard_files, key=os.path.getmtime)
+        # Find the file with the most players
+        largest_file = None
+        max_players = 0
+        
+        for file_path in all_files:
+            try:
+                df_temp = pd.read_csv(file_path)
+                if len(df_temp) > max_players:
+                    max_players = len(df_temp)
+                    largest_file = file_path
+            except:
+                continue
+        
+        if largest_file:
+            latest_file = largest_file
         else:
             # Try to get data info from MCP as fallback
             try:
