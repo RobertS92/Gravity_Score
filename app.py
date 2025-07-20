@@ -839,8 +839,7 @@ def scrape_data():
         # Run the scraping pipeline
         results = mcp.run_pipeline(
             teams=teams,
-            fast```python
-mode=fast_mode,
+            fast=fast_mode,
             output_dir="data"
         )
 
@@ -1702,8 +1701,7 @@ def enhanced_scrape():
         logger.error(f"Enhanced scraping error: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
-@app.route('/api/scrape/comprehensive', methods=['POST'])
-def comprehensive_scrape():
-    """Comprehensive scraping with all 40+ fields using optimized collector."""
-    try:
-        data = request.get_json()
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
