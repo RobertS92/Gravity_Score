@@ -167,27 +167,30 @@ class EnhancedAIExtractor:
         
         try:
             prompt = f"""
-            Find NFL achievements and awards for {player_name}:
-            - Super Bowl championships (years)
-            - Pro Bowl selections (total count or years)
-            - All-Pro selections (years)
-            - Major individual awards (MVP, OPOY, DPOY, ROTY with years)
+            Find ONLY real, verified NFL achievements and awards for {player_name} from official NFL records:
             
-            Only include real, verifiable achievements from official NFL records.
+            CRITICAL: Only include achievements that actually happened. Do not estimate or assume.
+            
+            - Super Bowl championships: Only list years where {player_name} actually won a Super Bowl
+            - Pro Bowl selections: Only list actual Pro Bowl years (not estimates)
+            - All-Pro selections: Only First Team All-Pro years (most prestigious)
+            - Major individual awards: Only MVP, OPOY, DPOY, ROTY with exact years
+            
+            If you cannot find verified information, leave fields empty.
             
             Format response as JSON:
             {{
-                "championships": "Super Bowl years (comma separated) or empty string",
-                "pro_bowls": "number of selections or years",
-                "all_pros": "years (comma separated) or empty string",
-                "awards": "awards with years (comma separated) or empty string"
+                "championships": "Super Bowl years (comma separated) or empty string if none",
+                "pro_bowls": "actual Pro Bowl years (comma separated) or empty string if none", 
+                "all_pros": "First Team All-Pro years (comma separated) or empty string if none",
+                "awards": "actual major awards with years (comma separated) or empty string if none"
             }}
             """
             
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are an NFL achievement historian. Only provide real, verifiable awards and honors. Format your response as valid JSON."},
+                    {"role": "system", "content": f"You are an NFL achievement historian with access to comprehensive NFL records. For {player_name}, search through official NFL databases, Pro-Football-Reference, and verified sports sources. Only include achievements that actually occurred. Be extremely precise with years and awards. Do not estimate or approximate."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=400
@@ -221,22 +224,24 @@ class EnhancedAIExtractor:
             # Create position-specific prompts
             if position.upper() == 'QB':
                 prompt = f"""
-                Find 2023 NFL regular season statistics for quarterback {player_name}:
-                - Passing yards
-                - Passing touchdowns
-                - Passing interceptions
-                - Rushing yards
-                - Rushing touchdowns
+                Find ONLY real 2024 NFL regular season statistics for quarterback {player_name}:
                 
-                Only provide real 2023 regular season stats from official NFL sources.
+                CRITICAL: Only provide actual 2024 season stats from official NFL sources (NFL.com, ESPN).
+                If 2024 data not available, try 2023 season. Do not estimate or simulate.
+                
+                - Passing yards (exact number)
+                - Passing touchdowns (exact count)
+                - Passing interceptions (exact count)  
+                - Rushing yards (exact number)
+                - Rushing touchdowns (exact count)
                 
                 Format as JSON:
                 {{
-                    "passing_yards_2023": yards_or_null,
-                    "passing_tds_2023": tds_or_null,
-                    "passing_ints_2023": ints_or_null,
-                    "rushing_yards_2023": yards_or_null,
-                    "rushing_tds_2023": tds_or_null
+                    "passing_yards_2023": actual_yards_or_null,
+                    "passing_tds_2023": actual_tds_or_null,
+                    "passing_ints_2023": actual_ints_or_null,
+                    "rushing_yards_2023": actual_yards_or_null,
+                    "rushing_tds_2023": actual_tds_or_null
                 }}
                 """
             elif position.upper() in ['RB', 'FB']:
@@ -293,7 +298,7 @@ class EnhancedAIExtractor:
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are an NFL statistician. Only provide real, verifiable 2023 season statistics. Format your response as valid JSON."},
+                    {"role": "system", "content": f"You are an NFL statistician with access to official NFL statistics. For {player_name}, retrieve actual 2024 or 2023 season stats from NFL.com, ESPN, or Pro-Football-Reference. Use exact numbers from game logs and official season totals. Do not estimate or calculate - only use verified published statistics."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=300
