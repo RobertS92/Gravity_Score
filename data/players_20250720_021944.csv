@@ -1,0 +1,93 @@
+name,jersey_number,position,status,height,weight,experience,college,team,data_source,scraped_at
+Felix Anudike-Uzomah,97.0,DE,ACT,"7'6""",255,3,Kansas State,chiefs,nfl.com,2025-07-20T02:19:44.215733
+Matt Araiza,14.0,P,ACT,"7'4""",200,2,San Diego State,chiefs,nfl.com,2025-07-20T02:19:44.215750
+Elijhah Badger,80.0,WR,ACT,"7'3""",192,R,Florida,chiefs,nfl.com,2025-07-20T02:19:44.215755
+Jeffrey Bassa,31.0,LB,ACT,"7'4""",235,R,Oregon,chiefs,nfl.com,2025-07-20T02:19:44.215759
+Nick Bolton,32.0,LB,ACT,"7'1""",237,5,Missouri,chiefs,nfl.com,2025-07-20T02:19:44.215763
+Jake Briningstool,88.0,TE,ACT,"7'8""",240,R,Clemson,chiefs,nfl.com,2025-07-20T02:19:44.215768
+Marquise Brown,5.0,WR,ACT,"6'9""",180,7,Oklahoma,chiefs,nfl.com,2025-07-20T02:19:44.215772
+Jason Brownlee,89.0,WR,ACT,"7'5""",202,2,Southern Mississippi,chiefs,nfl.com,2025-07-20T02:19:44.215781
+Deon Bush,26.0,SAF,ACT,"7'2""",200,9,Miami,chiefs,nfl.com,2025-07-20T02:19:44.215786
+Harrison Butker,7.0,K,ACT,"7'6""",205,9,Georgia Tech,chiefs,nfl.com,2025-07-20T02:19:44.215790
+Mike Caliendo,66.0,G,ACT,"7'6""",300,3,Western Michigan,chiefs,nfl.com,2025-07-20T02:19:44.215794
+Leo Chenal,54.0,LB,ACT,"7'5""",250,4,Wisconsin,chiefs,nfl.com,2025-07-20T02:19:44.215797
+Cole Christiansen,48.0,LB,ACT,"7'3""",230,2,Army,chiefs,nfl.com,2025-07-20T02:19:44.215808
+Jack Cochrane,43.0,LB,ACT,"7'5""",236,4,South Dakota,chiefs,nfl.com,2025-07-20T02:19:44.215811
+Chamarri Conner,27.0,DB,ACT,"7'2""",202,3,Virginia Tech,chiefs,nfl.com,2025-07-20T02:19:44.215815
+Bryan Cook,6.0,SAF,ACT,"7'3""",206,4,Cincinnati,chiefs,nfl.com,2025-07-20T02:19:44.215819
+Dalton Cooper,73.0,OT,ACT,"7'9""",315,R,Oklahoma State,chiefs,nfl.com,2025-07-20T02:19:44.215826
+Jacobe Covington,40.0,CB,ACT,"7'4""",200,R,USC,chiefs,nfl.com,2025-07-20T02:19:44.215833
+Eddie Czaplicki,47.0,P,ACT,"7'3""",207,R,USC,chiefs,nfl.com,2025-07-20T02:19:44.215840
+Mac Dalena,84.0,WR,ACT,"7'1""",180,R,Fresno State,chiefs,nfl.com,2025-07-20T02:19:44.215844
+Michael Danna,51.0,DE,ACT,"7'4""",257,6,Michigan,chiefs,nfl.com,2025-07-20T02:19:44.215847
+Ethan Driskell,75.0,OT,ACT,"8'0""",313,2,Marshall,chiefs,nfl.com,2025-07-20T02:19:44.215851
+Mike Edwards,34.0,SAF,ACT,"7'0""",205,7,Kentucky,chiefs,nfl.com,2025-07-20T02:19:44.215854
+Kristian Fulton,8.0,CB,ACT,"7'1""",197,5,LSU,chiefs,nfl.com,2025-07-20T02:19:44.215860
+Brandon George,50.0,LB,ACT,"7'5""",240,R,Pittsburgh,chiefs,nfl.com,2025-07-20T02:19:44.215866
+Ashton Gillotte,97.0,DE,ACT,"7'5""",270,R,Louisville,chiefs,nfl.com,2025-07-20T02:19:44.215873
+Chukwuebuka Godrick,72.0,OT,ACT,"7'7""",293,1,,chiefs,nfl.com,2025-07-20T02:19:44.215880
+Noah Gray,83.0,TE,ACT,"7'5""",240,5,Duke,chiefs,nfl.com,2025-07-20T02:19:44.215886
+C.J. Hanson,61.0,G,ACT,"7'7""",300,2,Holy Cross,chiefs,nfl.com,2025-07-20T02:19:44.215892
+Malik Herring,94.0,DE,ACT,"7'5""",275,5,Georgia,chiefs,nfl.com,2025-07-20T02:19:44.215900
+Jaden Hicks,21.0,SAF,ACT,"7'3""",215,2,Washington State,chiefs,nfl.com,2025-07-20T02:19:44.215907
+Jimmy Holiday,,WR,ACT,"7'3""",211,R,Louisiana Tech,chiefs,nfl.com,2025-07-20T02:19:44.215913
+Creed Humphrey,52.0,C,ACT,"7'6""",302,5,Oklahoma,chiefs,nfl.com,2025-07-20T02:19:44.215920
+Kareem Hunt,29.0,RB,ACT,"7'1""",216,9,Toledo,chiefs,nfl.com,2025-07-20T02:19:44.215927
+Keaontay Ingram,30.0,RB,RES,"7'2""",221,3,USC,chiefs,nfl.com,2025-07-20T02:19:44.215934
+Coziah Izzard,93.0,DT,ACT,"7'5""",305,R,Penn State,chiefs,nfl.com,2025-07-20T02:19:44.215941
+Nazeeh Johnson,13.0,SAF,ACT,"7'0""",199,4,Marshall,chiefs,nfl.com,2025-07-20T02:19:44.215948
+Cam Jones,44.0,LB,ACT,"7'4""",227,3,Indiana,chiefs,nfl.com,2025-07-20T02:19:44.215955
+Chris Jones,95.0,DE,ACT,"7'8""",310,10,Mississippi State,chiefs,nfl.com,2025-07-20T02:19:44.215959
+George Karlaftis,56.0,DE,ACT,"7'6""",263,4,Purdue,chiefs,nfl.com,2025-07-20T02:19:44.215962
+Travis Kelce,87.0,TE,ACT,"7'7""",250,13,Cincinnati,chiefs,nfl.com,2025-07-20T02:19:44.215966
+Kevin Knowles,38.0,DB,ACT,"7'1""",190,R,Florida State,chiefs,nfl.com,2025-07-20T02:19:44.215969
+Joey Lombard,,C,ACT,"7'7""",305,R,South Dakota,chiefs,nfl.com,2025-07-20T02:19:44.215973
+Fabien Lovett Sr.,96.0,DT,ACT,"7'5""",316,1,Florida State,chiefs,nfl.com,2025-07-20T02:19:44.215976
+Patrick Mahomes,15.0,QB,ACT,"7'4""",225,9,Texas Tech,chiefs,nfl.com,2025-07-20T02:19:44.215980
+Cooper McDonald,,LB,ACT,"7'5""",240,R,TCU,chiefs,nfl.com,2025-07-20T02:19:44.215983
+Trent McDuffie,22.0,CB,ACT,"7'1""",193,4,Washington,chiefs,nfl.com,2025-07-20T02:19:44.215986
+Glendon Miller,25.0,SAF,ACT,"7'4""",206,R,Maryland,chiefs,nfl.com,2025-07-20T02:19:44.215989
+Gardner Minshew,17.0,QB,ACT,"7'3""",225,7,Washington State,chiefs,nfl.com,2025-07-20T02:19:44.215993
+Elijah Mitchell,25.0,RB,ACT,"7'0""",200,5,Louisiana-Lafayette,chiefs,nfl.com,2025-07-20T02:19:44.215997
+Jaylon Moore,77.0,OT,ACT,"7'6""",311,5,Western Michigan,chiefs,nfl.com,2025-07-20T02:19:44.216000
+Skyy Moore,24.0,WR,ACT,"7'0""",195,4,Western Michigan,chiefs,nfl.com,2025-07-20T02:19:44.216003
+Wanya Morris,64.0,OT,ACT,"7'8""",307,3,Oklahoma,chiefs,nfl.com,2025-07-20T02:19:44.216007
+Omarr Norman-Lott,55.0,DT,UDF,"7'5""",315,R,Tennessee,chiefs,nfl.com,2025-07-20T02:19:44.216010
+Hunter Nourzad,60.0,C,ACT,"7'5""",317,2,Penn State,chiefs,nfl.com,2025-07-20T02:19:44.216014
+Chris Oladokun,19.0,QB,ACT,"7'3""",213,1,South Dakota State,chiefs,nfl.com,2025-07-20T02:19:44.216017
+Charles Omenihu,90.0,DE,ACT,"7'7""",280,7,Texas,chiefs,nfl.com,2025-07-20T02:19:44.216022
+Isiah Pacheco,10.0,RB,ACT,"7'0""",216,4,Rutgers,chiefs,nfl.com,2025-07-20T02:19:44.216029
+Mike Pennel,69.0,DT,ACT,"7'6""",330,11,Colorado State (Pueblo),chiefs,nfl.com,2025-07-20T02:19:44.216036
+Esa Pole,79.0,OT,ACT,"7'9""",319,R,Washington State,chiefs,nfl.com,2025-07-20T02:19:44.216040
+Nikko Remigio,81.0,WR,ACT,"6'9""",187,1,Fresno State,chiefs,nfl.com,2025-07-20T02:19:44.216047
+Rashee Rice,4.0,WR,ACT,"7'3""",203,3,SMU,chiefs,nfl.com,2025-07-20T02:19:44.216053
+Janarius Robinson,98.0,DE,ACT,"7'7""",263,5,Florida State,chiefs,nfl.com,2025-07-20T02:19:44.216059
+Christian Roland-Wallace,30.0,CB,ACT,"7'1""",202,2,USC,chiefs,nfl.com,2025-07-20T02:19:44.216063
+Jalen Royals,11.0,WR,ACT,"7'2""",195,R,Utah State,chiefs,nfl.com,2025-07-20T02:19:44.216066
+Darius Rush,46.0,CB,ACT,"7'4""",198,2,South Carolina,chiefs,nfl.com,2025-07-20T02:19:44.216070
+Eric Scott Jr.,29.0,CB,ACT,"7'4""",202,2,Southern Mississippi,chiefs,nfl.com,2025-07-20T02:19:44.216073
+Josh Simmons,71.0,OT,ACT,"7'7""",310,R,Ohio State,chiefs,nfl.com,2025-07-20T02:19:44.216076
+Brashard Smith,30.0,RB,ACT,"7'0""",196,R,SMU,chiefs,nfl.com,2025-07-20T02:19:44.216079
+Trey Smith,65.0,G,ACT,"7'8""",321,5,Tennessee,chiefs,nfl.com,2025-07-20T02:19:44.216083
+Melvin Smith Jr.,39.0,DB,ACT,"7'3""",185,R,Southern Arkansas,chiefs,nfl.com,2025-07-20T02:19:44.216086
+JuJu Smith-Schuster,9.0,WR,ACT,"7'3""",215,9,USC,chiefs,nfl.com,2025-07-20T02:19:44.216089
+GeorQuarius Spivey,,TE,ACT,"7'7""",240,1,Mississippi State,chiefs,nfl.com,2025-07-20T02:19:44.216094
+Carson Steele,42.0,RB,ACT,"7'2""",228,2,UCLA,chiefs,nfl.com,2025-07-20T02:19:44.216098
+Kingsley Suamataia,76.0,OT,ACT,"7'6""",326,2,BYU,chiefs,nfl.com,2025-07-20T02:19:44.216101
+Jawaan Taylor,74.0,OT,ACT,"7'7""",330,7,Florida,chiefs,nfl.com,2025-07-20T02:19:44.216105
+BJ Thompson,53.0,DE,RSN,"7'8""",243,3,Stephen F. Austin State,chiefs,nfl.com,2025-07-20T02:19:44.216108
+Tyquan Thornton,19.0,WR,ACT,"7'4""",185,4,Baylor,chiefs,nfl.com,2025-07-20T02:19:44.216112
+Jerry Tillery,99.0,DT,ACT,"7'8""",295,7,Notre Dame,chiefs,nfl.com,2025-07-20T02:19:44.216115
+Robert Tonyan,85.0,TE,ACT,"7'7""",240,7,Indiana State,chiefs,nfl.com,2025-07-20T02:19:44.216119
+Drue Tranquill,23.0,LB,ACT,"7'4""",234,7,Notre Dame,chiefs,nfl.com,2025-07-20T02:19:44.216122
+Marlon Tuipulotu,92.0,DT,ACT,"7'4""",307,5,USC,chiefs,nfl.com,2025-07-20T02:19:44.216125
+Jaylen Watson,35.0,CB,ACT,"7'4""",197,4,Washington State,chiefs,nfl.com,2025-07-20T02:19:44.216146
+Tre Watson,46.0,TE,ACT,"7'7""",250,R,Texas A&M,chiefs,nfl.com,2025-07-20T02:19:44.216150
+Jared Wiley,12.0,TE,ACT,"7'8""",249,2,TCU,chiefs,nfl.com,2025-07-20T02:19:44.216153
+Joshua Williams,2.0,CB,ACT,"7'5""",193,4,Fayetteville State University,chiefs,nfl.com,2025-07-20T02:19:44.216156
+Major Williams,,SAF,ACT,"7'3""",190,R,Carson Newman,chiefs,nfl.com,2025-07-20T02:19:44.216160
+Nohl Williams,20.0,CB,ACT,"7'3""",200,R,California,chiefs,nfl.com,2025-07-20T02:19:44.216163
+James Winchester,41.0,LS,ACT,"7'5""",209,11,Oklahoma,chiefs,nfl.com,2025-07-20T02:19:44.216166
+Xavier Worthy,1.0,WR,ACT,"7'1""",165,2,Texas,chiefs,nfl.com,2025-07-20T02:19:44.216169
+Elijah Young,34.0,RB,ACT,"7'0""",198,R,Western Kentucky,chiefs,nfl.com,2025-07-20T02:19:44.216173
+Bailey Zappe,14.0,QB,ACT,"7'3""",215,4,Western Kentucky,chiefs,nfl.com,2025-07-20T02:19:44.216176

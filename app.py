@@ -354,8 +354,8 @@ def scrape_comprehensive_data():
         for team in teams:
             logger.info(f"Starting comprehensive data scraping for {team}")
             
-            # Collect comprehensive data for the team (all players)
-            enhanced_players = collector.collect_team_roster(team, limit_players=None)
+            # Collect comprehensive data for the team (limit to 10 for testing to avoid timeout)
+            enhanced_players = collector.collect_team_roster(team, limit_players=10)
             
             all_players.extend(enhanced_players)
             
