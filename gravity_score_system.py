@@ -251,50 +251,51 @@ class GravityScoreCalculator:
         position = str(player_data.get('position', '')).strip()
         age = self._extract_numeric(player_data.get('age', ''))
         
-        # Position Longevity Risk (50% of risk) - always available
+        # Position Longevity Risk (40% of risk)
         position_risk = self._get_position_risk(position)
-        risk_factors += position_risk * 0.5
+        risk_factors += position_risk * 0.4
         
-        # Age Risk (30% of risk)
+        # Age Risk (35% of risk)
         if age > 0:
             age_risk = self._calculate_age_risk(age, position)
-            risk_factors += age_risk * 0.3
+            risk_factors += age_risk * 0.35
         else:
-            # Position-specific age risk defaults (more varied)
+            # Position-specific age risk defaults
             if position in ['RB', 'CB']:  # High injury risk positions
-                risk_factors += 0.4 * 0.3  # Higher default risk
+                risk_factors += 0.3 * 0.35  # Higher default risk
             elif position in ['QB', 'K', 'P']:  # Lower injury risk
-                risk_factors += 0.1 * 0.3  # Lower default risk
+                risk_factors += 0.1 * 0.35  # Lower default risk
             else:
-                risk_factors += 0.25 * 0.3  # Medium default risk
+                risk_factors += 0.2 * 0.35  # Medium default risk
         
-        # Experience/Jersey Number Risk (20% of risk)
+        # Experience Risk (25% of risk)
         experience = self._extract_numeric(player_data.get('experience', '')) or self._extract_numeric(player_data.get('years_pro', ''))
         jersey_number = self._extract_numeric(player_data.get('jersey_number', ''))
         
         if experience > 0:
             if experience < 2:
-                risk_factors += 0.8 * 0.2  # High rookie risk
+                risk_factors += 0.6 * 0.25  # High rookie risk
             elif experience < 4:
-                risk_factors += 0.4 * 0.2  # Medium young player risk
+                risk_factors += 0.3 * 0.25  # Medium young player risk
             elif experience > 12:
-                risk_factors += 0.6 * 0.2  # Veteran decline risk
+                risk_factors += 0.4 * 0.25  # Veteran decline risk
             else:
-                risk_factors += 0.2 * 0.2  # Prime years, low risk
+                risk_factors += 0.1 * 0.25  # Prime years, low risk
         elif jersey_number > 0:
             # Use jersey number as proxy - lower numbers often = more important players
             if jersey_number <= 20:
-                risk_factors += 0.2 * 0.2  # Lower risk for key players
+                risk_factors += 0.15 * 0.25  # Lower risk for key players
             elif jersey_number >= 80:
-                risk_factors += 0.5 * 0.2  # Higher risk for less important players
+                risk_factors += 0.4 * 0.25  # Higher risk for less important players
             else:
-                risk_factors += 0.35 * 0.2  # Medium risk
+                risk_factors += 0.25 * 0.25  # Medium risk
         else:
             # No experience or jersey data
-            risk_factors += 0.4 * 0.2  # Default medium-high risk
+            risk_factors += 0.3 * 0.25  # Default medium risk
         
         # Convert risk to score (invert - lower risk = higher score)
-        risk_score = max(0, 1.0 - risk_factors)
+        # Ensure we get a proper 0-1 score that's inverted
+        risk_score = max(0.0, min(1.0, 1.0 - risk_factors))
         return risk_score
     
     def calculate_total_gravity(self, player_data: Dict) -> GravityComponents:
@@ -504,32 +505,50 @@ class GravityScoreCalculator:
     
     def _calculate_age_risk(self, age: float, position: str) -> float:
         """Calculate age-based risk (higher age = higher risk)"""
-        risk_ages = {
-            'QB': 35, 'RB': 28, 'WR': 30, 'TE': 32,
-            'LB': 30, 'CB': 29, 'S': 32, 'DE': 32, 'DT': 33
+        # Prime age ranges by position
+        prime_ages = {
+            'QB': (25, 34),   # QBs peak later and last longer
+            'RB': (22, 28),   # RBs peak early and decline fast  
+            'WR': (23, 30),   # WRs have moderate longevity
+            'TE': (24, 32),   # TEs last longer than WRs
+            'CB': (23, 29),   # CBs rely on speed
+            'S': (24, 31),    # Safeties last a bit longer
+            'LB': (24, 31),   # LBs have good longevity
+            'DE': (24, 32),   # Pass rushers can last
+            'DT': (25, 33),   # Interior linemen last longest
+            'OL': (25, 34),   # Offensive linemen have long careers
         }
         
-        risk_age = risk_ages.get(position, 30)
+        prime_start, prime_end = prime_ages.get(position, (24, 30))
         
-        if age >= risk_age:
-            return min((age - risk_age) / 5.0, 1.0)  # Full risk at 5 years past risk age
+        if age < prime_start:
+            # Young player risk (inexperience)
+            return max(0.0, (prime_start - age) / 5.0 * 0.3)
+        elif age <= prime_end:
+            # Prime years - very low risk
+            return 0.05
         else:
-            return 0.0
+            # Aging risk increases gradually
+            years_past_prime = age - prime_end
+            return min(0.8, years_past_prime / 6.0)  # Max risk at 6 years past prime
     
     def _get_position_risk(self, position: str) -> float:
         """Get inherent position risk (some positions have shorter careers)"""
-        high_risk_positions = ['RB', 'CB']
-        medium_risk_positions = ['WR', 'LB', 'S']
-        low_risk_positions = ['QB', 'TE', 'DE', 'DT']
+        high_risk_positions = ['RB', 'FB']  # Running backs have shortest careers
+        medium_high_risk_positions = ['CB', 'WR']  # Speed positions with injury risk
+        medium_risk_positions = ['LB', 'S', 'DE']  # Moderate injury risk
+        low_risk_positions = ['QB', 'TE', 'OL', 'G', 'C', 'OT', 'DT', 'K', 'P']  # Longer careers
         
         if position in high_risk_positions:
-            return 0.8
+            return 0.6  # Reduced from 0.8
+        elif position in medium_high_risk_positions:
+            return 0.4  # New category
         elif position in medium_risk_positions:
-            return 0.5
+            return 0.3  # Reduced from 0.5
         elif position in low_risk_positions:
-            return 0.2
+            return 0.1  # Reduced from 0.2
         else:
-            return 0.5
+            return 0.3  # Default medium risk
     
     def _calculate_recent_recognition(self, player_data: Dict) -> float:
         """Calculate recent recognition bonus"""
