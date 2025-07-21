@@ -43,14 +43,12 @@ dependencies = [
     "flask>=2.3.0",
     "typer>=0.9.0",
     "rich>=13.0.0",
-    "firecrawl-py>=0.0.16",
+    "firecrawl-py>=0.0.16,<1.0.0",
 ]
 
 [project.optional-dependencies]
 llm = [
-    "openai>=1.0.0",
-    "transformers>=4.21.0,<4.30.0",
-    "torch>=1.13.0,<2.0.0"
+    "openai>=1.0.0"
 ]
 dev = [
     "pytest>=8.4.1",

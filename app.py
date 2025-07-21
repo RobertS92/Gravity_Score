@@ -220,7 +220,8 @@ def bulk_calculate_gravity():
         enhanced_df.to_csv(output_file, index=False)
         
         # Get top players
-        top_players = enhanced_df.head(10)[['name', 'position', 'current_team', 'total_gravity']].to_dict('records')
+        top_players_df = enhanced_df.head(10)[['name', 'position', 'current_team', 'total_gravity']]
+        top_players = top_players_df.to_dict('records')
         
         return jsonify({
             "status": "success",
@@ -310,8 +311,12 @@ def scrape_comprehensive():
         logger.info(f"Starting comprehensive scraping with gravity scoring for teams: {teams}")
 
         # Use REAL DATA COLLECTOR - NO SIMULATED DATA
-        from real_data_collector import RealDataCollector
-        collector = RealDataCollector()
+        try:
+            from real_data_collector import RealDataCollector
+            collector = RealDataCollector()
+        except ImportError:
+            logger.error("RealDataCollector not available")
+            return jsonify({"error": "Comprehensive collector not available", "status": "error"}), 500
 
         all_players = []
         results = {}
