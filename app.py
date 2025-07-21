@@ -255,6 +255,23 @@ def bulk_calculate_gravity():
         logger.error(f"Error in bulk gravity calculation: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
+@app.route('/api/scrape', methods=['POST'])
+def scrape_unified():
+    """Unified scraping endpoint - handles both standard and comprehensive modes."""
+    try:
+        data = request.get_json()
+        mode = data.get('mode', 'standard')
+        
+        # Route to appropriate method based on mode
+        if mode == 'comprehensive':
+            return scrape_comprehensive()
+        else:
+            return scrape_standard()
+            
+    except Exception as e:
+        logger.error(f"Error in unified scraping endpoint: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
 @app.route('/api/scrape/standard', methods=['POST'])
 def scrape_standard():
     """Standard NFL scraping endpoint - basic roster extraction."""
@@ -389,6 +406,107 @@ def scrape_comprehensive():
 
     except Exception as e:
         logger.error(f"Error in comprehensive data scraping: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/scrape/firecrawl', methods=['POST'])
+def scrape_firecrawl():
+    """Firecrawl scraping endpoint."""
+    try:
+        data = request.get_json()
+        teams = data.get('teams', ['49ers'])
+
+        logger.info(f"Starting firecrawl scraping for teams: {teams}")
+
+        # Check if firecrawl comprehensive scraper exists
+        try:
+            from firecrawl_comprehensive_scraper import FirecrawlComprehensiveScraper
+            scraper = FirecrawlComprehensiveScraper()
+        except ImportError:
+            # Fallback to comprehensive collector if firecrawl not available
+            from real_data_collector import RealDataCollector
+            collector = RealDataCollector()
+            
+            all_players = []
+            results = {}
+
+            for team in teams:
+                try:
+                    players = collector.collect_team_roster(team, limit_players=None)
+                    all_players.extend(players)
+                    results[team] = {"players_count": len(players), "status": "success"}
+                except Exception as e:
+                    logger.error(f"Error with {team}: {e}")
+                    results[team] = {"players_count": 0, "status": "error", "error": str(e)}
+
+            # Save results
+            if all_players:
+                df = pd.DataFrame(all_players)
+                df = _calculate_gravity_scores_for_dataframe(df)
+                
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                csv_filename = f"data/firecrawl_players_with_gravity_{timestamp}.csv"
+                os.makedirs("data", exist_ok=True)
+                df.to_csv(csv_filename, index=False)
+
+            return jsonify({
+                "status": "success",
+                "total_players": len(all_players),
+                "teams_processed": len(teams),
+                "results": results,
+                "message": f"Firecrawl scraping completed for {len(all_players)} players with gravity scores"
+            })
+
+        # If firecrawl scraper is available
+        all_players = []
+        results = {}
+
+        for team in teams:
+            logger.info(f"Firecrawl scraping {team}")
+
+            try:
+                players = scraper.scrape_team_comprehensive(team, limit=None)
+                all_players.extend(players)
+
+                results[team] = {
+                    "players_count": len(players),
+                    "status": "success"
+                }
+
+                logger.info(f"✅ {team}: {len(players)} players via Firecrawl")
+
+            except Exception as e:
+                logger.error(f"Error scraping {team} with Firecrawl: {e}")
+                results[team] = {
+                    "players_count": 0,
+                    "status": "error",
+                    "error": str(e)
+                }
+
+        # Save to CSV file with gravity scores
+        if all_players:
+            df = pd.DataFrame(all_players)
+            
+            # Calculate gravity scores
+            df = _calculate_gravity_scores_for_dataframe(df)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_filename = f"data/firecrawl_players_with_gravity_{timestamp}.csv"
+
+            os.makedirs("data", exist_ok=True)
+            df.to_csv(csv_filename, index=False)
+
+            logger.info(f"Saved Firecrawl data with gravity scores to {csv_filename}")
+
+        return jsonify({
+            "status": "success",
+            "total_players": len(all_players),
+            "teams_processed": len(teams),
+            "results": results,
+            "message": f"Firecrawl scraping completed for {len(all_players)} players with gravity scores"
+        })
+
+    except Exception as e:
+        logger.error(f"Error in firecrawl scraping: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
 @app.route('/api/teams')
