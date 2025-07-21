@@ -111,6 +111,15 @@ nfl_gravity/
 - Error recovery and partial success handling
 - Multiple output formats for different use cases
 
+## Recent Changes
+
+- July 21, 2025. **DEPLOYMENT FIXES**: Applied comprehensive deployment fixes for version conflicts
+  - Resolved nfl-gravity[llm] dependency conflicts by simplifying LLM optional dependencies
+  - Updated firecrawl-py version constraint to >=0.0.20 for better compatibility
+  - Removed problematic transformers/torch dependencies from optional dependencies due to Linux platform constraints
+  - LLM functionality now uses OpenAI API only, avoiding pytorch-cpu index conflicts that blocked deployment
+  - App successfully running with simplified dependency structure compatible with Replit deployment constraints
+
 ## Changelog
 
 - July 02, 2025. Initial setup
