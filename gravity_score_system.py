@@ -241,9 +241,9 @@ class GravityScoreCalculator:
         
         Factors:
         - Age (higher age = higher risk)
-        - Injury history
-        - Position-specific longevity
-        - Contract stability
+        - Position-specific longevity 
+        - Experience level
+        - Jersey number (as proxy for roster importance)
         
         Note: Risk is inverted (lower risk = higher score)
         """
@@ -251,26 +251,47 @@ class GravityScoreCalculator:
         position = str(player_data.get('position', '')).strip()
         age = self._extract_numeric(player_data.get('age', ''))
         
-        # Age Risk (40% of risk)
+        # Position Longevity Risk (50% of risk) - always available
+        position_risk = self._get_position_risk(position)
+        risk_factors += position_risk * 0.5
+        
+        # Age Risk (30% of risk)
         if age > 0:
             age_risk = self._calculate_age_risk(age, position)
-            risk_factors += age_risk * 0.4
+            risk_factors += age_risk * 0.3
+        else:
+            # Position-specific age risk defaults (more varied)
+            if position in ['RB', 'CB']:  # High injury risk positions
+                risk_factors += 0.4 * 0.3  # Higher default risk
+            elif position in ['QB', 'K', 'P']:  # Lower injury risk
+                risk_factors += 0.1 * 0.3  # Lower default risk
+            else:
+                risk_factors += 0.25 * 0.3  # Medium default risk
         
-        # Position Longevity Risk (30% of risk)
-        position_risk = self._get_position_risk(position)
-        risk_factors += position_risk * 0.3
+        # Experience/Jersey Number Risk (20% of risk)
+        experience = self._extract_numeric(player_data.get('experience', '')) or self._extract_numeric(player_data.get('years_pro', ''))
+        jersey_number = self._extract_numeric(player_data.get('jersey_number', ''))
         
-        # Contract Stability (20% of risk)
-        contract_years = self._extract_numeric(player_data.get('contract_years', ''))
-        if contract_years > 0:
-            contract_risk = max(0, (5 - contract_years) / 5.0) * 0.2
-            risk_factors += contract_risk
-        
-        # Performance Consistency (10% of risk)
-        experience = self._extract_numeric(player_data.get('experience', ''))
-        if experience > 0 and experience < 3:
-            # Rookie risk
-            risk_factors += 0.1
+        if experience > 0:
+            if experience < 2:
+                risk_factors += 0.8 * 0.2  # High rookie risk
+            elif experience < 4:
+                risk_factors += 0.4 * 0.2  # Medium young player risk
+            elif experience > 12:
+                risk_factors += 0.6 * 0.2  # Veteran decline risk
+            else:
+                risk_factors += 0.2 * 0.2  # Prime years, low risk
+        elif jersey_number > 0:
+            # Use jersey number as proxy - lower numbers often = more important players
+            if jersey_number <= 20:
+                risk_factors += 0.2 * 0.2  # Lower risk for key players
+            elif jersey_number >= 80:
+                risk_factors += 0.5 * 0.2  # Higher risk for less important players
+            else:
+                risk_factors += 0.35 * 0.2  # Medium risk
+        else:
+            # No experience or jersey data
+            risk_factors += 0.4 * 0.2  # Default medium-high risk
         
         # Convert risk to score (invert - lower risk = higher score)
         risk_score = max(0, 1.0 - risk_factors)
