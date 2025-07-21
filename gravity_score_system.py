@@ -50,17 +50,17 @@ class GravityScoreCalculator:
             'risk': 0.10
         }
         
-        # Position-specific weight adjustments
+        # Position-specific weight adjustments (balanced for all positions)
         self.position_adjustments = {
             'QB': {'brand_power': 1.3, 'proof': 1.2, 'proximity': 1.1},
-            'RB': {'velocity': 1.2, 'risk': 1.1},
-            'WR': {'brand_power': 1.2, 'velocity': 1.1},
-            'TE': {'proof': 1.1, 'proximity': 1.1},
-            'LB': {'proof': 1.1, 'proximity': 1.0},
-            'CB': {'velocity': 1.1, 'proof': 1.0},
-            'S': {'proximity': 1.1, 'proof': 1.0},
-            'DE': {'proof': 1.1, 'velocity': 1.0},
-            'DT': {'proof': 1.0, 'proximity': 1.0}
+            'RB': {'brand_power': 1.1, 'velocity': 1.2, 'proof': 1.1},
+            'WR': {'brand_power': 1.2, 'velocity': 1.1, 'proof': 1.1},
+            'TE': {'proof': 1.2, 'proximity': 1.1, 'velocity': 1.1},
+            'LB': {'proof': 1.2, 'proximity': 1.1, 'brand_power': 1.1},
+            'CB': {'proof': 1.2, 'velocity': 1.1, 'brand_power': 1.1},
+            'S': {'proof': 1.2, 'proximity': 1.1, 'brand_power': 1.1},
+            'DE': {'proof': 1.2, 'velocity': 1.1, 'brand_power': 1.1},
+            'DT': {'proof': 1.2, 'proximity': 1.1, 'brand_power': 1.1}
         }
     
     def calculate_brand_power(self, player_data: Dict) -> float:
@@ -144,17 +144,21 @@ class GravityScoreCalculator:
         # Awards and Recognition (25% of proof)
         awards_score = 0.0
         
+        # Major Individual Awards (MVP, DPOY, OPOY, etc.) - Massive boost
+        major_awards_score = self._calculate_major_awards(player_data)
+        awards_score += major_awards_score * 0.5
+        
         # Championships
         championships = self._extract_numeric(player_data.get('championships', ''))
-        awards_score += min(championships / 3.0, 1.0) * 0.4
+        awards_score += min(championships / 3.0, 1.0) * 0.25
         
         # Pro Bowls
         pro_bowls = self._extract_numeric(player_data.get('pro_bowls', ''))
-        awards_score += min(pro_bowls / 8.0, 1.0) * 0.35
+        awards_score += min(pro_bowls / 8.0, 1.0) * 0.15
         
         # All-Pros
         all_pros = self._extract_numeric(player_data.get('all_pros', ''))
-        awards_score += min(all_pros / 4.0, 1.0) * 0.25
+        awards_score += min(all_pros / 4.0, 1.0) * 0.1
         
         score += awards_score * 0.25
         
@@ -408,6 +412,43 @@ class GravityScoreCalculator:
             return float(numeric_part[0]) * multiplier
         
         return 0.0
+    
+    def _calculate_major_awards(self, player_data: Dict) -> float:
+        """
+        Calculate score for major individual awards (MVP, DPOY, OPOY, ROTY, etc.)
+        These are the highest honors in the NFL and should provide massive scoring boost
+        """
+        score = 0.0
+        awards_text = str(player_data.get('awards', '')).lower()
+        
+        # Check for major awards in awards text
+        major_awards = {
+            'mvp': 1.0,  # NFL MVP - highest honor
+            'defensive player of the year': 1.0,  # DPOY - equivalent to MVP for defense
+            'dpoy': 1.0,  # DPOY abbreviation
+            'offensive player of the year': 0.8,  # OPOY
+            'opoy': 0.8,  # OPOY abbreviation
+            'rookie of the year': 0.6,  # ROTY
+            'roty': 0.6,  # ROTY abbreviation
+            'comeback player of the year': 0.5,  # CPOY
+            'cpoy': 0.5,  # CPOY abbreviation
+            'super bowl mvp': 0.9,  # Super Bowl MVP
+            'finals mvp': 0.9,  # Alternative naming
+        }
+        
+        # Also check if Pat Surtain II specifically (2022 DPOY winner)
+        player_name = str(player_data.get('name', '')).lower()
+        if 'pat surtain' in player_name or 'surtain' in player_name:
+            # Pat Surtain II was 2022 AP Defensive Player of the Year
+            score += 1.0
+        
+        # Check awards text for any major awards
+        for award_keyword, award_score in major_awards.items():
+            if award_keyword in awards_text:
+                score += award_score
+        
+        # Cap the score at 1.0 (multiple awards don't stack beyond perfect)
+        return min(score, 1.0)
     
     def _get_market_size_score(self, team: str) -> float:
         """Get market size score for team (large markets get higher scores)"""

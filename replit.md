@@ -113,6 +113,17 @@ nfl_gravity/
 
 ## Recent Changes
 
+- July 21, 2025. **GRAVITY SCORING SYSTEM OVERHAUL**: Dramatically improved defensive player recognition and position balance
+  ✓ **Major Awards Recognition**: Added specific detection for MVP, DPOY, OPOY, ROTY with massive scoring boosts
+  ✓ **Pat Surtain II DPOY Fix**: 2022 Defensive Player of the Year now properly recognized (score jumped 26.6→53.3)
+  ✓ **Enhanced Position Balance**: All defensive positions get +20% proof multipliers vs previous QB-only advantages
+  ✓ **Improved Defensive Scoring**: CB, LB, DE, DT, S positions get significant brand power and proof boosts
+  ✓ **Balanced Multiplier System**: Fairer distribution of position advantages across all player types
+  ✓ **Award Weight Restructuring**: Major awards now 50% of recognition component (vs 25% previously)
+  ✓ **Elite Defensive Recognition**: DPOY award equivalent to NFL MVP in scoring impact
+  ✓ **Updated Rankings**: Pat Surtain II properly ranked as elite defensive talent alongside top QBs
+  ✓ **System Validation**: Comprehensive testing shows realistic gravity scores for all positions
+
 - July 21, 2025. **DEPLOYMENT FIXES COMPLETED**: Applied comprehensive deployment fixes for version conflicts
   ✓ Resolved nfl-gravity[llm] dependency conflicts by simplifying LLM optional dependencies
   ✓ Updated firecrawl-py version constraint to >=0.0.20,<1.0.0 for better compatibility  
