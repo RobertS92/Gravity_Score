@@ -123,6 +123,13 @@ nfl_gravity/
   ✓ App successfully running with simplified dependency structure compatible with Replit deployment
   ✓ All deployment blockers resolved - ready for production deployment
 
+- July 21, 2025. **ADDITIONAL DEPLOYMENT FIXES**: Applied final deployment optimizations
+  ✓ Updated LLM optional dependency to match main OpenAI version (>=1.93.0) for consistency
+  ✓ Removed transformers and torch references from mypy overrides to prevent version conflicts
+  ✓ Removed duplicate firecrawl dependency (kept firecrawl-py only) to avoid package conflicts
+  ✓ Cleaned up dependency specifications to ensure no version conflicts during deployment
+  ✓ Flask app successfully restarted and running on port 5000
+
 ## Changelog
 
 - July 02, 2025. Initial setup

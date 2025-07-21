@@ -47,13 +47,12 @@ dependencies = [
     "psycopg2-binary>=2.9.10",
     "sqlalchemy>=2.0.41",
     "openai>=1.93.0",
-    "firecrawl>=2.16.1",
     "numpy>=2.0.2",
 ]
 
 [project.optional-dependencies]
 llm = [
-    "openai>=1.0.0"
+    "openai>=1.93.0"
 ]
 dev = [
     "pytest>=8.4.1",
@@ -170,9 +169,7 @@ strict_equality = true
 module = [
     "trafilatura.*",
     "bs4.*",
-    "pyarrow.*",
-    "transformers.*",
-    "torch.*"
+    "pyarrow.*"
 ]
 ignore_missing_imports = true
 
