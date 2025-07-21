@@ -40,11 +40,8 @@ Requires-Dist: rich>=13.0.0
 Requires-Dist: firecrawl-py<1.0.0,>=0.0.20
 Requires-Dist: psycopg2-binary>=2.9.10
 Requires-Dist: sqlalchemy>=2.0.41
-Requires-Dist: openai>=1.93.0
 Requires-Dist: numpy>=2.0.2
-Requires-Dist: firecrawl>=2.16.1
-Provides-Extra: llm
-Requires-Dist: openai>=1.93.0; extra == "llm"
+Requires-Dist: openai>=1.93.0
 Provides-Extra: dev
 Requires-Dist: pytest>=8.4.1; extra == "dev"
 Requires-Dist: pytest-cov>=6.2.1; extra == "dev"
