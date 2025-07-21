@@ -1501,6 +1501,15 @@ class RealDataCollector:
 
         return round(quality_score, 1)
 
+    def collect_single_player_comprehensive(self, player_name: str, team: str) -> Optional[Dict]:
+        """Collect comprehensive data for a single player."""
+        try:
+            logger.info(f"Collecting comprehensive data for {player_name} ({team})")
+            return self.collect_real_data(player_name, team)
+        except Exception as e:
+            logger.error(f"Error collecting data for {player_name}: {e}")
+            return None
+
     def collect_team_roster(self, team: str, limit_players: int = None) -> List[Dict]:
         """Collect REAL DATA ONLY for entire team."""
         logger.info(f"REAL DATA COLLECTION for team: {team}")

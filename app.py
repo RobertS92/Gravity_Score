@@ -63,6 +63,16 @@ def gravity_scores():
     """Gravity scores analysis page."""
     return render_template('gravity_scores.html')
 
+@app.route('/player-search')
+def player_search():
+    """Player search and gravity score calculation page."""
+    return render_template('player_search.html')
+
+@app.route('/my-players')
+def my_players():
+    """My saved players page."""
+    return render_template('my_players.html')
+
 # ===== API ENDPOINTS =====
 
 @app.route('/api/status')
@@ -412,6 +422,202 @@ def get_scrape_progress():
         "start_time": None
     })
 
+@app.route('/api/players/search', methods=['GET'])
+def search_players():
+    """Search for players by name."""
+    try:
+        query = request.args.get('query', '').strip().lower()
+        
+        if not query:
+            return jsonify({"players": [], "message": "No search query provided"})
+        
+        # Get all available player names from data files
+        all_players = []
+        data_files = glob.glob('data/players_*.csv') + glob.glob('data/comprehensive_*.csv')
+        
+        for file_path in data_files:
+            try:
+                df = pd.read_csv(file_path)
+                if 'name' in df.columns:
+                    players = df[['name', 'position', 'current_team']].fillna('').to_dict('records')
+                    all_players.extend(players)
+            except:
+                continue
+        
+        # Remove duplicates and filter by search query
+        seen_names = set()
+        unique_players = []
+        
+        for player in all_players:
+            name = player.get('name', '').strip()
+            if name and name.lower() not in seen_names:
+                if query in name.lower():
+                    unique_players.append(player)
+                    seen_names.add(name.lower())
+        
+        # Sort by name and limit results
+        unique_players.sort(key=lambda x: x.get('name', ''))
+        limited_results = unique_players[:50]  # Limit to 50 results
+        
+        return jsonify({
+            "players": limited_results,
+            "total_found": len(unique_players),
+            "showing": len(limited_results)
+        })
+    
+    except Exception as e:
+        logger.error(f"Error searching players: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/players/process-selected', methods=['POST'])
+def process_selected_players():
+    """Process selected players - get their data and calculate gravity scores."""
+    try:
+        data = request.get_json()
+        selected_names = data.get('players', [])
+        
+        if not selected_names:
+            return jsonify({"error": "No players selected"}), 400
+        
+        logger.info(f"Processing {len(selected_names)} selected players")
+        
+        results = []
+        for player_name in selected_names:
+            try:
+                # Check if player data already exists
+                player_data = _find_existing_player_data(player_name)
+                
+                if player_data and _has_comprehensive_data(player_data):
+                    # Calculate gravity score for existing data
+                    gravity_components = gravity_calculator.calculate_total_gravity(player_data)
+                    
+                    player_result = {
+                        "name": player_name,
+                        "status": "existing_data",
+                        "data": player_data,
+                        "gravity_scores": {
+                            "brand_power": gravity_components.brand_power,
+                            "proof": gravity_components.proof,
+                            "proximity": gravity_components.proximity,
+                            "velocity": gravity_components.velocity,
+                            "risk": gravity_components.risk,
+                            "total_gravity": gravity_components.total_gravity
+                        }
+                    }
+                else:
+                    # Need to collect data for this player
+                    logger.info(f"Collecting comprehensive data for {player_name}")
+                    
+                    # Use real data collector
+                    from real_data_collector import RealDataCollector
+                    collector = RealDataCollector()
+                    
+                    # Extract team and position if available
+                    team = player_data.get('current_team', '49ers') if player_data else '49ers'
+                    
+                    # Collect comprehensive data
+                    comprehensive_data = collector.collect_single_player_comprehensive(player_name, team)
+                    
+                    if comprehensive_data:
+                        # Calculate gravity score
+                        gravity_components = gravity_calculator.calculate_total_gravity(comprehensive_data)
+                        
+                        player_result = {
+                            "name": player_name,
+                            "status": "new_data_collected",
+                            "data": comprehensive_data,
+                            "gravity_scores": {
+                                "brand_power": gravity_components.brand_power,
+                                "proof": gravity_components.proof,
+                                "proximity": gravity_components.proximity,
+                                "velocity": gravity_components.velocity,
+                                "risk": gravity_components.risk,
+                                "total_gravity": gravity_components.total_gravity
+                            }
+                        }
+                    else:
+                        player_result = {
+                            "name": player_name,
+                            "status": "failed",
+                            "error": "Could not collect data for this player"
+                        }
+                
+                results.append(player_result)
+                
+            except Exception as e:
+                logger.error(f"Error processing player {player_name}: {e}")
+                results.append({
+                    "name": player_name,
+                    "status": "error",
+                    "error": str(e)
+                })
+        
+        # Save successful results to my_players file
+        successful_players = [r for r in results if r["status"] in ["existing_data", "new_data_collected"]]
+        
+        if successful_players:
+            _save_to_my_players(successful_players)
+        
+        return jsonify({
+            "status": "success",
+            "processed": len(results),
+            "successful": len(successful_players),
+            "results": results,
+            "message": f"Processed {len(results)} players, {len(successful_players)} successful"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error processing selected players: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/my-players', methods=['GET'])
+def get_my_players():
+    """Get saved players from my_players.csv."""
+    try:
+        my_players_file = "data/my_players.csv"
+        
+        if not os.path.exists(my_players_file):
+            return jsonify({
+                "players": [],
+                "total": 0,
+                "message": "No saved players found"
+            })
+        
+        df = pd.read_csv(my_players_file)
+        players = _clean_players_data(df)
+        
+        # Sort by total gravity score descending
+        if 'total_gravity' in df.columns:
+            players.sort(key=lambda x: x.get('total_gravity', 0), reverse=True)
+        
+        return jsonify({
+            "players": players,
+            "total": len(players),
+            "status": "success"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting my players: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/my-players', methods=['DELETE'])
+def clear_my_players():
+    """Clear all saved players."""
+    try:
+        my_players_file = "data/my_players.csv"
+        
+        if os.path.exists(my_players_file):
+            os.remove(my_players_file)
+        
+        return jsonify({
+            "status": "success",
+            "message": "All saved players cleared"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error clearing my players: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
 # ===== HELPER FUNCTIONS =====
 
 def _find_best_data_file():
@@ -540,6 +746,84 @@ def _clean_players_data(df):
         players.append(clean_player)
     
     return players
+
+def _find_existing_player_data(player_name):
+    """Find existing data for a specific player."""
+    data_files = glob.glob('data/players_*.csv') + glob.glob('data/comprehensive_*.csv') + glob.glob('data/my_players.csv')
+    
+    for file_path in data_files:
+        try:
+            df = pd.read_csv(file_path)
+            if 'name' in df.columns:
+                player_rows = df[df['name'].str.lower() == player_name.lower()]
+                if not player_rows.empty:
+                    return player_rows.iloc[0].to_dict()
+        except:
+            continue
+    
+    return None
+
+def _has_comprehensive_data(player_data):
+    """Check if player data has comprehensive information for gravity calculation."""
+    if not player_data:
+        return False
+    
+    # Check for key fields needed for gravity calculation
+    key_fields = ['age', 'height', 'weight', 'position', 'current_team']
+    social_fields = ['twitter_followers', 'instagram_followers']
+    performance_fields = ['pro_bowls', 'all_pros', 'awards']
+    financial_fields = ['contract_value', 'salary']
+    
+    has_basic = sum(1 for field in key_fields if player_data.get(field)) >= 4
+    has_social = sum(1 for field in social_fields if player_data.get(field)) >= 1
+    has_performance = sum(1 for field in performance_fields if player_data.get(field)) >= 1
+    has_financial = sum(1 for field in financial_fields if player_data.get(field)) >= 1
+    
+    # Need at least basic info plus some comprehensive data
+    return has_basic and (has_social or has_performance or has_financial)
+
+def _save_to_my_players(player_results):
+    """Save player results to my_players.csv file."""
+    try:
+        my_players_file = "data/my_players.csv"
+        
+        # Prepare data for saving
+        players_to_save = []
+        
+        for result in player_results:
+            if result.get("status") in ["existing_data", "new_data_collected"]:
+                player_data = result.get("data", {}).copy()
+                gravity_scores = result.get("gravity_scores", {})
+                
+                # Add gravity scores to player data
+                player_data.update(gravity_scores)
+                player_data['saved_at'] = datetime.now().isoformat()
+                
+                players_to_save.append(player_data)
+        
+        if not players_to_save:
+            return
+        
+        new_df = pd.DataFrame(players_to_save)
+        
+        # If file exists, merge with existing data
+        if os.path.exists(my_players_file):
+            existing_df = pd.read_csv(my_players_file)
+            
+            # Remove duplicates by name and merge
+            existing_df = existing_df[~existing_df['name'].isin(new_df['name'])]
+            combined_df = pd.concat([existing_df, new_df], ignore_index=True)
+        else:
+            combined_df = new_df
+        
+        # Save to file
+        os.makedirs("data", exist_ok=True)
+        combined_df.to_csv(my_players_file, index=False)
+        
+        logger.info(f"Saved {len(players_to_save)} players to my_players.csv")
+        
+    except Exception as e:
+        logger.error(f"Error saving to my_players.csv: {e}")
 
 if __name__ == '__main__':
     # Ensure data directory exists
