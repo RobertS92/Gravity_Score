@@ -124,14 +124,15 @@ def get_all_players():
 def get_latest_data():
     """Get latest comprehensive data with gravity scores."""
     try:
-        # Prioritize gravity-enhanced files
+        # Prioritize authentic gravity files first
+        authentic_gravity_files = glob.glob('data/authentic_gravity_scores_*.csv')
         gravity_files = glob.glob('data/players_with_gravity_*.csv')
         comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
         age_files = glob.glob('data/players_with_ages_*.csv')
         standard_files = glob.glob('data/players_*.csv')
 
-        # Priority order for comprehensive view
-        all_files = gravity_files + comprehensive_files + age_files + standard_files
+        # Priority order: authentic gravity > other gravity > comprehensive > age > standard
+        all_files = authentic_gravity_files + gravity_files + comprehensive_files + age_files + standard_files
 
         best_file = _find_largest_file_with_good_data(all_files)
 
