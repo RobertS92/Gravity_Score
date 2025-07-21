@@ -12,8 +12,8 @@ firecrawl-py<1.0.0,>=0.0.20
 psycopg2-binary>=2.9.10
 sqlalchemy>=2.0.41
 openai>=1.93.0
-firecrawl>=2.16.1
 numpy>=2.0.2
+firecrawl>=2.16.1
 
 [async]
 aiohttp>=3.8.0
@@ -39,7 +39,7 @@ mkdocs-material>=9.1.0
 mkdocstrings[python]>=0.22.0
 
 [llm]
-openai>=1.0.0
+openai>=1.93.0
 
 [storage]
 duckdb>=0.8.0

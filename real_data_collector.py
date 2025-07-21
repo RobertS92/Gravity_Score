@@ -16,7 +16,11 @@ from bs4 import BeautifulSoup
 import os
 from openai import OpenAI
 from enhanced_ai_extractor import EnhancedAIExtractor
-from vision_enhanced_scraper import VisionEnhancedScraper
+# Optional import - fallback if not available
+try:
+    from vision_enhanced_scraper import VisionEnhancedScraper
+except ImportError:
+    VisionEnhancedScraper = None
 from google_news_extractor import GoogleNewsExtractor
 
 logger = logging.getLogger(__name__)
@@ -33,7 +37,7 @@ class RealDataCollector:
         # Vision-enhanced capabilities
         self.openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY')) if os.environ.get('OPENAI_API_KEY') else None
         self.ai_extractor = EnhancedAIExtractor()
-        self.vision_scraper = VisionEnhancedScraper()
+        self.vision_scraper = VisionEnhancedScraper() if VisionEnhancedScraper else None
         self.news_extractor = GoogleNewsExtractor()
 
     def collect_real_data(self, player_name: str, team: str, position: str = None) -> Dict:
@@ -727,8 +731,7 @@ class RealDataCollector:
                                 break
 
                         # Extract draft information
-                        draft_match = re.search(r"Draft:\s*(\d{4}).*?Round\s*(\d+)", page_text```python
-, re.IGNORECASE)
+                        draft_match = re.search(r"Draft:\s*(\d{4}).*?Round\s*(\d+)", page_text, re.IGNORECASE)
                         if draft_match:
                             real_espn['draft_year'] = int(draft_match.group(1))
                             real_espn['draft_round'] = int(draft_match.group(2))
@@ -1490,8 +1493,7 @@ class RealDataCollector:
             if key not in metadata_fields:
                 total_fields += 1
                 if value is not None and str(value).strip() and str(value) != 'None':
-                    filled_fields += ```python
-1
+                    filled_fields += 1
 
         # Calculate quality score (0-5)
         if total_fields > 0:

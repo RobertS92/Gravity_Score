@@ -1745,7 +1745,7 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.4.0" },
     { name = "numpy", specifier = ">=2.0.2" },
     { name = "openai", specifier = ">=1.93.0" },
-    { name = "openai", marker = "extra == 'llm'", specifier = ">=1.0.0" },
+    { name = "openai", marker = "extra == 'llm'", specifier = ">=1.93.0" },
     { name = "pandas", specifier = ">=2.0.0" },
     { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.35.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.3.0" },
