@@ -48,7 +48,6 @@ dependencies = [
     "sqlalchemy>=2.0.41",
     "openai>=1.93.0",
     "numpy>=2.0.2",
-    "firecrawl>=2.16.1",
 ]
 
 [project.optional-dependencies]
@@ -100,8 +99,6 @@ nfl_sites = "nfl_gravity.extractors.nfl_sites:NFLSitesExtractor"
 
 [project.entry-points."nfl_gravity.llm_providers"]
 openai = "nfl_gravity.llm.adapter:OpenAIProvider"
-huggingface = "nfl_gravity.llm.adapter:HuggingFaceProvider"
-local = "nfl_gravity.llm.adapter:LocalLLMProvider"
 
 [tool.setuptools]
 packages = ["nfl_gravity"]
