@@ -276,9 +276,7 @@ def handle_validate(args, config: Config) -> int:
     print("\n🔧 Optional Dependencies:")
     
     optional_deps = [
-        ('openai', 'OpenAI LLM integration'),
-        ('transformers', 'HuggingFace models'),
-        ('torch', 'PyTorch for local models')
+        ('openai', 'OpenAI LLM integration')
     ]
     
     for package, description in optional_deps:
