@@ -48,6 +48,7 @@ dependencies = [
     "sqlalchemy>=2.0.41",
     "openai>=1.93.0",
     "numpy>=2.0.2",
+    "firecrawl>=2.16.1",
 ]
 
 [project.optional-dependencies]
