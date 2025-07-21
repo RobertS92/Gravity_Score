@@ -65,6 +65,15 @@ def gravity_scores():
 
 # ===== API ENDPOINTS =====
 
+@app.route('/api/status')
+def api_status():
+    """API status endpoint."""
+    return jsonify({
+        "status": "running",
+        "timestamp": datetime.now().isoformat(),
+        "mode": "full_production"
+    })
+
 @app.route('/api/players/all')
 def get_all_players():
     """Get all players with gravity scores calculated."""
@@ -220,8 +229,8 @@ def bulk_calculate_gravity():
         enhanced_df.to_csv(output_file, index=False)
         
         # Get top players
-        top_players_df = enhanced_df.head(10)[['name', 'position', 'current_team', 'total_gravity']]
-        top_players = top_players_df.to_dict('records')
+        top_players_subset = enhanced_df.head(10)[['name', 'position', 'current_team', 'total_gravity']]
+        top_players = top_players_subset.to_dict('records')
         
         return jsonify({
             "status": "success",
@@ -311,12 +320,8 @@ def scrape_comprehensive():
         logger.info(f"Starting comprehensive scraping with gravity scoring for teams: {teams}")
 
         # Use REAL DATA COLLECTOR - NO SIMULATED DATA
-        try:
-            from real_data_collector import RealDataCollector
-            collector = RealDataCollector()
-        except ImportError:
-            logger.error("RealDataCollector not available")
-            return jsonify({"error": "Comprehensive collector not available", "status": "error"}), 500
+        from real_data_collector import RealDataCollector
+        collector = RealDataCollector()
 
         all_players = []
         results = {}
@@ -325,7 +330,7 @@ def scrape_comprehensive():
             logger.info(f"Starting comprehensive data collection for {team}")
 
             # Collect comprehensive data for the entire team
-            enhanced_players = collector.collect_team_roster(team, limit_players=None)
+            enhanced_players = collector.collect_team_roster(team, limit_players=None)  # type: ignore
             all_players.extend(enhanced_players)
 
             # Calculate quality metrics

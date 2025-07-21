@@ -62,19 +62,39 @@ def api_status():
     })
 
 def _find_best_data_file():
-    """Find the best available data file."""
+    """Find the best available data file with the most data."""
     try:
-        # Look for comprehensive data files first
+        # Look for comprehensive data files first (they have the most data)
         comprehensive_files = glob.glob("data/comprehensive_players_*.csv")
-        if comprehensive_files:
-            return max(comprehensive_files, key=os.path.getmtime)
         
-        # Fall back to any player data files
-        player_files = glob.glob("data/players_*.csv")
-        if player_files:
-            return max(player_files, key=os.path.getmtime)
+        # Also check for other data files
+        other_files = glob.glob("data/players_*.csv")
         
-        return None
+        all_files = comprehensive_files + other_files
+        
+        if not all_files:
+            return None
+            
+        # Find file with most rows (best data)
+        best_file = None
+        max_rows = 0
+        
+        for file_path in all_files:
+            try:
+                # Count rows efficiently
+                with open(file_path, 'r') as f:
+                    row_count = sum(1 for line in f) - 1  # Subtract header
+                    if row_count > max_rows:
+                        max_rows = row_count
+                        best_file = file_path
+                        logger.info(f"Found file with {row_count} players: {file_path}")
+            except Exception as e:
+                logger.warning(f"Could not read {file_path}: {e}")
+                continue
+        
+        logger.info(f"Selected best file: {best_file} with {max_rows} players")
+        return best_file
+        
     except Exception as e:
         logger.error(f"Error finding data file: {e}")
         return None
@@ -97,6 +117,7 @@ def get_latest_data():
             "status": "success",
             "total_players": len(data),
             "data": data[:50],  # Limit to first 50 players for performance
+            "all_players_count": len(data),  # Add this for the dashboard
             "file_path": file_path,
             "columns": list(df.columns),
             "message": f"Loaded {len(data)} players from latest dataset"
@@ -141,6 +162,38 @@ def scrape_status():
         "modes": ["basic", "comprehensive", "firecrawl"],
         "message": "All scraping modes available"
     })
+
+@app.route('/api/players/all')
+def get_all_players():
+    """Get all players endpoint for players page."""
+    try:
+        file_path = _find_best_data_file()
+        if not file_path:
+            return jsonify({"error": "No data available", "status": "no_data"}), 404
+        
+        # Read the CSV file
+        df = pd.read_csv(file_path)
+        
+        # Convert to JSON records
+        data = df.to_dict('records')
+        
+        return jsonify({
+            "status": "success",
+            "total_players": len(data),
+            "players": data,
+            "file_path": file_path,
+            "columns": list(df.columns),
+            "message": f"Loaded all {len(data)} players from dataset"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error loading all players: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/data')
+def data_page():
+    """Data page redirect."""
+    return render_template('view_data.html')
 
 @app.route('/api/scrape/basic', methods=['POST'])
 def scrape_basic():
