@@ -125,7 +125,7 @@
                             <div class="col-md-3">
                                 <div class="border rounded p-2 text-center">
                                     <div class="fw-bold text-info" id="avgQuality">0.0</div>
-                                    <small class="text-muted">Avg Quality Score</small>
+                                    <small class="text-muted">Avg Gravity Score</small>
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -145,14 +145,14 @@
                                         <th>Team</th>
                                         <th>Position</th>
                                         <th>Age</th>
-                                        <th>Height</th>
-                                        <th>Weight</th>
+                                        <th>Total Gravity</th>
+                                        <th>Brand Power</th>
+                                        <th>Proof</th>
+                                        <th>Proximity</th>
+                                        <th>Velocity</th>
+                                        <th>Risk</th>
                                         <th>Experience</th>
                                         <th>College</th>
-                                        <th>Contract Value</th>
-                                        <th>Social Media</th>
-                                        <th>Quality</th>
-                                        <th>Sources</th>
                                     </tr>
                                 </thead>
                                 <tbody id="playersTableBody">
@@ -363,31 +363,41 @@
                 tbody.innerHTML = this.filteredPlayers.map(player => `
                     <tr>
                         <td><strong>${player.name || 'N/A'}</strong></td>
-                        <td><span class="badge bg-primary">${player.team || 'N/A'}</span></td>
+                        <td><span class="badge bg-primary">${player.current_team || player.team || 'N/A'}</span></td>
                         <td><span class="badge bg-secondary">${player.position || 'N/A'}</span></td>
                         <td>${player.age || 'N/A'}</td>
-                        <td>${player.height || 'N/A'}</td>
-                        <td>${player.weight ? player.weight + ' lbs' : 'N/A'}</td>
-                        <td>${player.experience || player.years_pro || 'N/A'}</td>
-                        <td>${player.college || 'N/A'}</td>
-                        <td>${player.contract_value || player.current_salary || 'N/A'}</td>
                         <td>
-                            <div class="d-flex gap-1">
-                                ${player.twitter_handle ? `<a href="https://twitter.com/${player.twitter_handle}" target="_blank" class="badge bg-info text-decoration-none">X</a>` : ''}
-                                ${player.instagram_handle ? `<a href="https://instagram.com/${player.instagram_handle}" target="_blank" class="badge bg-danger text-decoration-none">IG</a>` : ''}
-                                ${player.tiktok_handle ? `<a href="https://tiktok.com/@${player.tiktok_handle}" target="_blank" class="badge bg-dark text-decoration-none">TT</a>` : ''}
-                            </div>
-                        </td>
-                        <td>
-                            <span class="badge quality-badge ${this.getQualityBadgeClass(player.data_quality_score || 0)}">
-                                ${(player.data_quality_score || 0).toFixed(1)}
+                            <span class="badge ${this.getGravityBadgeClass(player.total_gravity)} fw-bold">
+                                ${(player.total_gravity || 0).toFixed(1)}
                             </span>
                         </td>
                         <td>
-                            <small class="data-sources">
-                                ${(player.data_sources || []).join(', ') || 'Standard'}
-                            </small>
+                            <span class="badge ${this.getGravityBadgeClass(player.brand_power)}">
+                                ${(player.brand_power || 0).toFixed(1)}
+                            </span>
                         </td>
+                        <td>
+                            <span class="badge ${this.getGravityBadgeClass(player.proof)}">
+                                ${(player.proof || 0).toFixed(1)}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge ${this.getGravityBadgeClass(player.proximity)}">
+                                ${(player.proximity || 0).toFixed(1)}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge ${this.getGravityBadgeClass(player.velocity)}">
+                                ${(player.velocity || 0).toFixed(1)}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge ${this.getGravityBadgeClass(player.risk)}">
+                                ${(player.risk || 0).toFixed(1)}
+                            </span>
+                        </td>
+                        <td>${player.experience || player.years_pro || 'N/A'}</td>
+                        <td>${player.college || 'N/A'}</td>
                     </tr>
                 `).join('');
             }
@@ -399,15 +409,23 @@
                 return 'bg-secondary';
             }
 
+            getGravityBadgeClass(score) {
+                const numScore = parseFloat(score) || 0;
+                if (numScore >= 75) return 'bg-success';
+                if (numScore >= 60) return 'bg-info';
+                if (numScore >= 40) return 'bg-warning';
+                return 'bg-secondary';
+            }
+
             updateStats() {
                 const totalPlayers = this.filteredPlayers.length;
-                const totalTeams = new Set(this.filteredPlayers.map(p => p.team)).size;
-                const avgQuality = totalPlayers > 0 ? 
-                    this.filteredPlayers.reduce((sum, p) => sum + (p.data_quality_score || 0), 0) / totalPlayers : 0;
+                const totalTeams = new Set(this.filteredPlayers.map(p => p.current_team || p.team)).size;
+                const avgGravity = totalPlayers > 0 ? 
+                    this.filteredPlayers.reduce((sum, p) => sum + (p.total_gravity || 0), 0) / totalPlayers : 0;
 
                 document.getElementById('totalPlayers').textContent = totalPlayers;
                 document.getElementById('totalTeams').textContent = totalTeams;
-                document.getElementById('avgQuality').textContent = avgQuality.toFixed(1);
+                document.getElementById('avgQuality').textContent = avgGravity.toFixed(1);
                 document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
             }
 
@@ -418,27 +436,25 @@
                 }
 
                 const headers = [
-                    'Name', 'Team', 'Position', 'Age', 'Height', 'Weight', 'Experience', 'College',
-                    'Contract Value', 'Twitter', 'Instagram', 'TikTok', 'Quality Score', 'Data Sources'
+                    'Name', 'Team', 'Position', 'Age', 'Total Gravity', 'Brand Power', 'Proof', 
+                    'Proximity', 'Velocity', 'Risk', 'Experience', 'College'
                 ];
 
                 const csvContent = [
                     headers.join(','),
                     ...this.filteredPlayers.map(player => [
                         player.name || '',
-                        player.team || '',
+                        player.current_team || player.team || '',
                         player.position || '',
                         player.age || '',
-                        player.height || '',
-                        player.weight || '',
+                        player.total_gravity || 0,
+                        player.brand_power || 0,
+                        player.proof || 0,
+                        player.proximity || 0,
+                        player.velocity || 0,
+                        player.risk || 0,
                         player.experience || player.years_pro || '',
-                        player.college || '',
-                        player.contract_value || player.current_salary || '',
-                        player.twitter_handle || '',
-                        player.instagram_handle || '',
-                        player.tiktok_handle || '',
-                        player.data_quality_score || 0,
-                        (player.data_sources || []).join('; ')
+                        player.college || ''
                     ].map(field => `"${field}"`).join(','))
                 ].join('\n');
 
