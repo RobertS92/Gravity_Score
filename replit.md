@@ -323,6 +323,15 @@ nfl_gravity/
   - **Test System Updated**: Removed "no simulated data" messaging and NFL references from test scraper interface
   - **Production Ready**: Complete gravity scoring system operational with realistic score distributions across 2,910+ players
 
+- July 21, 2025. **DEPLOYMENT FIXES - RESOLVED ALL DEPENDENCY CONFLICTS**: Applied comprehensive fixes for Replit deployment
+  - **Fixed firecrawl-py Version**: Added explicit version constraint >=0.0.16 to resolve missing version warning
+  - **Resolved transformers Conflict**: Updated transformers to >=4.21.0,<4.30.0 and torch to >=1.13.0,<2.0.0 for Linux compatibility
+  - **Removed pytorch-cpu Index**: Eliminated problematic pytorch-cpu index constraints causing transformers conflicts
+  - **Cleaned Development Dependencies**: Moved testing tools to dev optional-dependencies reducing main dependency footprint
+  - **Streamlined pyproject.toml**: Removed 1,100+ lines of pytorch-cpu source mappings causing deployment conflicts
+  - **Simplified Dependency Chain**: Core dependencies reduced to 11 essential packages for reliable deployment
+  - **Production Ready**: All dependency conflicts resolved, system ready for Replit deployment without version conflicts
+
 - July 20, 2025. **COMPLETE UI OVERHAUL - ENHANCED /VIEW-DATA PAGE**: Completely rebuilt data viewer interface with modern design
   - **Professional Navigation**: Enhanced navigation bar with gradient styling and status indicators
   - **Modern Header Section**: Displays player counts, last scrape date, and comprehensive field information
