@@ -46,15 +46,11 @@ dependencies = [
     "firecrawl-py>=0.0.20,<1.0.0",
     "psycopg2-binary>=2.9.10",
     "sqlalchemy>=2.0.41",
-    "openai>=1.93.0",
     "numpy>=2.0.2",
-    "firecrawl>=2.16.1",
+    "openai>=1.93.0",
 ]
 
 [project.optional-dependencies]
-llm = [
-    "openai>=1.93.0"
-]
 dev = [
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
@@ -97,9 +93,6 @@ nfl-gravity = "nfl_gravity.cli:main"
 wikipedia = "nfl_gravity.extractors.wikipedia:WikipediaExtractor"
 social_media = "nfl_gravity.extractors.social_media:SocialMediaExtractor"
 nfl_sites = "nfl_gravity.extractors.nfl_sites:NFLSitesExtractor"
-
-[project.entry-points."nfl_gravity.llm_providers"]
-openai = "nfl_gravity.llm.adapter:OpenAIProvider"
 
 [tool.setuptools]
 packages = ["nfl_gravity"]
