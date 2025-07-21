@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vision-Enhanced Test Scraper - Real Data Only</title>
+    <title>Gravity Score Test System</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .test-container {
@@ -201,18 +201,17 @@
 <body>
     <div class="test-container">
         <div class="test-header">
-            <h1>🔍 Vision-Enhanced Test Scraper</h1>
-            <p><strong>VISION-ENHANCED</strong> - OpenAI GPT-4o Semantic Analysis</p>
-            <p><strong>REAL DATA ONLY</strong> - Zero Simulated Information</p>
-            <p>Testing: Lamar Jackson, Josh Allen, Patrick Mahomes</p>
+            <h1>🔍 Gravity Score Test System</h1>
+            <p><strong>AI-ENHANCED</strong> - Advanced Data Analysis</p>
+            <p>Testing Professional Athletes Gravity Scoring</p>
         </div>
         
         <div class="warning-banner">
-            🔍 VISION-ENHANCED SCRAPER - PERFECT SOCIAL MEDIA EXTRACTION 🔍
+            🔍 GRAVITY SCORE SYSTEM - COMPREHENSIVE ATHLETE ANALYSIS 🔍
         </div>
         
         <div class="test-controls">
-            <button id="runTest" class="test-button">Run Vision-Enhanced Test</button>
+            <button id="runTest" class="test-button">Run Gravity Score Test</button>
             <button id="clearResults" class="test-button" style="background: #dc3545;">Clear Results</button>
         </div>
         
@@ -283,7 +282,7 @@
             
             // Reset progress
             document.getElementById('progressFill').style.width = '0%';
-            document.getElementById('progressText').textContent = 'Starting real data test...\n';
+            document.getElementById('progressText').textContent = 'Starting gravity score test...\n';
             
             // Run the test
             fetch('/api/test/players', {
@@ -312,7 +311,7 @@
             .finally(() => {
                 testInProgress = false;
                 document.getElementById('runTest').disabled = false;
-                document.getElementById('runTest').textContent = 'Run Real Data Test';
+                document.getElementById('runTest').textContent = 'Run Gravity Score Test';
             });
         });
         
