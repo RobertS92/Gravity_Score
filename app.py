@@ -240,7 +240,7 @@ def bulk_calculate_gravity():
         
         # Get top players
         top_players_subset = enhanced_df.head(10)[['name', 'position', 'current_team', 'total_gravity']]
-        top_players = top_players_subset.to_dict('records')
+        top_players = top_players_subset.to_dict(orient='records')
         
         return jsonify({
             "status": "success",
@@ -281,6 +281,10 @@ def scrape_standard():
 
         logger.info(f"Starting standard scraping for teams: {teams}")
 
+        # Initialize progress tracking
+        from progress_tracker import progress_tracker
+        progress_tracker.start_scraping(teams, "standard")
+
         # Import the enhanced scraper
         from enhanced_nfl_scraper import EnhancedNFLScraper
         scraper = EnhancedNFLScraper()
@@ -288,8 +292,9 @@ def scrape_standard():
         all_players = []
         results = {}
 
-        for team in teams:
+        for team_index, team in enumerate(teams):
             logger.info(f"Scraping {team}")
+            progress_tracker.update_team_progress(team, 0, 92)
 
             try:
                 players = scraper.extract_complete_team_roster(team)
@@ -300,15 +305,20 @@ def scrape_standard():
                     "status": "success"
                 }
 
+                progress_tracker.complete_team(team, len(players))
                 logger.info(f"✅ {team}: {len(players)} players")
 
             except Exception as e:
                 logger.error(f"Error scraping {team}: {e}")
+                progress_tracker.add_error(team, str(e))
                 results[team] = {
                     "players_count": 0,
                     "status": "error",
                     "error": str(e)
                 }
+
+        # Mark as completed
+        progress_tracker.finish_scraping(success=True)
 
         # Save to CSV file with gravity scores
         if all_players:
@@ -335,44 +345,31 @@ def scrape_standard():
 
     except Exception as e:
         logger.error(f"Error in standard scraping: {e}")
+        from progress_tracker import progress_tracker
+        progress_tracker.finish_scraping(success=False)
         return jsonify({"error": str(e), "status": "error"}), 500
 
 @app.route('/api/scrape/comprehensive', methods=['POST'])
 def scrape_comprehensive():
-    """Comprehensive scraping with gravity score calculation."""
+    """Comprehensive scraping with gravity score calculation and real-time progress tracking."""
     try:
         data = request.get_json()
         teams = data.get('teams', ['49ers'])
 
         logger.info(f"Starting comprehensive scraping with gravity scoring for teams: {teams}")
 
-        # Use REAL DATA COLLECTOR - NO SIMULATED DATA
-        from real_data_collector import RealDataCollector
-        collector = RealDataCollector()
+        # Initialize progress tracking
+        from progress_tracker import progress_tracker
+        progress_tracker.start_scraping(teams, "comprehensive")
 
-        all_players = []
-        results = {}
-
-        for team in teams:
-            logger.info(f"Starting comprehensive data collection for {team}")
-
-            # Collect comprehensive data for the entire team
-            enhanced_players = collector.collect_team_roster(team, limit_players=None)  # type: ignore
-            all_players.extend(enhanced_players)
-
-            # Calculate quality metrics
-            avg_quality = sum(p.get('data_quality_score', 0) for p in enhanced_players) / len(enhanced_players) if enhanced_players else 0
-            total_sources = sum(len(p.get('data_sources', [])) for p in enhanced_players)
-
-            results[team] = {
-                "players_found": len(enhanced_players),
-                "players_enhanced": len(enhanced_players),
-                "avg_quality_score": round(avg_quality, 1),
-                "total_sources_used": total_sources,
-                "status": "success" if enhanced_players else "no_data"
-            }
-
-            logger.info(f"Completed {team}: {len(enhanced_players)} players with comprehensive data (avg quality: {avg_quality:.1f})")
+        # Use enhanced scraping system for robust completion
+        from enhanced_scraping_system import enhanced_scraping_system
+        
+        # Run comprehensive scraping with progress tracking
+        scraping_results = enhanced_scraping_system.scrape_all_teams_comprehensive(teams)
+        
+        all_players = scraping_results["players_data"]
+        results = scraping_results["results"]
 
         # Save comprehensive data with gravity scores
         if all_players:
@@ -390,22 +387,21 @@ def scrape_comprehensive():
 
             logger.info(f"Saved comprehensive data with gravity scores to {csv_filename}")
 
-        # Calculate overall metrics
-        total_sources = sum(results[team].get("total_sources_used", 0) for team in results)
-        avg_quality = sum(results[team].get("avg_quality_score", 0) for team in results) / len(results) if results else 0
-
         return jsonify({
-            "status": "success",
-            "total_players": len(all_players),
-            "teams_processed": len(teams),
-            "results": results,
-            "avg_quality_score": round(avg_quality, 1),
-            "total_sources_used": total_sources,
-            "message": f"Comprehensive data with gravity scores collected for {len(all_players)} players from {len(teams)} teams"
+            "status": scraping_results["status"],
+            "total_players": scraping_results["total_players"],
+            "teams_processed": scraping_results["teams_processed"],
+            "teams_successful": scraping_results["teams_successful"],
+            "teams_failed": scraping_results["teams_failed"],
+            "results": scraping_results["results"],
+            "avg_quality_score": scraping_results["avg_quality_score"],
+            "message": scraping_results["message"]
         })
 
     except Exception as e:
         logger.error(f"Error in comprehensive data scraping: {e}")
+        from progress_tracker import progress_tracker
+        progress_tracker.finish_scraping(success=False)
         return jsonify({"error": str(e), "status": "error"}), 500
 
 @app.route('/api/scrape/firecrawl', methods=['POST'])
@@ -431,7 +427,7 @@ def scrape_firecrawl():
 
             for team in teams:
                 try:
-                    players = collector.collect_team_roster(team, limit_players=None)
+                    players = collector.collect_team_roster(team, limit_players=0)
                     all_players.extend(players)
                     results[team] = {"players_count": len(players), "status": "success"}
                 except Exception as e:
@@ -464,7 +460,7 @@ def scrape_firecrawl():
             logger.info(f"Firecrawl scraping {team}")
 
             try:
-                players = scraper.scrape_team_comprehensive(team, limit=None)
+                players = scraper.scrape_team_comprehensive(team)
                 all_players.extend(players)
 
                 results[team] = {
@@ -524,21 +520,8 @@ def get_teams():
 @app.route('/api/scrape/progress')
 def get_scrape_progress():
     """Get real-time scraping progress."""
-    return jsonify({
-        "status": "idle",
-        "overall_progress": 0,
-        "current_team": None,
-        "current_player": None,
-        "teams_completed": 0,
-        "total_teams": 0,
-        "players_processed": 0,
-        "current_team_progress": 0,
-        "current_team_total": 0,
-        "eta_seconds": 0,
-        "avg_quality": 0.0,
-        "scraping_mode": None,
-        "start_time": None
-    })
+    from progress_tracker import progress_tracker
+    return jsonify(progress_tracker.get_progress())
 
 @app.route('/api/players/search', methods=['GET'])
 def search_players():
@@ -557,7 +540,7 @@ def search_players():
             try:
                 df = pd.read_csv(file_path)
                 if 'name' in df.columns:
-                    players = df[['name', 'position', 'current_team']].fillna('').to_dict('records')
+                    players = df[['name', 'position', 'current_team']].fillna('').to_dict(orient='records')
                     all_players.extend(players)
             except:
                 continue
