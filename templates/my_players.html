@@ -144,8 +144,7 @@ function loadMyPlayers() {
             `;
         });
     
-    // Also load Ecos Players
-    loadEcosPlayers();
+
 }
 
 function displayMyPlayers(data) {
@@ -438,109 +437,7 @@ function clearAllPlayers() {
     });
 }
 
-function loadEcosPlayers() {
-    fetch('/api/ecos-players')
-        .then(response => response.json())
-        .then(data => {
-            updateEcosPlayersDisplay(data.players || []);
-        })
-        .catch(error => {
-            console.error('Error loading Ecos players:', error);
-            document.getElementById('ecosPlayersContainer').innerHTML = \`
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Failed to load Ecos Players
-                </div>
-            \`;
-        });
-}
 
-function updateEcosPlayersDisplay(ecosPlayers) {
-    const container = document.getElementById('ecosPlayersContainer');
-    
-    if (ecosPlayers.length === 0) {
-        container.innerHTML = \`
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle me-2"></i>
-                No Ecos Players found
-            </div>
-        \`;
-        return;
-    }
-    
-    let html = \`<div class="row">\`;
-    
-    ecosPlayers.forEach((player, index) => {
-        const gravityColor = player.total_gravity >= 70 ? 'success' : 
-                           player.total_gravity >= 60 ? 'warning' : 'info';
-        
-        html += \`
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 border-dark">
-                    <div class="card-header" style="background-color: black; color: white;">
-                        <h6 class="mb-0">
-                            <i class="fas fa-bolt me-2"></i>
-                            \${player.name || 'Unknown'}
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-6">
-                                <p class="mb-1"><small class="text-muted">Position:</small> <strong>\${player.position || 'N/A'}</strong></p>
-                                <p class="mb-1"><small class="text-muted">Team:</small> <strong>\${player.current_team || 'N/A'}</strong></p>
-                                <p class="mb-1"><small class="text-muted">Age:</small> \${player.age || 'N/A'}</p>
-                            </div>
-                            <div class="col-6 text-center">
-                                <h4 class="text-\${gravityColor}">\${player.total_gravity ? player.total_gravity.toFixed(1) : 'N/A'}</h4>
-                                <small class="text-muted">Gravity Score</small>
-                            </div>
-                        </div>
-                        <hr>
-                        <div class="row text-center small">
-                            <div class="col">
-                                <div><strong>\${player.brand_power ? player.brand_power.toFixed(0) : 'N/A'}</strong></div>
-                                <small class="text-muted">Brand</small>
-                            </div>
-                            <div class="col">
-                                <div><strong>\${player.proof ? player.proof.toFixed(0) : 'N/A'}</strong></div>
-                                <small class="text-muted">Proof</small>
-                            </div>
-                            <div class="col">
-                                <div><strong>\${player.proximity ? player.proximity.toFixed(0) : 'N/A'}</strong></div>
-                                <small class="text-muted">Proximity</small>
-                            </div>
-                            <div class="col">
-                                <div><strong>\${player.velocity ? player.velocity.toFixed(0) : 'N/A'}</strong></div>
-                                <small class="text-muted">Velocity</small>
-                            </div>
-                            <div class="col">
-                                <div><strong>\${player.risk ? player.risk.toFixed(0) : 'N/A'}</strong></div>
-                                <small class="text-muted">Risk</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-footer text-center" style="background-color: #f8f9fa;">
-                        <button class="btn btn-sm btn-outline-dark" onclick="showEcosPlayerDetails('\${player.name.replace(/'/g, "\\\\'")}')">
-                            <i class="fas fa-eye me-1"></i>
-                            View Details
-                        </button>
-                    </div>
-                </div>
-            </div>
-        \`;
-    });
-    
-    html += \`</div>\`;
-    container.innerHTML = html;
-    window.ecosPlayersData = ecosPlayers;
-}
-
-function showEcosPlayerDetails(playerName) {
-    const player = window.ecosPlayersData.find(p => p.name === playerName);
-    if (player) {
-        showPlayerDetails(0);
-    }
-}
 
 </script>
 {% endblock %}

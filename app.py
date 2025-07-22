@@ -73,6 +73,11 @@ def my_players():
     """My saved players page."""
     return render_template('my_players.html')
 
+@app.route('/ecos-players')
+def ecos_players():
+    """Ecos Players page."""
+    return render_template('ecos_players.html')
+
 @app.route('/favorites')  
 def favorites_page():
     """Favorite players page."""
