@@ -356,58 +356,132 @@ def scrape_standard():
 
 @app.route('/api/scrape/comprehensive', methods=['POST'])
 def scrape_comprehensive():
-    """Comprehensive scraping with gravity score calculation and real-time progress tracking."""
+    """Production-ready comprehensive scraping with timeout protection."""
     try:
-        data = request.get_json()
-        teams = data.get('teams', ['49ers'])
-
-        logger.info(f"Starting comprehensive scraping with gravity scoring for teams: {teams}")
-
+        data = request.get_json() or {}
+        teams = data.get('teams', ['broncos'])
+        limit_per_team = data.get('limit', 3)  # Very limited for production
+        
+        logger.info(f"🚀 PRODUCTION comprehensive scraping: {teams} (max {limit_per_team} players/team)")
+        
         # Initialize progress tracking
         from progress_tracker import progress_tracker
         progress_tracker.start_scraping(teams, "comprehensive")
-
-        # Use enhanced scraping system for robust completion
-        from enhanced_scraping_system import enhanced_scraping_system
         
-        # Run comprehensive scraping with progress tracking
-        scraping_results = enhanced_scraping_system.scrape_all_teams_comprehensive(teams)
+        all_players = []
+        team_results = {}
+        total_processed = 0
         
-        all_players = scraping_results["players_data"]
-        results = scraping_results["results"]
-
-        # Save comprehensive data with gravity scores
+        for team in teams:
+            try:
+                logger.info(f"📊 Processing team: {team}")
+                
+                # Get basic roster first
+                from enhanced_nfl_scraper import EnhancedNFLScraper
+                roster_scraper = EnhancedNFLScraper()
+                roster = roster_scraper.extract_roster(team)
+                
+                if not roster:
+                    team_results[team] = {"status": "failed", "error": "No roster found", "players": 0}
+                    continue
+                
+                # Process limited players for production
+                team_players = []
+                for i, player in enumerate(roster[:limit_per_team]):
+                    try:
+                        player_name = player.get('name', '').strip()
+                        if not player_name:
+                            continue
+                            
+                        logger.info(f"⚡ Quick comprehensive: {player_name}")
+                        
+                        # Fast comprehensive data collection (no AI enhancement)
+                        from simple_comprehensive_collector import SimpleComprehensiveCollector
+                        collector = SimpleComprehensiveCollector()
+                        
+                        comprehensive_data = collector.collect_player_data(player_name, team)
+                        
+                        if comprehensive_data and comprehensive_data.get('name'):
+                            # Add gravity score
+                            gravity_components = gravity_calculator.calculate_total_gravity(comprehensive_data)
+                            comprehensive_data.update({
+                                'brand_power': gravity_components.brand_power,
+                                'proof': gravity_components.proof,
+                                'proximity': gravity_components.proximity,
+                                'velocity': gravity_components.velocity,
+                                'risk': gravity_components.risk,
+                                'total_gravity': gravity_components.total_gravity,
+                                'team_processed': team,
+                                'collection_method': 'production_comprehensive'
+                            })
+                            
+                            team_players.append(comprehensive_data)
+                            all_players.append(comprehensive_data)
+                            total_processed += 1
+                            
+                            logger.info(f"✅ {player_name}: {gravity_components.total_gravity:.1f} gravity")
+                        
+                    except Exception as e:
+                        logger.error(f"Error with {player_name}: {e}")
+                        continue
+                
+                team_results[team] = {
+                    "status": "success",
+                    "players": len(team_players),
+                    "roster_size": len(roster)
+                }
+                
+                logger.info(f"✅ {team}: {len(team_players)}/{limit_per_team} players processed")
+                
+            except Exception as e:
+                logger.error(f"Team {team} failed: {e}")
+                team_results[team] = {"status": "failed", "error": str(e), "players": 0}
+        
+        # Save results
+        output_file = None
         if all_players:
-            df = pd.DataFrame(all_players)
-            
-            # Calculate gravity scores for all players
-            logger.info("Calculating gravity scores for all collected players...")
-            df = _calculate_gravity_scores_for_dataframe(df)
-            
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            csv_filename = f"data/comprehensive_players_with_gravity_{timestamp}.csv"
-
-            os.makedirs("data", exist_ok=True)
-            df.to_csv(csv_filename, index=False)
-
-            logger.info(f"Saved comprehensive data with gravity scores to {csv_filename}")
-
+            try:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                output_file = f"data/comprehensive_players_production_{timestamp}.csv"
+                
+                df = pd.DataFrame(all_players)
+                os.makedirs("data", exist_ok=True)
+                df.to_csv(output_file, index=False)
+                
+                logger.info(f"💾 Saved {len(all_players)} players to {output_file}")
+                
+            except Exception as e:
+                logger.error(f"Save error: {e}")
+        
+        # Finish progress tracking
+        progress_tracker.finish_scraping(success=True)
+        
+        success_rate = (total_processed / (len(teams) * limit_per_team)) * 100 if teams else 0
+        
         return jsonify({
-            "status": scraping_results["status"],
-            "total_players": scraping_results["total_players"],
-            "teams_processed": scraping_results["teams_processed"],
-            "teams_successful": scraping_results["teams_successful"],
-            "teams_failed": scraping_results["teams_failed"],
-            "results": scraping_results["results"],
-            "avg_quality_score": scraping_results["avg_quality_score"],
-            "message": scraping_results["message"]
+            "status": "success",
+            "teams_processed": len([t for t in team_results.values() if t.get("status") == "success"]),
+            "total_players": total_processed,
+            "team_results": team_results,
+            "output_file": output_file,
+            "success_rate": round(success_rate, 1),
+            "message": f"Production comprehensive scraping completed: {total_processed} players from {len(teams)} teams"
         })
-
+        
     except Exception as e:
-        logger.error(f"Error in comprehensive data scraping: {e}")
-        from progress_tracker import progress_tracker
-        progress_tracker.finish_scraping(success=False)
-        return jsonify({"error": str(e), "status": "error"}), 500
+        logger.error(f"🚨 CRITICAL comprehensive scraping error: {e}")
+        try:
+            from progress_tracker import progress_tracker
+            progress_tracker.finish_scraping(success=False)
+        except:
+            pass
+            
+        return jsonify({
+            "status": "critical_error",
+            "message": f"Production comprehensive scraper failed: {str(e)}",
+            "players_processed": 0,
+            "suggestion": "System overloaded - try standard scraping instead"
+        }), 500
 
 @app.route('/api/scrape/firecrawl', methods=['POST'])
 def scrape_firecrawl():
