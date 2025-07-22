@@ -189,6 +189,46 @@ def get_latest_data():
         logger.error(f"Error getting latest data: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
+@app.route('/api/ecos-players', methods=['GET'])
+def api_ecos_players():
+    """API endpoint for Ecos Players collection"""
+    try:
+        file_path = 'data/ecos_players.csv'
+        if os.path.exists(file_path):
+            df = pd.read_csv(file_path)
+            players = df.to_dict('records')
+            
+            # Clean up any NaN values
+            for player in players:
+                for key, value in player.items():
+                    if pd.isna(value):
+                        player[key] = None
+            
+            # Sort by gravity score descending
+            players.sort(key=lambda x: x.get('total_gravity', 0), reverse=True)
+            
+            return jsonify({
+                'status': 'success',
+                'players': players,
+                'total': len(players),
+                'message': f'Loaded {len(players)} Ecos Players'
+            })
+        else:
+            return jsonify({
+                'status': 'success',
+                'players': [],
+                'total': 0,
+                'message': 'No Ecos Players found'
+            })
+    except Exception as e:
+        logger.error(f"Error loading Ecos Players: {e}")
+        return jsonify({
+            'status': 'error',
+            'players': [],
+            'total': 0,
+            'message': f'Error loading Ecos Players: {str(e)}'
+        }), 500
+
 @app.route('/api/gravity/calculate', methods=['POST'])
 def calculate_gravity_for_player():
     """Calculate gravity score for a specific player."""
