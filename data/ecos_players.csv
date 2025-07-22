@@ -1,4 +1,24 @@
-name,position,team,current_team,age,height,weight,experience,jersey_number,games_played,games_started,pro_bowls,all_pros,championships,mvp_awards,super_bowl_mvp,awards,twitter_followers,instagram_followers,tiktok_followers,youtube_subscribers,contract_value,current_salary,guaranteed_money,qb_rating,touchdown_passes,passing_yards,passing_yards_2023,passing_tds_2023,interceptions_2023,brand_power,proof,proximity,velocity,risk,total_gravity,college,birth_place,birth_date,draft_year,draft_round,data_quality_score,target_achieved,saved_at,rushing_yards,rushing_tds,dpoy_awards,interceptions,passes_defended,tackles,passes_defended_2023,receiving_yards,touchdown_receptions,receptions,receiving_yards_2023,receiving_tds_2023,sacks,forced_fumbles,sacks_2023,tackles_2023,ecos_player,label_color,collection
-Patrick Surtain II,CB,Broncos,DEN,25,"6'2""",208,4,2,50,48,3,2,0,,,"DPOY (2022), 3x Pro Bowl, 2x All-Pro, Elite Shutdown Corner",150000,300000,75000,25000,68000000,17000000,40000000,,,,,,4.0,65.0,85.0,60.0,75.0,70.0,70.0,University,USA,1990-01-01,2017,1,4.5,True,2025-07-22T02:19:00,,,1.0,15.0,55.0,180.0,15.0,,,,,,,,,,True,black,Ecos Players
-Courtland Sutton,WR,Broncos,DEN,29,"6'4""",216,7,14,80,70,1,0,0,,,"Pro Bowl (2019), Reliable Red Zone Target, Team Leader",100000,220000,45000,15000,60500000,15000000,35000000,,,,,,,60.0,70.0,65.0,75.0,75.0,69.0,University,USA,1990-01-01,2017,1,4.5,True,2025-07-22T02:19:00,,,,,,,,6500.0,35.0,380.0,772.0,10.0,,,,,True,black,Ecos Players
-Nick Bonitto,LB,Broncos,DEN,25,"6'3""",248,3,7,40,35,0,0,0,,,"Rising Defensive Star, Double-Digit Sacks, Pass Rush Specialist",40000,95000,25000,8000,8000000,2500000,6000000,,,,,,,45.0,55.0,55.0,65.0,70.0,58.0,University,USA,1990-01-01,2017,1,4.5,True,2025-07-22T02:19:00,,,,,,120.0,,,,,,,15.0,4.0,8.0,45.0,True,black,Ecos Players
+name,position,current_team,brand_power,proof,proximity,velocity,risk,total_gravity
+Courtland Sutton,WR,Denver Broncos,70.0,65.0,75.0,75.0,69.0,69.0
+Patrick Surtain II,CB,Denver Broncos,65.0,85.0,60.0,75.0,70.0,70.0
+Nik Bonitto,LB,Denver Broncos,55.0,55.0,65.0,70.0,58.0,58.0
+Dee Winters,LB,San Francisco 49ers,45.0,50.0,55.0,60.0,45.0,48.0
+Jaylen Waddle,WR,Miami Dolphins,75.0,70.0,65.0,80.0,72.0,72.0
+LeSean McCoy,RB,Retired,85.0,80.0,70.0,40.0,30.0,65.0
+Baron Browning,LB,Arizona Cardinals,50.0,55.0,45.0,60.0,50.0,52.0
+Derius Davis,WR,LA Chargers,40.0,45.0,55.0,65.0,55.0,50.0
+Kareem Jackson,S,Buffalo Bills,60.0,70.0,65.0,45.0,40.0,58.0
+Shaquille Leonard,LB,Free Agent,65.0,75.0,50.0,35.0,25.0,55.0
+Patrick Peterson,CB,Free Agent,70.0,80.0,55.0,30.0,25.0,58.0
+Kam Curl,S,LA Rams,45.0,55.0,60.0,65.0,60.0,55.0
+James Proche,WR,Tennessee Titans,35.0,40.0,45.0,55.0,50.0,43.0
+Gabriel Murphy,LB,Minnesota Vikings,30.0,35.0,50.0,60.0,55.0,42.0
+Grayson Murphy,LB,Miami Dolphins,25.0,30.0,45.0,55.0,60.0,38.0
+Montario Brown,WR,Jacksonville Jaguars,30.0,35.0,40.0,50.0,55.0,38.0
+Jamari Thrash,WR,Cleveland Browns,35.0,40.0,45.0,60.0,55.0,44.0
+Mike Woods,WR,Cleveland Browns,30.0,35.0,45.0,55.0,55.0,40.0
+Rocket Sanders,RB,LA Chargers,25.0,30.0,50.0,65.0,60.0,42.0
+Nash Jones,LB,LA Chargers,20.0,25.0,50.0,55.0,65.0,38.0
+Isaiah Nwokobia,WR,SMU,15.0,20.0,25.0,70.0,75.0,32.0
+RJ Maryland,WR,SMU,15.0,20.0,25.0,65.0,75.0,30.0
+Bryce Thornton,CB,Florida,10.0,15.0,20.0,60.0,80.0,28.0
