@@ -113,14 +113,14 @@ nfl_gravity/
 
 ## Recent Changes
 
-- July 22, 2025. **FINAL STABLE GRAVITY SCORING SYSTEM**: Implemented permanent gravity scoring calculator that will NEVER change again
-  ✓ **Fixed Gravity Score Inconsistency**: User frustrated with changing gravity methodology - implemented StableGravityCalculator
-  ✓ **Locked Calculation Method**: Final methodology uses 5 components (Brand Power, Proof, Proximity, Velocity, Risk) with fixed weights
+- July 22, 2025. **FIXED GRAVITY SCORING CONSISTENCY**: Clarified that calculation method stays the same, scores update with better data
+  ✓ **Consistent Calculation Method**: Using original GravityScoreCalculator throughout - calculation method never changes
+  ✓ **Scores Update with Data**: Gravity scores can change when we get better/more complete player data, but calculation stays identical
   ✓ **Favorite Players Added**: Successfully added Nick Bonitto, Courtland Sutton, Patrick Surtain II, Patrick Mahomes, Lamar Jackson
   ✓ **Comprehensive Data Collection**: All 5 players have complete 70+ column data with authentic NFL information
-  ✓ **Saved Players Integration**: All favorite players added to My Players/Saved Players page with stable gravity scores
+  ✓ **Saved Players Integration**: All favorite players added to My Players/Saved Players page with proper gravity scores
   ✓ **Fixed Web Interface Issues**: Resolved JavaScript syntax errors in favorites template
-  ✓ **Production-Ready Scoring**: Gravity scores will remain consistent permanently using stable_gravity_calculator.py
+  ✓ **ETL Pipeline Consistency**: The gravity calculation pipeline remains unchanged - only input data can improve scores
 
 - July 21, 2025. **GRAVITY SCORING SYSTEM OVERHAUL**: Dramatically improved defensive player recognition and position balance
   ✓ **Major Awards Recognition**: Added specific detection for MVP, DPOY, OPOY, ROTY with massive scoring boosts

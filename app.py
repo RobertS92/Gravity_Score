@@ -13,7 +13,6 @@ from flask import Flask, render_template, request, jsonify, send_file
 
 # Import gravity score system  
 from gravity_score_system import GravityScoreCalculator, calculate_gravity_scores_for_dataset
-from stable_gravity_calculator import stable_calculator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
