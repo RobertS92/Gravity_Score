@@ -73,6 +73,11 @@ def my_players():
     """My saved players page."""
     return render_template('my_players.html')
 
+@app.route('/favorites')  
+def favorites_page():
+    """Favorite players page."""
+    return render_template('favorites.html')
+
 # ===== API ENDPOINTS =====
 
 @app.route('/api/status')
@@ -568,6 +573,39 @@ def search_players():
     
     except Exception as e:
         logger.error(f"Error searching players: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/favorites/add', methods=['POST'])
+def add_favorite_players():
+    """Add players to favorites with comprehensive data collection."""
+    try:
+        data = request.get_json()
+        player_names = data.get('players', [])
+        
+        if not player_names:
+            return jsonify({"error": "No players specified"}), 400
+        
+        logger.info(f"Adding favorite players: {player_names}")
+        
+        from favorite_players_manager import favorite_players_manager
+        result = favorite_players_manager.add_favorite_players(player_names)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error adding favorite players: {e}")
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+@app.route('/api/favorites/list', methods=['GET'])
+def get_favorite_players():
+    """Get list of favorite players with comprehensive data."""
+    try:
+        from favorite_players_manager import favorite_players_manager
+        result = favorite_players_manager.get_favorites_data()
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error getting favorite players: {e}")
         return jsonify({"error": str(e), "status": "error"}), 500
 
 @app.route('/api/players/process-selected', methods=['POST'])

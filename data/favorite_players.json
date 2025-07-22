@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Patrick Surtain II",
+    "position": null,
+    "team": "",
+    "gravity_score": 34.1,
+    "added_date": "2025-07-22T01:48:27.035571"
+  },
+  {
+    "name": "Nick Bonitto",
+    "position": null,
+    "team": "",
+    "gravity_score": 24.0,
+    "added_date": "2025-07-22T01:48:27.035668"
+  },
+  {
+    "name": "Patrick Mahomes",
+    "position": "QB",
+    "team": "",
+    "gravity_score": 13.1,
+    "added_date": "2025-07-22T01:48:27.035775"
+  },
+  {
+    "name": "Courtland Sutton",
+    "position": "WR",
+    "team": "",
+    "gravity_score": 11.2,
+    "added_date": "2025-07-22T01:48:27.035858"
+  },
+  {
+    "name": "Lamar Jackson",
+    "position": "CB",
+    "team": "",
+    "gravity_score": 10.5,
+    "added_date": "2025-07-22T01:48:27.035930"
+  }
+]
