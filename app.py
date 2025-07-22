@@ -900,34 +900,29 @@ def _calculate_gravity_scores_for_dataframe(df):
         
         try:
             components = calculator.calculate_total_gravity(player_data)
-            gravity_scores.append({
-                'brand_power': components.brand_power,
-                'proof': components.proof,
-                'proximity': components.proximity,
-                'velocity': components.velocity,
-                'risk': components.risk,
-                'total_gravity': components.total_gravity
-            })
+            
+            # Apply gravity scores directly to the dataframe row
+            df.at[index, 'brand_power'] = round(components.brand_power, 1)
+            df.at[index, 'proof'] = round(components.proof, 1)
+            df.at[index, 'proximity'] = round(components.proximity, 1)
+            df.at[index, 'velocity'] = round(components.velocity, 1)
+            df.at[index, 'risk'] = round(components.risk, 1)
+            df.at[index, 'total_gravity'] = round(components.total_gravity, 1)
+            
         except Exception as e:
             logger.error(f"Error calculating gravity for {player_data.get('name', 'Unknown')}: {e}")
             # Add zero scores for failed calculations
-            gravity_scores.append({
-                'brand_power': 0.0,
-                'proof': 0.0,
-                'proximity': 0.0,
-                'velocity': 0.0,
-                'risk': 0.0,
-                'total_gravity': 0.0
-            })
-    
-    # Add gravity scores to dataframe
-    gravity_df = pd.DataFrame(gravity_scores)
-    enhanced_df = pd.concat([df, gravity_df], axis=1)
+            df.at[index, 'brand_power'] = 0.0
+            df.at[index, 'proof'] = 0.0
+            df.at[index, 'proximity'] = 0.0
+            df.at[index, 'velocity'] = 0.0
+            df.at[index, 'risk'] = 0.0
+            df.at[index, 'total_gravity'] = 0.0
     
     # Sort by total gravity score (descending)
-    enhanced_df = enhanced_df.sort_values('total_gravity', ascending=False)
+    df = df.sort_values('total_gravity', ascending=False)
     
-    return enhanced_df
+    return df
 
 def _clean_players_data(df):
     """Clean and prepare players data for JSON response."""
