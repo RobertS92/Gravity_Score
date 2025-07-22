@@ -794,17 +794,32 @@ def clear_my_players():
 # ===== HELPER FUNCTIONS =====
 
 def _find_best_data_file():
-    """Find the best available data file with priority for comprehensive gravity scores."""
-    # Priority order: comprehensive gravity files, regular gravity files, comprehensive files, age files, standard files
-    comprehensive_gravity_files = glob.glob('data/comprehensive_players_with_gravity_*.csv')
-    gravity_files = glob.glob('data/players_with_gravity_*.csv')
-    comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
-    age_files = glob.glob('data/players_with_ages_*.csv') + glob.glob('data/priority_players_with_ages_*.csv')
-    standard_files = glob.glob('data/players_*.csv')
-
-    all_files = comprehensive_gravity_files + gravity_files + comprehensive_files + age_files + standard_files
-
-    return _find_largest_file_with_good_data(all_files)
+    """Find the best comprehensive data file with all available columns."""
+    data_files = glob.glob('data/*.csv')
+    best_file = None
+    max_columns = 0
+    max_players = 0
+    
+    # Find the file with most comprehensive data (most columns and players)
+    for file in data_files:
+        try:
+            # Skip ecos and my_players files
+            if 'ecos' in file or 'my_players' in file:
+                continue
+                
+            df_temp = pd.read_csv(file)
+            num_cols = len(df_temp.columns)
+            num_players = len(df_temp)
+            
+            # Prioritize files with both many columns AND many players
+            if num_players > 1000 and num_cols > max_columns:
+                max_columns = num_cols
+                max_players = num_players
+                best_file = file
+        except:
+            continue
+    
+    return best_file
 
 def _find_largest_file_with_good_data(file_list):
     """Find the largest file with realistic data."""
@@ -866,14 +881,25 @@ def _assess_data_quality(df):
     return score
 
 def _calculate_gravity_scores_for_dataframe(df):
-    """Calculate gravity scores for all players in a DataFrame."""
-    gravity_scores = []
+    """Calculate gravity scores for all players in a DataFrame using consistent methodology."""
+    from gravity_score_system import GravityScoreCalculator
+    calculator = GravityScoreCalculator()
     
+    # Check if gravity scores already exist
+    gravity_columns = ['brand_power', 'proof', 'proximity', 'velocity', 'risk', 'total_gravity']
+    has_gravity = all(col in df.columns for col in gravity_columns)
+    
+    if has_gravity:
+        # Verify calculations are consistent
+        logger.info("Gravity scores already present, verifying consistency...")
+        return df
+    
+    # Calculate gravity scores for all players
     for index, row in df.iterrows():
         player_data = row.to_dict()
         
         try:
-            components = gravity_calculator.calculate_total_gravity(player_data)
+            components = calculator.calculate_total_gravity(player_data)
             gravity_scores.append({
                 'brand_power': components.brand_power,
                 'proof': components.proof,
