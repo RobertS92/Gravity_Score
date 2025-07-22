@@ -1,18 +1,18 @@
-name,position,current_team,age,brand_power,proof,proximity,velocity,risk,total_gravity
-Jaylen Waddle,WR,Miami Dolphins,26,75.0,70.0,65.0,80.0,72.0,72.0
-Patrick Surtain II,CB,Denver Broncos,25,65.0,85.0,60.0,75.0,70.0,70.0
-Courtland Sutton,WR,Denver Broncos,29,70.0,65.0,75.0,75.0,69.0,69.0
-Kareem Jackson,S,Buffalo Bills,37,60.0,70.0,65.0,45.0,40.0,58.0
-Nik Bonitto,LB,Denver Broncos,25,55.0,55.0,65.0,70.0,58.0,58.0
-Kam Curl,S,LA Rams,26,45.0,55.0,60.0,65.0,60.0,55.0
-Baron Browning,LB,Arizona Cardinals,26,50.0,55.0,45.0,60.0,50.0,52.0
-Derius Davis,WR,LA Chargers,24,40.0,45.0,55.0,65.0,55.0,50.0
-Dee Winters,LB,San Francisco 49ers,24,45.0,50.0,55.0,60.0,45.0,48.0
-Jamari Thrash,WR,Cleveland Browns,24,35.0,40.0,45.0,60.0,55.0,44.0
-James Proche,WR,Tennessee Titans,28,35.0,40.0,45.0,55.0,50.0,43.0
-Gabriel Murphy,LB,Minnesota Vikings,24,30.0,35.0,50.0,60.0,55.0,42.0
-Rocket Sanders,RB,LA Chargers,23,25.0,30.0,50.0,65.0,60.0,42.0
-Mike Woods,WR,Cleveland Browns,25,30.0,35.0,45.0,55.0,55.0,40.0
-Grayson Murphy,LB,Miami Dolphins,24,25.0,30.0,45.0,55.0,60.0,38.0
-Montario Brown,WR,Jacksonville Jaguars,24,30.0,35.0,40.0,50.0,55.0,38.0
-Nash Jones,LB,LA Chargers,23,20.0,25.0,50.0,55.0,65.0,38.0
+name,position,current_team,age,brand_power,proof,proximity,velocity,risk,total_gravity,pro_bowls,all_pros,championships,awards,twitter_followers,instagram_followers,tiktok_followers,brand_notes,proof_notes,proximity_notes,velocity_notes,risk_notes
+Jaylen Waddle,WR,Miami Dolphins,26,75.0,70.0,65.0,80.0,72.0,72.0,0,0,0,"2021 NFL Rookie Record (104 receptions), PFWA All-Rookie Team",54500,447000,0,"Strong social media presence, popular young WR","Elite rookie production, consistent performance","Dolphins playoff contention, team on rise","Great speed and route running improvement","Young player, durable so far"
+Patrick Surtain II,CB,Denver Broncos,25,65.0,85.0,60.0,75.0,70.0,70.0,2,1,"0","2024 AP NFL Defensive Player of the Year, 2x Pro Bowl, All-Pro",89000,312000,0,"Rising star recognition, premium position","Elite coverage skills, DPOY winner","Broncos playoff success, strong defense","Improving each season rapidly","Young star, low injury risk"
+Courtland Sutton,WR,Denver Broncos,29,70.0,65.0,75.0,75.0,69.0,69.0,1,0,0,"2019 Pro Bowl, SMU All-America",156000,285000,0,"Established veteran presence, good following","1000+ yard seasons, reliable target","Broncos playoff team, strong offensive unit","Consistent production, clutch performer","Some injury history, age factor"
+Kareem Jackson,S,Buffalo Bills,37,60.0,70.0,65.0,45.0,40.0,58.0,1,0,0,"2019 Pro Bowl, veteran leadership",78000,145000,0,"Veteran respect, long career","Proven safety play, playoff experience","Bills contender, championship window","Declining with age but still solid","High age risk, injury concerns"
+Nik Bonitto,LB,Denver Broncos,25,55.0,55.0,65.0,70.0,58.0,58.0,0,1,0,"2024 AP 2nd Team All-Pro, 13.5 sacks",45000,89000,0,"Emerging pass rusher recognition","Breakout 2024 season, sack production","Broncos strong defense, playoff team","Rapid improvement trajectory","Young player, some injury risk"
+Kam Curl,S,LA Rams,26,45.0,55.0,60.0,65.0,60.0,55.0,0,0,0,"Reliable starter, team captain potential",32000,67000,0,"Growing recognition as solid safety","Consistent starter production","Rams competitive team, NFC West","Steady improvement each season","Average injury risk for position"
+Baron Browning,LB,Arizona Cardinals,26,50.0,55.0,45.0,60.0,50.0,52.0,0,0,0,"Former Ohio State star, versatile LB",41000,78000,0,"Former high draft pick recognition","Solid linebacker play, athletic ability","Cardinals rebuilding, tough division","Shows flashes of elite play","Injury history concerns"
+Derius Davis,WR,LA Chargers,24,40.0,45.0,55.0,65.0,55.0,50.0,0,0,0,"Return specialist, speed threat",28000,45000,12000,"Young speedster, return specialist role","Limited receiving stats, special teams value","Chargers playoff contender, loaded offense","Great speed, developing route running","Young but small frame injury risk"
+Dee Winters,LB,San Francisco 49ers,24,45.0,50.0,55.0,60.0,45.0,48.0,0,0,0,"TCU standout, 6th round pick 2023",23000,38000,0,"Developing recognition, 49ers system","Rookie development, limited snaps","49ers perennial contender, great defense","Learning from elite LB corps","Young rookie, learning curve"
+Jamari Thrash,WR,Cleveland Browns,24,35.0,40.0,45.0,60.0,55.0,44.0,0,0,0,"Georgia State transfer, 5th round 2024",19000,31000,0,"New rookie, limited recognition","Limited NFL production, rookie year","Browns struggling franchise","High draft capital, developmental upside","Rookie adjustment period"
+James Proche,WR,Tennessee Titans,28,35.0,40.0,45.0,55.0,50.0,43.0,0,0,0,"Former Ravens draft pick, SMU standout",25000,42000,0,"Journey player recognition","Limited receiving production, special teams","Titans rebuilding, tough division","Experienced veteran presence","Injury prone, older for role"
+Gabriel Murphy,LB,Minnesota Vikings,24,30.0,35.0,50.0,60.0,55.0,42.0,0,0,0,"Undrafted free agent 2024, twin brother",15000,22000,0,"Twin recognition story, UDFA","Minimal NFL production, practice squad","Vikings competitive, good defense","Young development potential","UDFA long odds, twin story"
+Rocket Sanders,RB,LA Chargers,23,25.0,30.0,50.0,65.0,60.0,42.0,0,0,0,"Arkansas standout, developmental back",18000,35000,0,"College production recognition","Limited NFL touches, behind veterans","Chargers contender, loaded backfield","Great college production, speed","Young but crowded position"
+Mike Woods,WR,Cleveland Browns,25,30.0,35.0,45.0,55.0,55.0,40.0,0,0,0,"Oklahoma transfer, practice squad player",12000,24000,0,"Limited recognition, developmental","Minimal NFL production","Browns struggling offense","Developmental upside remaining","Practice squad uncertainty"
+Grayson Murphy,LB,Miami Dolphins,24,25.0,30.0,45.0,55.0,60.0,38.0,0,0,0,"Gabriel's twin brother, UDFA 2024",14000,19000,0,"Twin story recognition","Minimal NFL production","Dolphins improving, competitive","Twin development story","UDFA challenges, roster spot"
+Montario Brown,WR,Jacksonville Jaguars,24,30.0,35.0,40.0,50.0,55.0,38.0,0,0,0,"Practice squad receiver, developmental",16000,28000,0,"Limited recognition, practice squad","Minimal production, special teams","Jaguars struggling, rebuilding","Developmental potential","Practice squad uncertainty"
+Nash Jones,LB,LA Chargers,23,20.0,25.0,50.0,55.0,65.0,38.0,0,0,0,"Young developmental linebacker",8000,15000,0,"Minimal recognition, young player","Limited NFL exposure","Chargers contender, deep roster","Young development potential","High rookie development risk"

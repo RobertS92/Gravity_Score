@@ -258,6 +258,56 @@ function showEcosPlayerDetails(index) {
                         
                         <hr>
                         
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <h6 style="color: black;">Gravity Score Analysis</h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <div class="card border-primary">
+                                            <div class="card-body py-2">
+                                                <h6 class="text-primary">Brand Power (${player.brand_power ? player.brand_power.toFixed(0) : 'N/A'})</h6>
+                                                <small class="text-muted">${player.brand_notes || 'Social media presence and marketability'}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="card border-success">
+                                            <div class="card-body py-2">
+                                                <h6 class="text-success">Proof (${player.proof ? player.proof.toFixed(0) : 'N/A'})</h6>
+                                                <small class="text-muted">${player.proof_notes || 'Performance statistics and achievements'}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="card border-warning">
+                                            <div class="card-body py-2">
+                                                <h6 class="text-warning">Proximity (${player.proximity ? player.proximity.toFixed(0) : 'N/A'})</h6>
+                                                <small class="text-muted">${player.proximity_notes || 'Team success and championship proximity'}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="card border-info">
+                                            <div class="card-body py-2">
+                                                <h6 class="text-info">Velocity (${player.velocity ? player.velocity.toFixed(0) : 'N/A'})</h6>
+                                                <small class="text-muted">${player.velocity_notes || 'Recent performance trends and momentum'}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12 mb-2">
+                                        <div class="card border-danger">
+                                            <div class="card-body py-2">
+                                                <h6 class="text-danger">Risk (${player.risk ? player.risk.toFixed(0) : 'N/A'})</h6>
+                                                <small class="text-muted">${player.risk_notes || 'Injury history, age factors, and stability concerns'}</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
                         <div class="row">
                             <div class="col-md-6">
                                 <h6 style="color: black;">Achievements</h6>
