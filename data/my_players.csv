@@ -1,0 +1,6 @@
+name,team,position,jersey_number,height,weight,age,birth_date,college,draft_year,draft_round,draft_pick,years_pro,games_played,games_started,twitter_handle,instagram_handle,twitter_followers,instagram_followers,wikipedia_url,career_highlights,awards,data_source,scraped_at,brand_power,proof,proximity,velocity,risk,total_gravity,saved_at,experience,last_updated
+Courtland Sutton,broncos,WR,14.0,"7'6""",216,,,SMU,,,,,,,,,,,,,,nfl.com,2025-07-18 16:57:04.408633,7.2,0.0,10.5,0.0,73.2,11.2,2025-07-22T02:00:00,,
+Patrick Mahomes,chiefs,QB,15.0,"6'3""",225,29.0,,Texas Tech,,,,,,,,,,,,,,nfl.com_updated,2025-07-18 16:57:58.862791,7.8,20.0,11.6,26.2,91.8,23.4,2025-07-22T02:00:00,8.0,2025-07-20T02:59:01.382927
+Lamar Jackson,falcons,CB,38.0,"6'2""",208,,,Nebraska,,,,,,,,,,,,,,nfl.com,2025-07-20 21:05:16.253338,6.6,0.0,10.5,0.0,67.2,10.5,2025-07-22T02:00:00,,
+Nik Bonitto,broncos,LB,15.0,"7'5""",240,,,Oklahoma,,,,,,,,,,,,,,nfl.com,2025-07-18 16:57:04.375103,6.6,0.0,11.6,0.0,77.2,11.7,2025-07-22T02:01:00,,
+Luther Burden III,bears,WR,87.0,72,206,,,Missouri,,,,,,,,,,,,,,social_media_extraction,2025-07-17 16:03:01.269853,7.2,0.0,10.5,0.0,67.0,10.6,2025-07-22T02:01:00,,
