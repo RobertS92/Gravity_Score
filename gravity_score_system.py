@@ -334,14 +334,14 @@ class GravityScoreCalculator:
             risk * self.weights['risk']
         )
         
-        # Scale to 0-100 for easier interpretation
+        # Scale to 0-100 for easier interpretation and cap at 100 maximum
         components = GravityComponents(
-            brand_power=round(brand_power * 100, 1),
-            proof=round(proof * 100, 1),
-            proximity=round(proximity * 100, 1),
-            velocity=round(velocity * 100, 1),
-            risk=round(risk * 100, 1),
-            total_gravity=round(total_gravity * 100, 1)
+            brand_power=min(round(brand_power * 100, 1), 100.0),
+            proof=min(round(proof * 100, 1), 100.0),
+            proximity=min(round(proximity * 100, 1), 100.0),
+            velocity=min(round(velocity * 100, 1), 100.0),
+            risk=min(round(risk * 100, 1), 100.0),
+            total_gravity=min(round(total_gravity * 100, 1), 100.0)
         )
         
         logger.info(f"Calculated gravity scores for {player_data.get('name', 'Unknown')}: Total={components.total_gravity}")
