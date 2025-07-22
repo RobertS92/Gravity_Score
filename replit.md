@@ -121,6 +121,8 @@ nfl_gravity/
   ✓ **Saved Players Integration**: All favorite players added to My Players/Saved Players page with proper gravity scores
   ✓ **Fixed Web Interface Issues**: Resolved JavaScript syntax errors in favorites template
   ✓ **ETL Pipeline Consistency**: The gravity calculation pipeline remains unchanged - only input data can improve scores
+  ✓ **Comprehensive Scraper Protection**: Added timeout protection for heavy AI comprehensive scraper (keeps AI enhancement)
+  ✓ **My Players Components**: Added full gravity score breakdown (Brand, Proof, Proximity, Velocity, Risk) to My Players page
 
 - July 21, 2025. **GRAVITY SCORING SYSTEM OVERHAUL**: Dramatically improved defensive player recognition and position balance
   ✓ **Major Awards Recognition**: Added specific detection for MVP, DPOY, OPOY, ROTY with massive scoring boosts
