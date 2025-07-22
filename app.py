@@ -794,14 +794,15 @@ def clear_my_players():
 # ===== HELPER FUNCTIONS =====
 
 def _find_best_data_file():
-    """Find the best available data file."""
-    # Priority order: gravity files, comprehensive files, age files, standard files
+    """Find the best available data file with priority for comprehensive gravity scores."""
+    # Priority order: comprehensive gravity files, regular gravity files, comprehensive files, age files, standard files
+    comprehensive_gravity_files = glob.glob('data/comprehensive_players_with_gravity_*.csv')
     gravity_files = glob.glob('data/players_with_gravity_*.csv')
     comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
     age_files = glob.glob('data/players_with_ages_*.csv') + glob.glob('data/priority_players_with_ages_*.csv')
     standard_files = glob.glob('data/players_*.csv')
 
-    all_files = gravity_files + comprehensive_files + age_files + standard_files
+    all_files = comprehensive_gravity_files + gravity_files + comprehensive_files + age_files + standard_files
 
     return _find_largest_file_with_good_data(all_files)
 
