@@ -301,7 +301,7 @@ class DataProcessor:
         data_points = len([col for col in df.columns if df[col].notna().sum() > 0])
         
         return {
-            "teams_tracked": teams_tracked,
+            "teams_tracked": int(teams_tracked),  # Ensure it's native Python int
             "data_points": f"{data_points}+",
             "update_freq": "Real-time"
         }
@@ -1462,123 +1462,7 @@ def api_market_top_performers():
             "error": str(e)
         })
 
-@app.route('/api/market/activity')
-def api_market_activity():
-    """Get market activity feed for market intelligence."""
-    try:
-        mode = request.args.get('mode', 'ecos')
-        
-        # Generate recent activity based on ecos players
-        ecos_file = 'data/ecos_players.csv'
-        activities = []
-        
-        if os.path.exists(ecos_file):
-            df = pd.read_csv(ecos_file)
-            
-            # Generate activities based on player data
-            recent_players = df.head(10)  # Use first 10 for activity simulation
-            
-            activity_templates = [
-                {
-                    "type": "contract", 
-                    "title": "{name} - {contract}",
-                    "description": "{details}",
-                    "time": "09:42"
-                },
-                {
-                    "type": "endorsement",
-                    "title": "{name} partnership - {brand}",
-                    "description": "{details}",
-                    "time": "09:38"
-                },
-                {
-                    "type": "trade",
-                    "title": "{name} to {team} - Brand value impact analysis",
-                    "description": "{details}",
-                    "time": "09:31"
-                },
-                {
-                    "type": "performance",
-                    "title": "{name} - MVP odds shift ({odds})",
-                    "description": "{details}",
-                    "time": "09:25"
-                },
-                {
-                    "type": "social",
-                    "title": "{name} - TikTok engagement surge ({engagement})",
-                    "description": "{details}",
-                    "time": "09:18"
-                }
-            ]
-            
-            # Create activities for top players
-            for i, (_, player) in enumerate(recent_players.iterrows()):
-                if i >= len(activity_templates):
-                    break
-                    
-                template = activity_templates[i]
-                name = player.get('name', 'Unknown')
-                
-                activity = {}  # Initialize activity variable
-                
-                if template['type'] == 'contract':
-                    awards = str(player.get('awards', ''))
-                    if '$' in awards:
-                        contract_info = awards.split(',')[0] if ',' in awards else awards
-                        activity = {
-                            "type": "contract",
-                            "title": f"{name} - {contract_info}",
-                            "description": f"{name} signed a major extension, boosting market value significantly",
-                            "time": template['time']
-                        }
-                    else:
-                        continue
-                elif template['type'] == 'endorsement':
-                    brands = ["Nike", "Adidas", "Gatorade", "Beats", "Pizza Hut"]
-                    brand = brands[i % len(brands)]
-                    activity = {
-                        "type": "endorsement",
-                        "title": f"{brand} partnership - {name}",
-                        "description": f"Multi-year endorsement deal estimated at ${10 + i*5}M/yr",
-                        "time": template['time']
-                    }
-                elif template['type'] == 'trade':
-                    activity = {
-                        "type": "trade",
-                        "title": f"{name} trade analysis - Brand impact assessment",
-                        "description": f"Market value shift analysis following recent team changes",
-                        "time": template['time']
-                    }
-                elif template['type'] == 'performance':
-                    odds = ["+250", "+180", "+320", "+150", "+280"][i % 5]
-                    activity = {
-                        "type": "performance",
-                        "title": f"{name} - MVP odds shift ({odds})",
-                        "description": f"Performance metrics drive betting odds movement",
-                        "time": template['time']
-                    }
-                elif template['type'] == 'social':
-                    engagement = ["+340%", "+220%", "+180%", "+290%", "+150%"][i % 5]
-                    activity = {
-                        "type": "social",
-                        "title": f"{name} - Social engagement surge ({engagement})",
-                        "description": f"Viral content drives significant follower growth",
-                        "time": template['time']
-                    }
-                
-                activities.append(activity)
-        
-        return jsonify({
-            "success": True,
-            "activities": activities
-        })
-        
-    except Exception as e:
-        logger.error(f"Error getting market activity: {e}")
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        })
+# This old endpoint is replaced by the new one below
 
 # Enhanced ECOS↔NFL Toggle API Endpoints
 @app.route('/api/enhanced/financial-overview')
