@@ -32,3 +32,6 @@ externalPort = 80
 [deployment]
 deploymentTarget = "cloudrun"
 run = ["sh", "-c", "python app.py"]
+
+[agent]
+expertMode = true

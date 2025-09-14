@@ -1,0 +1,427 @@
+{% extends "base.html" %}
+
+{% block title %}Market Dashboard - Gravity Score by Ecos{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .market-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-radius: 10px;
+        }
+        
+        .metric-card {
+            background: linear-gradient(145deg, #1a1a1a, #2d2d2d);
+            border: none;
+            border-radius: 15px;
+            color: white;
+            transition: transform 0.3s ease;
+            height: 140px;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .metric-value {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .metric-change {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .metric-change.positive {
+            color: #4ade80;
+        }
+        
+        .metric-change.negative {
+            color: #f87171;
+        }
+        
+        .metric-subtitle {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+        
+        .intelligence-card {
+            background: linear-gradient(145deg, #1f2937, #374151);
+            border: none;
+            border-radius: 15px;
+            color: white;
+            height: 450px;
+        }
+        
+        .performer-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .performer-rank {
+            background: #3b82f6;
+            color: white;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+        
+        .activity-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 3px solid;
+        }
+        
+        .activity-contract { border-left-color: #10b981; }
+        .activity-endorsement { border-left-color: #f59e0b; }
+        .activity-trade { border-left-color: #ef4444; }
+        .activity-performance { border-left-color: #8b5cf6; }
+        .activity-social { border-left-color: #06b6d4; }
+        
+        .activity-badge {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        .badge-contract { background: #10b981; color: white; }
+        .badge-endorsement { background: #f59e0b; color: white; }
+        .badge-trade { background: #ef4444; color: white; }
+        .badge-performance { background: #8b5cf6; color: white; }
+        .badge-social { background: #06b6d4; color: white; }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #3b82f6;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .section-header {
+            background: linear-gradient(90deg, #1f2937, #374151);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px 10px 0 0;
+            margin-bottom: 0;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Market Dashboard Header -->
+    <div class="market-header text-center">
+        <h1 class="mb-2">
+            <i class="fas fa-chart-line me-3"></i>
+            Market Dashboard
+        </h1>
+        <p class="mb-0">Professional athlete brand performance and financial evaluation</p>
+    </div>
+
+    <!-- Financial Overview -->
+    <div class="mb-5">
+        <h3 class="mb-4">
+            <i class="fas fa-dollar-sign me-2"></i>
+            Financial Overview
+        </h3>
+        
+        <div class="row g-4">
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <i class="fas fa-coins me-2" style="font-size: 1.5rem; color: #fbbf24;"></i>
+                            <span style="font-size: 0.9rem; opacity: 0.8;">Total Market Value</span>
+                        </div>
+                        <div class="metric-value" id="totalMarketValue">$2.14B</div>
+                        <div class="metric-change positive" id="marketValueChange">↗ +12.3%</div>
+                        <div class="metric-subtitle" id="marketValueSubtitle">Across 2,910 athletes</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <i class="fas fa-file-contract me-2" style="font-size: 1.5rem; color: #34d399;"></i>
+                            <span style="font-size: 0.9rem; opacity: 0.8;">Active Contracts</span>
+                        </div>
+                        <div class="metric-value" id="activeContracts">847</div>
+                        <div class="metric-change positive" id="contractsChange">↗ +5.7%</div>
+                        <div class="metric-subtitle" id="contractsSubtitle">Worth $1.8B combined</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <i class="fas fa-chart-bar me-2" style="font-size: 1.5rem; color: #a78bfa;"></i>
+                            <span style="font-size: 0.9rem; opacity: 0.8;">Avg. Brand Value</span>
+                        </div>
+                        <div class="metric-value" id="avgBrandValue">$736K</div>
+                        <div class="metric-change negative" id="brandValueChange">↘ -2.1%</div>
+                        <div class="metric-subtitle" id="brandValueSubtitle">Per athlete this quarter</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <i class="fas fa-activity me-2" style="font-size: 1.5rem; color: #f472b6;"></i>
+                            <span style="font-size: 0.9rem; opacity: 0.8;">Market Activity</span>
+                        </div>
+                        <div class="metric-value" id="marketActivity">94.2%</div>
+                        <div class="metric-change positive" id="activityChange">↗ +8.4%</div>
+                        <div class="metric-subtitle">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <span class="me-2">Trading confidence index</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="nflToggle">
+                                    <span class="slider"></span>
+                                </label>
+                                <small class="ms-2 text-muted" id="toggleLabel">Ecos</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Market Intelligence -->
+    <div class="mb-5">
+        <h3 class="mb-4">
+            <i class="fas fa-brain me-2"></i>
+            Market Intelligence
+        </h3>
+        
+        <div class="row g-4">
+            <!-- Top Brand Performers -->
+            <div class="col-lg-6">
+                <div class="card intelligence-card">
+                    <div class="section-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-trophy me-2"></i>
+                            Top Brand Performers
+                        </h5>
+                        <small class="text-muted">Last 24 hours</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="topPerformers">
+                            <!-- Dynamic content will be loaded here -->
+                            <div class="text-center py-4">
+                                <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                                <p class="mt-2 text-muted">Loading top performers...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Market Activity -->
+            <div class="col-lg-6">
+                <div class="card intelligence-card">
+                    <div class="section-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-pulse me-2"></i>
+                            Market Activity
+                        </h5>
+                        <small class="text-muted">Real-time updates</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="marketActivityFeed">
+                            <!-- Dynamic content will be loaded here -->
+                            <div class="text-center py-4">
+                                <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                                <p class="mt-2 text-muted">Loading market activity...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadMarketData();
+    loadTopPerformers();
+    loadMarketActivity();
+    
+    // Refresh data every 30 seconds
+    setInterval(() => {
+        loadMarketData();
+        loadTopPerformers();
+        loadMarketActivity();
+    }, 30000);
+    
+    // Handle NFL toggle
+    document.getElementById('nflToggle').addEventListener('change', function() {
+        const label = document.getElementById('toggleLabel');
+        label.textContent = this.checked ? 'NFL' : 'Ecos';
+        loadMarketData();
+        loadMarketActivity();
+    });
+});
+
+async function loadMarketData() {
+    try {
+        const isNFLMode = document.getElementById('nflToggle').checked;
+        const response = await fetch(`/api/market/financial-overview?mode=${isNFLMode ? 'nfl' : 'ecos'}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update metrics with real data
+            document.getElementById('totalMarketValue').textContent = data.totalMarketValue;
+            document.getElementById('marketValueChange').textContent = data.marketValueChange;
+            document.getElementById('marketValueSubtitle').textContent = data.marketValueSubtitle;
+            
+            document.getElementById('activeContracts').textContent = data.activeContracts;
+            document.getElementById('contractsChange').textContent = data.contractsChange;
+            document.getElementById('contractsSubtitle').textContent = data.contractsSubtitle;
+            
+            document.getElementById('avgBrandValue').textContent = data.avgBrandValue;
+            document.getElementById('brandValueChange').textContent = data.brandValueChange;
+            document.getElementById('brandValueSubtitle').textContent = data.brandValueSubtitle;
+            
+            document.getElementById('marketActivity').textContent = data.marketActivity;
+            document.getElementById('activityChange').textContent = data.activityChange;
+        }
+    } catch (error) {
+        console.error('Error loading market data:', error);
+    }
+}
+
+async function loadTopPerformers() {
+    try {
+        const response = await fetch('/api/market/top-performers');
+        const data = await response.json();
+        
+        if (data.success && data.performers) {
+            const container = document.getElementById('topPerformers');
+            container.innerHTML = '';
+            
+            data.performers.forEach((performer, index) => {
+                const item = document.createElement('div');
+                item.className = 'performer-item';
+                item.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <div class="performer-rank me-3">${index + 1}</div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">${performer.name}</h6>
+                                    <small class="text-muted">${performer.position} • ${performer.team}</small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="metric-value" style="font-size: 1.2rem;">${performer.value}</div>
+                                    <small class="metric-change ${performer.change.includes('+') ? 'positive' : 'negative'}">${performer.change}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading top performers:', error);
+        document.getElementById('topPerformers').innerHTML = '<p class="text-muted text-center py-4">Unable to load top performers</p>';
+    }
+}
+
+async function loadMarketActivity() {
+    try {
+        const isNFLMode = document.getElementById('nflToggle').checked;
+        const response = await fetch(`/api/market/activity?mode=${isNFLMode ? 'nfl' : 'ecos'}`);
+        const data = await response.json();
+        
+        if (data.success && data.activities) {
+            const container = document.getElementById('marketActivityFeed');
+            container.innerHTML = '';
+            
+            data.activities.forEach(activity => {
+                const item = document.createElement('div');
+                item.className = `activity-item activity-${activity.type}`;
+                item.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="activity-badge badge-${activity.type}">${activity.type}</span>
+                        <small class="text-muted">${activity.time}</small>
+                    </div>
+                    <h6 class="mb-1">${activity.title}</h6>
+                    <p class="mb-0 small text-muted">${activity.description}</p>
+                `;
+                container.appendChild(item);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading market activity:', error);
+        document.getElementById('marketActivityFeed').innerHTML = '<p class="text-muted text-center py-4">Unable to load market activity</p>';
+    }
+}
+</script>
+{% endblock %}
