@@ -1,5 +1,5 @@
 import React from 'react'
-import { DollarSign, FileContract, TrendingUp, Activity } from 'lucide-react'
+import { DollarSign, FileText, TrendingUp, Activity } from 'lucide-react'
 import { useFinancialOverview } from '../hooks/useMarketData'
 import { DataMode } from '../types'
 
@@ -33,7 +33,7 @@ export const FinancialOverview: React.FC<FinancialOverviewProps> = ({ dataMode }
       testId: 'metric-total-market-value'
     },
     {
-      icon: FileContract,
+      icon: FileText,
       label: 'Active Contracts',
       value: data ? data.active_contracts.toString() : '0',
       change: '+5.7%',

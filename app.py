@@ -25,6 +25,13 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# Enable CORS for React frontend
+try:
+    from flask_cors import CORS
+    CORS(app)
+except ImportError:
+    logger.warning("flask-cors not available. CORS will not be enabled.")
+
 # Initialize gravity calculator
 gravity_calculator = GravityScoreCalculator()
 
@@ -83,27 +90,27 @@ class DataProcessor:
         
         # Total market value (sum of brand values in millions)
         if brand_col in df.columns:
-            total_market_value = df[brand_col].fillna(0).sum() * 1_000_000  # Convert to dollars
+            total_market_value = float(df[brand_col].fillna(0).sum() * 1_000_000)  # Convert to float
         else:
-            total_market_value = total_players * 500_000  # Fallback estimation
+            total_market_value = float(total_players * 500_000)  # Fallback estimation
         
         # Active contracts (players with contract data)
         active_contracts = 0
         if 'contract_value' in df.columns:
-            active_contracts = df['contract_value'].notna().sum()
+            active_contracts = int(df['contract_value'].notna().sum())
         else:
             active_contracts = int(total_players * 0.75)  # Estimate 75% have contracts
         
         # Average brand value
         if brand_col in df.columns:
-            avg_brand_value = df[brand_col].fillna(0).mean() * 10_000  # Convert to dollars
+            avg_brand_value = float(df[brand_col].fillna(0).mean() * 10_000)  # Convert to float
         else:
-            avg_brand_value = 500_000  # Fallback
+            avg_brand_value = 500_000.0  # Fallback
         
         # Market activity (based on recent performance changes)
         market_activity = 94.2  # Base activity level
         if 'velocity' in df.columns:
-            avg_velocity = df['velocity'].fillna(0).mean()
+            avg_velocity = float(df['velocity'].fillna(0).mean())
             market_activity = min(99.9, max(80.0, avg_velocity * 1.2))
         
         return {
@@ -111,7 +118,7 @@ class DataProcessor:
             "active_contracts": active_contracts,
             "avg_brand_value": avg_brand_value,
             "market_activity": market_activity,
-            "athlete_count": total_players
+            "athlete_count": int(total_players)
         }
     
     def get_top_performers(self, mode="ecos", limit=5):
@@ -137,8 +144,8 @@ class DataProcessor:
                 "name": player.get('name', 'Unknown'),
                 "position": player.get('position', 'N/A'),
                 "team": player.get('current_team', player.get('team', 'N/A')),
-                "brand_value": brand_value,
-                "change_pct": np.random.uniform(8, 20)  # Simulated change for demo
+                "brand_value": float(brand_value),
+                "change_pct": float(np.random.uniform(8, 20))  # Simulated change for demo
             })
         
         return performers
@@ -193,7 +200,7 @@ class DataProcessor:
                 "type": activity["type"],
                 "tag_class": activity["tag_class"],
                 "priority": activity["priority"],
-                "description": desc
+                "description": str(desc)
             })
         
         return activities
@@ -1496,8 +1503,21 @@ def api_market_activity():
 def enhanced_financial_overview():
     """Enhanced API endpoint for financial overview data with ECOS↔NFL toggle"""
     mode = request.args.get('mode', 'ecos').lower()
-    data = data_processor.calculate_financial_overview(mode)
-    return jsonify(data)
+    
+    # Validate mode parameter
+    if mode not in ['ecos', 'nfl']:
+        return jsonify({"error": "Invalid mode. Must be 'ecos' or 'nfl'"}), 400
+    
+    try:
+        data = data_processor.calculate_financial_overview(mode)
+        return jsonify({
+            "success": True,
+            "mode": mode,
+            "data": data
+        })
+    except Exception as e:
+        logger.error(f"Error in financial overview: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/api/enhanced/top-performers')
 def enhanced_top_performers():
@@ -1535,6 +1555,16 @@ def enhanced_system_status():
 def enhanced_dashboard():
     """Enhanced Market Dashboard with ECOS↔NFL toggle"""
     return render_template('index_enhanced.html')
+
+@app.route('/react-dashboard')
+def react_dashboard():
+    """React Market Dashboard with ECOS↔NFL toggle"""
+    return send_from_directory('react-market-dashboard/dist', 'index.html')
+
+@app.route('/assets/<path:filename>')
+def react_assets(filename):
+    """Serve React build assets"""
+    return send_from_directory('react-market-dashboard/dist/assets', filename)
 
 if __name__ == '__main__':
     # Ensure data directory exists

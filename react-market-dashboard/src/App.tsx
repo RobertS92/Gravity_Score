@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+// React imports handled by components
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MarketDashboard } from './components/MarketDashboard'
 import './App.css'
