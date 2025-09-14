@@ -218,7 +218,7 @@ class DataProcessor:
         
         # Calculate unique teams
         team_col = 'current_team' if 'current_team' in df.columns else 'team'
-        teams_tracked = df[team_col].nunique() if team_col in df.columns else 0
+        teams_tracked = int(df[team_col].nunique()) if team_col in df.columns else 0
         
         # Data points (columns with actual data)
         data_points = len([col for col in df.columns if df[col].notna().sum() > 0])
