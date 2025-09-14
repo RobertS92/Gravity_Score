@@ -1,0 +1,187 @@
+Here’s a copy-paste “one-shot” prompt you can give to your LLM coding agent. It tells it exactly what to build, how it should look (to match your screenshots), and how to test that it matches.
+
+---
+
+# ROLE
+
+You are a senior front-end engineer. Build a **React + Tailwind + shadcn/ui** dashboard that **visually matches** the provided screenshots (dark UI with left sidebar, metric cards, lists, and activity feed). Implement automated checks (unit + visual regression) to ensure the UI stays consistent with the screenshots.
+
+# TECH & CONSTRAINTS
+
+* Stack: React, Vite, Tailwind, shadcn/ui, Lucide icons.
+* Styling: Tailwind classes only; no inline styles. Use CSS variables for theme tokens.
+* Layout: responsive (>=1440px desktop target), accessible (ARIA roles/labels), keyboard navigable.
+* Testing: Vitest + React Testing Library for structure; Playwright + jest-image-snapshot for **visual** diffs.
+* Use test IDs (`data-testid`) for all major elements.
+* Provide seed/mock data and a simple data layer (static JSON) so the app renders without a backend.
+
+# VISUAL REFERENCE (match the screenshots)
+
+**Overall**
+
+* Dark theme, near-black background (#0B0F14–#111318), subtle cards with soft borders, rounded-xl, gentle shadows.
+* Left sidebar with sections: *Navigation* (Dashboard, Market Data, Players, Search, Analytics) and *System* (System Status, Settings).
+* Top app bar with title “Market Dashboard”, right side has small status chips (e.g., “MARKET OPEN”, “DATA SYNC: LIVE”) and a bell icon.
+
+**Financial Overview (row of 4 metric cards)**
+
+* Title: “Financial Overview”.
+* Cards (exact labels/values/footers):
+
+  1. **Total Market Value** — **\$2.14B** — **+12.3%** — footer: “Across 2,910 athletes”.
+  2. **Active Contracts** — **847** — **+5.7%** — footer: “Worth \$1.8B combined”.
+  3. **Avg. Brand Value** — **\$736K** — **-2.1%** — footer: “Per athlete this quarter”.
+  4. **Market Activity** — **94.2%** — footer: a segmented toggle (ECOS | NFL). Default **ECOS**; clicking **NFL** filters “Market Intelligence” to NFL only.
+* Each card shows a mini trend arrow (up green / down red) next to the percentage.
+
+**Market Intelligence (two-column section)**
+
+* Left card: “Top Brand Performers — Last 24 hours”
+
+  * Ranked list with circular index (1–5) and rows that match the look of:
+
+    1. L. James — **\$48.2M** — **+15.2%**
+    2. S. Curry — **\$42.1M** — **+12.8%**
+    3. K. Durant — **\$39.5M** — **+9.4%**
+    4. G. Antetokounmpo — **\$38.7M** — **+8.9%**
+    5. L. Dončić — **\$37.2M** — **+11.3%**
+* Right card: “Market Activity — Real-time updates”
+
+  * Timeline list with timestamp + pill tag + short description, styled like the screenshot:
+    09:42 — **CONTRACT (High)** — “J. Morant – 5yr/\$193M extension signed”
+    09:38 — **ENDORSEMENT (Medium)** — “Nike partnership – V. Wembanyama (\$10M/yr)”
+    09:31 — **TRADE (High)** — “D. Lillard to MIL – Brand value impact analysis”
+    09:25 — **PERFORMANCE (Low)** — “J. Tatum – MVP odds shift (+250 → +180)”
+    09:18 — **SOCIAL (Medium)** — “C. Clark – TikTok engagement surge (+340%)”
+  * When the top toggle is **NFL**, this list and the Top Performers list should filter to **NFL only** (market intelligence for NFL top Gravity Scores).
+
+**Data Analysis row**
+
+* Left card: “Performance Charts” with a centered placeholder text: *“Chart Component Placeholder — Interactive performance data visualization”*.
+* Right small cards:
+
+  * **Quick Stats**
+
+    * Teams Tracked: **32**
+    * Data Points: **70+**
+    * Update Freq.: **Real-time**
+  * **System Status**
+
+    * API Status: **Active** (green dot)
+    * Data Freshness: **2m ago**
+    * Sync Rate: **99.8%**
+
+# DATA RULES
+
+* All metrics are **ECOS athletes** by default. The NFL toggle shows NFL-only market intelligence. Keep the **Financial Overview** metrics as ECOS; only the **Market Intelligence** (left + right) changes with the toggle.
+* Provide the above exact values so visual tests can compare text and layout.
+* For NFL mode, swap the Top Brand Performers list with five NFL players (mock values ok) and filter the Market Activity to NFL-relevant news.
+
+# FILE & COMPONENT STRUCTURE
+
+```
+src/
+  components/
+    Sidebar.tsx
+    Topbar.tsx
+    MetricCard.tsx
+    RankedList.tsx
+    ActivityFeed.tsx
+    StatCard.tsx
+    ToggleSegment.tsx
+  pages/
+    Dashboard.tsx
+  data/
+    ecos.json
+    nfl.json
+  App.tsx
+  main.tsx
+  styles.css (Tailwind base + tokens)
+```
+
+# THEME TOKENS (CSS variables)
+
+* `--bg: #0C1117; --card: #121821; --muted: #94A3B8; --border: #202938;`
+* `--text: #E6EDF3; --accent: #6EA8FE; --green: #22C55E; --red: #F43F5E;`
+* Cards: `rounded-2xl border border-[color:var(--border)] shadow-sm`
+* Spacing: 24px grid gutters; card padding 20–24px.
+
+# INTERACTIONS
+
+* Clicking **NFL** on the “Market Activity” header toggle updates the **Market Intelligence** lists to show NFL data. The Financial Overview remains ECOS (unchanged).
+* Hover states: subtle raise + border brighten.
+* Keyboard: Tab order across top bar → metric cards → left column list → right column feed → analysis cards.
+
+# ACCEPTANCE CRITERIA (must pass)
+
+1. **Pixel-approx match**: layout, spacing, and typography match screenshots within **±4px** per element and **font-size/weight** parity.
+2. **Content parity**: All labels, values, and footers exactly match the strings listed above.
+3. **Dark theme fidelity**: background, card colors, and border contrasts match tokens; WCAG AA for text.
+4. **Toggle behavior**: ECOS/NFL toggle changes market-intelligence lists only.
+5. **A11y**: Landmarks (`<nav>`, `<main>`, `<aside>`), aria-labels on toggles and lists, focus rings visible.
+
+# TESTS TO IMPLEMENT
+
+**Unit / Structural (Vitest + RTL)**
+
+* Assert the presence of each metric card, labels, and exact values.
+* Assert the “Top Brand Performers” has 5 items with the listed names/values in order.
+* Assert the “Market Activity” list has 5 items with the exact tags/timestamps/strings.
+* Assert the ECOS/NFL toggle switches the data in both lists and leaves Financial Overview unchanged.
+
+**Visual Regression**
+
+* Use Playwright to navigate to `/` at **1440×900**, wait for fonts to load, then capture screenshots of:
+
+  * Full dashboard
+  * Financial Overview row
+  * Market Intelligence column (left + right)
+  * Data Analysis row (left + right cards)
+* Compare using **jest-image-snapshot** with `failureThreshold: 0.02` (2% pixel diff) and `comparisonMethod: 'ssim'`.
+* Include a “golden” baseline generated after first render that visually matches the provided screenshots (name them `baseline_dashboard.png`, etc.).
+* Tests fail if diffs exceed threshold.
+
+**Example Playwright test sketch (agent must implement fully):**
+
+```ts
+test('dashboard matches baseline', async ({ page }) => {
+  await page.goto('http://localhost:5173');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForSelector('[data-testid="financial-overview"]');
+  const shot = await page.screenshot();
+  expect(shot).toMatchImageSnapshot({
+    customSnapshotIdentifier: 'baseline_dashboard',
+    failureThreshold: 0.02,
+    failureThresholdType: 'percent',
+    comparisonMethod: 'ssim'
+  });
+});
+```
+
+# DELIVERABLES
+
+* Fully working React app (Vite) with Tailwind + shadcn/ui.
+* `README.md` with setup, scripts, and how to update baselines.
+* Tests (`vitest` + `playwright` + `jest-image-snapshot`) wired into `npm test` and `npm run test:visual`.
+* All core elements annotated with `data-testid` and accessible names.
+
+# MOCK DATA (seed exactly as strings shown)
+
+* Financial Overview (ECOS, fixed):
+
+  * Total Market Value: \$2.14B | +12.3% | “Across 2,910 athletes”
+  * Active Contracts: 847 | +5.7% | “Worth \$1.8B combined”
+  * Avg. Brand Value: \$736K | -2.1% | “Per athlete this quarter”
+  * Market Activity: 94.2%
+* Market Intelligence (ECOS default): 5 players + 5 events exactly as listed in Visual Reference.
+* Market Intelligence (NFL when toggled): replace with 5 NFL names + 5 NFL news items (mock values allowed) and ensure lists update.
+
+# DEFINITION OF DONE
+
+* All acceptance criteria + tests pass locally.
+* The rendered UI **looks like the screenshots** at 1440×900 with the same content, spacing, and styling, verified by visual regression tests.
+* Code is clean, typed (if TS used), and components are reusable.
+
+---
+
+If you want, I can also hand you a starter repo structure or the exact Tailwind classes for each card.
