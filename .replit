@@ -16,10 +16,6 @@ author = "agent"
 task = "workflow.run"
 args = "NFL Gravity Web App"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Enhanced Flask Backend"
-
 [[workflows.workflow]]
 name = "NFL Gravity Web App"
 author = "agent"
@@ -28,18 +24,6 @@ author = "agent"
 task = "shell.exec"
 args = "python app.py"
 waitForPort = 5000
-
-[[workflows.workflow]]
-name = "Enhanced Flask Backend"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python app_enhanced.py"
-waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[ports]]
 localPort = 3000
