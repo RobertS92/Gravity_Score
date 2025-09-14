@@ -1,0 +1,254 @@
+Perfect—here’s a **copy-paste, locked-down prompt** you can give your LLM coding agent. It adds a **global ECOS↔NFL toggle** that drives **Financial Overview, Market Intelligence, and Data Analysis** together, keeps **no mock data**, enforces a **gated workflow**, and includes **visual + structural tests** that fail until the UI matches your screenshots.
+
+---
+
+# 🔒 STRICT AGENT BRIEF — ECOS↔NFL GLOBAL TOGGLE (NO MOCKS)
+
+**ROLE:** Senior frontend engineer. Your only job is to build a dashboard that **exactly matches my screenshots** and **reacts to a global data mode toggle**: **ECOS players** vs **NFL overall**. Follow the gates below **in order**. If anything is missing, **halt** with the exact messages given. No scope drift.
+
+---
+
+## 0) REQUIRED INPUTS (must exist before you start)
+
+* `SCREENSHOT_DASHBOARD_ECOS` — full dashboard screenshot (ECOS mode).
+* `SCREENSHOT_DASHBOARD_NFL` — full dashboard screenshot (NFL mode).
+* `ECOS_DATA_PATH` — path to real dataset for **ECOS players** (JSON/CSV/Parquet).
+* `NFL_DATA_PATH` — path to real dataset for **NFL overall** (all NFL athletes, not filtered to ECOS only).
+
+**If any are missing, STOP and print exactly:**
+`BLOCKED: Missing required input(s): [list]. Provide paths and rerun.`
+
+**Prohibited:** hardcoding or fabricating values.
+
+---
+
+## 1) TECH BASELINE (use exactly)
+
+* **React + Vite + Tailwind + shadcn/ui + Lucide**.
+* Testing: **Vitest + React Testing Library** (structure/logic) and **Playwright + jest-image-snapshot** (visual).
+* A11y: landmarks, ARIA labels, keyboard navigation.
+* Add `data-testid` to all major nodes.
+
+---
+
+## 2) GLOBAL DATA MODE (single source of truth)
+
+* Add a top-level segmented control: **\[ ECOS | NFL ]** with test ids `toggle-ecos` and `toggle-nfl`.
+* The selected mode sets a global `dataMode` state (`'ECOS' | 'NFL'`).
+* **All three sections** must recompute/render from the **active mode**:
+
+  1. **Financial Overview**
+  2. **Market Intelligence**
+  3. **Data Analysis** (Quick Stats & System Status included)
+
+**Data filters:**
+
+* `ECOS` mode = rows where `ecos_flag == true` (or equivalent explicit field you find in `ECOS_DATA_PATH`).
+* `NFL` mode = rows where `league == 'NFL'` from `NFL_DATA_PATH`.
+
+**No fallback**: If required fields are absent in the dataset(s), **HALT** (see Gates).
+
+---
+
+## 3) UI SPEC (must match my screenshots)
+
+**Theme & layout**
+
+* Dark background (near-black), card surfaces slightly lighter, thin cool-gray borders, `rounded-2xl`, soft shadows.
+* Left sidebar sections: **Navigation** (Dashboard, Market Data, Players, Search, Analytics) and **System** (System Status, Settings).
+* Topbar title: **“Market Dashboard”** with status chips (“MARKET OPEN”, “DATA SYNC: LIVE”) and bell icon.
+
+**Financial Overview** (driven by `dataMode`)
+
+* Four cards (left→right). Use **real aggregates** from the active dataset:
+
+  1. **Total Market Value**: sum of `brand_value` (or field you detect). Subline: “Across {athlete\_count} athletes”.
+  2. **Active Contracts**: count where `contract_active == true`. Subline: “Worth {sum\_active\_contract\_value} combined”.
+  3. **Avg. Brand Value**: mean `brand_value`. Subline: “Per athlete this quarter”.
+  4. **Market Activity**: a % index computed from activity fields (e.g., normalized events / window).
+* Each card shows delta vs prior period if fields exist (↑ green / ↓ red). If period fields are **not** present, **HALT** (no made-up deltas).
+
+**Market Intelligence** (driven by `dataMode`)
+
+* Left card: **Top Brand Performers — Last 24 hours** (ranked 1–5 by last-24h change/value fields present).
+* Right card: **Market Activity — Real-time updates** (timestamp + tag + description). Must come from dataset events; if missing, show explicit “No market activity available”.
+
+**Data Analysis** (driven by `dataMode`)
+
+* Left: **Performance Charts** placeholder box with centered text exactly like the screenshot (keep the same copy).
+* Right: **Quick Stats** (Teams Tracked, Data Points, Update Freq.) and **System Status** (API Status, Data Freshness, Sync Rate) — populate from actual system/dataset fields; if unavailable, show **“N/A”** (do not invent numbers).
+
+---
+
+## 4) FOLDERS, IDS & NAMES (use exactly)
+
+```
+src/
+  components/
+    Sidebar.tsx
+    Topbar.tsx
+    MetricCard.tsx
+    RankedList.tsx
+    ActivityFeed.tsx
+    StatCard.tsx
+    ToggleSegment.tsx
+  pages/Dashboard.tsx
+  data/ (read-only)
+  App.tsx
+  main.tsx
+```
+
+**Required test ids:**
+
+* Global: `toggle-ecos`, `toggle-nfl`.
+* Financial Overview: `financial-overview`, `metric-total-market-value`, `metric-active-contracts`, `metric-avg-brand-value`, `metric-market-activity`.
+* Market Intelligence: `mi-top-performers`, `mi-activity-feed`.
+* Data Analysis: `analysis-charts`, `quick-stats`, `system-status`.
+
+---
+
+## 5) GATED WORKFLOW (do not proceed when a gate fails)
+
+### Gate 1 — Inputs & Schema
+
+* Verify all 4 inputs exist. Parse both datasets. Validate the fields you will use; list them.
+* If any required field is missing in either dataset →
+  `HALTED: Gate 1 failed — Missing field(s): [list] in [ECOS/NFL] dataset.`
+
+### Gate 2 — Mode-aware Data Layer
+
+* Implement a single selector that, given `dataMode`, returns the correct aggregated metrics, lists, and stats.
+* No hardcoded numbers. No mock data.
+* If an aggregate cannot be computed from present fields →
+  `HALTED: Gate 2 failed — Cannot compute <metric> from available fields in <ECOS/NFL> dataset.`
+
+### Gate 3 — UI Build (Pixel-approx)
+
+* Render the dashboard to **match the screenshots** at **1440×900** within ±4px spacing/typography.
+* If any card/list is empty or shows “undefined” →
+  `HALTED: Gate 3 failed — Empty/undefined content in <section> for <ECOS/NFL> mode.`
+
+### Gate 4 — Structural Tests (Vitest + RTL)
+
+Implement tests that must pass:
+
+* **Presence & data** (both modes): all test ids exist; metric textContent is **non-empty**.
+* **Toggle semantics:** switching ECOS→NFL changes **all three sections**; switching back restores ECOS values.
+* **Isolation:** Financial Overview values change with mode; lists and stats change with mode; no section changes without a mode change.
+
+If any fail →
+`HALTED: Gate 4 failed — <test name>`
+
+### Gate 5 — Visual Regression (Playwright + jest-image-snapshot)
+
+* Viewport **1440×900**.
+* Take screenshots for **both modes**:
+
+  * `ECOS`: compare page render to `SCREENSHOT_DASHBOARD_ECOS`.
+  * `NFL`: compare page render to `SCREENSHOT_DASHBOARD_NFL`.
+* Use SSIM comparison with `failureThreshold: 0.01` (1% pixel diff).
+* If diff exceeds threshold →
+  `HALTED: Gate 5 failed — Visual diff > 1% for <ECOS/NFL> mode.`
+
+### Gate 6 — Accessibility Sanity
+
+* Landmarks, labels, focus order, contrast ≥ AA.
+* If violations detected →
+  `HALTED: Gate 6 failed — A11y violations: [list]`
+
+---
+
+## 6) TEST BLUEPRINTS (you must implement fully)
+
+**RTL — mode propagation & value change**
+
+```ts
+it('ECOS↔NFL toggle updates all sections', async () => {
+  render(<Dashboard />);
+  const read = (id:string)=>screen.getByTestId(id).textContent?.trim()||'';
+  const snap = () => ({
+    tmv: read('metric-total-market-value'),
+    ac:  read('metric-active-contracts'),
+    avg: read('metric-avg-brand-value'),
+    act: read('metric-market-activity'),
+    tp:  read('mi-top-performers'),
+    af:  read('mi-activity-feed'),
+    qs:  read('quick-stats'),
+    ss:  read('system-status'),
+  });
+
+  const ecos = snap();
+  await userEvent.click(screen.getByTestId('toggle-nfl'));
+  const nfl = snap();
+
+  // Values must change in at least Financial Overview OR lists (and not be empty)
+  expect(nfl.tmv && ecos.tmv && nfl.tmv !== ecos.tmv).toBe(true);
+  expect(nfl.tp && ecos.tp && nfl.tp !== ecos.tp).toBe(true);
+
+  await userEvent.click(screen.getByTestId('toggle-ecos'));
+  const ecos2 = snap();
+  expect(ecos2.tmv).toEqual(ecos.tmv);
+});
+```
+
+**Playwright — visual parity both modes**
+
+```ts
+test('ECOS mode matches baseline', async ({ page }) => {
+  await page.setViewportSize({ width:1440, height:900 });
+  await page.goto('http://localhost:5173');
+  await page.waitForSelector('[data-testid="financial-overview"]');
+  // ensure ECOS selected
+  await page.click('[data-testid="toggle-ecos"]');
+  const shot = await page.screenshot();
+  const baseline = fs.readFileSync(process.env.SCREENSHOT_DASHBOARD_ECOS!, null);
+  expect(shot).toMatchImageSnapshot({
+    comparisonMethod:'ssim', failureThreshold:0.01, failureThresholdType:'percent',
+    customSnapshotIdentifier:'dashboard_ecos'
+  });
+});
+
+test('NFL mode matches baseline', async ({ page }) => {
+  await page.setViewportSize({ width:1440, height:900 });
+  await page.goto('http://localhost:5173');
+  await page.waitForSelector('[data-testid="financial-overview"]');
+  await page.click('[data-testid="toggle-nfl"]');
+  const shot = await page.screenshot();
+  const baseline = fs.readFileSync(process.env.SCREENSHOT_DASHBOARD_NFL!, null);
+  expect(shot).toMatchImageSnapshot({
+    comparisonMethod:'ssim', failureThreshold:0.01, failureThresholdType:'percent',
+    customSnapshotIdentifier:'dashboard_nfl'
+  });
+});
+```
+
+---
+
+## 7) DELIVERABLES (and nothing else)
+
+* Updated React code with the **global ECOS↔NFL toggle** driving **all three sections**.
+* Passing **Vitest** + **Playwright** tests for both modes.
+* Console summary:
+  `PASS: Gate 1 … PASS: Gate 6` **or** `HALTED: Gate <N> failed — <reason>`.
+
+---
+
+## 8) PROHIBITED
+
+* ❌ Mock/fabricated values, seed literals, or “example” data.
+* ❌ Proceeding past any failed gate.
+* ❌ Changing copy/labels/layout to fit code.
+* ❌ Unrelated refactors or added features.
+
+---
+
+## 9) DONE CRITERIA
+
+* Visual diffs ≤ **1%** vs my screenshots **in both modes**.
+* Financial Overview, Market Intelligence, and Data Analysis **all** re-compute from the active mode (**ECOS** or **NFL**).
+* No mock data anywhere.
+* All gates pass.
+
+---
+
+**Execute exactly as written. If blocked, HALT with the specified message. Do not proceed or invent data.**
