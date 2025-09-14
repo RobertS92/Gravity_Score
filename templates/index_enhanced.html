@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Dashboard - ECOS↔NFL Global Toggle</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0B0F14;
+            color: #E6EDF3;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            line-height: 1.4;
+        }
+
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background-color: #121821;
+            border-right: 1px solid #202938;
+            padding: 24px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            margin-bottom: 32px;
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #94A3B8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            padding: 0 24px;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 24px;
+            color: #94A3B8;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .sidebar-item:hover,
+        .sidebar-item.active {
+            background-color: #202938;
+            color: #E6EDF3;
+        }
+
+        .sidebar-item i {
+            width: 16px;
+            font-size: 14px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 240px;
+            background-color: #0B0F14;
+        }
+
+        /* Header */
+        .header {
+            background-color: #121821;
+            border-bottom: 1px solid #202938;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin-bottom: 4px;
+        }
+
+        .header-left p {
+            font-size: 14px;
+            color: #94A3B8;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .status-chip {
+            background-color: #1B4332;
+            color: #22C55E;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            border: 1px solid #22C55E;
+        }
+
+        .status-chip.live {
+            background-color: #1E3A8A;
+            color: #6EA8FE;
+            border-color: #6EA8FE;
+        }
+
+        /* Global Toggle */
+        .global-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #202938;
+            border-radius: 20px;
+            padding: 2px;
+            margin-left: 16px;
+        }
+
+        .toggle-option {
+            padding: 8px 16px;
+            border-radius: 18px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .toggle-option.active {
+            background-color: #6EA8FE;
+            color: #0B0F14;
+        }
+
+        .toggle-option:not(.active) {
+            color: #94A3B8;
+        }
+
+        /* Dashboard Content */
+        .dashboard-content {
+            padding: 24px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin-bottom: 16px;
+        }
+
+        /* Financial Overview */
+        .financial-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .metric-card {
+            background-color: #121821;
+            border: 1px solid #202938;
+            border-radius: 16px;
+            padding: 20px;
+            position: relative;
+        }
+
+        .metric-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .metric-icon {
+            font-size: 16px;
+            color: #94A3B8;
+        }
+
+        .metric-label {
+            font-size: 13px;
+            color: #94A3B8;
+            font-weight: 500;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #E6EDF3;
+            margin-bottom: 4px;
+        }
+
+        .metric-change {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .metric-change.positive {
+            color: #22C55E;
+        }
+
+        .metric-change.negative {
+            color: #F43F5E;
+        }
+
+        .metric-footer {
+            font-size: 12px;
+            color: #94A3B8;
+        }
+
+        /* Market Intelligence */
+        .market-intelligence {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .intelligence-card {
+            background-color: #121821;
+            border: 1px solid #202938;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            background-color: #0F1419;
+            padding: 16px 20px;
+            border-bottom: 1px solid #202938;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin: 0;
+        }
+
+        .card-subtitle {
+            font-size: 12px;
+            color: #94A3B8;
+            margin: 0;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        .performer-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 0;
+            border-bottom: 1px solid #202938;
+        }
+
+        .performer-item:last-child {
+            border-bottom: none;
+        }
+
+        .performer-rank {
+            background-color: #374151;
+            color: #E6EDF3;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .performer-info {
+            flex: 1;
+        }
+
+        .performer-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin: 0;
+        }
+
+        .performer-position {
+            font-size: 12px;
+            color: #94A3B8;
+            margin: 0;
+        }
+
+        .performer-metrics {
+            text-align: right;
+        }
+
+        .performer-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin: 0;
+        }
+
+        .performer-change {
+            font-size: 12px;
+            color: #22C55E;
+            margin: 0;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #202938;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-time {
+            font-size: 11px;
+            color: #94A3B8;
+            min-width: 40px;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-tags {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .activity-tag {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .tag-contract {
+            background-color: #1B4332;
+            color: #22C55E;
+        }
+
+        .tag-endorsement {
+            background-color: #451A03;
+            color: #F59E0B;
+        }
+
+        .tag-trade {
+            background-color: #450A0A;
+            color: #F43F5E;
+        }
+
+        .tag-performance {
+            background-color: #2D1B69;
+            color: #A78BFA;
+        }
+
+        .tag-social {
+            background-color: #164E63;
+            color: #22D3EE;
+        }
+
+        .tag-high { opacity: 1; }
+        .tag-medium { opacity: 0.8; }
+        .tag-low { opacity: 0.6; }
+
+        .activity-description {
+            font-size: 13px;
+            color: #E6EDF3;
+            margin: 0;
+        }
+
+        /* Data Analysis */
+        .data-analysis {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        .chart-placeholder {
+            background-color: #121821;
+            border: 1px solid #202938;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .placeholder-text {
+            color: #94A3B8;
+            font-size: 14px;
+        }
+
+        .quick-stats {
+            display: grid;
+            gap: 16px;
+        }
+
+        .stat-card {
+            background-color: #121821;
+            border: 1px solid #202938;
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        .stat-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin-bottom: 12px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #202938;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #94A3B8;
+        }
+
+        .stat-value {
+            font-size: 12px;
+            font-weight: 600;
+            color: #E6EDF3;
+        }
+
+        .status-active {
+            color: #22C55E;
+        }
+
+        /* Loading States */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .loading::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid #202938;
+            border-top: 2px solid #6EA8FE;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: static;
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .financial-overview {
+                grid-template-columns: 1fr;
+            }
+
+            .market-intelligence {
+                grid-template-columns: 1fr;
+            }
+
+            .data-analysis {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 16px;
+                align-items: flex-start;
+            }
+
+            .global-toggle {
+                margin-left: 0;
+            }
+        }
+
+        /* Success/Error States */
+        .success-message {
+            background-color: #1B4332;
+            color: #22C55E;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .error-message {
+            background-color: #450A0A;
+            color: #F43F5E;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">ATHLETE ANALYTICS</div>
+                <a href="#" class="sidebar-item active" data-testid="nav-dashboard">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="sidebar-item" data-testid="nav-market-data">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Market Data</span>
+                </a>
+                <a href="#" class="sidebar-item" data-testid="nav-players">
+                    <i class="fas fa-users"></i>
+                    <span>Players</span>
+                </a>
+                <a href="#" class="sidebar-item" data-testid="nav-search">
+                    <i class="fas fa-search"></i>
+                    <span>Search</span>
+                </a>
+                <a href="#" class="sidebar-item" data-testid="nav-analytics">
+                    <i class="fas fa-analytics"></i>
+                    <span>Analytics</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">SYSTEM</div>
+                <a href="#" class="sidebar-item" data-testid="nav-system-status">
+                    <i class="fas fa-server"></i>
+                    <span>System Status</span>
+                </a>
+                <a href="#" class="sidebar-item" data-testid="nav-settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-left">
+                    <h1>Market Dashboard</h1>
+                    <p>Professional athlete brand performance and financial evaluation</p>
+                </div>
+                <div class="header-right">
+                    <span class="status-chip">● MARKET OPEN</span>
+                    <span class="status-chip live">DATA SYNC: LIVE</span>
+                    <i class="fas fa-bell" style="color: #94A3B8; cursor: pointer; margin-left: 12px;"></i>
+                    
+                    <!-- Global ECOS↔NFL Toggle -->
+                    <div class="global-toggle">
+                        <div class="toggle-option active" data-mode="ecos" data-testid="toggle-ecos">ECOS</div>
+                        <div class="toggle-option" data-mode="nfl" data-testid="toggle-nfl">NFL</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div class="dashboard-content">
+                <!-- Messages -->
+                <div id="message-container"></div>
+
+                <!-- Financial Overview -->
+                <div>
+                    <h2 class="section-title">Financial Overview</h2>
+                    <div class="financial-overview" data-testid="financial-overview">
+                        <div class="metric-card" data-testid="metric-total-market-value">
+                            <div class="metric-header">
+                                <i class="fas fa-dollar-sign metric-icon"></i>
+                                <span class="metric-label">Total Market Value</span>
+                            </div>
+                            <div class="metric-value" id="total-market-value">$0</div>
+                            <div class="metric-change positive">↗ +12.3%</div>
+                            <div class="metric-footer" id="market-value-footer">Loading...</div>
+                        </div>
+
+                        <div class="metric-card" data-testid="metric-active-contracts">
+                            <div class="metric-header">
+                                <i class="fas fa-file-contract metric-icon"></i>
+                                <span class="metric-label">Active Contracts</span>
+                            </div>
+                            <div class="metric-value" id="active-contracts">0</div>
+                            <div class="metric-change positive">↗ +5.7%</div>
+                            <div class="metric-footer" id="contracts-footer">Loading...</div>
+                        </div>
+
+                        <div class="metric-card" data-testid="metric-avg-brand-value">
+                            <div class="metric-header">
+                                <i class="fas fa-chart-line metric-icon"></i>
+                                <span class="metric-label">Avg. Brand Value</span>
+                            </div>
+                            <div class="metric-value" id="avg-brand-value">$0</div>
+                            <div class="metric-change negative">↘ -2.1%</div>
+                            <div class="metric-footer">Per athlete this quarter</div>
+                        </div>
+
+                        <div class="metric-card" data-testid="metric-market-activity">
+                            <div class="metric-header">
+                                <i class="fas fa-activity metric-icon"></i>
+                                <span class="metric-label">Market Activity</span>
+                            </div>
+                            <div class="metric-value" id="market-activity">0%</div>
+                            <div class="metric-change positive">↗ +8.4%</div>
+                            <div class="metric-footer">Trading confidence index</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Market Intelligence -->
+                <div>
+                    <h2 class="section-title">Market Intelligence</h2>
+                    <div class="market-intelligence">
+                        <!-- Top Brand Performers -->
+                        <div class="intelligence-card" data-testid="mi-top-performers">
+                            <div class="card-header">
+                                <h3 class="card-title">Top Brand Performers</h3>
+                                <p class="card-subtitle">Last 24 hours</p>
+                            </div>
+                            <div class="card-body">
+                                <div id="top-performers">
+                                    <div class="loading" style="height: 200px; position: relative;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Market Activity -->
+                        <div class="intelligence-card" data-testid="mi-activity-feed">
+                            <div class="card-header">
+                                <h3 class="card-title">Market Activity</h3>
+                                <p class="card-subtitle">Real-time updates</p>
+                            </div>
+                            <div class="card-body">
+                                <div id="market-activity-feed">
+                                    <div class="loading" style="height: 200px; position: relative;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Analysis -->
+                <div>
+                    <h2 class="section-title">Data Analysis</h2>
+                    <div class="data-analysis" data-testid="analysis-charts">
+                        <div class="chart-placeholder">
+                            <h3 style="color: #E6EDF3; margin-bottom: 8px;">Performance Charts</h3>
+                            <p class="placeholder-text">Chart Component Placeholder<br>Interactive performance data visualization</p>
+                        </div>
+
+                        <div class="quick-stats">
+                            <div class="stat-card" data-testid="quick-stats">
+                                <h4 class="stat-title">Quick Stats</h4>
+                                <div class="stat-item">
+                                    <span class="stat-label">Teams Tracked</span>
+                                    <span class="stat-value" id="teams-tracked">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Data Points</span>
+                                    <span class="stat-value" id="data-points">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Update Freq.</span>
+                                    <span class="stat-value status-active" id="update-freq">Loading...</span>
+                                </div>
+                            </div>
+
+                            <div class="stat-card" data-testid="system-status">
+                                <h4 class="stat-title">System Status</h4>
+                                <div class="stat-item">
+                                    <span class="stat-label">API Status</span>
+                                    <span class="stat-value status-active" id="api-status">● Loading...</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Data Freshness</span>
+                                    <span class="stat-value" id="data-freshness">Loading...</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Sync Rate</span>
+                                    <span class="stat-value" id="sync-rate">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class MarketDashboard {
+            constructor() {
+                this.currentMode = 'ecos';
+                this.init();
+            }
+
+            init() {
+                this.setupToggle();
+                this.loadInitialData();
+                
+                // Auto-refresh every 30 seconds
+                setInterval(() => this.loadData(), 30000);
+            }
+
+            setupToggle() {
+                const toggleOptions = document.querySelectorAll('.toggle-option');
+                
+                toggleOptions.forEach(option => {
+                    option.addEventListener('click', () => {
+                        // Remove active class from all options
+                        toggleOptions.forEach(opt => opt.classList.remove('active'));
+                        
+                        // Add active class to clicked option
+                        option.classList.add('active');
+                        
+                        const newMode = option.dataset.mode;
+                        if (newMode !== this.currentMode) {
+                            this.currentMode = newMode;
+                            this.loadData();
+                        }
+                    });
+                });
+            }
+
+            async loadInitialData() {
+                await this.loadData();
+                await this.loadSystemStatus();
+            }
+
+            async loadData() {
+                try {
+                    this.showLoading();
+                    
+                    // Load all data concurrently
+                    const [financialData, performersData, activityData, statsData] = await Promise.all([
+                        this.fetchData('/api/financial-overview'),
+                        this.fetchData('/api/top-performers'),
+                        this.fetchData('/api/market-activity'),
+                        this.fetchData('/api/quick-stats')
+                    ]);
+
+                    this.updateFinancialOverview(financialData);
+                    this.updateTopPerformers(performersData);
+                    this.updateMarketActivity(activityData);
+                    this.updateQuickStats(statsData);
+
+                    this.hideLoading();
+                    this.showMessage('Data updated successfully', 'success');
+
+                } catch (error) {
+                    console.error('Error loading data:', error);
+                    this.showMessage('Error loading data: ' + error.message, 'error');
+                    this.hideLoading();
+                }
+            }
+
+            async fetchData(endpoint) {
+                const response = await fetch(`${endpoint}?mode=${this.currentMode}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            }
+
+            updateFinancialOverview(data) {
+                document.getElementById('total-market-value').textContent = this.formatCurrency(data.total_market_value);
+                document.getElementById('market-value-footer').textContent = `Across ${data.athlete_count} athletes`;
+                
+                document.getElementById('active-contracts').textContent = data.active_contracts;
+                document.getElementById('contracts-footer').textContent = `Worth ${this.formatCurrency(data.total_market_value * 0.8)} combined`;
+                
+                document.getElementById('avg-brand-value').textContent = this.formatCurrency(data.avg_brand_value);
+                document.getElementById('market-activity').textContent = `${data.market_activity.toFixed(1)}%`;
+            }
+
+            updateTopPerformers(performers) {
+                const container = document.getElementById('top-performers');
+                container.innerHTML = '';
+
+                performers.forEach(performer => {
+                    const item = document.createElement('div');
+                    item.className = 'performer-item';
+                    item.innerHTML = `
+                        <div class="performer-rank">${performer.rank}</div>
+                        <div class="performer-info">
+                            <p class="performer-name">${performer.name}</p>
+                            <p class="performer-position">${performer.position} • ${performer.team.toUpperCase()}</p>
+                        </div>
+                        <div class="performer-metrics">
+                            <p class="performer-value">${this.formatCurrency(performer.brand_value)}</p>
+                            <p class="performer-change">+${performer.change_pct.toFixed(1)}%</p>
+                        </div>
+                    `;
+                    container.appendChild(item);
+                });
+            }
+
+            updateMarketActivity(activities) {
+                const container = document.getElementById('market-activity-feed');
+                container.innerHTML = '';
+
+                activities.forEach(activity => {
+                    const item = document.createElement('div');
+                    item.className = 'activity-item';
+                    item.innerHTML = `
+                        <div class="activity-time">${activity.time}</div>
+                        <div class="activity-content">
+                            <div class="activity-tags">
+                                <span class="activity-tag ${activity.tag_class} tag-${activity.priority.toLowerCase()}">${activity.type}</span>
+                                <span class="activity-tag tag-${activity.priority.toLowerCase()}">${activity.priority}</span>
+                            </div>
+                            <p class="activity-description">${activity.description}</p>
+                        </div>
+                    `;
+                    container.appendChild(item);
+                });
+            }
+
+            updateQuickStats(stats) {
+                document.getElementById('teams-tracked').textContent = stats.teams_tracked;
+                document.getElementById('data-points').textContent = stats.data_points;
+                document.getElementById('update-freq').textContent = stats.update_freq;
+            }
+
+            async loadSystemStatus() {
+                try {
+                    const status = await this.fetchData('/api/system-status');
+                    document.getElementById('api-status').textContent = `● ${status.api_status}`;
+                    document.getElementById('data-freshness').textContent = status.data_freshness;
+                    document.getElementById('sync-rate').textContent = status.sync_rate;
+                } catch (error) {
+                    console.error('Error loading system status:', error);
+                }
+            }
+
+            formatCurrency(value) {
+                if (value >= 1_000_000_000) {
+                    return `$${(value / 1_000_000_000).toFixed(2)}B`;
+                } else if (value >= 1_000_000) {
+                    return `$${(value / 1_000_000).toFixed(1)}M`;
+                } else if (value >= 1_000) {
+                    return `$${(value / 1_000).toFixed(0)}K`;
+                } else {
+                    return `$${value.toFixed(0)}`;
+                }
+            }
+
+            showLoading() {
+                // Add loading state to cards
+                document.querySelectorAll('.metric-card, .intelligence-card').forEach(card => {
+                    card.classList.add('loading');
+                });
+            }
+
+            hideLoading() {
+                // Remove loading state from cards
+                document.querySelectorAll('.metric-card, .intelligence-card').forEach(card => {
+                    card.classList.remove('loading');
+                });
+            }
+
+            showMessage(message, type = 'success') {
+                const container = document.getElementById('message-container');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `${type}-message`;
+                messageDiv.textContent = message;
+                
+                container.innerHTML = '';
+                container.appendChild(messageDiv);
+                
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    messageDiv.remove();
+                }, 3000);
+            }
+        }
+
+        // Initialize dashboard when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new MarketDashboard();
+        });
+    </script>
+</body>
+</html>
