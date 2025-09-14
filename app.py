@@ -1145,8 +1145,8 @@ def api_market_top_performers():
             instagram = player.get('instagram_followers', 0) or 0
             
             # Estimate market value
-            social_value = (twitter + instagram) / 1000  # Convert to K
-            total_value = (gravity * 500) + social_value  # Gravity weight + social
+            social_value = (twitter + instagram) / 1000 if (twitter and instagram) else 0  # Convert to K
+            total_value = (gravity * 500) + social_value if gravity else social_value  # Gravity weight + social
             
             # Simulate change percentage
             changes = ["+15.2%", "+12.8%", "+9.4%", "+8.9%", "+11.3%"]
@@ -1227,6 +1227,8 @@ def api_market_activity():
                     
                 template = activity_templates[i]
                 name = player.get('name', 'Unknown')
+                
+                activity = {}  # Initialize activity variable
                 
                 if template['type'] == 'contract':
                     awards = str(player.get('awards', ''))
