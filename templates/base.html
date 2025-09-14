@@ -57,6 +57,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'market_dashboard' %}active{% endif %}" href="/market-dashboard">
+                            <i class="fas fa-chart-line me-1"></i>
+                            Market Data
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'scraping' %}active{% endif %}" href="/scraping">
                             <i class="fas fa-download me-1"></i>
                             Data Collection
