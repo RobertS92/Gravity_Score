@@ -1,21 +1,804 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Gravity Score by Ecos{% endblock %}
+{% block title %}Market Dashboard - Gravity Score by Ecos{% endblock %}
 
 {% block extra_head %}
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            background-color: #0B0F14;
+            color: #E6EDF3;
+        }
+        
+        .market-container {
+            background-color: #0B0F14;
+            min-height: 100vh;
+        }
+        
+        .market-header {
+            background-color: #121821;
+            border-bottom: 1px solid #202938;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .market-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin: 0;
+        }
+        
+        .market-subtitle {
+            font-size: 14px;
+            color: #94A3B8;
+            margin: 0;
+        }
+        
+        .status-chips {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .status-chip {
+            background-color: #1B4332;
+            color: #22C55E;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            border: 1px solid #22C55E;
+        }
+        
+        .status-chip.live {
+            background-color: #1E3A8A;
+            color: #6EA8FE;
+            border-color: #6EA8FE;
+        }
+        
+        .bell-icon {
+            color: #94A3B8;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        
+        .dashboard-content {
+            padding: 24px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin-bottom: 16px;
+        }
+        
+        .financial-overview {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .metric-card {
+            background-color: #121821;
+            border: 1px solid #202938;
+            border-radius: 16px;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .metric-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .metric-icon {
+            font-size: 16px;
+            color: #94A3B8;
+        }
+        
+        .metric-label {
+            font-size: 13px;
+            color: #94A3B8;
+            font-weight: 500;
+        }
+        
+        .metric-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #E6EDF3;
+            margin-bottom: 4px;
+        }
+        
+        .metric-change {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .metric-change.positive {
+            color: #22C55E;
+        }
+        
+        .metric-change.negative {
+            color: #F43F5E;
+        }
+        
+        .metric-footer {
+            font-size: 12px;
+            color: #94A3B8;
+        }
+        
+        .market-intelligence {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .intelligence-card {
+            background-color: #121821;
+            border: 1px solid #202938;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background-color: #0F1419;
+            padding: 16px 20px;
+            border-bottom: 1px solid #202938;
+        }
+        
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin: 0;
+        }
+        
+        .card-subtitle {
+            font-size: 12px;
+            color: #94A3B8;
+            margin: 0;
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        .performer-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 0;
+            border-bottom: 1px solid #202938;
+        }
+        
+        .performer-item:last-child {
+            border-bottom: none;
+        }
+        
+        .performer-rank {
+            background-color: #374151;
+            color: #E6EDF3;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .performer-info {
+            flex: 1;
+        }
+        
+        .performer-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin: 0;
+        }
+        
+        .performer-position {
+            font-size: 12px;
+            color: #94A3B8;
+            margin: 0;
+        }
+        
+        .performer-metrics {
+            text-align: right;
+        }
+        
+        .performer-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin: 0;
+        }
+        
+        .performer-change {
+            font-size: 12px;
+            color: #22C55E;
+            margin: 0;
+        }
+        
+        .activity-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #202938;
+        }
+        
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        
+        .activity-time {
+            font-size: 11px;
+            color: #94A3B8;
+            min-width: 40px;
+        }
+        
+        .activity-content {
+            flex: 1;
+        }
+        
+        .activity-tags {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        
+        .activity-tag {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .tag-contract {
+            background-color: #1B4332;
+            color: #22C55E;
+        }
+        
+        .tag-endorsement {
+            background-color: #451A03;
+            color: #F59E0B;
+        }
+        
+        .tag-trade {
+            background-color: #450A0A;
+            color: #F43F5E;
+        }
+        
+        .tag-performance {
+            background-color: #2D1B69;
+            color: #A78BFA;
+        }
+        
+        .tag-social {
+            background-color: #164E63;
+            color: #22D3EE;
+        }
+        
+        .tag-high { opacity: 1; }
+        .tag-medium { opacity: 0.8; }
+        .tag-low { opacity: 0.6; }
+        
+        .activity-description {
+            font-size: 13px;
+            color: #E6EDF3;
+            margin: 0;
+        }
+        
+        .data-analysis {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+        
+        .chart-placeholder {
+            background-color: #121821;
+            border: 1px solid #202938;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .placeholder-text {
+            color: #94A3B8;
+            font-size: 14px;
+        }
+        
+        .quick-stats {
+            display: grid;
+            gap: 16px;
+        }
+        
+        .stat-card {
+            background-color: #121821;
+            border: 1px solid #202938;
+            border-radius: 16px;
+            padding: 16px;
+        }
+        
+        .stat-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #E6EDF3;
+            margin-bottom: 12px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #202938;
+        }
+        
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #94A3B8;
+        }
+        
+        .stat-value {
+            font-size: 12px;
+            font-weight: 600;
+            color: #E6EDF3;
+        }
+        
+        .status-active {
+            color: #22C55E;
+        }
+        
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #202938;
+            border-radius: 20px;
+            padding: 2px;
+        }
+        
+        .toggle-option {
+            padding: 6px 16px;
+            border-radius: 18px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .toggle-option.active {
+            background-color: #6EA8FE;
+            color: #0B0F14;
+        }
+        
+        .toggle-option:not(.active) {
+            color: #94A3B8;
+        }
+    </style>
 {% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">
-            <i class="fas fa-tachometer-alt me-2"></i>
-            Gravity Score by Ecos Dashboard
-        </h1>
-        <p class="lead">Welcome to the comprehensive professional athlete data collection and analysis platform.</p>
+<div class="market-container">
+    <!-- Market Header -->
+    <div class="market-header">
+        <div>
+            <h1 class="market-title">Market Dashboard</h1>
+            <p class="market-subtitle">Professional athlete brand performance and financial evaluation</p>
+        </div>
+        <div class="status-chips">
+            <span class="status-chip">● MARKET OPEN</span>
+            <span class="status-chip live">DATA SYNC: LIVE</span>
+            <i class="fas fa-bell bell-icon"></i>
+        </div>
+    </div>
+
+    <div class="dashboard-content">
+        <!-- Financial Overview -->
+        <div>
+            <h2 class="section-title">Financial Overview</h2>
+            <div class="financial-overview" data-testid="financial-overview">
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <i class="fas fa-dollar-sign metric-icon"></i>
+                        <span class="metric-label">Total Market Value</span>
+                    </div>
+                    <div class="metric-value">$2.14B</div>
+                    <div class="metric-change positive">↗ +12.3%</div>
+                    <div class="metric-footer">Across 2,910 athletes</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <i class="fas fa-file-contract metric-icon"></i>
+                        <span class="metric-label">Active Contracts</span>
+                    </div>
+                    <div class="metric-value">847</div>
+                    <div class="metric-change positive">↗ +5.7%</div>
+                    <div class="metric-footer">Worth $1.8B combined</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <i class="fas fa-chart-line metric-icon"></i>
+                        <span class="metric-label">Avg. Brand Value</span>
+                    </div>
+                    <div class="metric-value">$736K</div>
+                    <div class="metric-change negative">↘ -2.1%</div>
+                    <div class="metric-footer">Per athlete this quarter</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <i class="fas fa-activity metric-icon"></i>
+                        <span class="metric-label">Market Activity</span>
+                    </div>
+                    <div class="metric-value">94.2%</div>
+                    <div class="metric-change positive">↗ +8.4%</div>
+                    <div class="metric-footer">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                            <span style="font-size: 11px;">Trading confidence index</span>
+                            <div class="toggle-container">
+                                <div class="toggle-option active" data-mode="ecos">ECOS</div>
+                                <div class="toggle-option" data-mode="nfl">NFL</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Market Intelligence -->
+        <div>
+            <h2 class="section-title">Market Intelligence</h2>
+            <div class="market-intelligence">
+                <!-- Top Brand Performers -->
+                <div class="intelligence-card">
+                    <div class="card-header">
+                        <h3 class="card-title">Top Brand Performers</h3>
+                        <p class="card-subtitle">Last 24 hours</p>
+                    </div>
+                    <div class="card-body">
+                        <div id="top-performers">
+                            <div class="performer-item">
+                                <div class="performer-rank">1</div>
+                                <div class="performer-info">
+                                    <p class="performer-name">L. James</p>
+                                    <p class="performer-position">SF • LAL</p>
+                                </div>
+                                <div class="performer-metrics">
+                                    <p class="performer-value">$48.2M</p>
+                                    <p class="performer-change">+15.2%</p>
+                                </div>
+                            </div>
+                            <div class="performer-item">
+                                <div class="performer-rank">2</div>
+                                <div class="performer-info">
+                                    <p class="performer-name">S. Curry</p>
+                                    <p class="performer-position">PG • GSW</p>
+                                </div>
+                                <div class="performer-metrics">
+                                    <p class="performer-value">$42.1M</p>
+                                    <p class="performer-change">+12.8%</p>
+                                </div>
+                            </div>
+                            <div class="performer-item">
+                                <div class="performer-rank">3</div>
+                                <div class="performer-info">
+                                    <p class="performer-name">K. Durant</p>
+                                    <p class="performer-position">SF • PHX</p>
+                                </div>
+                                <div class="performer-metrics">
+                                    <p class="performer-value">$39.5M</p>
+                                    <p class="performer-change">+9.4%</p>
+                                </div>
+                            </div>
+                            <div class="performer-item">
+                                <div class="performer-rank">4</div>
+                                <div class="performer-info">
+                                    <p class="performer-name">G. Antetokounmpo</p>
+                                    <p class="performer-position">PF • MIL</p>
+                                </div>
+                                <div class="performer-metrics">
+                                    <p class="performer-value">$38.7M</p>
+                                    <p class="performer-change">+8.9%</p>
+                                </div>
+                            </div>
+                            <div class="performer-item">
+                                <div class="performer-rank">5</div>
+                                <div class="performer-info">
+                                    <p class="performer-name">L. Dončić</p>
+                                    <p class="performer-position">PG • DAL</p>
+                                </div>
+                                <div class="performer-metrics">
+                                    <p class="performer-value">$37.2M</p>
+                                    <p class="performer-change">+11.3%</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Market Activity -->
+                <div class="intelligence-card">
+                    <div class="card-header">
+                        <h3 class="card-title">Market Activity</h3>
+                        <p class="card-subtitle">Real-time updates</p>
+                    </div>
+                    <div class="card-body">
+                        <div id="market-activity">
+                            <div class="activity-item">
+                                <div class="activity-time">09:42</div>
+                                <div class="activity-content">
+                                    <div class="activity-tags">
+                                        <span class="activity-tag tag-contract tag-high">CONTRACT</span>
+                                        <span class="activity-tag tag-high">High</span>
+                                    </div>
+                                    <p class="activity-description">J. Morant – 5yr/$193M extension signed</p>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-time">09:38</div>
+                                <div class="activity-content">
+                                    <div class="activity-tags">
+                                        <span class="activity-tag tag-endorsement tag-medium">ENDORSEMENT</span>
+                                        <span class="activity-tag tag-medium">Medium</span>
+                                    </div>
+                                    <p class="activity-description">Nike partnership – V. Wembanyama ($10M/yr)</p>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-time">09:31</div>
+                                <div class="activity-content">
+                                    <div class="activity-tags">
+                                        <span class="activity-tag tag-trade tag-high">TRADE</span>
+                                        <span class="activity-tag tag-high">High</span>
+                                    </div>
+                                    <p class="activity-description">D. Lillard to MIL – Brand value impact analysis</p>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-time">09:25</div>
+                                <div class="activity-content">
+                                    <div class="activity-tags">
+                                        <span class="activity-tag tag-performance tag-low">PERFORMANCE</span>
+                                        <span class="activity-tag tag-low">Low</span>
+                                    </div>
+                                    <p class="activity-description">J. Tatum – MVP odds shift (+250 → +180)</p>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-time">09:18</div>
+                                <div class="activity-content">
+                                    <div class="activity-tags">
+                                        <span class="activity-tag tag-social tag-medium">SOCIAL</span>
+                                        <span class="activity-tag tag-medium">Medium</span>
+                                    </div>
+                                    <p class="activity-description">C. Clark – TikTok engagement surge (+340%)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Analysis -->
+        <div>
+            <h2 class="section-title">Data Analysis</h2>
+            <div class="data-analysis">
+                <div class="chart-placeholder">
+                    <h3 style="color: #E6EDF3; margin-bottom: 8px;">Performance Charts</h3>
+                    <p class="placeholder-text">Chart Component Placeholder<br>Interactive performance data visualization</p>
+                </div>
+
+                <div class="quick-stats">
+                    <div class="stat-card">
+                        <h4 class="stat-title">Quick Stats</h4>
+                        <div class="stat-item">
+                            <span class="stat-label">Teams Tracked</span>
+                            <span class="stat-value">32</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Data Points</span>
+                            <span class="stat-value">70+</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Update Freq.</span>
+                            <span class="stat-value status-active">Real-time</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <h4 class="stat-title">System Status</h4>
+                        <div class="stat-item">
+                            <span class="stat-label">API Status</span>
+                            <span class="stat-value status-active">● Active</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Data Freshness</span>
+                            <span class="stat-value">2m ago</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Sync Rate</span>
+                            <span class="stat-value">99.8%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle ECOS/NFL toggle
+    const toggleOptions = document.querySelectorAll('.toggle-option');
+    
+    toggleOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Remove active class from all options
+            toggleOptions.forEach(opt => opt.classList.remove('active'));
+            
+            // Add active class to clicked option
+            this.classList.add('active');
+            
+            const mode = this.dataset.mode;
+            
+            // Update market intelligence data based on mode
+            if (mode === 'nfl') {
+                updateToNFLData();
+            } else {
+                updateToEcosData();
+            }
+        });
+    });
+    
+    function updateToNFLData() {
+        // Update Top Brand Performers to NFL players
+        const performers = document.getElementById('top-performers');
+        performers.innerHTML = `
+            <div class="performer-item">
+                <div class="performer-rank">1</div>
+                <div class="performer-info">
+                    <p class="performer-name">T. Brady</p>
+                    <p class="performer-position">QB • TB</p>
+                </div>
+                <div class="performer-metrics">
+                    <p class="performer-value">$52.3M</p>
+                    <p class="performer-change">+18.2%</p>
+                </div>
+            </div>
+            <div class="performer-item">
+                <div class="performer-rank">2</div>
+                <div class="performer-info">
+                    <p class="performer-name">P. Mahomes</p>
+                    <p class="performer-position">QB • KC</p>
+                </div>
+                <div class="performer-metrics">
+                    <p class="performer-value">$45.1M</p>
+                    <p class="performer-change">+14.8%</p>
+                </div>
+            </div>
+            <div class="performer-item">
+                <div class="performer-rank">3</div>
+                <div class="performer-info">
+                    <p class="performer-name">A. Rodgers</p>
+                    <p class="performer-position">QB • NYJ</p>
+                </div>
+                <div class="performer-metrics">
+                    <p class="performer-value">$41.5M</p>
+                    <p class="performer-change">+11.4%</p>
+                </div>
+            </div>
+            <div class="performer-item">
+                <div class="performer-rank">4</div>
+                <div class="performer-info">
+                    <p class="performer-name">J. Allen</p>
+                    <p class="performer-position">QB • BUF</p>
+                </div>
+                <div class="performer-metrics">
+                    <p class="performer-value">$38.7M</p>
+                    <p class="performer-change">+9.9%</p>
+                </div>
+            </div>
+            <div class="performer-item">
+                <div class="performer-rank">5</div>
+                <div class="performer-info">
+                    <p class="performer-name">L. Jackson</p>
+                    <p class="performer-position">QB • BAL</p>
+                </div>
+                <div class="performer-metrics">
+                    <p class="performer-value">$36.2M</p>
+                    <p class="performer-change">+8.3%</p>
+                </div>
+            </div>
+        `;
+        
+        // Update Market Activity to NFL activities
+        const activity = document.getElementById('market-activity');
+        activity.innerHTML = `
+            <div class="activity-item">
+                <div class="activity-time">09:42</div>
+                <div class="activity-content">
+                    <div class="activity-tags">
+                        <span class="activity-tag tag-contract tag-high">CONTRACT</span>
+                        <span class="activity-tag tag-high">High</span>
+                    </div>
+                    <p class="activity-description">C. Sutton – 4yr/$92M extension signed</p>
+                </div>
+            </div>
+            <div class="activity-item">
+                <div class="activity-time">09:38</div>
+                <div class="activity-content">
+                    <div class="activity-tags">
+                        <span class="activity-tag tag-endorsement tag-medium">ENDORSEMENT</span>
+                        <span class="activity-tag tag-medium">Medium</span>
+                    </div>
+                    <p class="activity-description">Nike partnership – J. Herbert ($15M/yr)</p>
+                </div>
+            </div>
+            <div class="activity-item">
+                <div class="activity-time">09:31</div>
+                <div class="activity-content">
+                    <div class="activity-tags">
+                        <span class="activity-tag tag-trade tag-high">TRADE</span>
+                        <span class="activity-tag tag-high">High</span>
+                    </div>
+                    <p class="activity-description">D. Adams to LV – Brand value impact analysis</p>
+                </div>
+            </div>
+            <div class="activity-item">
+                <div class="activity-time">09:25</div>
+                <div class="activity-content">
+                    <div class="activity-tags">
+                        <span class="activity-tag tag-performance tag-low">PERFORMANCE</span>
+                        <span class="activity-tag tag-low">Low</span>
+                    </div>
+                    <p class="activity-description">J. Burrow – MVP odds shift (+180 → +150)</p>
+                </div>
+            </div>
+            <div class="activity-item">
+                <div class="activity-time">09:18</div>
+                <div class="activity-content">
+                    <div class="activity-tags">
+                        <span class="activity-tag tag-social tag-medium">SOCIAL</span>
+                        <span class="activity-tag tag-medium">Medium</span>
+                    </div>
+                    <p class="activity-description">T. Kelce – Instagram engagement surge (+280%)</p>
+                </div>
+            </div>
+        `;
+    }
+    
+    function updateToEcosData() {
+        // Restore original ECOS data (already in the template)
+        location.reload(); // Simple approach to restore original data
+    }
+});
+</script>
 
 <div class="row">
     <!-- Quick Actions -->
