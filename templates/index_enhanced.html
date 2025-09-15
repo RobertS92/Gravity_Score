@@ -472,6 +472,44 @@
             pointer-events: none;
         }
 
+        /* Content Sections */
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        /* Scraping Buttons */
+        .scrape-btn {
+            background-color: #6EA8FE;
+            color: #0B0F14;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .scrape-btn:hover {
+            background-color: #5B97F0;
+        }
+
+        .scrape-btn:disabled {
+            background-color: #494F56;
+            color: #94A3B8;
+            cursor: not-allowed;
+        }
+
+        /* Chart Containers */
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+
         .loading::after {
             content: "";
             position: absolute;
@@ -611,9 +649,11 @@
                 <!-- Messages -->
                 <div id="message-container"></div>
 
-                <!-- Financial Overview -->
-                <div>
-                    <h2 class="section-title">Financial Overview</h2>
+                <!-- DASHBOARD SECTION -->
+                <div id="section-dashboard" class="content-section active">
+                    <!-- Financial Overview -->
+                    <div>
+                        <h2 class="section-title">Financial Overview</h2>
                     <div class="financial-overview" data-testid="financial-overview">
                         <div class="metric-card" data-testid="metric-total-market-value">
                             <div class="metric-header">
@@ -733,6 +773,110 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- MARKET DATA SECTION -->
+                <div id="section-market-data" class="content-section" style="display: none;">
+                    <h2 class="section-title">Market Data Collection</h2>
+                    
+                    <div class="financial-overview">
+                        <div class="metric-card">
+                            <h3 style="color: #E6EDF3; margin-bottom: 16px;">Data Scraping Controls</h3>
+                            <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                                <button id="scrape-teams" class="scrape-btn">Scrape Teams</button>
+                                <button id="scrape-players" class="scrape-btn">Scrape Players</button>
+                                <button id="scrape-social" class="scrape-btn">Scrape Social Media</button>
+                            </div>
+                            <div id="scraping-status" style="color: #94A3B8; font-size: 14px;">Ready to scrape</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <h3 style="color: #E6EDF3; margin-bottom: 16px;">Last Update</h3>
+                            <div style="color: #94A3B8; font-size: 14px;" id="last-update-info">
+                                Loading update information...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PLAYERS SECTION -->
+                <div id="section-players" class="content-section" style="display: none;">
+                    <h2 class="section-title">Player Database</h2>
+                    
+                    <div class="financial-overview">
+                        <div class="metric-card" style="grid-column: 1 / -1;">
+                            <h3 style="color: #E6EDF3; margin-bottom: 16px;">All Players</h3>
+                            <div id="players-table" style="color: #94A3B8;">
+                                Loading player data...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SEARCH SECTION -->
+                <div id="section-search" class="content-section" style="display: none;">
+                    <h2 class="section-title">Advanced Search</h2>
+                    
+                    <div class="financial-overview">
+                        <div class="metric-card">
+                            <h3 style="color: #E6EDF3; margin-bottom: 16px;">Search Filters</h3>
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <input type="text" id="search-name" placeholder="Player name..." style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 8px 12px; border-radius: 8px;">
+                                <select id="search-position" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 8px 12px; border-radius: 8px;">
+                                    <option value="">All Positions</option>
+                                    <option value="QB">QB</option>
+                                    <option value="RB">RB</option>
+                                    <option value="WR">WR</option>
+                                    <option value="TE">TE</option>
+                                    <option value="OL">OL</option>
+                                    <option value="DL">DL</option>
+                                    <option value="LB">LB</option>
+                                    <option value="CB">CB</option>
+                                    <option value="S">S</option>
+                                    <option value="K">K</option>
+                                </select>
+                                <select id="search-team" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 8px 12px; border-radius: 8px;">
+                                    <option value="">All Teams</option>
+                                </select>
+                                <button id="execute-search" class="scrape-btn">Search Players</button>
+                            </div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <h3 style="color: #E6EDF3; margin-bottom: 16px;">Search Results</h3>
+                            <div id="search-results" style="color: #94A3B8;">
+                                Enter search criteria and click "Search Players"
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ANALYTICS SECTION -->
+                <div id="section-analytics" class="content-section" style="display: none;">
+                    <h2 class="section-title">Performance Analytics</h2>
+                    
+                    <div class="data-analysis">
+                        <div style="display: flex; flex-direction: column; gap: 16px;">
+                            <div class="metric-card">
+                                <h3 style="color: #E6EDF3; margin-bottom: 16px;">Brand Power Distribution</h3>
+                                <canvas id="brand-power-chart" width="400" height="200"></canvas>
+                            </div>
+                            
+                            <div class="metric-card">
+                                <h3 style="color: #E6EDF3; margin-bottom: 16px;">Market Activity Trends</h3>
+                                <canvas id="market-trends-chart" width="400" height="200"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="quick-stats">
+                            <div class="stat-card">
+                                <h4 class="stat-title">Performance Metrics</h4>
+                                <div id="analytics-stats">
+                                    Loading analytics...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -741,15 +885,71 @@
         class MarketDashboard {
             constructor() {
                 this.currentMode = 'ecos';
+                this.currentSection = 'dashboard';
                 this.init();
             }
 
             init() {
                 this.setupToggle();
+                this.setupNavigation();
+                this.setupScraping();
+                this.setupSearch();
                 this.loadInitialData();
                 
                 // Auto-refresh every 30 seconds
                 setInterval(() => this.loadData(), 30000);
+            }
+
+            setupNavigation() {
+                const navItems = document.querySelectorAll('.sidebar-item');
+                
+                navItems.forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        
+                        // Remove active class from all nav items
+                        navItems.forEach(nav => nav.classList.remove('active'));
+                        
+                        // Add active class to clicked item
+                        item.classList.add('active');
+                        
+                        // Get the section name from data-testid
+                        const testId = item.getAttribute('data-testid');
+                        const sectionName = testId.replace('nav-', '');
+                        
+                        this.switchSection(sectionName);
+                    });
+                });
+            }
+
+            switchSection(sectionName) {
+                // Hide all sections
+                document.querySelectorAll('.content-section').forEach(section => {
+                    section.style.display = 'none';
+                    section.classList.remove('active');
+                });
+                
+                // Show the selected section
+                const targetSection = document.getElementById(`section-${sectionName}`);
+                if (targetSection) {
+                    targetSection.style.display = 'block';
+                    targetSection.classList.add('active');
+                    this.currentSection = sectionName;
+                    
+                    // Load section-specific data
+                    this.loadSectionData(sectionName);
+                }
+            }
+
+            setupScraping() {
+                document.getElementById('scrape-teams').addEventListener('click', () => this.scrapeData('teams'));
+                document.getElementById('scrape-players').addEventListener('click', () => this.scrapeData('players'));
+                document.getElementById('scrape-social').addEventListener('click', () => this.scrapeData('social'));
+            }
+
+            setupSearch() {
+                document.getElementById('execute-search').addEventListener('click', () => this.executeSearch());
+                this.loadTeamOptions();
             }
 
             setupToggle() {
@@ -922,6 +1122,254 @@
                 setTimeout(() => {
                     messageDiv.remove();
                 }, 3000);
+            }
+
+            // Section-specific data loading
+            async loadSectionData(sectionName) {
+                switch(sectionName) {
+                    case 'market-data':
+                        await this.loadMarketDataInfo();
+                        break;
+                    case 'players':
+                        await this.loadPlayersData();
+                        break;
+                    case 'analytics':
+                        await this.loadAnalyticsData();
+                        break;
+                }
+            }
+
+            // Scraping functionality
+            async scrapeData(type) {
+                const button = document.getElementById(`scrape-${type}`);
+                const statusDiv = document.getElementById('scraping-status');
+                
+                button.disabled = true;
+                statusDiv.textContent = `Scraping ${type}...`;
+                
+                try {
+                    const response = await fetch(`/api/scraping/start`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            type: type,
+                            mode: this.currentMode 
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        statusDiv.textContent = `${type} scraping started successfully`;
+                        this.showMessage(`${type} scraping initiated`, 'success');
+                    } else {
+                        statusDiv.textContent = `Error: ${result.error}`;
+                        this.showMessage(`Scraping failed: ${result.error}`, 'error');
+                    }
+                } catch (error) {
+                    statusDiv.textContent = `Error: ${error.message}`;
+                    this.showMessage(`Scraping failed: ${error.message}`, 'error');
+                } finally {
+                    button.disabled = false;
+                }
+            }
+
+            // Search functionality
+            async executeSearch() {
+                const name = document.getElementById('search-name').value;
+                const position = document.getElementById('search-position').value;
+                const team = document.getElementById('search-team').value;
+                const resultsDiv = document.getElementById('search-results');
+                
+                resultsDiv.textContent = 'Searching...';
+                
+                try {
+                    const params = new URLSearchParams({
+                        mode: this.currentMode,
+                        name: name,
+                        position: position,
+                        team: team
+                    });
+                    
+                    const response = await fetch(`/api/players/search?${params}`);
+                    const results = await response.json();
+                    
+                    if (results.length === 0) {
+                        resultsDiv.innerHTML = '<p style="color: #94A3B8;">No players found matching criteria</p>';
+                        return;
+                    }
+                    
+                    let html = '<div style="display: grid; gap: 12px;">';
+                    results.forEach(player => {
+                        html += `
+                            <div style="background: #202938; border-radius: 8px; padding: 12px;">
+                                <div style="font-weight: 600; color: #E6EDF3;">${player.name}</div>
+                                <div style="color: #94A3B8; font-size: 12px;">${player.position} • ${player.team}</div>
+                                <div style="color: #6EA8FE; font-size: 12px;">Brand Value: ${this.formatCurrency(player.brand_value || 0)}</div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    
+                    resultsDiv.innerHTML = html;
+                } catch (error) {
+                    resultsDiv.textContent = `Search failed: ${error.message}`;
+                }
+            }
+
+            // Load team options for search
+            async loadTeamOptions() {
+                try {
+                    const response = await fetch(`/api/teams?mode=${this.currentMode}`);
+                    const teams = await response.json();
+                    
+                    const select = document.getElementById('search-team');
+                    select.innerHTML = '<option value="">All Teams</option>';
+                    
+                    teams.forEach(team => {
+                        const option = document.createElement('option');
+                        option.value = team;
+                        option.textContent = team;
+                        select.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Failed to load teams:', error);
+                }
+            }
+
+            // Market data info
+            async loadMarketDataInfo() {
+                try {
+                    const response = await fetch('/api/data/info');
+                    const info = await response.json();
+                    
+                    document.getElementById('last-update-info').innerHTML = `
+                        <div>Last scraped: ${info.last_update || 'Never'}</div>
+                        <div>Total players: ${info.player_count || 0}</div>
+                        <div>Data sources: ${info.sources ? info.sources.join(', ') : 'None'}</div>
+                    `;
+                } catch (error) {
+                    document.getElementById('last-update-info').textContent = 'Failed to load data info';
+                }
+            }
+
+            // Players data
+            async loadPlayersData() {
+                try {
+                    const response = await fetch(`/api/players/all?mode=${this.currentMode}&limit=50`);
+                    const players = await response.json();
+                    
+                    if (players.length === 0) {
+                        document.getElementById('players-table').innerHTML = '<p>No players found</p>';
+                        return;
+                    }
+                    
+                    let html = '<div style="display: grid; gap: 8px; max-height: 400px; overflow-y: auto;">';
+                    players.forEach(player => {
+                        html += `
+                            <div style="background: #202938; border-radius: 6px; padding: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-weight: 600; color: #E6EDF3; font-size: 14px;">${player.name}</div>
+                                    <div style="color: #94A3B8; font-size: 12px;">${player.position} • ${player.team}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="color: #6EA8FE; font-size: 12px; font-weight: 600;">${this.formatCurrency(player.brand_value || 0)}</div>
+                                    <div style="color: #94A3B8; font-size: 11px;">Brand Value</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    
+                    document.getElementById('players-table').innerHTML = html;
+                } catch (error) {
+                    document.getElementById('players-table').textContent = 'Failed to load players';
+                }
+            }
+
+            // Analytics data and charts
+            async loadAnalyticsData() {
+                try {
+                    const response = await fetch(`/api/analytics/data?mode=${this.currentMode}`);
+                    const data = await response.json();
+                    
+                    this.createBrandPowerChart(data.brand_distribution);
+                    this.createMarketTrendsChart(data.market_trends);
+                    this.updateAnalyticsStats(data.stats);
+                } catch (error) {
+                    console.error('Failed to load analytics:', error);
+                }
+            }
+
+            createBrandPowerChart(data) {
+                const canvas = document.getElementById('brand-power-chart');
+                const ctx = canvas.getContext('2d');
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Simple bar chart
+                const maxValue = Math.max(...data.values);
+                const barWidth = canvas.width / data.labels.length;
+                
+                ctx.fillStyle = '#6EA8FE';
+                data.values.forEach((value, i) => {
+                    const barHeight = (value / maxValue) * (canvas.height - 40);
+                    ctx.fillRect(i * barWidth + 10, canvas.height - barHeight - 20, barWidth - 20, barHeight);
+                });
+                
+                // Labels
+                ctx.fillStyle = '#E6EDF3';
+                ctx.font = '12px Arial';
+                data.labels.forEach((label, i) => {
+                    ctx.fillText(label, i * barWidth + 15, canvas.height - 5);
+                });
+            }
+
+            createMarketTrendsChart(data) {
+                const canvas = document.getElementById('market-trends-chart');
+                const ctx = canvas.getContext('2d');
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Simple line chart
+                const maxValue = Math.max(...data.values);
+                const pointWidth = canvas.width / (data.values.length - 1);
+                
+                ctx.strokeStyle = '#22C55E';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                data.values.forEach((value, i) => {
+                    const x = i * pointWidth;
+                    const y = canvas.height - 40 - ((value / maxValue) * (canvas.height - 60));
+                    
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                
+                ctx.stroke();
+            }
+
+            updateAnalyticsStats(stats) {
+                const container = document.getElementById('analytics-stats');
+                container.innerHTML = `
+                    <div class="stat-item">
+                        <span class="stat-label">Avg Brand Power</span>
+                        <span class="stat-value">${stats.avg_brand_power.toFixed(1)}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Top Performer</span>
+                        <span class="stat-value">${stats.top_performer}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Market Growth</span>
+                        <span class="stat-value status-active">+${stats.growth_rate.toFixed(1)}%</span>
+                    </div>
+                `;
             }
         }
 
