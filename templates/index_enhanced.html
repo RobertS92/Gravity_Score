@@ -1343,26 +1343,133 @@
 
                 <!-- ANALYTICS SECTION -->
                 <div id="section-analytics" class="content-section" style="display: none;">
-                    <h2 class="section-title">Performance Analytics</h2>
+                    <h2 class="section-title">Advanced Analytics Lab</h2>
                     
-                    <div class="data-analysis">
-                        <div style="display: flex; flex-direction: column; gap: 16px;">
-                            <div class="metric-card">
-                                <h3 style="color: #E6EDF3; margin-bottom: 16px;">Brand Power Distribution</h3>
-                                <canvas id="brand-power-chart" width="400" height="200"></canvas>
+                    <!-- Analytics Grid -->
+                    <div class="dashboard-grid">
+                        <!-- Time Series Lab -->
+                        <div class="intelligence-card" style="grid-column: span 4;">
+                            <div class="card-header">
+                                <h3 class="card-title">Time Series Lab</h3>
+                                <div style="display: flex; gap: 8px;">
+                                    <select id="analytics-timeframe" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">
+                                        <option value="7d">7 Days</option>
+                                        <option value="30d" selected>30 Days</option>
+                                        <option value="90d">90 Days</option>
+                                    </select>
+                                    <select id="analytics-metric" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">
+                                        <option value="brand_value">Brand Value</option>
+                                        <option value="social_engagement">Social Engagement</option>
+                                        <option value="market_activity">Market Activity</option>
+                                    </select>
+                                    <button id="refresh-timeseries" class="scrape-btn" style="font-size: 11px; padding: 4px 8px;">Refresh</button>
+                                </div>
                             </div>
-                            
-                            <div class="metric-card">
-                                <h3 style="color: #E6EDF3; margin-bottom: 16px;">Market Activity Trends</h3>
-                                <canvas id="market-trends-chart" width="400" height="200"></canvas>
+                            <div class="card-body">
+                                <div id="time-series-chart" style="height: 200px; position: relative;">
+                                    <canvas id="chart-canvas" width="100%" height="200"></canvas>
+                                </div>
+                                <div id="time-series-stats" style="display: flex; justify-content: space-between; margin-top: 12px; font-size: 11px; color: #94A3B8;">
+                                    <div>Trend: <span id="trend-indicator">--</span></div>
+                                    <div>Change: <span id="change-percent">--</span></div>
+                                    <div>Volatility: <span id="volatility-score">--</span></div>
+                                    <div>Volume: <span id="total-volume">--</span></div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="quick-stats">
-                            <div class="stat-card">
-                                <h4 class="stat-title">Performance Metrics</h4>
-                                <div id="analytics-stats">
-                                    Loading analytics...
+                        <!-- Attribution Analysis -->
+                        <div class="intelligence-card" style="grid-column: span 2;">
+                            <div class="card-header">
+                                <h3 class="card-title">Attribution Analysis</h3>
+                                <p class="card-subtitle">Value driver breakdown</p>
+                            </div>
+                            <div class="card-body">
+                                <div id="attribution-breakdown" style="max-height: 250px; overflow-y: auto;">
+                                    <div class="loading">Loading attribution factors...</div>
+                                </div>
+                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #202938; font-size: 11px; color: #94A3B8;">
+                                    Explained Variance: <span id="explained-variance" style="color: #22C55E;">--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Distribution & Cohorts -->
+                        <div class="intelligence-card" style="grid-column: span 2;">
+                            <div class="card-header">
+                                <h3 class="card-title">Distribution & Cohorts</h3>
+                                <div style="display: flex; gap: 8px;">
+                                    <select id="cohort-type" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">
+                                        <option value="position">By Position</option>
+                                        <option value="team">By Team</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="distribution-stats" style="margin-bottom: 12px; font-size: 11px;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span style="color: #94A3B8;">Mean:</span>
+                                        <span id="dist-mean" style="color: #E6EDF3;">--</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span style="color: #94A3B8;">Median:</span>
+                                        <span id="dist-median" style="color: #E6EDF3;">--</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span style="color: #94A3B8;">Std Dev:</span>
+                                        <span id="dist-stddev" style="color: #E6EDF3;">--</span>
+                                    </div>
+                                </div>
+                                <div id="cohort-rankings" style="max-height: 150px; overflow-y: auto;">
+                                    <div class="loading">Loading cohort analysis...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Scenario Studio -->
+                        <div class="intelligence-card" style="grid-column: span 3;">
+                            <div class="card-header">
+                                <h3 class="card-title">Scenario Studio</h3>
+                                <div style="display: flex; gap: 8px;">
+                                    <select id="scenario-type" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">
+                                        <option value="performance_impact">Performance Impact</option>
+                                        <option value="market_conditions">Market Conditions</option>
+                                    </select>
+                                    <button id="run-scenarios" class="scrape-btn" style="font-size: 11px; padding: 4px 8px;">Run Analysis</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div id="scenario-results" style="max-height: 300px; overflow-y: auto;">
+                                    <div style="text-align: center; color: #94A3B8; padding: 30px 20px;">
+                                        <div style="font-size: 36px; margin-bottom: 12px;">🎯</div>
+                                        <div style="font-size: 14px; margin-bottom: 8px;">Scenario Modeling</div>
+                                        <div style="font-size: 12px;">Select scenario type and run analysis to explore potential outcomes</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Risk Analysis -->
+                        <div class="intelligence-card" style="grid-column: span 3;">
+                            <div class="card-header">
+                                <h3 class="card-title">Risk Analysis</h3>
+                                <p class="card-subtitle">Portfolio risk assessment</p>
+                            </div>
+                            <div class="card-body">
+                                <div id="risk-overview" style="margin-bottom: 16px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                        <span style="font-size: 14px; color: #E6EDF3;">Overall Risk Score</span>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span id="risk-score" style="font-size: 18px; font-weight: bold; color: #F59E0B;">--</span>
+                                            <span id="risk-level" style="font-size: 12px; color: #94A3B8;">--</span>
+                                        </div>
+                                    </div>
+                                    <div style="background: #202938; border-radius: 6px; padding: 2px;">
+                                        <div id="risk-bar" style="background: linear-gradient(90deg, #22C55E, #F59E0B, #F43F5E); height: 4px; border-radius: 4px; width: 0%; transition: width 0.3s ease;"></div>
+                                    </div>
+                                </div>
+                                <div id="risk-factors" style="max-height: 200px; overflow-y: auto;">
+                                    <div class="loading">Loading risk analysis...</div>
                                 </div>
                             </div>
                         </div>
