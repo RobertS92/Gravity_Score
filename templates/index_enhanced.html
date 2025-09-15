@@ -580,6 +580,147 @@
             border-radius: 8px;
             margin-bottom: 16px;
         }
+
+        /* Portfolio Analytics Styles */
+        .portfolio-kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .kpi-card {
+            background-color: #121821;
+            border: 1px solid #202938;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #94A3B8;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .kpi-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #E6EDF3;
+            margin-bottom: 8px;
+        }
+
+        .kpi-change {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .kpi-change.positive { color: #22C55E; }
+        .kpi-change.negative { color: #F43F5E; }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+        }
+
+        .movers-section {
+            max-height: 300px;
+        }
+
+        .movers-tabs {
+            display: flex;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #202938;
+        }
+
+        .mover-tab {
+            background: none;
+            border: none;
+            color: #94A3B8;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            border-bottom: 2px solid transparent;
+        }
+
+        .mover-tab.active {
+            color: #6EA8FE;
+            border-bottom-color: #6EA8FE;
+        }
+
+        .movers-content {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .mover-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .mover-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mover-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #E6EDF3;
+        }
+
+        .mover-details {
+            font-size: 12px;
+            color: #94A3B8;
+        }
+
+        .mover-change {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .risk-score {
+            font-size: 18px;
+            font-weight: 700;
+            color: #F43F5E;
+        }
+
+        .risk-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .risk-level-high { color: #F43F5E; }
+        .risk-level-medium { color: #F59E0B; }
+        .risk-level-low { color: #22C55E; }
+
+        .renewal-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .total-expiring {
+            font-size: 16px;
+            font-weight: 700;
+            color: #6EA8FE;
+        }
+
+        .chart-card {
+            min-height: 300px;
+        }
     </style>
 </head>
 <body>
@@ -651,6 +792,92 @@
 
                 <!-- DASHBOARD SECTION -->
                 <div id="section-dashboard" class="content-section active">
+                    <!-- Portfolio KPI Row -->
+                    <div class="portfolio-kpi-row">
+                        <div class="kpi-card">
+                            <div class="kpi-label">TCV-UM</div>
+                            <div class="kpi-value" id="tcv-um">$0</div>
+                            <div class="kpi-change" id="tcv-change">0%</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">GCV-UM</div>
+                            <div class="kpi-value" id="gcv-um">$0</div>
+                            <div class="kpi-change" id="gcv-change">0%</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">RARV-UM</div>
+                            <div class="kpi-value" id="rarv-um">$0</div>
+                            <div class="kpi-change" id="rarv-change">0%</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">FRV-UM</div>
+                            <div class="kpi-value" id="frv-um">$0</div>
+                            <div class="kpi-change" id="frv-change">0%</div>
+                        </div>
+                    </div>
+
+                    <!-- Enhanced Dashboard Grid -->
+                    <div class="dashboard-grid">
+                        <!-- Top Movers -->
+                        <div class="intelligence-card">
+                            <div class="card-header">
+                                <h3 class="card-title">Top Movers</h3>
+                                <p class="card-subtitle">24h performance</p>
+                            </div>
+                            <div class="card-body">
+                                <div class="movers-section">
+                                    <div class="movers-tabs">
+                                        <button class="mover-tab active" onclick="showMovers('gainers')">Gainers</button>
+                                        <button class="mover-tab" onclick="showMovers('losers')">Losers</button>
+                                    </div>
+                                    <div id="gainers-content" class="movers-content">
+                                        <div class="loading">Loading...</div>
+                                    </div>
+                                    <div id="losers-content" class="movers-content" style="display: none;">
+                                        <div class="loading">Loading...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Risk Monitor -->
+                        <div class="intelligence-card">
+                            <div class="card-header">
+                                <h3 class="card-title">Risk Monitor</h3>
+                                <div class="risk-score" id="overall-risk-score">0%</div>
+                            </div>
+                            <div class="card-body">
+                                <div id="risk-monitor-content">
+                                    <div class="loading">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Renewal Ladder -->
+                        <div class="intelligence-card">
+                            <div class="card-header">
+                                <h3 class="card-title">Renewal Ladder</h3>
+                                <div class="total-expiring" id="total-expiring">$0</div>
+                            </div>
+                            <div class="card-body">
+                                <div id="renewal-ladder-content">
+                                    <div class="loading">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Revenue Forecast -->
+                        <div class="intelligence-card chart-card">
+                            <div class="card-header">
+                                <h3 class="card-title">Revenue Forecast</h3>
+                                <p class="card-subtitle">12-month projection</p>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="revenue-forecast-chart" width="400" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Financial Overview -->
                     <div>
                         <h2 class="section-title">Financial Overview</h2>
@@ -776,23 +1003,94 @@
 
                 <!-- MARKET DATA SECTION -->
                 <div id="section-market-data" class="content-section" style="display: none;">
-                    <h2 class="section-title">Market Data Collection</h2>
+                    <h2 class="section-title">Market Data Collection & Intelligence</h2>
                     
-                    <div class="financial-overview">
-                        <div class="metric-card">
-                            <h3 style="color: #E6EDF3; margin-bottom: 16px;">Data Scraping Controls</h3>
-                            <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-                                <button id="scrape-teams" class="scrape-btn">Scrape Teams</button>
-                                <button id="scrape-players" class="scrape-btn">Scrape Players</button>
-                                <button id="scrape-social" class="scrape-btn">Scrape Social Media</button>
+                    <!-- Enhanced Market Data Grid -->
+                    <div class="dashboard-grid">
+                        <!-- Event Feed -->
+                        <div class="intelligence-card">
+                            <div class="card-header">
+                                <h3 class="card-title">Event Feed</h3>
+                                <p class="card-subtitle">Real-time market events</p>
                             </div>
-                            <div id="scraping-status" style="color: #94A3B8; font-size: 14px;">Ready to scrape</div>
+                            <div class="card-body">
+                                <div class="event-filters" style="margin-bottom: 16px;">
+                                    <select id="event-type-filter" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 4px 8px; border-radius: 4px; margin-right: 8px;">
+                                        <option value="">All Types</option>
+                                        <option value="contract">Contract</option>
+                                        <option value="trade">Trade</option>
+                                        <option value="endorsement">Endorsement</option>
+                                        <option value="performance">Performance</option>
+                                        <option value="social">Social</option>
+                                    </select>
+                                    <select id="event-priority-filter" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 4px 8px; border-radius: 4px;">
+                                        <option value="">All Priorities</option>
+                                        <option value="high">High</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="low">Low</option>
+                                    </select>
+                                </div>
+                                <div id="event-feed-content" style="max-height: 300px; overflow-y: auto;">
+                                    <div class="loading">Loading...</div>
+                                </div>
+                            </div>
                         </div>
-                        
-                        <div class="metric-card">
-                            <h3 style="color: #E6EDF3; margin-bottom: 16px;">Last Update</h3>
-                            <div style="color: #94A3B8; font-size: 14px;" id="last-update-info">
-                                Loading update information...
+
+                        <!-- Deal Tape -->
+                        <div class="intelligence-card">
+                            <div class="card-header">
+                                <h3 class="card-title">Deal Tape</h3>
+                                <p class="card-subtitle">Recent transactions</p>
+                            </div>
+                            <div class="card-body">
+                                <div id="deal-tape-summary" style="margin-bottom: 16px;">
+                                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #94A3B8;">
+                                        <span>Total Volume: <span id="total-volume">$0</span></span>
+                                        <span>Avg Deal: <span id="avg-deal-size">$0</span></span>
+                                    </div>
+                                </div>
+                                <div id="deal-tape-content" style="max-height: 300px; overflow-y: auto;">
+                                    <div class="loading">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Data Health -->
+                        <div class="intelligence-card">
+                            <div class="card-header">
+                                <h3 class="card-title">Data Health</h3>
+                                <div class="risk-score" id="overall-health-score" style="color: #22C55E;">0%</div>
+                            </div>
+                            <div class="card-body">
+                                <div id="data-health-content">
+                                    <div class="loading">Loading...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Advanced Scraping Controls -->
+                        <div class="intelligence-card">
+                            <div class="card-header">
+                                <h3 class="card-title">Scraping Jobs</h3>
+                                <p class="card-subtitle">Advanced data collection</p>
+                            </div>
+                            <div class="card-body">
+                                <div class="scraping-controls" style="margin-bottom: 16px;">
+                                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;">
+                                        <button id="scrape-teams" class="scrape-btn" style="font-size: 11px;">Teams</button>
+                                        <button id="scrape-players" class="scrape-btn" style="font-size: 11px;">Players</button>
+                                        <button id="scrape-social" class="scrape-btn" style="font-size: 11px;">Social</button>
+                                    </div>
+                                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                        <button id="dry-run-btn" class="scrape-btn" style="background: #F59E0B; font-size: 11px;">Dry Run</button>
+                                        <button id="targeted-scrape-btn" class="scrape-btn" style="background: #6EA8FE; font-size: 11px;">Targeted</button>
+                                        <button id="full-scrape-btn" class="scrape-btn" style="background: #F43F5E; font-size: 11px;">Full</button>
+                                    </div>
+                                    <div id="scraping-status" style="color: #94A3B8; font-size: 12px;">Ready to scrape</div>
+                                </div>
+                                <div id="job-drawer" style="max-height: 200px; overflow-y: auto;">
+                                    <div class="loading">Loading...</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -800,13 +1098,112 @@
 
                 <!-- PLAYERS SECTION -->
                 <div id="section-players" class="content-section" style="display: none;">
-                    <h2 class="section-title">Player Database</h2>
+                    <h2 class="section-title">Player Database & Management</h2>
                     
-                    <div class="financial-overview">
-                        <div class="metric-card" style="grid-column: 1 / -1;">
-                            <h3 style="color: #E6EDF3; margin-bottom: 16px;">All Players</h3>
-                            <div id="players-table" style="color: #94A3B8;">
-                                Loading player data...
+                    <!-- Enhanced Players Grid -->
+                    <div class="dashboard-grid">
+                        <!-- Advanced Filter Panel -->
+                        <div class="intelligence-card">
+                            <div class="card-header">
+                                <h3 class="card-title">Advanced Filters</h3>
+                                <button id="clear-filters-btn" class="scrape-btn" style="font-size: 11px; padding: 4px 8px;">Clear All</button>
+                            </div>
+                            <div class="card-body">
+                                <div class="filter-panel">
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 4px;">Teams</label>
+                                        <select id="filter-teams" multiple style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 4px; border-radius: 4px; width: 100%; height: 60px;">
+                                        </select>
+                                    </div>
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 4px;">Positions</label>
+                                        <select id="filter-positions" multiple style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 4px; border-radius: 4px; width: 100%; height: 60px;">
+                                        </select>
+                                    </div>
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 4px;">Value Range</label>
+                                        <select id="filter-value-band" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 4px; border-radius: 4px; width: 100%;">
+                                            <option value="">All Values</option>
+                                        </select>
+                                    </div>
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="display: block; font-size: 12px; color: #94A3B8; margin-bottom: 4px;">Risk Level</label>
+                                        <select id="filter-risk" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 4px; border-radius: 4px; width: 100%;">
+                                            <option value="">All Risk Levels</option>
+                                            <option value="Low">Low</option>
+                                            <option value="Medium">Medium</option>
+                                            <option value="High">High</option>
+                                        </select>
+                                    </div>
+                                    <button id="apply-filters-btn" class="scrape-btn" style="width: 100%; font-size: 12px;">Apply Filters</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Virtualized Players Table -->
+                        <div class="intelligence-card" style="grid-column: span 3;">
+                            <div class="card-header">
+                                <h3 class="card-title">Players Directory</h3>
+                                <div style="display: flex; gap: 8px;">
+                                    <span id="players-count" class="card-subtitle">0 players</span>
+                                    <select id="sort-players" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">
+                                        <option value="brand_value">Brand Value</option>
+                                        <option value="name">Name</option>
+                                        <option value="age">Age</option>
+                                        <option value="experience">Experience</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <!-- Bulk Operations Bar -->
+                                <div id="bulk-operations" style="display: none; margin-bottom: 12px; padding: 8px; background: #202938; border-radius: 8px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-size: 12px; color: #E6EDF3;"><span id="selected-count">0</span> players selected</span>
+                                        <div style="display: flex; gap: 6px;">
+                                            <button id="bulk-watchlist" class="scrape-btn" style="font-size: 10px; padding: 3px 8px;">Add to Watchlist</button>
+                                            <button id="bulk-export" class="scrape-btn" style="font-size: 10px; padding: 3px 8px;">Export CSV</button>
+                                            <button id="bulk-compare" class="scrape-btn" style="font-size: 10px; padding: 3px 8px;">Compare</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Table Header -->
+                                <div class="table-header" style="display: grid; grid-template-columns: 40px 1fr 80px 120px 100px 80px 60px; gap: 8px; padding: 8px 0; border-bottom: 1px solid #202938; font-size: 11px; font-weight: 600; color: #94A3B8;">
+                                    <div><input type="checkbox" id="select-all-players"></div>
+                                    <div>Name</div>
+                                    <div>Position</div>
+                                    <div>Team</div>
+                                    <div>Brand Value</div>
+                                    <div>Risk</div>
+                                    <div>Actions</div>
+                                </div>
+                                
+                                <!-- Virtualized Table Content -->
+                                <div id="players-table-content" style="max-height: 400px; overflow-y: auto;">
+                                    <div class="loading">Loading...</div>
+                                </div>
+                                
+                                <!-- Pagination -->
+                                <div id="players-pagination" style="display: flex; justify-content: between; align-items: center; margin-top: 12px; font-size: 12px; color: #94A3B8;">
+                                    <div>Showing <span id="showing-range">0-0</span> of <span id="total-players">0</span></div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button id="prev-page" class="scrape-btn" style="font-size: 10px; padding: 3px 8px;">Previous</button>
+                                        <button id="next-page" class="scrape-btn" style="font-size: 10px; padding: 3px 8px;">Next</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Player Profile Drawer (Hidden by default) -->
+                    <div id="player-profile-drawer" style="display: none; position: fixed; top: 0; right: 0; width: 400px; height: 100vh; background: #0B0F14; border-left: 1px solid #202938; z-index: 1000; overflow-y: auto;">
+                        <div style="padding: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3 style="color: #E6EDF3; margin: 0;">Player Profile</h3>
+                                <button id="close-profile-drawer" style="background: none; border: none; color: #94A3B8; font-size: 20px; cursor: pointer;">×</button>
+                            </div>
+                            <div id="player-profile-content">
+                                <div class="loading">Loading...</div>
                             </div>
                         </div>
                     </div>
@@ -1124,14 +1521,638 @@
                 }, 3000);
             }
 
+            // Portfolio Analytics Methods
+            async loadPortfolioKPIs() {
+                try {
+                    const kpis = await this.fetchData('/api/portfolio/kpis');
+                    
+                    document.getElementById('tcv-um').textContent = this.formatCurrency(kpis.tcv_um);
+                    document.getElementById('gcv-um').textContent = this.formatCurrency(kpis.gcv_um);
+                    document.getElementById('rarv-um').textContent = this.formatCurrency(kpis.rarv_um);
+                    document.getElementById('frv-um').textContent = this.formatCurrency(kpis.frv_um);
+                    
+                    // Update change indicators
+                    this.updateChangeIndicator('tcv-change', kpis.changes['24h']);
+                    this.updateChangeIndicator('gcv-change', kpis.changes['7d']);
+                    this.updateChangeIndicator('rarv-change', kpis.changes['30d']);
+                    this.updateChangeIndicator('frv-change', kpis.changes['24h']);
+                } catch (error) {
+                    console.error('Error loading portfolio KPIs:', error);
+                }
+            }
+
+            async loadTopMovers() {
+                try {
+                    const movers = await this.fetchData('/api/portfolio/top-movers');
+                    
+                    this.updateMoversContent('gainers-content', movers.gainers);
+                    this.updateMoversContent('losers-content', movers.losers);
+                } catch (error) {
+                    console.error('Error loading top movers:', error);
+                }
+            }
+
+            async loadRiskMonitor() {
+                try {
+                    const riskData = await this.fetchData('/api/portfolio/risk-monitor');
+                    
+                    document.getElementById('overall-risk-score').textContent = `${riskData.risk_score}%`;
+                    
+                    const container = document.getElementById('risk-monitor-content');
+                    container.innerHTML = '';
+                    
+                    riskData.risks.slice(0, 5).forEach(risk => {
+                        const item = document.createElement('div');
+                        item.className = 'risk-item';
+                        item.innerHTML = `
+                            <div style="flex: 1;">
+                                <div style="font-size: 14px; font-weight: 600; color: #E6EDF3;">${risk.player}</div>
+                                <div style="font-size: 12px; color: #94A3B8;">${risk.description}</div>
+                            </div>
+                            <div class="risk-level-${risk.level}" style="font-size: 12px; font-weight: 600;">
+                                ${risk.level.toUpperCase()}
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } catch (error) {
+                    console.error('Error loading risk monitor:', error);
+                }
+            }
+
+            async loadRenewalLadder() {
+                try {
+                    const renewals = await this.fetchData('/api/portfolio/renewal-ladder');
+                    
+                    document.getElementById('total-expiring').textContent = this.formatCurrency(renewals.total_expiring);
+                    
+                    const container = document.getElementById('renewal-ladder-content');
+                    container.innerHTML = '';
+                    
+                    renewals.quarters.forEach(quarter => {
+                        const item = document.createElement('div');
+                        item.className = 'renewal-item';
+                        item.innerHTML = `
+                            <div>
+                                <div style="font-size: 14px; font-weight: 600; color: #E6EDF3;">${quarter.quarter}</div>
+                                <div style="font-size: 12px; color: #94A3B8;">${quarter.players} players</div>
+                            </div>
+                            <div style="font-size: 14px; font-weight: 600; color: #6EA8FE;">
+                                ${this.formatCurrency(quarter.value)}
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } catch (error) {
+                    console.error('Error loading renewal ladder:', error);
+                }
+            }
+
+            async loadRevenueForecast() {
+                try {
+                    const forecast = await this.fetchData('/api/portfolio/revenue-forecast');
+                    
+                    const canvas = document.getElementById('revenue-forecast-chart');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Clear canvas
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Chart setup
+                    const padding = 40;
+                    const chartWidth = canvas.width - 2 * padding;
+                    const chartHeight = canvas.height - 2 * padding;
+                    
+                    const revenues = forecast.forecast.map(f => f.revenue);
+                    const maxRevenue = Math.max(...revenues);
+                    const minRevenue = Math.min(...revenues);
+                    const revenueRange = maxRevenue - minRevenue;
+                    
+                    // Draw axes
+                    ctx.strokeStyle = '#202938';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, padding);
+                    ctx.lineTo(padding, padding + chartHeight);
+                    ctx.lineTo(padding + chartWidth, padding + chartHeight);
+                    ctx.stroke();
+                    
+                    // Draw line chart
+                    ctx.strokeStyle = '#6EA8FE';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    
+                    forecast.forecast.forEach((data, index) => {
+                        const x = padding + (index / (forecast.forecast.length - 1)) * chartWidth;
+                        const y = padding + chartHeight - ((data.revenue - minRevenue) / revenueRange) * chartHeight;
+                        
+                        if (index === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    ctx.stroke();
+                    
+                    // Add labels
+                    ctx.fillStyle = '#94A3B8';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    
+                    forecast.forecast.forEach((data, index) => {
+                        if (index % 3 === 0) { // Show every 3rd month
+                            const x = padding + (index / (forecast.forecast.length - 1)) * chartWidth;
+                            ctx.fillText(data.month, x, canvas.height - 10);
+                        }
+                    });
+                    
+                } catch (error) {
+                    console.error('Error loading revenue forecast:', error);
+                }
+            }
+
+            updateChangeIndicator(elementId, change) {
+                const element = document.getElementById(elementId);
+                element.textContent = `${change > 0 ? '+' : ''}${change}%`;
+                element.className = `kpi-change ${change >= 0 ? 'positive' : 'negative'}`;
+            }
+
+            updateMoversContent(containerId, movers) {
+                const container = document.getElementById(containerId);
+                container.innerHTML = '';
+                
+                movers.forEach(mover => {
+                    const item = document.createElement('div');
+                    item.className = 'mover-item';
+                    item.innerHTML = `
+                        <div class="mover-info">
+                            <div class="mover-name">${mover.name}</div>
+                            <div class="mover-details">${mover.position} | ${mover.team}</div>
+                        </div>
+                        <div class="mover-change ${mover.change_pct >= 0 ? 'positive' : 'negative'}">
+                            ${mover.change_pct > 0 ? '+' : ''}${mover.change_pct}%
+                        </div>
+                    `;
+                    container.appendChild(item);
+                });
+            }
+
+            // Market Data Methods
+            async loadEventFeed() {
+                try {
+                    const eventData = await this.fetchData('/api/market-data/event-feed');
+                    
+                    const container = document.getElementById('event-feed-content');
+                    container.innerHTML = '';
+                    
+                    eventData.events.slice(0, 10).forEach(event => {
+                        const item = document.createElement('div');
+                        item.className = 'event-item';
+                        item.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: start; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <div style="flex: 1;">
+                                    <div style="display: flex; gap: 8px; margin-bottom: 4px;">
+                                        <span class="activity-tag tag-${event.type} tag-${event.priority}">${event.type}</span>
+                                        <span class="activity-tag tag-${event.priority}">${event.priority}</span>
+                                    </div>
+                                    <div style="font-size: 14px; font-weight: 600; color: #E6EDF3; margin-bottom: 2px;">${event.player}</div>
+                                    <div style="font-size: 12px; color: #94A3B8;">${event.description}</div>
+                                    <div style="font-size: 11px; color: #6EA8FE; margin-top: 2px;">${event.source}</div>
+                                </div>
+                                <div style="text-align: right; font-size: 11px; color: #94A3B8;">
+                                    <div>${event.timestamp}</div>
+                                    <div style="color: ${event.impact === 'High' ? '#F43F5E' : event.impact === 'Medium' ? '#F59E0B' : '#22C55E'};">${event.impact}</div>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } catch (error) {
+                    console.error('Error loading event feed:', error);
+                }
+            }
+
+            async loadDealTape() {
+                try {
+                    const dealData = await this.fetchData('/api/market-data/deal-tape');
+                    
+                    // Update summary
+                    document.getElementById('total-volume').textContent = this.formatCurrency(dealData.total_volume);
+                    document.getElementById('avg-deal-size').textContent = this.formatCurrency(dealData.avg_deal_size);
+                    
+                    const container = document.getElementById('deal-tape-content');
+                    container.innerHTML = '';
+                    
+                    dealData.deals.forEach(deal => {
+                        const item = document.createElement('div');
+                        item.className = 'deal-item';
+                        item.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: start; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 14px; font-weight: 600; color: #E6EDF3;">${deal.player}</div>
+                                    <div style="font-size: 12px; color: #94A3B8;">${deal.position} | ${deal.team}</div>
+                                    <div style="font-size: 11px; color: #6EA8FE; margin-top: 2px;">
+                                        ${deal.type === 'contract' ? `${deal.years}yr, ${this.formatCurrency(deal.total_value)} (${Math.round(deal.guaranteed/deal.total_value*100)}% gtd)` : `${deal.brand} - ${deal.category}`}
+                                    </div>
+                                </div>
+                                <div style="text-align: right; font-size: 12px;">
+                                    <div style="font-weight: 600; color: #22C55E;">${this.formatCurrency(deal.total_value)}</div>
+                                    <div style="font-size: 11px; color: #94A3B8;">${deal.date}</div>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } catch (error) {
+                    console.error('Error loading deal tape:', error);
+                }
+            }
+
+            async loadDataHealth() {
+                try {
+                    const healthData = await this.fetchData('/api/market-data/data-health');
+                    
+                    document.getElementById('overall-health-score').textContent = `${healthData.overall_health}%`;
+                    
+                    const container = document.getElementById('data-health-content');
+                    container.innerHTML = '';
+                    
+                    healthData.sources.forEach(source => {
+                        const item = document.createElement('div');
+                        item.className = 'health-item';
+                        item.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 13px; font-weight: 600; color: #E6EDF3;">${source.name}</div>
+                                    <div style="font-size: 11px; color: #94A3B8;">${source.records} records • ${source.last_sync}</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 12px; font-weight: 600; color: ${source.status === 'healthy' ? '#22C55E' : '#F59E0B'};">${source.quality_score}%</div>
+                                    <div style="font-size: 10px; color: ${source.status === 'healthy' ? '#22C55E' : '#F59E0B'};">${source.status}</div>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } catch (error) {
+                    console.error('Error loading data health:', error);
+                }
+            }
+
+            async loadScrapingJobs() {
+                try {
+                    const jobData = await this.fetchData('/api/market-data/scraping-jobs');
+                    
+                    const container = document.getElementById('job-drawer');
+                    container.innerHTML = '';
+                    
+                    // Add summary
+                    const summary = document.createElement('div');
+                    summary.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94A3B8; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <span>Queue: ${jobData.queue_length}</span>
+                            <span>Active: ${jobData.active_jobs}</span>
+                            <span>Cost Today: $${jobData.total_cost_today}</span>
+                        </div>
+                    `;
+                    container.appendChild(summary);
+                    
+                    jobData.jobs.forEach(job => {
+                        const item = document.createElement('div');
+                        item.className = 'job-item';
+                        item.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 12px; font-weight: 600; color: #E6EDF3;">${job.type} (${job.mode})</div>
+                                    <div style="font-size: 10px; color: #94A3B8;">
+                                        ${job.status === 'running' ? `${job.progress}% • ${job.records_processed} records` : 
+                                          job.status === 'completed' ? `${job.duration} • ${job.records_processed} records` :
+                                          `Est. ${job.estimated_duration}`}
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 11px; font-weight: 600; color: ${job.status === 'completed' ? '#22C55E' : job.status === 'running' ? '#6EA8FE' : '#F59E0B'};">${job.status}</div>
+                                    <div style="font-size: 10px; color: #94A3B8;">$${job.cost || job.estimated_cost}</div>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(item);
+                    });
+                } catch (error) {
+                    console.error('Error loading scraping jobs:', error);
+                }
+            }
+
+            // Enhanced Players Methods
+            async loadPlayersFilters() {
+                try {
+                    const filters = await this.fetchData('/api/players/filters');
+                    
+                    // Populate teams filter
+                    const teamsSelect = document.getElementById('filter-teams');
+                    teamsSelect.innerHTML = '';
+                    filters.teams.forEach(team => {
+                        const option = document.createElement('option');
+                        option.value = team;
+                        option.textContent = team;
+                        teamsSelect.appendChild(option);
+                    });
+                    
+                    // Populate positions filter
+                    const positionsSelect = document.getElementById('filter-positions');
+                    positionsSelect.innerHTML = '';
+                    filters.positions.forEach(position => {
+                        const option = document.createElement('option');
+                        option.value = position;
+                        option.textContent = position;
+                        positionsSelect.appendChild(option);
+                    });
+                    
+                    // Populate value bands filter
+                    const valueBandSelect = document.getElementById('filter-value-band');
+                    valueBandSelect.innerHTML = '<option value="">All Values</option>';
+                    filters.value_bands.forEach(band => {
+                        const option = document.createElement('option');
+                        option.value = JSON.stringify({min: band.min, max: band.max});
+                        option.textContent = band.label;
+                        valueBandSelect.appendChild(option);
+                    });
+                    
+                } catch (error) {
+                    console.error('Error loading players filters:', error);
+                }
+            }
+
+            async loadPlayersTable(offset = 0) {
+                try {
+                    // Get current filter values
+                    const teams = Array.from(document.getElementById('filter-teams').selectedOptions).map(opt => opt.value);
+                    const positions = Array.from(document.getElementById('filter-positions').selectedOptions).map(opt => opt.value);
+                    const valueBand = document.getElementById('filter-value-band').value;
+                    const riskLevel = document.getElementById('filter-risk').value;
+                    const sortBy = document.getElementById('sort-players').value;
+                    
+                    // Build query parameters
+                    const params = new URLSearchParams({
+                        mode: this.currentMode,
+                        sort_by: sortBy,
+                        sort_order: 'desc',
+                        limit: 20,
+                        offset: offset
+                    });
+                    
+                    teams.forEach(team => params.append('teams', team));
+                    positions.forEach(position => params.append('positions', position));
+                    if (riskLevel) params.append('risk_level', riskLevel);
+                    
+                    if (valueBand) {
+                        const band = JSON.parse(valueBand);
+                        if (band.min) params.append('min_value', band.min);
+                        if (band.max !== Infinity) params.append('max_value', band.max);
+                    }
+                    
+                    const playersData = await this.fetchData(`/api/players/advanced-search?${params}`);
+                    
+                    // Update counts
+                    document.getElementById('players-count').textContent = `${playersData.total_count} players`;
+                    document.getElementById('total-players').textContent = playersData.total_count;
+                    document.getElementById('showing-range').textContent = `${offset + 1}-${Math.min(offset + playersData.players.length, playersData.total_count)}`;
+                    
+                    // Update table content
+                    const container = document.getElementById('players-table-content');
+                    container.innerHTML = '';
+                    
+                    playersData.players.forEach(player => {
+                        const row = document.createElement('div');
+                        row.className = 'player-row';
+                        row.style.cssText = 'display: grid; grid-template-columns: 40px 1fr 80px 120px 100px 80px 60px; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px; align-items: center;';
+                        
+                        row.innerHTML = `
+                            <div><input type="checkbox" class="player-checkbox" data-player-id="${player.id}"></div>
+                            <div style="color: #E6EDF3; font-weight: 600;">${player.name}</div>
+                            <div style="color: #94A3B8;">${player.position}</div>
+                            <div style="color: #94A3B8;">${player.team}</div>
+                            <div style="color: #22C55E; font-weight: 600;">${this.formatCurrency(player.brand_value)}</div>
+                            <div style="color: ${player.risk_level === 'High' ? '#F43F5E' : player.risk_level === 'Medium' ? '#F59E0B' : '#22C55E'};">${player.risk_level}</div>
+                            <div>
+                                <button class="view-profile-btn" data-player-id="${player.id}" style="background: #6EA8FE; color: #0B0F14; border: none; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer;">View</button>
+                            </div>
+                        `;
+                        container.appendChild(row);
+                    });
+                    
+                    // Update pagination
+                    this.currentPlayersOffset = offset;
+                    document.getElementById('prev-page').disabled = offset === 0;
+                    document.getElementById('next-page').disabled = !playersData.has_more;
+                    
+                    // Setup event listeners
+                    this.setupPlayersEventListeners();
+                    
+                } catch (error) {
+                    console.error('Error loading players table:', error);
+                }
+            }
+
+            async loadPlayerProfile(playerId) {
+                try {
+                    const profile = await this.fetchData(`/api/players/profile/${playerId}`);
+                    
+                    const container = document.getElementById('player-profile-content');
+                    container.innerHTML = `
+                        <!-- Basic Info -->
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="color: #E6EDF3; margin-bottom: 12px;">Basic Information</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
+                                <div><span style="color: #94A3B8;">Name:</span> <span style="color: #E6EDF3;">${profile.basic_info.name}</span></div>
+                                <div><span style="color: #94A3B8;">Position:</span> <span style="color: #E6EDF3;">${profile.basic_info.position}</span></div>
+                                <div><span style="color: #94A3B8;">Team:</span> <span style="color: #E6EDF3;">${profile.basic_info.team}</span></div>
+                                <div><span style="color: #94A3B8;">Age:</span> <span style="color: #E6EDF3;">${profile.basic_info.age}</span></div>
+                                <div><span style="color: #94A3B8;">Height:</span> <span style="color: #E6EDF3;">${profile.basic_info.height}</span></div>
+                                <div><span style="color: #94A3B8;">Weight:</span> <span style="color: #E6EDF3;">${profile.basic_info.weight} lbs</span></div>
+                            </div>
+                        </div>
+
+                        <!-- Valuation Stack -->
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="color: #E6EDF3; margin-bottom: 12px;">Valuation Stack</h4>
+                            <div style="font-size: 11px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Brand Power:</span>
+                                    <span style="color: #22C55E;">${profile.valuation.brand_power}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Proof:</span>
+                                    <span style="color: #22C55E;">${profile.valuation.proof}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Proximity:</span>
+                                    <span style="color: #22C55E;">${profile.valuation.proximity}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Velocity:</span>
+                                    <span style="color: #22C55E;">${profile.valuation.velocity}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <span style="color: #94A3B8;">Risk:</span>
+                                    <span style="color: #F43F5E;">${profile.valuation.risk}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-weight: 600; padding-top: 8px; border-top: 1px solid #202938;">
+                                    <span style="color: #E6EDF3;">Total Gravity:</span>
+                                    <span style="color: #6EA8FE;">${profile.valuation.total_gravity}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contract Info -->
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="color: #E6EDF3; margin-bottom: 12px;">Contract</h4>
+                            <div style="font-size: 11px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Total Value:</span>
+                                    <span style="color: #22C55E;">${this.formatCurrency(profile.contract.total_value)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Guaranteed:</span>
+                                    <span style="color: #22C55E;">${this.formatCurrency(profile.contract.guaranteed)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">AAV:</span>
+                                    <span style="color: #22C55E;">${this.formatCurrency(profile.contract.aav)}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: #94A3B8;">Expires:</span>
+                                    <span style="color: #94A3B8;">${profile.contract.expiry}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Social Media -->
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="color: #E6EDF3; margin-bottom: 12px;">Social Media</h4>
+                            <div style="font-size: 11px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Twitter:</span>
+                                    <span style="color: #6EA8FE;">${profile.social_media.twitter.toLocaleString()}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Instagram:</span>
+                                    <span style="color: #6EA8FE;">${profile.social_media.instagram.toLocaleString()}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">TikTok:</span>
+                                    <span style="color: #6EA8FE;">${profile.social_media.tiktok.toLocaleString()}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: #94A3B8;">Engagement:</span>
+                                    <span style="color: #22C55E;">${profile.social_media.engagement_rate.toFixed(1)}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Similar Players -->
+                        <div>
+                            <h4 style="color: #E6EDF3; margin-bottom: 12px;">Similar Players</h4>
+                            <div style="font-size: 11px;">
+                                ${profile.similar_players.map(similar => `
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                        <span style="color: #94A3B8;">${similar.name}</span>
+                                        <span style="color: #6EA8FE;">${(similar.similarity * 100).toFixed(0)}%</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Show the drawer
+                    document.getElementById('player-profile-drawer').style.display = 'block';
+                    
+                } catch (error) {
+                    console.error('Error loading player profile:', error);
+                }
+            }
+
+            setupPlayersEventListeners() {
+                // Player checkboxes
+                const checkboxes = document.querySelectorAll('.player-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.addEventListener('change', this.updatePlayerSelection.bind(this));
+                });
+                
+                // Select all checkbox
+                const selectAll = document.getElementById('select-all-players');
+                if (selectAll) {
+                    selectAll.addEventListener('change', (e) => {
+                        checkboxes.forEach(checkbox => {
+                            checkbox.checked = e.target.checked;
+                        });
+                        this.updatePlayerSelection();
+                    });
+                }
+                
+                // View profile buttons
+                const viewButtons = document.querySelectorAll('.view-profile-btn');
+                viewButtons.forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        this.loadPlayerProfile(e.target.dataset.playerId);
+                    });
+                });
+            }
+
+            updatePlayerSelection() {
+                const selectedCheckboxes = document.querySelectorAll('.player-checkbox:checked');
+                const count = selectedCheckboxes.length;
+                
+                document.getElementById('selected-count').textContent = count;
+                document.getElementById('bulk-operations').style.display = count > 0 ? 'block' : 'none';
+            }
+
+            async performBulkOperation(operation) {
+                const selectedCheckboxes = document.querySelectorAll('.player-checkbox:checked');
+                const playerIds = Array.from(selectedCheckboxes).map(cb => cb.dataset.playerId);
+                
+                if (playerIds.length === 0) return;
+                
+                try {
+                    const response = await fetch('/api/players/bulk-operations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ operation, player_ids: playerIds })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        this.showMessage(result.message, 'success');
+                        // Clear selections
+                        selectedCheckboxes.forEach(cb => cb.checked = false);
+                        this.updatePlayerSelection();
+                    }
+                } catch (error) {
+                    console.error('Error performing bulk operation:', error);
+                    this.showMessage('Operation failed', 'error');
+                }
+            }
+
             // Section-specific data loading
             async loadSectionData(sectionName) {
                 switch(sectionName) {
+                    case 'dashboard':
+                        await this.loadPortfolioKPIs();
+                        await this.loadTopMovers();
+                        await this.loadRiskMonitor();
+                        await this.loadRenewalLadder();
+                        await this.loadRevenueForecast();
+                        break;
                     case 'market-data':
-                        await this.loadMarketDataInfo();
+                        await this.loadEventFeed();
+                        await this.loadDealTape();
+                        await this.loadDataHealth();
+                        await this.loadScrapingJobs();
                         break;
                     case 'players':
-                        await this.loadPlayersData();
+                        await this.loadPlayersFilters();
+                        await this.loadPlayersTable();
+                        this.currentPlayersOffset = 0;
                         break;
                     case 'analytics':
                         await this.loadAnalyticsData();
@@ -1375,7 +2396,71 @@
 
         // Initialize dashboard when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
-            new MarketDashboard();
+            window.dashboard = new MarketDashboard();
+            
+            // Players page event listeners
+            setTimeout(() => {
+                // Filter controls
+                const applyFiltersBtn = document.getElementById('apply-filters-btn');
+                if (applyFiltersBtn) {
+                    applyFiltersBtn.addEventListener('click', () => dashboard.loadPlayersTable(0));
+                }
+                
+                const clearFiltersBtn = document.getElementById('clear-filters-btn');
+                if (clearFiltersBtn) {
+                    clearFiltersBtn.addEventListener('click', () => {
+                        document.getElementById('filter-teams').selectedIndex = -1;
+                        document.getElementById('filter-positions').selectedIndex = -1;
+                        document.getElementById('filter-value-band').selectedIndex = 0;
+                        document.getElementById('filter-risk').selectedIndex = 0;
+                        dashboard.loadPlayersTable(0);
+                    });
+                }
+                
+                const sortPlayers = document.getElementById('sort-players');
+                if (sortPlayers) {
+                    sortPlayers.addEventListener('change', () => dashboard.loadPlayersTable(0));
+                }
+                
+                // Pagination
+                const prevPage = document.getElementById('prev-page');
+                if (prevPage) {
+                    prevPage.addEventListener('click', () => {
+                        if (dashboard.currentPlayersOffset > 0) {
+                            dashboard.loadPlayersTable(dashboard.currentPlayersOffset - 20);
+                        }
+                    });
+                }
+                
+                const nextPage = document.getElementById('next-page');
+                if (nextPage) {
+                    nextPage.addEventListener('click', () => dashboard.loadPlayersTable(dashboard.currentPlayersOffset + 20));
+                }
+                
+                // Bulk operations
+                const bulkWatchlist = document.getElementById('bulk-watchlist');
+                if (bulkWatchlist) {
+                    bulkWatchlist.addEventListener('click', () => dashboard.performBulkOperation('add_to_watchlist'));
+                }
+                
+                const bulkExport = document.getElementById('bulk-export');
+                if (bulkExport) {
+                    bulkExport.addEventListener('click', () => dashboard.performBulkOperation('export_csv'));
+                }
+                
+                const bulkCompare = document.getElementById('bulk-compare');
+                if (bulkCompare) {
+                    bulkCompare.addEventListener('click', () => dashboard.performBulkOperation('compare'));
+                }
+                
+                // Profile drawer
+                const closeProfileDrawer = document.getElementById('close-profile-drawer');
+                if (closeProfileDrawer) {
+                    closeProfileDrawer.addEventListener('click', () => {
+                        document.getElementById('player-profile-drawer').style.display = 'none';
+                    });
+                }
+            }, 500);
         });
     </script>
 </body>

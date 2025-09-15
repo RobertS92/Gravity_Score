@@ -1,0 +1,222 @@
+Here’s a tight, implementation-ready brainstorm for both asks:
+
+# How to define “portfolio amount” for a firm that manages players
+
+Think of it like AUM for athletes. Don’t use just Total Contract Value (TCV); build a layered stack so it’s accurate, risk-aware, and revenue-relevant.
+
+## Core portfolio value stack (choose 1–3 as your primary metric; show the rest as lenses)
+
+1. **TCV-UM (Total Contract Value Under Management)**
+   Sum of all active contract face values for represented athletes (avoid double counting multi-team obligations).
+
+   * Pros: simple, comparable.
+   * Cons: ignores guarantees, options, risk.
+
+2. **GCV-UM (Guaranteed Contract Value Under Management)**
+   Sum of *guaranteed* portions only.
+
+3. **NPV-UM (Discounted Cash Flow of Contracts)**
+
+   $$
+   \text{NPV-UM}=\sum_i \sum_t \frac{\text{ExpectedCashflow}_{i,t}}{(1+r)^t}
+   $$
+
+   * Use team/league-appropriate discount rate $r$; expected cashflow includes incentives × probability.
+
+4. **EV-UM (Probability-Weighted Contract EV)**
+
+   $$
+   \text{EV-UM}=\sum_i (\text{Guaranteed}_i + \text{NonGuaranteed}_i \cdot p_i + \text{Incentives}_i \cdot q_i)
+   $$
+
+   * $p_i$=probability of vesting/non-guarantee converting; $q_i$=incentive hit probability.
+
+5. **BRV-UM (Brand & Endorsement Revenue Under Management)**
+   Annualized endorsement value + appearance fees + rev-share media/social monetization (probability-weighted and discounted).
+
+6. **CLV-UM (Career Lifetime Value Under Management)**
+   Projection of next N years (contract + brand), discounted, with age/position curves and attrition.
+
+7. **RARV-UM (Risk-Adjusted Portfolio Value)**
+
+   $$
+   \text{RARV-UM}=\sum_i \text{NPV}_i \cdot (1 - \text{RiskHaircut}_i)
+   $$
+
+   * Haircut from injury risk, suspension/PR risk, performance volatility, roster uncertainty, cap constraints.
+
+8. **FRV-UM (Firm Revenue Value)** — what *you* actually monetize
+
+   $$
+   \text{FRV-UM}=\sum_i \left(\text{MgmtFee\%}_i \cdot \text{ContractCashflow}_i + \text{BrandFee\%}_i \cdot \text{EndorsementCashflow}_i\right)\ \text{(NPV/EV basis)}
+   $$
+
+   * This is the best “business KPI”.
+
+## Add supporting portfolio diagnostics
+
+* **Concentration**: HHI by athlete, team, league, brand category.
+* **Duration ladder**: value maturing by year (helps renewal pipeline planning).
+* **Liquidity**: next-12-months cashflows vs long-dated.
+* **Sensitivity**: ΔPortfolio per 1% change in Gravity Score / engagement / win share (DV01-style).
+* **VaR & Stress**: 95% one-year downside given injury/performance shocks.
+* **Pipeline EV**: expected value of negotiations × close probability.
+* **Quality flags**: % guaranteed vs non-guaranteed; options mix (player/team/TO/PO); incentive dependency.
+
+## Data hygiene & anti-double-counting rules
+
+* Split base vs incentives; attach explicit probabilities.
+* Mark overlapping deal periods; don’t sum conflicting obligations.
+* Separate *signed* vs *MOU/rumor*; pipeline lives outside AUM.
+* Normalize currencies; record discount/FX assumptions.
+
+---
+
+# ATHLETE ANALYTICS — page ideas, features, and displays
+
+## 1) Dashboard (executive snapshot)
+
+**Purpose:** one-glance health of the portfolio in current mode (ECOS | NFL) with global filters (Date, Team, Athlete).
+
+**Widgets**
+
+* **Portfolio KPI row**: TCV-UM, GCV-UM, RARV-UM, FRV-UM; each with Δ (24h/7d/30d).
+* **Top Movers**: athletes with largest EV change; sparkline + driver tags (contract/endorsement/performance/social).
+* **Risk Monitor mini**: injuries/legal/PR flags; heat tiles by impact.
+* **Renewal Ladder**: value expiring by quarter.
+* **Revenue Forecast**: next-12-months FRV curve.
+
+**Actions**
+
+* Click any card → deep link to Analytics/Market Data with filters prefilled.
+* Save current view as a report.
+
+---
+
+## 2) Market Data (signals & ingestion)
+
+**Purpose:** raw stream of market-moving items and safe scraping.
+
+**Views**
+
+* **Event Feed**: Contract | Trade | Endorsement | Performance | Social (filters, search, tags).
+* **Deal Tape**: table of announced deals with terms, guarantees, options, agents, brands.
+* **Data Health**: source freshness, nulls %, ingestion incidents.
+
+**Scrape**
+
+* Menu: **Dry-run (estimate)**, **Targeted (current filters)**, **Full (rate-limited)**.
+* Job drawer: queued/running logs, cost estimate vs actual, retries, throttle status.
+
+**KPIs**
+
+* Event velocity by type; endorsement spend by category; contract average term/guarantee ratio.
+
+---
+
+## 3) Players (directory & shortlisting)
+
+**Purpose:** discover, rank, and manage a book of athletes.
+
+**Features**
+
+* **Filter panel**: Team, Position, Contract status, Value bands, Growth %, Risk flags, Endorsement active.
+* **Table (virtualized)**: Name | Team | Brand Value | 24h Δ | Contract EV | Guarantees | Endorsement \$ | Last Event | Risk.
+* **Bulk ops**: add to Watchlist, export CSV, compare N players.
+* **Player Profile drawer/page**:
+
+  * Valuation stack (Brand/Proof/Proximity/Velocity/Risk contributions).
+  * Contract timeline (guarantee vs incentive).
+  * Endorsement portfolio with category exposure.
+  * Similar players (cosine on feature vector).
+
+**Extras**
+
+* Talent radar: prospects with high velocity and low current value (undervalued).
+
+---
+
+## 4) Search (unified)
+
+**Purpose:** quick find across athletes, teams, events, brands.
+
+**Capabilities**
+
+* **Scopes**: All | Players | Teams | Events | Brands.
+* Semantic + keyword; facets (contract, guarantee %, brand category, risk).
+* Instant previews; keyboard nav; open in Players/Market Data/Analytics with context preserved.
+
+**Signals**
+
+* “Why this result?” badges (recent contract / engagement spike / endorsement rumor).
+
+---
+
+## 5) Analytics (explore, attribute, simulate)
+
+**Purpose:** explain changes, find factors, and forecast.
+
+**Modules**
+
+* **Time Series Lab**: multi-metric (Brand Value, Endorsement \$, Contract EV, Gravity Score). D/W/M granularity; cohort filters.
+* **Attribution**: factor contributions (Brand/Proof/Proximity/Velocity/Risk) + SHAP waterfall per athlete or cohort.
+* **Distribution & Cohorts**: hist/violin by position, age band, contract type, guarantee ratio.
+* **Scenario Studio**: simulate trade, endorsement signing, injury return, award; show projected EV path & FRV impact.
+* **Risk & Drawdown**: rolling max drawdown, volatility, VaR by athlete/team/book.
+
+**Outputs**
+
+* Export CSV/PNG; “Notebook JSON” of query spec for reproducibility.
+
+---
+
+## Quick metric recipes (to hand your devs/analysts)
+
+* **Contract EV per athlete**
+
+  $$
+  \text{EV} = \text{Guaranteed} + \sum_k \text{NonG}_k \cdot p_k + \sum_m \text{Incentive}_m \cdot q_m
+  $$
+
+* **FRV (firm-take)**
+
+  $$
+  \text{FRV}=\sum_i \left( \alpha_i \cdot \text{ContractCashflow}_i + \beta_i \cdot \text{BrandCashflow}_i \right) \ \text{(NPV)}
+  $$
+
+  where $\alpha_i, \beta_i$ are fee percentages by client/deal.
+
+* **Risk haircut**
+
+  $$
+  \text{Haircut}_i = 1 - \prod_f (1-h_{i,f})
+  $$
+
+  (factors $f$: injury, PR, performance, roster; calibrate $h$ from history)
+
+* **Portfolio concentration (HHI)**
+
+  $$
+  \text{HHI}=\sum_i s_i^2,\quad s_i=\frac{\text{EV}_i}{\sum_j \text{EV}_j}
+  $$
+
+* **Sensitivity (DV01-style)**
+
+  $$
+  \Delta \text{Portfolio} \approx \frac{\partial \text{EV}}{\partial G} \cdot \Delta G
+  $$
+
+  where $G$=Gravity Score / engagement index.
+
+---
+
+## Implementation order (to avoid waste)
+
+1. Define schemas & probabilities for contracts/incentives; compute **EV-UM**, **NPV-UM**, **FRV-UM**.
+2. Wire global filters (Mode, Date, Team, Athlete) and make **Dashboard** cards live.
+3. Build **Players** directory + Profile drawer; ensure EV/FRV stack matches Dashboard totals.
+4. Add **Market Data** feed + scrape jobs with cost guards.
+5. Ship **Analytics** (Time Series → Attribution → Scenario).
+6. Add risk, concentration, and renewal ladder last.
+
+If you want, I can turn this into a checklist JSON for your agent or sketch the DB tables and API endpoints next.
