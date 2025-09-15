@@ -2247,6 +2247,247 @@ def players_bulk_operations():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Enhanced Search API Routes
+@app.route('/api/search/unified')
+def unified_search():
+    """Unified search across athletes, teams, events, and brands"""
+    try:
+        query = request.args.get('q', '').lower()
+        mode = request.args.get('mode', 'ecos')
+        search_type = request.args.get('type', 'all')  # all, players, teams, events, brands
+        limit = request.args.get('limit', 20, type=int)
+        
+        if not query:
+            return jsonify({'results': [], 'total_count': 0})
+        
+        data = data_processor.get_data_by_mode(mode)
+        results = []
+        
+        # Search players
+        if search_type in ['all', 'players']:
+            team_col = 'current_team' if 'current_team' in data.columns else 'team'
+            brand_col = 'brand_power' if 'brand_power' in data.columns else 'brand_value'
+            
+            for _, player in data.iterrows():
+                name = str(player.get('name', '')).lower()
+                position = str(player.get('position', '')).lower()
+                team = str(player.get(team_col, '')).lower()
+                
+                # Semantic matching
+                match_score = 0
+                if query in name:
+                    match_score += 10
+                if query in position:
+                    match_score += 8
+                if query in team:
+                    match_score += 6
+                if any(word in name for word in query.split()):
+                    match_score += 5
+                if any(word in team for word in query.split()):
+                    match_score += 3
+                
+                if match_score > 0:
+                    results.append({
+                        'type': 'player',
+                        'id': f"player_{len(results)}",
+                        'name': player.get('name', 'Unknown'),
+                        'subtitle': f"{player.get('position', 'Unknown')} | {player.get(team_col, 'Unknown')}",
+                        'value': float(player.get(brand_col, 0)),
+                        'metadata': {
+                            'position': player.get('position', 'Unknown'),
+                            'team': player.get(team_col, 'Unknown'),
+                            'experience': player.get('experience', 0),
+                            'social_followers': {
+                                'twitter': player.get('twitter_followers', 0),
+                                'instagram': player.get('instagram_followers', 0)
+                            }
+                        },
+                        'match_score': match_score,
+                        'highlight': query in name.lower()
+                    })
+        
+        # Search teams
+        if search_type in ['all', 'teams']:
+            team_col = 'current_team' if 'current_team' in data.columns else 'team'
+            teams = data[team_col].dropna().unique()
+            
+            for team in teams:
+                team_lower = str(team).lower()
+                if query in team_lower or any(word in team_lower for word in query.split()):
+                    team_players = data[data[team_col] == team]
+                    avg_value = team_players[brand_col].mean() if not team_players.empty else 0
+                    
+                    results.append({
+                        'type': 'team',
+                        'id': f"team_{team.replace(' ', '_')}",
+                        'name': team,
+                        'subtitle': f"{len(team_players)} players • Avg Value: ${avg_value:,.0f}",
+                        'value': float(avg_value),
+                        'metadata': {
+                            'player_count': len(team_players),
+                            'total_value': float(team_players[brand_col].sum()),
+                            'top_players': team_players.nlargest(3, brand_col)['name'].tolist()
+                        },
+                        'match_score': 10 if query in team_lower else 5,
+                        'highlight': query in team_lower
+                    })
+        
+        # Search events (simulated)
+        if search_type in ['all', 'events']:
+            event_keywords = {
+                'contract': ['contract', 'extension', 'deal', 'signing'],
+                'trade': ['trade', 'traded', 'transaction'],
+                'endorsement': ['endorsement', 'sponsor', 'nike', 'adidas', 'gatorade'],
+                'performance': ['touchdown', 'yards', 'sack', 'interception', 'record'],
+                'injury': ['injury', 'injured', 'ir', 'hurt']
+            }
+            
+            for event_type, keywords in event_keywords.items():
+                if any(keyword in query for keyword in keywords):
+                    results.append({
+                        'type': 'event',
+                        'id': f"event_{event_type}",
+                        'name': f"{event_type.title()} Events",
+                        'subtitle': f"Recent {event_type} activity",
+                        'value': random.randint(1, 50),
+                        'metadata': {
+                            'event_type': event_type,
+                            'recent_count': random.randint(5, 25),
+                            'affected_players': random.randint(1, 10)
+                        },
+                        'match_score': 8,
+                        'highlight': True
+                    })
+        
+        # Search brands (simulated)
+        if search_type in ['all', 'brands']:
+            brands = ['Nike', 'Adidas', 'Gatorade', 'Pepsi', 'EA Sports', 'Beats', 'Under Armour']
+            for brand in brands:
+                if query in brand.lower():
+                    results.append({
+                        'type': 'brand',
+                        'id': f"brand_{brand.lower()}",
+                        'name': brand,
+                        'subtitle': f"Endorsement partner",
+                        'value': random.randint(500000, 50000000),
+                        'metadata': {
+                            'category': random.choice(['Apparel', 'Beverage', 'Gaming', 'Equipment']),
+                            'active_deals': random.randint(2, 15),
+                            'total_value': random.randint(10000000, 200000000)
+                        },
+                        'match_score': 9,
+                        'highlight': True
+                    })
+        
+        # Sort by match score and limit results
+        results.sort(key=lambda x: x['match_score'], reverse=True)
+        results = results[:limit]
+        
+        return jsonify({
+            'results': results,
+            'total_count': len(results),
+            'query': query,
+            'search_type': search_type
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/suggestions')
+def search_suggestions():
+    """Get search suggestions for autocomplete"""
+    try:
+        query = request.args.get('q', '').lower()
+        mode = request.args.get('mode', 'ecos')
+        limit = request.args.get('limit', 10, type=int)
+        
+        if len(query) < 2:
+            return jsonify({'suggestions': []})
+        
+        data = data_processor.get_data_by_mode(mode)
+        suggestions = []
+        
+        # Player name suggestions
+        team_col = 'current_team' if 'current_team' in data.columns else 'team'
+        for _, player in data.iterrows():
+            name = str(player.get('name', '')).lower()
+            if query in name:
+                suggestions.append({
+                    'text': player.get('name', ''),
+                    'type': 'player',
+                    'subtitle': f"{player.get('position', '')} | {player.get(team_col, '')}"
+                })
+        
+        # Team suggestions
+        teams = data[team_col].dropna().unique()
+        for team in teams:
+            if query in str(team).lower():
+                suggestions.append({
+                    'text': team,
+                    'type': 'team',
+                    'subtitle': 'Team'
+                })
+        
+        # Position suggestions
+        positions = data['position'].dropna().unique()
+        for position in positions:
+            if query in str(position).lower():
+                suggestions.append({
+                    'text': position,
+                    'type': 'position',
+                    'subtitle': 'Position'
+                })
+        
+        # Brand suggestions
+        brands = ['Nike', 'Adidas', 'Gatorade', 'Pepsi', 'EA Sports']
+        for brand in brands:
+            if query in brand.lower():
+                suggestions.append({
+                    'text': brand,
+                    'type': 'brand',
+                    'subtitle': 'Brand'
+                })
+        
+        # Limit and return
+        suggestions = suggestions[:limit]
+        
+        return jsonify({'suggestions': suggestions})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search/filters')
+def search_filters():
+    """Get available filters for search"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        data = data_processor.get_data_by_mode(mode)
+        
+        team_col = 'current_team' if 'current_team' in data.columns else 'team'
+        
+        filters = {
+            'types': [
+                {'value': 'all', 'label': 'All Results'},
+                {'value': 'players', 'label': 'Players'},
+                {'value': 'teams', 'label': 'Teams'},
+                {'value': 'events', 'label': 'Events'},
+                {'value': 'brands', 'label': 'Brands'}
+            ],
+            'teams': sorted(data[team_col].dropna().unique().tolist()),
+            'positions': sorted(data['position'].dropna().unique().tolist()),
+            'value_ranges': [
+                {'label': 'Under $10M', 'min': 0, 'max': 10000000},
+                {'label': '$10M - $50M', 'min': 10000000, 'max': 50000000},
+                {'label': '$50M - $100M', 'min': 50000000, 'max': 100000000},
+                {'label': 'Over $100M', 'min': 100000000, 'max': float('inf')}
+            ]
+        }
+        
+        return jsonify(filters)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/quick-stats')
 def api_quick_stats():
     """Quick stats API endpoint for template"""
