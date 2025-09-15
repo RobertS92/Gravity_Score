@@ -14,6 +14,8 @@ from flask import Flask, render_template, request, jsonify, send_file
 # Import gravity score system  
 from gravity_score_system import GravityScoreCalculator, calculate_gravity_scores_for_dataset
 import numpy as np
+import math
+import random
 
 # Data paths for ECOS↔NFL toggle
 ECOS_DATA_PATH = "data/ecos_players.csv"
@@ -1601,6 +1603,649 @@ def api_market_activity():
     except Exception as e:
         logger.error(f"Error in market activity: {e}")
         return jsonify({"error": str(e)}), 500
+
+# Portfolio Analytics API Routes
+@app.route('/api/portfolio/kpis')
+def portfolio_kpis():
+    """Portfolio Key Performance Indicators"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        data = data_processor.get_data_by_mode(mode)
+        
+        if data.empty:
+            return jsonify({
+                'tcv_um': 0, 'gcv_um': 0, 'rarv_um': 0, 'frv_um': 0,
+                'changes': {'24h': 0, '7d': 0, '30d': 0}
+            })
+        
+        # Calculate portfolio metrics
+        brand_col = 'brand_power' if 'brand_power' in data.columns else 'brand_value'
+        total_col = 'total_gravity' if 'total_gravity' in data.columns else brand_col
+        
+        # Total Contract Value Under Management (simplified)
+        tcv_um = data[brand_col].sum() * 1000000 if brand_col == 'brand_power' else data[brand_col].sum()
+        
+        # Guaranteed Contract Value (80% of total for simulation)
+        gcv_um = tcv_um * 0.8
+        
+        # Risk-Adjusted Portfolio Value (apply risk haircut)
+        if 'risk' in data.columns:
+            risk_multiplier = (100 - data['risk']).mean() / 100
+        else:
+            risk_multiplier = 0.85
+        rarv_um = tcv_um * risk_multiplier
+        
+        # Firm Revenue Value (3% management fee simulation)
+        frv_um = tcv_um * 0.03
+        
+        return jsonify({
+            'tcv_um': round(tcv_um, 2),
+            'gcv_um': round(gcv_um, 2),
+            'rarv_um': round(rarv_um, 2),
+            'frv_um': round(frv_um, 2),
+            'changes': {
+                '24h': round(random.uniform(-2.5, 3.2), 1),
+                '7d': round(random.uniform(-5.8, 7.1), 1),
+                '30d': round(random.uniform(-12.3, 15.6), 1)
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/top-movers')
+def portfolio_top_movers():
+    """Top performing and declining athletes"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        data = data_processor.get_data_by_mode(mode)
+        
+        if data.empty:
+            return jsonify({'gainers': [], 'losers': []})
+        
+        brand_col = 'brand_power' if 'brand_power' in data.columns else 'brand_value'
+        team_col = 'current_team' if 'current_team' in data.columns else 'team'
+        
+        # Simulate price movements for demonstration
+        movers_data = []
+        for _, player in data.head(10).iterrows():
+            change = random.uniform(-15.5, 18.3)
+            movers_data.append({
+                'name': player.get('name', 'Unknown'),
+                'team': player.get(team_col, 'Unknown'),
+                'position': player.get('position', 'Unknown'),
+                'brand_value': float(player.get(brand_col, 0)),
+                'change_pct': round(change, 1),
+                'driver': random.choice(['contract', 'endorsement', 'performance', 'social'])
+            })
+        
+        # Sort by change and split into gainers/losers
+        movers_data.sort(key=lambda x: x['change_pct'], reverse=True)
+        gainers = [m for m in movers_data if m['change_pct'] > 0][:5]
+        losers = [m for m in movers_data if m['change_pct'] < 0][-5:]
+        
+        return jsonify({'gainers': gainers, 'losers': losers})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/risk-monitor')
+def portfolio_risk_monitor():
+    """Risk monitoring dashboard"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        data = data_processor.get_data_by_mode(mode)
+        
+        if data.empty:
+            return jsonify({'risks': [], 'risk_score': 0})
+        
+        # Simulate risk events
+        risks = []
+        high_risk_count = 0
+        
+        for _, player in data.head(8).iterrows():
+            risk_level = random.choice(['low', 'medium', 'high'])
+            if risk_level == 'high':
+                high_risk_count += 1
+                
+            risk_type = random.choice(['injury', 'legal', 'performance', 'contract'])
+            risks.append({
+                'player': player.get('name', 'Unknown'),
+                'type': risk_type,
+                'level': risk_level,
+                'description': f"{risk_type.title()} concern flagged",
+                'impact': random.choice(['Low', 'Medium', 'High'])
+            })
+        
+        overall_risk = min(high_risk_count * 15, 100)
+        
+        return jsonify({
+            'risks': risks,
+            'risk_score': overall_risk,
+            'summary': {
+                'high': len([r for r in risks if r['level'] == 'high']),
+                'medium': len([r for r in risks if r['level'] == 'medium']),
+                'low': len([r for r in risks if r['level'] == 'low'])
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/renewal-ladder')
+def portfolio_renewal_ladder():
+    """Contract renewal timeline"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        data = data_processor.get_data_by_mode(mode)
+        
+        if data.empty:
+            return jsonify({'quarters': [], 'total_expiring': 0})
+        
+        brand_col = 'brand_power' if 'brand_power' in data.columns else 'brand_value'
+        
+        # Simulate contract expirations by quarter
+        quarters = ['Q1 2025', 'Q2 2025', 'Q3 2025', 'Q4 2025']
+        ladder = []
+        total_expiring = 0
+        
+        for quarter in quarters:
+            # Randomly assign some players to each quarter
+            expiring_count = random.randint(1, 4)
+            expiring_value = sum([
+                float(data.iloc[i].get(brand_col, 0)) * random.uniform(0.5, 2.0)
+                for i in random.sample(range(len(data)), min(expiring_count, len(data)))
+            ])
+            
+            total_expiring += expiring_value
+            ladder.append({
+                'quarter': quarter,
+                'players': expiring_count,
+                'value': round(expiring_value, 2)
+            })
+        
+        return jsonify({
+            'quarters': ladder,
+            'total_expiring': round(total_expiring, 2)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/revenue-forecast')
+def portfolio_revenue_forecast():
+    """12-month revenue projection"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        
+        # Simulate 12-month revenue forecast
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        
+        base_revenue = 850000 if mode == 'ecos' else 2400000
+        forecast = []
+        
+        for i, month in enumerate(months):
+            # Add seasonality and growth trend
+            seasonal_factor = 1 + 0.3 * math.sin((i + 1) * math.pi / 6)
+            growth_factor = 1 + (i * 0.02)  # 2% monthly growth
+            monthly_revenue = base_revenue * seasonal_factor * growth_factor
+            
+            forecast.append({
+                'month': month,
+                'revenue': round(monthly_revenue + random.uniform(-50000, 75000), 2),
+                'contracts': round(monthly_revenue * 0.7, 2),
+                'endorsements': round(monthly_revenue * 0.3, 2)
+            })
+        
+        return jsonify({'forecast': forecast})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Market Data Analytics API Routes
+@app.route('/api/market-data/event-feed')
+def market_data_event_feed():
+    """Event feed for market data"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        data = data_processor.get_data_by_mode(mode)
+        
+        # Generate realistic market events
+        events = []
+        event_types = ['contract', 'trade', 'endorsement', 'performance', 'social']
+        priorities = ['high', 'medium', 'low']
+        
+        for i in range(15):
+            player = data.iloc[random.randint(0, len(data)-1)] if not data.empty else None
+            event_type = random.choice(event_types)
+            priority = random.choice(priorities)
+            
+            # Generate event based on type
+            if event_type == 'contract':
+                value = random.randint(500000, 50000000)
+                description = f"Contract extension worth ${value:,} signed"
+            elif event_type == 'trade':
+                description = f"Trade rumors involving multiple teams"
+            elif event_type == 'endorsement':
+                brand = random.choice(['Nike', 'Adidas', 'Gatorade', 'Pepsi'])
+                description = f"New {brand} endorsement deal announced"
+            elif event_type == 'performance':
+                stat = random.choice(['receiving yards', 'tackles', 'interceptions'])
+                description = f"Career-high in {stat} this season"
+            else:  # social
+                followers = random.randint(10000, 500000)
+                description = f"Social media growth: +{followers:,} followers"
+                
+            events.append({
+                'id': f"evt_{i}",
+                'timestamp': f"{random.randint(1,24)}h ago",
+                'player': player.get('name', 'Unknown') if player is not None else 'Market Wide',
+                'type': event_type,
+                'priority': priority,
+                'description': description,
+                'impact': random.choice(['Low', 'Medium', 'High']),
+                'source': random.choice(['ESPN', 'NFL.com', 'Twitter', 'Instagram', 'Team Official'])
+            })
+        
+        return jsonify({
+            'events': events,
+            'total_count': len(events),
+            'last_updated': 'Just now'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/market-data/deal-tape')
+def market_data_deal_tape():
+    """Deal tape showing recent transactions"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        data = data_processor.get_data_by_mode(mode)
+        
+        deals = []
+        for i in range(8):
+            player = data.iloc[random.randint(0, len(data)-1)] if not data.empty else None
+            if player is None:
+                continue
+                
+            deal_type = random.choice(['contract', 'endorsement', 'incentive'])
+            
+            if deal_type == 'contract':
+                years = random.randint(2, 6)
+                total_value = random.randint(5000000, 100000000)
+                guaranteed = total_value * random.uniform(0.4, 0.9)
+                
+                deals.append({
+                    'player': player.get('name', 'Unknown'),
+                    'team': player.get('current_team', player.get('team', 'Unknown')),
+                    'position': player.get('position', 'Unknown'),
+                    'type': deal_type,
+                    'years': years,
+                    'total_value': total_value,
+                    'guaranteed': guaranteed,
+                    'aav': total_value / years,
+                    'date': f"{random.randint(1,30)} days ago",
+                    'agent': random.choice(['CAA Sports', 'WME Sports', 'Athletes First'])
+                })
+            else:  # endorsement
+                brand = random.choice(['Nike', 'Adidas', 'Gatorade', 'Pepsi', 'EA Sports'])
+                value = random.randint(500000, 10000000)
+                
+                deals.append({
+                    'player': player.get('name', 'Unknown'),
+                    'team': player.get('current_team', player.get('team', 'Unknown')),
+                    'position': player.get('position', 'Unknown'),
+                    'type': deal_type,
+                    'brand': brand,
+                    'total_value': value,
+                    'years': random.randint(1, 4),
+                    'date': f"{random.randint(1,60)} days ago",
+                    'category': random.choice(['Apparel', 'Beverage', 'Gaming', 'Equipment'])
+                })
+        
+        return jsonify({
+            'deals': deals,
+            'total_volume': sum(deal.get('total_value', 0) for deal in deals),
+            'avg_deal_size': sum(deal.get('total_value', 0) for deal in deals) / len(deals) if deals else 0
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/market-data/data-health')
+def market_data_data_health():
+    """Data health and quality metrics"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        data = data_processor.get_data_by_mode(mode)
+        
+        # Calculate data quality metrics
+        total_records = len(data)
+        
+        sources = [
+            {
+                'name': 'NFL.com',
+                'status': 'healthy',
+                'last_sync': '2 minutes ago',
+                'records': int(total_records * 0.4),
+                'quality_score': random.randint(92, 98),
+                'nulls_pct': random.uniform(0.1, 2.5)
+            },
+            {
+                'name': 'ESPN',
+                'status': 'healthy',
+                'last_sync': '5 minutes ago', 
+                'records': int(total_records * 0.3),
+                'quality_score': random.randint(88, 95),
+                'nulls_pct': random.uniform(0.5, 3.0)
+            },
+            {
+                'name': 'Pro Football Reference',
+                'status': 'warning',
+                'last_sync': '15 minutes ago',
+                'records': int(total_records * 0.2),
+                'quality_score': random.randint(82, 89),
+                'nulls_pct': random.uniform(2.0, 5.0)
+            },
+            {
+                'name': 'Social Media APIs',
+                'status': 'healthy',
+                'last_sync': '1 minute ago',
+                'records': int(total_records * 0.1),
+                'quality_score': random.randint(90, 96),
+                'nulls_pct': random.uniform(0.2, 1.8)
+            }
+        ]
+        
+        # Ingestion incidents
+        incidents = [
+            {
+                'timestamp': '2 hours ago',
+                'source': 'Pro Football Reference',
+                'type': 'Rate Limit',
+                'status': 'resolved',
+                'impact': 'Delayed data by 10 minutes'
+            },
+            {
+                'timestamp': '1 day ago',
+                'source': 'ESPN',
+                'type': 'Schema Change',
+                'status': 'resolved',
+                'impact': 'Required parser update'
+            }
+        ]
+        
+        overall_health = sum(s['quality_score'] for s in sources) / len(sources)
+        
+        return jsonify({
+            'overall_health': round(overall_health, 1),
+            'total_records': total_records,
+            'sources': sources,
+            'incidents': incidents,
+            'freshness': {
+                'newest': '30 seconds ago',
+                'oldest': '4 hours ago',
+                'avg_age': '45 minutes'
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/market-data/scraping-jobs')
+def scraping_jobs():
+    """Get scraping job status and history"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        
+        # Simulate job history
+        jobs = [
+            {
+                'id': 'job_001',
+                'type': 'teams',
+                'mode': mode,
+                'status': 'completed',
+                'started': '1 hour ago',
+                'duration': '4m 32s',
+                'records_processed': 32,
+                'cost': 0.45
+            },
+            {
+                'id': 'job_002', 
+                'type': 'players',
+                'mode': mode,
+                'status': 'running',
+                'started': '5 minutes ago',
+                'progress': 67,
+                'records_processed': 1200,
+                'estimated_cost': 12.30
+            },
+            {
+                'id': 'job_003',
+                'type': 'social',
+                'mode': mode,
+                'status': 'queued',
+                'queued_time': '2 minutes ago',
+                'estimated_duration': '8m',
+                'estimated_cost': 3.20
+            }
+        ]
+        
+        return jsonify({
+            'jobs': jobs,
+            'queue_length': 1,
+            'active_jobs': 1,
+            'total_cost_today': 24.67
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Enhanced Players API Routes
+@app.route('/api/players/filters')
+def players_filters():
+    """Get available filter options for players"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        data = data_processor.get_data_by_mode(mode)
+        
+        team_col = 'current_team' if 'current_team' in data.columns else 'team'
+        
+        filters = {
+            'teams': sorted(data[team_col].dropna().unique().tolist()),
+            'positions': sorted(data['position'].dropna().unique().tolist()),
+            'contract_status': ['Active', 'Expiring', 'Rookie', 'Extension'],
+            'value_bands': [
+                {'label': '$0-10M', 'min': 0, 'max': 10000000},
+                {'label': '$10-50M', 'min': 10000000, 'max': 50000000},
+                {'label': '$50-100M', 'min': 50000000, 'max': 100000000},
+                {'label': '$100M+', 'min': 100000000, 'max': float('inf')}
+            ],
+            'risk_levels': ['Low', 'Medium', 'High'],
+            'endorsement_status': ['Active', 'None', 'Pending']
+        }
+        
+        return jsonify(filters)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/players/advanced-search')
+def players_advanced_search():
+    """Advanced player search with multiple filters"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        data = data_processor.get_data_by_mode(mode)
+        
+        # Get filter parameters
+        teams = request.args.getlist('teams')
+        positions = request.args.getlist('positions')
+        min_value = request.args.get('min_value', type=float)
+        max_value = request.args.get('max_value', type=float)
+        risk_level = request.args.get('risk_level')
+        sort_by = request.args.get('sort_by', 'brand_value')
+        sort_order = request.args.get('sort_order', 'desc')
+        limit = request.args.get('limit', 50, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        
+        # Apply filters
+        filtered_data = data
+        team_col = 'current_team' if 'current_team' in data.columns else 'team'
+        brand_col = 'brand_power' if 'brand_power' in data.columns else 'brand_value'
+        
+        if teams:
+            filtered_data = filtered_data[filtered_data[team_col].isin(teams)]
+        if positions:
+            filtered_data = filtered_data[filtered_data['position'].isin(positions)]
+        if min_value is not None:
+            filtered_data = filtered_data[filtered_data[brand_col] >= min_value]
+        if max_value is not None:
+            filtered_data = filtered_data[filtered_data[brand_col] <= max_value]
+        
+        # Sort data
+        ascending = sort_order == 'asc'
+        if sort_by in filtered_data.columns:
+            filtered_data = filtered_data.sort_values(sort_by, ascending=ascending)
+        
+        # Pagination
+        total_count = len(filtered_data)
+        paginated_data = filtered_data.iloc[offset:offset+limit]
+        
+        # Format results
+        results = []
+        for _, player in paginated_data.iterrows():
+            player_data = {
+                'id': f"player_{len(results)}",
+                'name': player.get('name', 'Unknown'),
+                'position': player.get('position', 'Unknown'),
+                'team': player.get(team_col, 'Unknown'),
+                'age': player.get('age', 0),
+                'experience': player.get('experience', 0),
+                'brand_value': float(player.get(brand_col, 0)),
+                'total_gravity': float(player.get('total_gravity', 0)) if 'total_gravity' in data.columns else float(player.get(brand_col, 0)),
+                'contract_status': random.choice(['Active', 'Expiring', 'Rookie']),
+                'endorsements': random.randint(0, 5),
+                'social_followers': {
+                    'twitter': player.get('twitter_followers', 0),
+                    'instagram': player.get('instagram_followers', 0),
+                    'tiktok': player.get('tiktok_followers', 0)
+                },
+                'risk_level': random.choice(['Low', 'Medium', 'High']),
+                'last_update': f"{random.randint(1,24)}h ago"
+            }
+            results.append(player_data)
+        
+        return jsonify({
+            'players': results,
+            'total_count': total_count,
+            'offset': offset,
+            'limit': limit,
+            'has_more': offset + limit < total_count
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/players/profile/<player_id>')
+def player_profile(player_id):
+    """Get detailed player profile"""
+    try:
+        mode = request.args.get('mode', 'ecos')
+        data = data_processor.get_data_by_mode(mode)
+        
+        # For demo purposes, get a random player
+        if not data.empty:
+            player = data.iloc[random.randint(0, len(data)-1)]
+            
+            team_col = 'current_team' if 'current_team' in data.columns else 'team'
+            brand_col = 'brand_power' if 'brand_power' in data.columns else 'brand_value'
+            
+            profile = {
+                'basic_info': {
+                    'name': str(player.get('name', 'Unknown')),
+                    'position': str(player.get('position', 'Unknown')),
+                    'team': str(player.get(team_col, 'Unknown')),
+                    'age': int(player.get('age', 25)) if pd.notna(player.get('age', 25)) else 25,
+                    'height': str(player.get('height', "6'0\"")),
+                    'weight': int(player.get('weight', 200)) if pd.notna(player.get('weight', 200)) else 200,
+                    'experience': int(player.get('experience', 3)) if pd.notna(player.get('experience', 3)) else 3
+                },
+                'valuation': {
+                    'brand_power': float(player.get('brand_power', 0)) if 'brand_power' in data.columns and pd.notna(player.get('brand_power')) else float(player.get(brand_col, 0)) if pd.notna(player.get(brand_col, 0)) else 0.0,
+                    'proof': float(player.get('proof', 0)) if 'proof' in data.columns and pd.notna(player.get('proof')) else 0.0,
+                    'proximity': float(player.get('proximity', 0)) if 'proximity' in data.columns and pd.notna(player.get('proximity')) else 0.0,
+                    'velocity': float(player.get('velocity', 0)) if 'velocity' in data.columns and pd.notna(player.get('velocity')) else 0.0,
+                    'risk': float(player.get('risk', 0)) if 'risk' in data.columns and pd.notna(player.get('risk')) else 0.0,
+                    'total_gravity': float(player.get('total_gravity', 0)) if 'total_gravity' in data.columns and pd.notna(player.get('total_gravity')) else 0.0
+                },
+                'contract': {
+                    'years': random.randint(2, 6),
+                    'total_value': random.randint(10000000, 150000000),
+                    'guaranteed': random.randint(5000000, 100000000),
+                    'aav': random.randint(3000000, 30000000),
+                    'expiry': '2027-03-15'
+                },
+                'endorsements': [
+                    {'brand': 'Nike', 'category': 'Apparel', 'value': 2000000, 'years': 3},
+                    {'brand': 'Gatorade', 'category': 'Beverage', 'value': 1000000, 'years': 2}
+                ],
+                'social_media': {
+                    'twitter': int(player.get('twitter_followers', 0)) if pd.notna(player.get('twitter_followers', 0)) else 0,
+                    'instagram': int(player.get('instagram_followers', 0)) if pd.notna(player.get('instagram_followers', 0)) else 0,
+                    'tiktok': int(player.get('tiktok_followers', 0)) if pd.notna(player.get('tiktok_followers', 0)) else 0,
+                    'engagement_rate': round(random.uniform(2.5, 8.5), 1)
+                },
+                'similar_players': [
+                    {'name': 'Similar Player 1', 'similarity': 0.89},
+                    {'name': 'Similar Player 2', 'similarity': 0.85},
+                    {'name': 'Similar Player 3', 'similarity': 0.82}
+                ]
+            }
+            
+            return jsonify(profile)
+        else:
+            return jsonify({'error': 'No player data available'}), 404
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/players/bulk-operations', methods=['POST'])
+def players_bulk_operations():
+    """Handle bulk operations on players"""
+    try:
+        operation = request.json.get('operation')
+        player_ids = request.json.get('player_ids', [])
+        
+        if operation == 'add_to_watchlist':
+            # Simulate adding to watchlist
+            return jsonify({
+                'success': True,
+                'message': f"Added {len(player_ids)} players to watchlist",
+                'operation': operation
+            })
+        elif operation == 'export_csv':
+            # Simulate CSV export
+            return jsonify({
+                'success': True,
+                'message': f"Exported {len(player_ids)} players to CSV",
+                'download_url': '/downloads/players_export.csv',
+                'operation': operation
+            })
+        elif operation == 'compare':
+            # Simulate comparison
+            return jsonify({
+                'success': True,
+                'message': f"Comparing {len(player_ids)} players",
+                'comparison_url': f'/compare?ids={",".join(player_ids)}',
+                'operation': operation
+            })
+        else:
+            return jsonify({'error': 'Unknown operation'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/quick-stats')
 def api_quick_stats():
