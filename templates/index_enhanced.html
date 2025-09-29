@@ -2211,19 +2211,31 @@
                     playersData.players.forEach(player => {
                         const row = document.createElement('div');
                         row.className = 'player-row';
-                        row.style.cssText = 'display: grid; grid-template-columns: 40px 1fr 80px 120px 100px 80px 60px; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px; align-items: center;';
+                        row.style.cssText = 'display: grid; grid-template-columns: 40px 1fr 80px 120px 100px 100px 80px 60px; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px; align-items: center; cursor: pointer;';
+                        
+                        // Calculate gravity score (if available)
+                        const gravityScore = player.gravity_score || (player.brand_power + player.proof + player.proximity + player.velocity - player.risk) || 0;
                         
                         row.innerHTML = `
-                            <div><input type="checkbox" class="player-checkbox" data-player-id="${player.id}"></div>
+                            <div><input type="checkbox" class="player-checkbox" data-player-id="${player.id}" onclick="event.stopPropagation();"></div>
                             <div style="color: #E6EDF3; font-weight: 600;">${player.name}</div>
                             <div style="color: #94A3B8;">${player.position}</div>
                             <div style="color: #94A3B8;">${player.team}</div>
                             <div style="color: #22C55E; font-weight: 600;">${this.formatCurrency(player.brand_value)}</div>
+                            <div style="color: #6EA8FE; font-weight: 600;">${gravityScore.toFixed(1)}</div>
                             <div style="color: ${player.risk_level === 'High' ? '#F43F5E' : player.risk_level === 'Medium' ? '#F59E0B' : '#22C55E'};">${player.risk_level}</div>
                             <div>
-                                <button class="view-profile-btn" data-player-id="${player.id}" style="background: #6EA8FE; color: #0B0F14; border: none; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer;">View</button>
+                                <button class="view-profile-btn" data-player-id="${player.id}" style="background: #6EA8FE; color: #0B0F14; border: none; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer;" onclick="event.stopPropagation();">View</button>
                             </div>
                         `;
+                        
+                        // Add click handler for row to show breakdown
+                        row.addEventListener('click', (e) => {
+                            if (!e.target.closest('input, button')) {
+                                this.showPlayerBreakdown(player);
+                            }
+                        });
+                        
                         container.appendChild(row);
                     });
                     
@@ -2355,6 +2367,240 @@
                     
                 } catch (error) {
                     console.error('Error loading player profile:', error);
+                }
+            }
+
+            showPlayerBreakdown(player) {
+                // Create modal if it doesn't exist
+                let modal = document.getElementById('player-breakdown-modal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'player-breakdown-modal';
+                    modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+                    document.body.appendChild(modal);
+                }
+                
+                const gravityScore = player.gravity_score || (player.brand_power + player.proof + player.proximity + player.velocity - player.risk) || 0;
+                
+                modal.innerHTML = `
+                    <div style="background: #0B0F14; border: 1px solid #202938; border-radius: 12px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; padding: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="color: #E6EDF3; margin: 0;">${player.name} - Gravity Breakdown</h3>
+                            <button onclick="document.getElementById('player-breakdown-modal').remove()" style="background: transparent; border: none; color: #94A3B8; font-size: 24px; cursor: pointer;">&times;</button>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px; padding: 16px; background: #161B22; border-radius: 8px;">
+                            <div style="font-size: 12px; color: #94A3B8; margin-bottom: 4px;">Total Gravity Score</div>
+                            <div style="font-size: 32px; color: #6EA8FE; font-weight: 700;">${gravityScore.toFixed(1)}</div>
+                        </div>
+                        
+                        <div style="margin-bottom: 24px;">
+                            <h4 style="color: #E6EDF3; margin-bottom: 12px;">Component Breakdown</h4>
+                            
+                            <div style="margin-bottom: 12px; padding: 12px; background: #161B22; border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Brand Power</span>
+                                    <span style="color: #22C55E; font-weight: 600;">${player.brand_power || 0}</span>
+                                </div>
+                                <div style="font-size: 11px; color: #94A3B8;">Social reach and market presence</div>
+                            </div>
+                            
+                            <div style="margin-bottom: 12px; padding: 12px; background: #161B22; border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Proof</span>
+                                    <span style="color: #22C55E; font-weight: 600;">${player.proof || 0}</span>
+                                </div>
+                                <div style="font-size: 11px; color: #94A3B8;">On-field performance and achievements</div>
+                            </div>
+                            
+                            <div style="margin-bottom: 12px; padding: 12px; background: #161B22; border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Proximity</span>
+                                    <span style="color: #6EA8FE; font-weight: 600;">${player.proximity || 0}</span>
+                                </div>
+                                <div style="font-size: 11px; color: #94A3B8;">Market accessibility and timing</div>
+                            </div>
+                            
+                            <div style="margin-bottom: 12px; padding: 12px; background: #161B22; border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Velocity</span>
+                                    <span style="color: #F59E0B; font-weight: 600;">${player.velocity || 0}</span>
+                                </div>
+                                <div style="font-size: 11px; color: #94A3B8;">Growth trajectory and momentum</div>
+                            </div>
+                            
+                            <div style="margin-bottom: 12px; padding: 12px; background: #161B22; border-radius: 8px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span style="color: #94A3B8;">Risk Factor</span>
+                                    <span style="color: #F43F5E; font-weight: 600;">-${player.risk || 0}</span>
+                                </div>
+                                <div style="font-size: 11px; color: #94A3B8;">Investment risk and volatility</div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px;">
+                            <button onclick="dashboard.openChatWithPlayer('${player.id}', '${player.name}')" class="scrape-btn" style="flex: 1;">💬 Chat with Data</button>
+                            <button onclick="document.getElementById('player-breakdown-modal').remove()" class="scrape-btn" style="flex: 1; background: #202938;">Close</button>
+                        </div>
+                    </div>
+                `;
+                
+                modal.style.display = 'flex';
+            }
+            
+            openChatWithPlayer(playerId, playerName) {
+                document.getElementById('player-breakdown-modal').remove();
+                
+                // Create chat modal
+                let chatModal = document.getElementById('player-chat-modal');
+                if (!chatModal) {
+                    chatModal = document.createElement('div');
+                    chatModal.id = 'player-chat-modal';
+                    chatModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1001;';
+                    document.body.appendChild(chatModal);
+                }
+                
+                chatModal.innerHTML = `
+                    <div style="background: #0B0F14; border: 1px solid #202938; border-radius: 12px; max-width: 700px; width: 90%; height: 600px; display: flex; flex-direction: column; padding: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3 style="color: #E6EDF3; margin: 0;">Chat About ${playerName}</h3>
+                            <button onclick="document.getElementById('player-chat-modal').remove()" style="background: transparent; border: none; color: #94A3B8; font-size: 24px; cursor: pointer;">&times;</button>
+                        </div>
+                        
+                        <div id="chat-messages" style="flex: 1; overflow-y: auto; margin-bottom: 16px; padding: 12px; background: #161B22; border-radius: 8px;">
+                            <div style="color: #94A3B8; font-size: 13px; text-align: center; padding: 20px;">
+                                Ask me anything about ${playerName}'s stats, gravity score, or market potential!
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px;">
+                            <input type="text" id="chat-input" placeholder="Ask a question about this player..." 
+                                   style="flex: 1; padding: 12px; background: #202938; border: 1px solid #202938; color: #E6EDF3; border-radius: 8px; font-size: 14px;">
+                            <button onclick="dashboard.sendChatMessage('${playerId}')" class="scrape-btn">Send</button>
+                        </div>
+                    </div>
+                `;
+                
+                chatModal.style.display = 'flex';
+                
+                // Focus input and add enter key handler
+                const input = document.getElementById('chat-input');
+                input.focus();
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.sendChatMessage(playerId);
+                });
+            }
+            
+            async sendChatMessage(playerId) {
+                const input = document.getElementById('chat-input');
+                const question = input.value.trim();
+                if (!question) return;
+                
+                const messagesContainer = document.getElementById('chat-messages');
+                
+                // Add user message
+                const userMsg = document.createElement('div');
+                userMsg.style.cssText = 'margin-bottom: 12px; text-align: right;';
+                userMsg.innerHTML = `<div style="display: inline-block; background: #6EA8FE; color: #0B0F14; padding: 8px 12px; border-radius: 8px; max-width: 70%; font-size: 13px;">${question}</div>`;
+                messagesContainer.appendChild(userMsg);
+                
+                input.value = '';
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                // Add loading indicator
+                const loadingMsg = document.createElement('div');
+                loadingMsg.id = 'chat-loading';
+                loadingMsg.style.cssText = 'margin-bottom: 12px;';
+                loadingMsg.innerHTML = `<div style="display: inline-block; background: #202938; color: #94A3B8; padding: 8px 12px; border-radius: 8px; font-size: 13px;">Thinking...</div>`;
+                messagesContainer.appendChild(loadingMsg);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                try {
+                    const response = await fetch('/api/players/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ player_id: playerId, question: question })
+                    });
+                    const data = await response.json();
+                    
+                    loadingMsg.remove();
+                    
+                    // Add AI response
+                    const aiMsg = document.createElement('div');
+                    aiMsg.style.cssText = 'margin-bottom: 12px;';
+                    aiMsg.innerHTML = `<div style="display: inline-block; background: #202938; color: #E6EDF3; padding: 8px 12px; border-radius: 8px; max-width: 70%; font-size: 13px;">${data.response}</div>`;
+                    messagesContainer.appendChild(aiMsg);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                } catch (error) {
+                    loadingMsg.remove();
+                    const errorMsg = document.createElement('div');
+                    errorMsg.style.cssText = 'margin-bottom: 12px;';
+                    errorMsg.innerHTML = `<div style="display: inline-block; background: #F43F5E; color: #fff; padding: 8px 12px; border-radius: 8px; max-width: 70%; font-size: 13px;">Error: Could not get response</div>`;
+                    messagesContainer.appendChild(errorMsg);
+                }
+            }
+            
+            async searchPlayers(searchTerm) {
+                try {
+                    const params = new URLSearchParams({
+                        mode: this.currentMode,
+                        search: searchTerm,
+                        limit: 20,
+                        offset: 0
+                    });
+                    
+                    const playersData = await this.fetchData(`/api/players/advanced-search?${params}`);
+                    
+                    // Update counts
+                    document.getElementById('players-count').textContent = `${playersData.total_count} players found`;
+                    document.getElementById('total-players').textContent = playersData.total_count;
+                    document.getElementById('showing-range').textContent = `1-${Math.min(playersData.players.length, playersData.total_count)}`;
+                    
+                    // Update table content
+                    const container = document.getElementById('players-table-content');
+                    container.innerHTML = '';
+                    
+                    playersData.players.forEach(player => {
+                        const row = document.createElement('div');
+                        row.className = 'player-row';
+                        row.style.cssText = 'display: grid; grid-template-columns: 40px 1fr 80px 120px 100px 100px 80px 60px; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px; align-items: center; cursor: pointer;';
+                        
+                        // Calculate gravity score (if available)
+                        const gravityScore = player.gravity_score || (player.brand_power + player.proof + player.proximity + player.velocity - player.risk) || 0;
+                        
+                        row.innerHTML = `
+                            <div><input type="checkbox" class="player-checkbox" data-player-id="${player.id}" onclick="event.stopPropagation();"></div>
+                            <div style="color: #E6EDF3; font-weight: 600;">${player.name}</div>
+                            <div style="color: #94A3B8;">${player.position}</div>
+                            <div style="color: #94A3B8;">${player.team}</div>
+                            <div style="color: #22C55E; font-weight: 600;">${this.formatCurrency(player.brand_value)}</div>
+                            <div style="color: #6EA8FE; font-weight: 600;">${gravityScore.toFixed(1)}</div>
+                            <div style="color: ${player.risk_level === 'High' ? '#F43F5E' : player.risk_level === 'Medium' ? '#F59E0B' : '#22C55E'};">${player.risk_level}</div>
+                            <div>
+                                <button class="view-profile-btn" data-player-id="${player.id}" style="background: #6EA8FE; color: #0B0F14; border: none; padding: 2px 6px; border-radius: 4px; font-size: 10px; cursor: pointer;" onclick="event.stopPropagation();">View</button>
+                            </div>
+                        `;
+                        
+                        // Add click handler for row to show breakdown
+                        row.addEventListener('click', (e) => {
+                            if (!e.target.closest('input, button')) {
+                                this.showPlayerBreakdown(player);
+                            }
+                        });
+                        
+                        container.appendChild(row);
+                    });
+                    
+                    // Update pagination
+                    this.currentPlayersOffset = 0;
+                    document.getElementById('prev-page').disabled = true;
+                    document.getElementById('next-page').disabled = !playersData.has_more;
+                    
+                    // Setup event listeners
+                    this.setupPlayersEventListeners();
+                    
+                } catch (error) {
+                    console.error('Error searching players:', error);
                 }
             }
 
@@ -2768,6 +3014,38 @@
                 if (closeProfileDrawer) {
                     closeProfileDrawer.addEventListener('click', () => {
                         document.getElementById('player-profile-drawer').style.display = 'none';
+                    });
+                }
+                
+                // Player search functionality
+                const playerSearchInput = document.getElementById('player-search-input');
+                const playerSearchBtn = document.getElementById('player-search-btn');
+                const clearSearchBtn = document.getElementById('clear-search-btn');
+                
+                if (playerSearchBtn) {
+                    playerSearchBtn.addEventListener('click', () => {
+                        const searchTerm = playerSearchInput.value.trim();
+                        if (searchTerm) {
+                            dashboard.searchPlayers(searchTerm);
+                        }
+                    });
+                }
+                
+                if (playerSearchInput) {
+                    playerSearchInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            const searchTerm = playerSearchInput.value.trim();
+                            if (searchTerm) {
+                                dashboard.searchPlayers(searchTerm);
+                            }
+                        }
+                    });
+                }
+                
+                if (clearSearchBtn) {
+                    clearSearchBtn.addEventListener('click', () => {
+                        playerSearchInput.value = '';
+                        dashboard.loadPlayersTable(0);
                     });
                 }
             }, 500);
