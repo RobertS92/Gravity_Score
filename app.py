@@ -544,17 +544,18 @@ def get_database_players_summary():
         logger.error(f"Error getting database summary: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/players')
 @app.route('/api/players/all')
 def get_all_players():
     """Get all players with mode support and optional limit."""
+    mode = request.args.get('mode', 'ecos')  # Define mode outside try block
     try:
-        mode = request.args.get('mode', 'ecos')
         limit = int(request.args.get('limit', 0))
         
         # Get appropriate dataset based on mode
         data = data_processor.get_data_by_mode(mode)
         if data.empty:
-            return jsonify([])
+            return jsonify({'players': [], 'total': 0, 'mode': mode})
         
         # Apply limit if specified
         if limit > 0:
@@ -565,18 +566,28 @@ def get_all_players():
         for _, player in data.iterrows():
             team_col = 'current_team' if 'current_team' in data.columns else 'team'
             brand_col = 'brand_power' if 'brand_power' in data.columns else 'brand_value'
-            results.append({
+            
+            # Safe float conversion with defaults
+            player_data = {
+                'id': player.get('id', player.get('name', '')),
                 'name': player.get('name', 'Unknown'),
                 'position': player.get('position', 'Unknown'),
                 'team': player.get(team_col, 'Unknown'),
-                'brand_value': float(player.get(brand_col, 0))
-            })
+                'brand_value': float(player.get(brand_col, 0) or 0),
+                'brand_power': float(player.get('brand_power', 0) or 0),
+                'proof': float(player.get('proof', 0) or 0),
+                'proximity': float(player.get('proximity', 0) or 0),
+                'velocity': float(player.get('velocity', 0) or 0),
+                'risk': float(player.get('risk', 0) or 0),
+                'total_gravity': float(player.get('total_gravity', 0) or 0)
+            }
+            results.append(player_data)
         
-        return jsonify(results)
+        return jsonify({'players': results, 'total': len(results), 'mode': mode})
 
     except Exception as e:
         logger.error(f"Error getting all players: {e}")
-        return jsonify([]), 500
+        return jsonify({'players': [], 'total': 0, 'mode': mode, 'error': str(e)}), 500
 
 @app.route('/api/data/latest')
 def get_latest_data():
