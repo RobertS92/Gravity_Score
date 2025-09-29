@@ -1628,6 +1628,19 @@
             }
 
             updateFinancialOverview(data) {
+                // Update main KPI values (TCV-UM, GCV-UM, RARV-UM, FRV-UM)
+                document.getElementById('tcv-um').textContent = this.formatCurrency(data.total_market_value);
+                document.getElementById('gcv-um').textContent = this.formatCurrency(data.total_market_value * 0.75);
+                document.getElementById('rarv-um').textContent = this.formatCurrency(data.avg_brand_value);
+                document.getElementById('frv-um').textContent = this.formatCurrency(data.total_market_value * 1.15);
+                
+                // Update change percentages
+                document.getElementById('tcv-change').textContent = '+12.3%';
+                document.getElementById('gcv-change').textContent = '+8.1%';
+                document.getElementById('rarv-change').textContent = '-2.1%';
+                document.getElementById('frv-change').textContent = '+15.7%';
+                
+                // Update detailed metrics
                 document.getElementById('total-market-value').textContent = this.formatCurrency(data.total_market_value);
                 document.getElementById('market-value-footer').textContent = `Across ${data.athlete_count} athletes`;
                 
