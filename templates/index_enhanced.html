@@ -1394,57 +1394,41 @@
                             </div>
                         </div>
 
-                        <!-- Distribution & Cohorts -->
+                        <!-- Brand Power Distribution -->
                         <div class="intelligence-card" style="grid-column: span 2;">
                             <div class="card-header">
-                                <h3 class="card-title">Distribution & Cohorts</h3>
-                                <div style="display: flex; gap: 8px;">
-                                    <select id="cohort-type" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">
-                                        <option value="position">By Position</option>
-                                        <option value="team">By Team</option>
-                                    </select>
-                                </div>
+                                <h3 class="card-title">Brand Power Distribution</h3>
+                                <p class="card-subtitle">Performance chart analysis</p>
                             </div>
                             <div class="card-body">
-                                <div id="distribution-stats" style="margin-bottom: 12px; font-size: 11px;">
+                                <canvas id="brand-power-chart" width="400" height="180"></canvas>
+                                <div id="analytics-stats" style="margin-top: 12px; font-size: 11px;">
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                        <span style="color: #94A3B8;">Mean:</span>
-                                        <span id="dist-mean" style="color: #E6EDF3;">--</span>
+                                        <span style="color: #94A3B8;">Avg Brand Power:</span>
+                                        <span style="color: #E6EDF3;">--</span>
                                     </div>
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                        <span style="color: #94A3B8;">Median:</span>
-                                        <span id="dist-median" style="color: #E6EDF3;">--</span>
+                                        <span style="color: #94A3B8;">Top Performer:</span>
+                                        <span style="color: #E6EDF3;">--</span>
                                     </div>
-                                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                        <span style="color: #94A3B8;">Std Dev:</span>
-                                        <span id="dist-stddev" style="color: #E6EDF3;">--</span>
+                                    <div style="display: flex; justify-content: space-between;">
+                                        <span style="color: #94A3B8;">Market Growth:</span>
+                                        <span style="color: #22C55E;">--</span>
                                     </div>
-                                </div>
-                                <div id="cohort-rankings" style="max-height: 150px; overflow-y: auto;">
-                                    <div class="loading">Loading cohort analysis...</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Scenario Studio -->
+                        <!-- Market Trends Chart -->
                         <div class="intelligence-card" style="grid-column: span 3;">
                             <div class="card-header">
-                                <h3 class="card-title">Scenario Studio</h3>
-                                <div style="display: flex; gap: 8px;">
-                                    <select id="scenario-type" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">
-                                        <option value="performance_impact">Performance Impact</option>
-                                        <option value="market_conditions">Market Conditions</option>
-                                    </select>
-                                    <button id="run-scenarios" class="scrape-btn" style="font-size: 11px; padding: 4px 8px;">Run Analysis</button>
-                                </div>
+                                <h3 class="card-title">Market Trends Analysis</h3>
+                                <p class="card-subtitle">Quarterly performance data</p>
                             </div>
                             <div class="card-body">
-                                <div id="scenario-results" style="max-height: 300px; overflow-y: auto;">
-                                    <div style="text-align: center; color: #94A3B8; padding: 30px 20px;">
-                                        <div style="font-size: 36px; margin-bottom: 12px;">🎯</div>
-                                        <div style="font-size: 14px; margin-bottom: 8px;">Scenario Modeling</div>
-                                        <div style="font-size: 12px;">Select scenario type and run analysis to explore potential outcomes</div>
-                                    </div>
+                                <canvas id="market-trends-chart" width="500" height="200"></canvas>
+                                <div style="margin-top: 12px; font-size: 11px; color: #94A3B8; text-align: center;">
+                                    Interactive market trend visualization showing quarterly performance metrics
                                 </div>
                             </div>
                         </div>
