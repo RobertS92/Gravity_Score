@@ -49,8 +49,6 @@ class EnhancedNFLDatabase:
             self.connection.autocommit = False
             with self.connection.cursor() as cursor:
                 cursor.execute("SET synchronous_commit = off")
-                cursor.execute("SET checkpoint_segments = 32")
-                cursor.execute("SET wal_buffers = 16MB")
                 cursor.execute("SET work_mem = '256MB'")
             self.connection.commit()
             logger.info("Successfully connected to PostgreSQL database with optimized settings")

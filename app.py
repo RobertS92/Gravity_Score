@@ -10,12 +10,20 @@ import pandas as pd
 import glob
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, send_file
+import threading
 
 # Import gravity score system  
 from gravity_score_system import GravityScoreCalculator, calculate_gravity_scores_for_dataset
 import numpy as np
 import math
 import random
+
+# Import scraper integration system
+try:
+    from scraper_integration_system import ScraperIntegrationSystem
+    SCRAPER_AVAILABLE = True
+except ImportError as e:
+    SCRAPER_AVAILABLE = False
 
 # Data paths for ECOS↔NFL toggle
 ECOS_DATA_PATH = "data/ecos_players.csv"
@@ -315,6 +323,16 @@ class DataProcessor:
 # Initialize enhanced data processor
 data_processor = DataProcessor()
 
+# Initialize scraper integration system
+scraper_system = None
+if SCRAPER_AVAILABLE:
+    try:
+        scraper_system = ScraperIntegrationSystem()
+        logger.info("Scraper integration system initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize scraper system: {e}")
+        SCRAPER_AVAILABLE = False
+
 @app.route('/')
 def index():
     """Main Market Dashboard page with ECOS↔NFL toggle."""
@@ -390,8 +408,131 @@ def api_status():
     return jsonify({
         "status": "running",
         "timestamp": datetime.now().isoformat(),
-        "mode": "full_production"
+        "mode": "full_production",
+        "scraper_available": SCRAPER_AVAILABLE
     })
+
+# ===== SCRAPER API ENDPOINTS =====
+
+@app.route('/api/scraper/start-job', methods=['POST'])
+def start_scraper_job():
+    """Start a fast scraping job."""
+    if not SCRAPER_AVAILABLE or not scraper_system:
+        return jsonify({'error': 'Scraper system not available'}), 503
+    
+    try:
+        data = request.get_json() or {}
+        teams = data.get('teams', [])
+        mode = data.get('mode', 'incremental')
+        
+        result = scraper_system.start_incremental_scrape(teams, mode)
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error starting scraping job: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/scraper/job-status/<job_id>', methods=['GET'])
+def get_scraper_job_status(job_id):
+    """Get status of a specific scraping job."""
+    if not SCRAPER_AVAILABLE or not scraper_system:
+        return jsonify({'error': 'Scraper system not available'}), 503
+    
+    try:
+        status = scraper_system.get_job_status(job_id)
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"Error getting job status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/scraper/all-jobs', methods=['GET'])
+def get_all_scraper_jobs():
+    """Get all active scraping jobs."""
+    if not SCRAPER_AVAILABLE or not scraper_system:
+        return jsonify({'error': 'Scraper system not available'}), 503
+    
+    try:
+        jobs = scraper_system.get_all_active_jobs()
+        return jsonify(jobs)
+    except Exception as e:
+        logger.error(f"Error getting active jobs: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/scraper/stop-job/<job_id>', methods=['POST'])
+def stop_scraper_job(job_id):
+    """Stop a running scraping job."""
+    if not SCRAPER_AVAILABLE or not scraper_system:
+        return jsonify({'error': 'Scraper system not available'}), 503
+    
+    try:
+        result = scraper_system.stop_job(job_id)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error stopping job: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/scraping/quick/<team>', methods=['POST'])
+def quick_scrape_team(team):
+    """Quick scrape of a single team."""
+    if not SCRAPER_AVAILABLE or not scraper_system:
+        return jsonify({'error': 'Scraper system not available'}), 503
+    
+    try:
+        result = scraper_system.fast_scraper.scrape_single_team_fast(team)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error in quick scrape: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/system/scraper-status', methods=['GET'])
+def get_scraper_system_status():
+    """Get overall scraper system status."""
+    if not SCRAPER_AVAILABLE or not scraper_system:
+        return jsonify({
+            'scraper_available': False,
+            'error': 'Scraper system not available'
+        })
+    
+    try:
+        status = scraper_system.get_system_status()
+        status['scraper_available'] = True
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"Error getting system status: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/database/players-summary', methods=['GET'])
+def get_database_players_summary():
+    """Get summary of players in database."""
+    if not SCRAPER_AVAILABLE or not scraper_system:
+        return jsonify({'error': 'Database system not available'}), 503
+    
+    try:
+        # Get database status through the scraper system
+        with scraper_system.db.connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_players,
+                    COUNT(DISTINCT team_id) as total_teams,
+                    COUNT(CASE WHEN last_scraped > NOW() - INTERVAL '24 hours' THEN 1 END) as recently_updated,
+                    AVG(data_completeness_score) as avg_completeness
+                FROM players 
+                WHERE name IS NOT NULL
+            """)
+            
+            result = cursor.fetchone()
+            
+            return jsonify({
+                'total_players': result['total_players'],
+                'total_teams': result['total_teams'],
+                'recently_updated': result['recently_updated'],
+                'avg_completeness': round(float(result['avg_completeness'] or 0), 1),
+                'last_updated': datetime.now().isoformat()
+            })
+            
+    except Exception as e:
+        logger.error(f"Error getting database summary: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/players/all')
 def get_all_players():
