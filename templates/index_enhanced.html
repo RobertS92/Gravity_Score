@@ -1540,14 +1540,31 @@
             }
 
             setupScraping() {
-                document.getElementById('scrape-teams').addEventListener('click', () => this.scrapeData('teams'));
-                document.getElementById('scrape-players').addEventListener('click', () => this.scrapeData('players'));
-                document.getElementById('scrape-social').addEventListener('click', () => this.scrapeData('social'));
+                const scrapeTeamsBtn = document.getElementById('scrape-teams');
+                const scrapePlayersBtn = document.getElementById('scrape-players');
+                const scrapeSocialBtn = document.getElementById('scrape-social');
+                
+                if (scrapeTeamsBtn) {
+                    scrapeTeamsBtn.addEventListener('click', () => this.scrapeData('teams'));
+                }
+                if (scrapePlayersBtn) {
+                    scrapePlayersBtn.addEventListener('click', () => this.scrapeData('players'));
+                }
+                if (scrapeSocialBtn) {
+                    scrapeSocialBtn.addEventListener('click', () => this.scrapeData('social'));
+                }
             }
 
             setupSearch() {
-                document.getElementById('execute-search').addEventListener('click', () => this.executeSearch());
-                this.loadTeamOptions();
+                const executeSearchBtn = document.getElementById('execute-search');
+                if (executeSearchBtn) {
+                    executeSearchBtn.addEventListener('click', () => this.executeSearch());
+                }
+                
+                // Only load team options if we're on a page that has team selection
+                if (document.getElementById('team-select')) {
+                    this.loadTeamOptions();
+                }
             }
 
             setupToggle() {
