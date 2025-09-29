@@ -42,6 +42,15 @@ try:
 except ImportError:
     logger.warning("flask-cors not available. CORS will not be enabled.")
 
+# Add cache-busting headers to prevent browser caching
+@app.after_request
+def add_no_cache_headers(response):
+    """Add headers to prevent browser caching"""
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
+
 # Initialize gravity calculator
 gravity_calculator = GravityScoreCalculator()
 
