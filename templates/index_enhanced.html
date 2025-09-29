@@ -2237,7 +2237,7 @@
                     if (valueBand) {
                         const band = JSON.parse(valueBand);
                         if (band.min) params.append('min_value', band.min);
-                        if (band.max !== Infinity) params.append('max_value', band.max);
+                        if (band.max && band.max < 999999999999) params.append('max_value', band.max);
                     }
                     
                     const playersData = await this.fetchData(`/api/players/advanced-search?${params}`);
