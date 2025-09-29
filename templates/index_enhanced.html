@@ -2028,7 +2028,7 @@
             // Market Data Methods
             async loadEventFeed() {
                 try {
-                    const eventData = await this.fetchData(`/api/market-data/event-feed?mode=${this.currentMode}`);
+                    const eventData = await this.fetchData('/api/market-data/event-feed');
                     
                     const container = document.getElementById('event-feed-content');
                     container.innerHTML = '';
@@ -2062,7 +2062,7 @@
 
             async loadDealTape() {
                 try {
-                    const dealData = await this.fetchData(`/api/market-data/deal-tape?mode=${this.currentMode}`);
+                    const dealData = await this.fetchData('/api/market-data/deal-tape');
                     
                     // Update summary
                     document.getElementById('total-volume').textContent = this.formatCurrency(dealData.total_volume);
@@ -2098,7 +2098,7 @@
 
             async loadDataHealth() {
                 try {
-                    const healthData = await this.fetchData(`/api/market-data/data-health?mode=${this.currentMode}`);
+                    const healthData = await this.fetchData('/api/market-data/data-health');
                     
                     document.getElementById('overall-health-score').textContent = `${healthData.overall_health}%`;
                     
@@ -2129,7 +2129,7 @@
 
             async loadScrapingJobs() {
                 try {
-                    const jobData = await this.fetchData(`/api/market-data/scraping-jobs?mode=${this.currentMode}`);
+                    const jobData = await this.fetchData('/api/market-data/scraping-jobs');
                     
                     const container = document.getElementById('job-drawer');
                     container.innerHTML = '';
@@ -2174,7 +2174,7 @@
             // Enhanced Players Methods
             async loadPlayersFilters() {
                 try {
-                    const filters = await this.fetchData(`/api/players/filters?mode=${this.currentMode}`);
+                    const filters = await this.fetchData('/api/players/filters');
                     
                     // Populate teams filter
                     const teamsSelect = document.getElementById('filter-teams');
