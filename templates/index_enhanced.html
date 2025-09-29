@@ -479,6 +479,7 @@
 
         .content-section.active {
             display: block !important;
+            min-height: 500px;
         }
 
         /* Scraping Buttons */
@@ -2028,9 +2029,12 @@
             // Market Data Methods
             async loadEventFeed() {
                 try {
+                    console.log('🎯 loadEventFeed: Starting...');
                     const eventData = await this.fetchData('/api/market-data/event-feed');
+                    console.log('📊 loadEventFeed: Got data:', eventData.events.length, 'events');
                     
                     const container = document.getElementById('event-feed-content');
+                    console.log('📦 loadEventFeed: Container found:', !!container);
                     container.innerHTML = '';
                     
                     eventData.events.slice(0, 10).forEach(event => {
@@ -2055,8 +2059,10 @@
                         `;
                         container.appendChild(item);
                     });
+                    console.log('✅ loadEventFeed: Added', container.children.length, 'items to DOM');
+                    console.log('📏 loadEventFeed: Container height:', container.scrollHeight, 'px');
                 } catch (error) {
-                    console.error('Error loading event feed:', error);
+                    console.error('❌ loadEventFeed ERROR:', error);
                 }
             }
 
