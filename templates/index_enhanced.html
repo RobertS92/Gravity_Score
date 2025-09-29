@@ -1505,6 +1505,8 @@
             }
 
             switchSection(sectionName) {
+                console.log('Switching to section:', sectionName);
+                
                 // Hide all sections
                 document.querySelectorAll('.content-section').forEach(section => {
                     section.style.display = 'none';
@@ -1513,13 +1515,18 @@
                 
                 // Show the selected section
                 const targetSection = document.getElementById(`section-${sectionName}`);
+                console.log('Target section element:', targetSection);
+                
                 if (targetSection) {
                     targetSection.style.display = 'block';
                     targetSection.classList.add('active');
                     this.currentSection = sectionName;
+                    console.log(`Successfully switched to ${sectionName} section`);
                     
                     // Load section-specific data
                     this.loadSectionData(sectionName);
+                } else {
+                    console.error(`Section element not found: section-${sectionName}`);
                 }
             }
 
@@ -2126,6 +2133,7 @@
                     
                 } catch (error) {
                     console.error('Error loading players filters:', error);
+                    // Continue anyway - don't let this block the UI
                 }
             }
 
