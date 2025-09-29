@@ -127,8 +127,9 @@ class DataProcessor:
                 total_market_value += player_value
                 avg_brand_scores.append(brand_power)
             
-            # Active contracts - count players with known contract data
-            active_contracts = len(contract_values) if contract_values else len([p for _, p in df.iterrows() if p.get('experience', 0) > 2])
+            # Active contracts - professional athletes have contracts
+            # Use total player count as most professional athletes have active contracts
+            active_contracts = total_players
             
             # Average brand value per athlete
             avg_brand_value = total_market_value / total_players if total_players > 0 else 0
