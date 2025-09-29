@@ -1353,14 +1353,14 @@
 
                 <!-- ANALYTICS SECTION -->
                 <div id="section-analytics" class="content-section">
-                    <h2 class="section-title">Advanced Analytics Lab</h2>
+                    <h2 class="section-title">Gravity Analytics</h2>
                     
                     <!-- Analytics Grid -->
                     <div class="dashboard-grid">
-                        <!-- Time Series Lab -->
+                        <!-- Gravity Score Trends -->
                         <div class="intelligence-card" style="grid-column: span 4;">
                             <div class="card-header">
-                                <h3 class="card-title">Time Series Lab</h3>
+                                <h3 class="card-title">Gravity Score Trends</h3>
                                 <div style="display: flex; gap: 8px;">
                                     <select id="analytics-timeframe" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">
                                         <option value="7d">7 Days</option>
@@ -1368,9 +1368,11 @@
                                         <option value="90d">90 Days</option>
                                     </select>
                                     <select id="analytics-metric" style="background: #202938; border: 1px solid #202938; color: #E6EDF3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">
-                                        <option value="brand_value">Brand Value</option>
-                                        <option value="social_engagement">Social Engagement</option>
-                                        <option value="market_activity">Market Activity</option>
+                                        <option value="gravity_score">Total Gravity Score</option>
+                                        <option value="brand_power">Brand Power</option>
+                                        <option value="proof">Proof</option>
+                                        <option value="proximity">Proximity</option>
+                                        <option value="velocity">Velocity</option>
                                     </select>
                                     <button id="refresh-timeseries" class="scrape-btn" style="font-size: 11px; padding: 4px 8px;">Refresh</button>
                                 </div>
@@ -1381,49 +1383,90 @@
                                 </div>
                                 <div id="time-series-stats" style="display: flex; justify-content: space-between; margin-top: 12px; font-size: 11px; color: #94A3B8;">
                                     <div>Trend: <span id="trend-indicator">--</span></div>
-                                    <div>Change: <span id="change-percent">--</span></div>
-                                    <div>Volatility: <span id="volatility-score">--</span></div>
-                                    <div>Volume: <span id="total-volume">--</span></div>
+                                    <div>Avg Score: <span id="change-percent">--</span></div>
+                                    <div>Top Score: <span id="volatility-score">--</span></div>
+                                    <div>Total Players: <span id="total-volume">--</span></div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Attribution Analysis -->
+                        <!-- Gravity Components -->
                         <div class="intelligence-card" style="grid-column: span 2;">
                             <div class="card-header">
-                                <h3 class="card-title">Attribution Analysis</h3>
-                                <p class="card-subtitle">Value driver breakdown</p>
+                                <h3 class="card-title">Gravity Components</h3>
+                                <p class="card-subtitle">Average component scores</p>
                             </div>
                             <div class="card-body">
                                 <div id="attribution-breakdown" style="max-height: 250px; overflow-y: auto;">
-                                    <div class="loading">Loading attribution factors...</div>
-                                </div>
-                                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #202938; font-size: 11px; color: #94A3B8;">
-                                    Explained Variance: <span id="explained-variance" style="color: #22C55E;">--</span>
+                                    <div style="margin-bottom: 12px;">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                            <span style="color: #94A3B8; font-size: 12px;">Brand Power</span>
+                                            <span style="color: #22C55E; font-weight: 600;" id="avg-brand-power">--</span>
+                                        </div>
+                                        <div style="background: #202938; height: 8px; border-radius: 4px; overflow: hidden;">
+                                            <div id="brand-power-bar" style="background: #22C55E; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                                        </div>
+                                    </div>
+                                    <div style="margin-bottom: 12px;">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                            <span style="color: #94A3B8; font-size: 12px;">Proof</span>
+                                            <span style="color: #22C55E; font-weight: 600;" id="avg-proof">--</span>
+                                        </div>
+                                        <div style="background: #202938; height: 8px; border-radius: 4px; overflow: hidden;">
+                                            <div id="proof-bar" style="background: #22C55E; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                                        </div>
+                                    </div>
+                                    <div style="margin-bottom: 12px;">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                            <span style="color: #94A3B8; font-size: 12px;">Proximity</span>
+                                            <span style="color: #6EA8FE; font-weight: 600;" id="avg-proximity">--</span>
+                                        </div>
+                                        <div style="background: #202938; height: 8px; border-radius: 4px; overflow: hidden;">
+                                            <div id="proximity-bar" style="background: #6EA8FE; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                                        </div>
+                                    </div>
+                                    <div style="margin-bottom: 12px;">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                            <span style="color: #94A3B8; font-size: 12px;">Velocity</span>
+                                            <span style="color: #F59E0B; font-weight: 600;" id="avg-velocity">--</span>
+                                        </div>
+                                        <div style="background: #202938; height: 8px; border-radius: 4px; overflow: hidden;">
+                                            <div id="velocity-bar" style="background: #F59E0B; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                            <span style="color: #94A3B8; font-size: 12px;">Risk</span>
+                                            <span style="color: #F43F5E; font-weight: 600;" id="avg-risk">--</span>
+                                        </div>
+                                        <div style="background: #202938; height: 8px; border-radius: 4px; overflow: hidden;">
+                                            <div id="risk-bar" style="background: #F43F5E; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Brand Power Distribution -->
+                        <!-- Gravity Distribution -->
                         <div class="intelligence-card" style="grid-column: span 2;">
                             <div class="card-header">
-                                <h3 class="card-title">Brand Power Distribution</h3>
-                                <p class="card-subtitle">Performance chart analysis</p>
+                                <h3 class="card-title">Gravity Distribution</h3>
+                                <p class="card-subtitle">Score range analysis</p>
                             </div>
                             <div class="card-body">
                                 <canvas id="brand-power-chart" width="400" height="180"></canvas>
                                 <div id="analytics-stats" style="margin-top: 12px; font-size: 11px;">
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                        <span style="color: #94A3B8;">Avg Brand Power:</span>
-                                        <span style="color: #E6EDF3;">--</span>
+                                        <span style="color: #94A3B8;">Avg Gravity Score:</span>
+                                        <span style="color: #E6EDF3;" id="avg-gravity-score">--</span>
                                     </div>
                                     <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                                         <span style="color: #94A3B8;">Top Performer:</span>
-                                        <span style="color: #E6EDF3;">--</span>
+                                        <span style="color: #E6EDF3;" id="top-gravity-player">--</span>
                                     </div>
                                     <div style="display: flex; justify-content: space-between;">
-                                        <span style="color: #94A3B8;">Market Growth:</span>
-                                        <span style="color: #22C55E;">--</span>
+                                        <span style="color: #94A3B8;">Score Range:</span>
+                                        <span style="color: #22C55E;" id="gravity-range">--</span>
                                     </div>
                                 </div>
                             </div>
