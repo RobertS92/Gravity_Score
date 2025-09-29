@@ -2216,7 +2216,7 @@ def players_filters():
                 {'label': '$0-10M', 'min': 0, 'max': 10000000},
                 {'label': '$10-50M', 'min': 10000000, 'max': 50000000},
                 {'label': '$50-100M', 'min': 50000000, 'max': 100000000},
-                {'label': '$100M+', 'min': 100000000, 'max': float('inf')}
+                {'label': '$100M+', 'min': 100000000, 'max': 999999999999}
             ],
             'risk_levels': ['Low', 'Medium', 'High'],
             'endorsement_status': ['Active', 'None', 'Pending']
