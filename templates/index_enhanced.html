@@ -2035,32 +2035,21 @@
                     
                     const container = document.getElementById('event-feed-content');
                     console.log('📦 loadEventFeed: Container found:', !!container);
-                    container.innerHTML = '';
                     
-                    eventData.events.slice(0, 10).forEach(event => {
-                        const item = document.createElement('div');
-                        item.className = 'event-item';
-                        item.innerHTML = `
-                            <div style="display: flex; justify-content: space-between; align-items: start; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                <div style="flex: 1;">
-                                    <div style="display: flex; gap: 8px; margin-bottom: 4px;">
-                                        <span class="activity-tag tag-${event.type} tag-${event.priority}">${event.type}</span>
-                                        <span class="activity-tag tag-${event.priority}">${event.priority}</span>
-                                    </div>
-                                    <div style="font-size: 14px; font-weight: 600; color: #E6EDF3; margin-bottom: 2px;">${event.player}</div>
-                                    <div style="font-size: 12px; color: #94A3B8;">${event.description}</div>
-                                    <div style="font-size: 11px; color: #6EA8FE; margin-top: 2px;">${event.source}</div>
-                                </div>
-                                <div style="text-align: right; font-size: 11px; color: #94A3B8;">
-                                    <div>${event.timestamp}</div>
-                                    <div style="color: ${event.impact === 'High' ? '#F43F5E' : event.impact === 'Medium' ? '#F59E0B' : '#22C55E'};">${event.impact}</div>
-                                </div>
+                    const html = eventData.events.slice(0, 10).map(event => `
+                        <div style="display: block; min-height: 60px; padding: 12px; border-bottom: 1px solid #202938; margin-bottom: 8px;">
+                            <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+                                <span style="display: inline-block; padding: 2px 8px; background: #374151; color: #E6EDF3; border-radius: 4px; font-size: 11px;">${event.type}</span>
+                                <span style="display: inline-block; padding: 2px 8px; background: #374151; color: #E6EDF3; border-radius: 4px; font-size: 11px;">${event.priority}</span>
                             </div>
-                        `;
-                        container.appendChild(item);
-                    });
-                    console.log('✅ loadEventFeed: Added', container.children.length, 'items to DOM');
-                    console.log('📏 loadEventFeed: Container height:', container.scrollHeight, 'px');
+                            <div style="font-size: 14px; font-weight: 600; color: #E6EDF3; line-height: 1.4;">${event.player}</div>
+                            <div style="font-size: 12px; color: #94A3B8; line-height: 1.4; margin-top: 4px;">${event.description}</div>
+                            <div style="font-size: 11px; color: #6EA8FE; margin-top: 4px;">${event.source} • ${event.timestamp} • Impact: ${event.impact}</div>
+                        </div>
+                    `).join('');
+                    
+                    container.innerHTML = html;
+                    console.log('✅ loadEventFeed: Set innerHTML, height:', container.scrollHeight, 'px');
                 } catch (error) {
                     console.error('❌ loadEventFeed ERROR:', error);
                 }
@@ -2075,28 +2064,17 @@
                     document.getElementById('avg-deal-size').textContent = this.formatCurrency(dealData.avg_deal_size);
                     
                     const container = document.getElementById('deal-tape-content');
-                    container.innerHTML = '';
-                    
-                    dealData.deals.forEach(deal => {
-                        const item = document.createElement('div');
-                        item.className = 'deal-item';
-                        item.innerHTML = `
-                            <div style="display: flex; justify-content: space-between; align-items: start; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                <div style="flex: 1;">
-                                    <div style="font-size: 14px; font-weight: 600; color: #E6EDF3;">${deal.player}</div>
-                                    <div style="font-size: 12px; color: #94A3B8;">${deal.position} | ${deal.team}</div>
-                                    <div style="font-size: 11px; color: #6EA8FE; margin-top: 2px;">
-                                        ${deal.type === 'contract' ? `${deal.years}yr, ${this.formatCurrency(deal.total_value)} (${Math.round(deal.guaranteed/deal.total_value*100)}% gtd)` : `${deal.brand} - ${deal.category}`}
-                                    </div>
-                                </div>
-                                <div style="text-align: right; font-size: 12px;">
-                                    <div style="font-weight: 600; color: #22C55E;">${this.formatCurrency(deal.total_value)}</div>
-                                    <div style="font-size: 11px; color: #94A3B8;">${deal.date}</div>
-                                </div>
+                    const html = dealData.deals.map(deal => `
+                        <div style="display: block; min-height: 60px; padding: 12px; border-bottom: 1px solid #202938; margin-bottom: 8px;">
+                            <div style="font-size: 14px; font-weight: 600; color: #E6EDF3; line-height: 1.4;">${deal.player}</div>
+                            <div style="font-size: 12px; color: #94A3B8; line-height: 1.4; margin-top: 2px;">${deal.position} | ${deal.team}</div>
+                            <div style="font-size: 11px; color: #6EA8FE; margin-top: 4px;">
+                                ${deal.type === 'contract' ? `${deal.years}yr, ${this.formatCurrency(deal.total_value)} (${Math.round(deal.guaranteed/deal.total_value*100)}% gtd)` : `${deal.brand} - ${deal.category}`}
                             </div>
-                        `;
-                        container.appendChild(item);
-                    });
+                            <div style="font-size: 12px; font-weight: 600; color: #22C55E; margin-top: 4px;">${this.formatCurrency(deal.total_value)} • ${deal.date}</div>
+                        </div>
+                    `).join('');
+                    container.innerHTML = html;
                 } catch (error) {
                     console.error('Error loading deal tape:', error);
                 }
@@ -2109,25 +2087,14 @@
                     document.getElementById('overall-health-score').textContent = `${healthData.overall_health}%`;
                     
                     const container = document.getElementById('data-health-content');
-                    container.innerHTML = '';
-                    
-                    healthData.sources.forEach(source => {
-                        const item = document.createElement('div');
-                        item.className = 'health-item';
-                        item.innerHTML = `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                <div style="flex: 1;">
-                                    <div style="font-size: 13px; font-weight: 600; color: #E6EDF3;">${source.name}</div>
-                                    <div style="font-size: 11px; color: #94A3B8;">${source.records} records • ${source.last_sync}</div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="font-size: 12px; font-weight: 600; color: ${source.status === 'healthy' ? '#22C55E' : '#F59E0B'};">${source.quality_score}%</div>
-                                    <div style="font-size: 10px; color: ${source.status === 'healthy' ? '#22C55E' : '#F59E0B'};">${source.status}</div>
-                                </div>
-                            </div>
-                        `;
-                        container.appendChild(item);
-                    });
+                    const html = healthData.sources.map(source => `
+                        <div style="display: block; min-height: 50px; padding: 12px; border-bottom: 1px solid #202938; margin-bottom: 8px;">
+                            <div style="font-size: 13px; font-weight: 600; color: #E6EDF3; line-height: 1.4;">${source.name}</div>
+                            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;">${source.records} records • ${source.last_sync}</div>
+                            <div style="font-size: 12px; font-weight: 600; color: ${source.status === 'healthy' ? '#22C55E' : '#F59E0B'}; margin-top: 4px;">${source.quality_score}% • ${source.status}</div>
+                        </div>
+                    `).join('');
+                    container.innerHTML = html;
                 } catch (error) {
                     console.error('Error loading data health:', error);
                 }
@@ -2138,40 +2105,29 @@
                     const jobData = await this.fetchData('/api/market-data/scraping-jobs');
                     
                     const container = document.getElementById('job-drawer');
-                    container.innerHTML = '';
-                    
-                    // Add summary
-                    const summary = document.createElement('div');
-                    summary.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94A3B8; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <span>Queue: ${jobData.queue_length}</span>
-                            <span>Active: ${jobData.active_jobs}</span>
-                            <span>Cost Today: $${jobData.total_cost_today}</span>
+                    const summaryHtml = `
+                        <div style="display: block; padding: 12px; background: #0F1419; border-radius: 8px; margin-bottom: 12px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #94A3B8;">
+                                <span>Queue: ${jobData.queue_length}</span>
+                                <span>Active: ${jobData.active_jobs}</span>
+                                <span>Cost Today: $${jobData.total_cost_today}</span>
+                            </div>
                         </div>
                     `;
-                    container.appendChild(summary);
                     
-                    jobData.jobs.forEach(job => {
-                        const item = document.createElement('div');
-                        item.className = 'job-item';
-                        item.innerHTML = `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                <div style="flex: 1;">
-                                    <div style="font-size: 12px; font-weight: 600; color: #E6EDF3;">${job.type} (${job.mode})</div>
-                                    <div style="font-size: 10px; color: #94A3B8;">
-                                        ${job.status === 'running' ? `${job.progress}% • ${job.records_processed} records` : 
-                                          job.status === 'completed' ? `${job.duration} • ${job.records_processed} records` :
-                                          `Est. ${job.estimated_duration}`}
-                                    </div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="font-size: 11px; font-weight: 600; color: ${job.status === 'completed' ? '#22C55E' : job.status === 'running' ? '#6EA8FE' : '#F59E0B'};">${job.status}</div>
-                                    <div style="font-size: 10px; color: #94A3B8;">$${job.cost || job.estimated_cost}</div>
-                                </div>
+                    const jobsHtml = jobData.jobs.map(job => `
+                        <div style="display: block; min-height: 50px; padding: 12px; border-bottom: 1px solid #202938; margin-bottom: 8px;">
+                            <div style="font-size: 12px; font-weight: 600; color: #E6EDF3; line-height: 1.4;">${job.type} (${job.mode})</div>
+                            <div style="font-size: 10px; color: #94A3B8; margin-top: 4px;">
+                                ${job.status === 'running' ? `${job.progress}% • ${job.records_processed} records` : 
+                                  job.status === 'completed' ? `${job.duration} • ${job.records_processed} records` :
+                                  `Est. ${job.estimated_duration}`}
                             </div>
-                        `;
-                        container.appendChild(item);
-                    });
+                            <div style="font-size: 11px; font-weight: 600; color: ${job.status === 'completed' ? '#22C55E' : job.status === 'running' ? '#6EA8FE' : '#F59E0B'}; margin-top: 4px;">${job.status} • $${job.cost || job.estimated_cost}</div>
+                        </div>
+                    `).join('');
+                    
+                    container.innerHTML = summaryHtml + jobsHtml;
                 } catch (error) {
                     console.error('Error loading scraping jobs:', error);
                 }
