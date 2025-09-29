@@ -1002,7 +1002,7 @@
                 </div>
 
                 <!-- MARKET DATA SECTION -->
-                <div id="section-market-data" class="content-section" style="display: none;">
+                <div id="section-market-data" class="content-section">
                     <h2 class="section-title">Market Data Collection & Intelligence</h2>
                     
                     <!-- Enhanced Market Data Grid -->
@@ -1097,7 +1097,7 @@
                 </div>
 
                 <!-- PLAYERS SECTION -->
-                <div id="section-players" class="content-section" style="display: none;">
+                <div id="section-players" class="content-section">
                     <h2 class="section-title">Player Database & Management</h2>
                     
                     <!-- Enhanced Players Grid -->
@@ -1210,7 +1210,7 @@
                 </div>
 
                 <!-- SEARCH SECTION -->
-                <div id="section-search" class="content-section" style="display: none;">
+                <div id="section-search" class="content-section">
                     <h2 class="section-title">Unified Search & Discovery</h2>
                     
                     <!-- Enhanced Search Grid -->
@@ -1342,7 +1342,7 @@
                 </div>
 
                 <!-- ANALYTICS SECTION -->
-                <div id="section-analytics" class="content-section" style="display: none;">
+                <div id="section-analytics" class="content-section">
                     <h2 class="section-title">Advanced Analytics Lab</h2>
                     
                     <!-- Analytics Grid -->
@@ -1524,8 +1524,9 @@
                 
                 allSections.forEach((section, index) => {
                     console.log(`  ${index + 1}. ${section.id} - hiding`);
-                    section.style.display = 'none';
                     section.classList.remove('active');
+                    // Remove inline styles that might override CSS
+                    section.style.display = '';
                 });
                 
                 // Show the selected section
@@ -1533,11 +1534,12 @@
                 console.log('🎯 Target section element:', targetSection);
                 
                 if (targetSection) {
-                    targetSection.style.display = 'block';
                     targetSection.classList.add('active');
+                    // Remove any conflicting inline styles
+                    targetSection.style.display = '';
                     this.currentSection = sectionName;
                     console.log(`✅ Successfully switched to ${sectionName} section`);
-                    console.log('📊 Section now visible:', targetSection.style.display);
+                    console.log('📊 Section active class:', targetSection.classList.contains('active'));
                     
                     // Load section-specific data
                     this.loadSectionData(sectionName);
