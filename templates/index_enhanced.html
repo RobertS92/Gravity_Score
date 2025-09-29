@@ -741,10 +741,6 @@
                     <i class="fas fa-users"></i>
                     <span>Players</span>
                 </a>
-                <a href="#" class="sidebar-item" data-testid="nav-search">
-                    <i class="fas fa-search"></i>
-                    <span>Search</span>
-                </a>
                 <a href="#" class="sidebar-item" data-testid="nav-analytics">
                     <i class="fas fa-analytics"></i>
                     <span>Analytics</span>
@@ -1098,14 +1094,26 @@
 
                 <!-- PLAYERS SECTION -->
                 <div id="section-players" class="content-section">
-                    <h2 class="section-title">Player Database & Management</h2>
+                    <h2 class="section-title">Player Database & Search</h2>
+                    
+                    <!-- Search Bar -->
+                    <div class="intelligence-card" style="margin-bottom: 16px;">
+                        <div class="card-body">
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <input type="text" id="player-search-input" placeholder="Search players by name, team, position..." 
+                                       style="flex: 1; padding: 10px 16px; background: #202938; border: 1px solid #202938; color: #E6EDF3; border-radius: 8px; font-size: 14px;">
+                                <button id="player-search-btn" class="scrape-btn">Search</button>
+                                <button id="clear-search-btn" class="scrape-btn" style="background: #202938;">Clear</button>
+                            </div>
+                        </div>
+                    </div>
                     
                     <!-- Enhanced Players Grid -->
                     <div class="dashboard-grid">
                         <!-- Advanced Filter Panel -->
                         <div class="intelligence-card">
                             <div class="card-header">
-                                <h3 class="card-title">Advanced Filters</h3>
+                                <h3 class="card-title">Filters</h3>
                                 <button id="clear-filters-btn" class="scrape-btn" style="font-size: 11px; padding: 4px 8px;">Clear All</button>
                             </div>
                             <div class="card-body">
@@ -1168,12 +1176,13 @@
                                 </div>
                                 
                                 <!-- Table Header -->
-                                <div class="table-header" style="display: grid; grid-template-columns: 40px 1fr 80px 120px 100px 80px 60px; gap: 8px; padding: 8px 0; border-bottom: 1px solid #202938; font-size: 11px; font-weight: 600; color: #94A3B8;">
+                                <div class="table-header" style="display: grid; grid-template-columns: 40px 1fr 80px 120px 100px 100px 80px 60px; gap: 8px; padding: 8px 0; border-bottom: 1px solid #202938; font-size: 11px; font-weight: 600; color: #94A3B8;">
                                     <div><input type="checkbox" id="select-all-players"></div>
                                     <div>Name</div>
                                     <div>Position</div>
                                     <div>Team</div>
                                     <div>Brand Value</div>
+                                    <div>Gravity Score</div>
                                     <div>Risk</div>
                                     <div>Actions</div>
                                 </div>
@@ -1209,9 +1218,10 @@
                     </div>
                 </div>
 
-                <!-- SEARCH SECTION -->
-                <div id="section-search" class="content-section">
-                    <h2 class="section-title">Unified Search & Discovery</h2>
+                <!-- SEARCH SECTION REMOVED - Combined with Players -->
+                
+                <!-- ANALYTICS SECTION MOVED UP -->
+                <div id="section-analytics-old-placeholder" style="display: none;">
                     
                     <!-- Enhanced Search Grid -->
                     <div class="dashboard-grid">
