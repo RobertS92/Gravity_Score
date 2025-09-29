@@ -1472,11 +1472,22 @@
             }
 
             init() {
+                console.log('🚀 Initializing Market Dashboard...');
                 this.setupToggle();
                 this.setupNavigation();
                 this.setupScraping();
                 this.setupSearch();
                 this.loadInitialData();
+                
+                // Verify sections exist on init
+                const sections = document.querySelectorAll('.content-section');
+                console.log('📋 Available sections on init:', sections.length);
+                sections.forEach((section, index) => {
+                    console.log(`  ${index + 1}. ${section.id} - display: ${section.style.display || 'default'}`);
+                });
+                
+                // Ensure dashboard section is visible by default
+                this.switchSection('dashboard');
                 
                 // Auto-refresh every 30 seconds
                 setInterval(() => this.loadData(), 30000);
@@ -1505,28 +1516,37 @@
             }
 
             switchSection(sectionName) {
-                console.log('Switching to section:', sectionName);
+                console.log('🔄 Switching to section:', sectionName);
                 
-                // Hide all sections
-                document.querySelectorAll('.content-section').forEach(section => {
+                // Hide all sections and log them
+                const allSections = document.querySelectorAll('.content-section');
+                console.log('📋 Found sections:', allSections.length);
+                
+                allSections.forEach((section, index) => {
+                    console.log(`  ${index + 1}. ${section.id} - hiding`);
                     section.style.display = 'none';
                     section.classList.remove('active');
                 });
                 
                 // Show the selected section
                 const targetSection = document.getElementById(`section-${sectionName}`);
-                console.log('Target section element:', targetSection);
+                console.log('🎯 Target section element:', targetSection);
                 
                 if (targetSection) {
                     targetSection.style.display = 'block';
                     targetSection.classList.add('active');
                     this.currentSection = sectionName;
-                    console.log(`Successfully switched to ${sectionName} section`);
+                    console.log(`✅ Successfully switched to ${sectionName} section`);
+                    console.log('📊 Section now visible:', targetSection.style.display);
                     
                     // Load section-specific data
                     this.loadSectionData(sectionName);
                 } else {
-                    console.error(`Section element not found: section-${sectionName}`);
+                    console.error(`❌ Section element not found: section-${sectionName}`);
+                    // List all available sections for debugging
+                    allSections.forEach(section => {
+                        console.log('Available section:', section.id);
+                    });
                 }
             }
 
