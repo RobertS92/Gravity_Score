@@ -2710,30 +2710,41 @@
 
             // Section-specific data loading
             async loadSectionData(sectionName) {
-                switch(sectionName) {
-                    case 'dashboard':
-                        console.log('Loading dashboard sections...');
-                        await this.loadPortfolioKPIs();
-                        await this.loadTopMovers();
-                        await this.loadRiskMonitor();
-                        await this.loadRenewalLadder();
-                        await this.loadRevenueForecast();
-                        console.log('All dashboard sections loaded');
-                        break;
-                    case 'market-data':
-                        await this.loadEventFeed();
-                        await this.loadDealTape();
-                        await this.loadDataHealth();
-                        await this.loadScrapingJobs();
-                        break;
-                    case 'players':
-                        await this.loadPlayersFilters();
-                        await this.loadPlayersTable();
-                        this.currentPlayersOffset = 0;
-                        break;
-                    case 'analytics':
-                        await this.loadAnalyticsData();
-                        break;
+                console.log(`📂 Loading data for section: ${sectionName}`);
+                try {
+                    switch(sectionName) {
+                        case 'dashboard':
+                            console.log('Loading dashboard sections...');
+                            await this.loadPortfolioKPIs();
+                            await this.loadTopMovers();
+                            await this.loadRiskMonitor();
+                            await this.loadRenewalLadder();
+                            await this.loadRevenueForecast();
+                            console.log('All dashboard sections loaded');
+                            break;
+                        case 'market-data':
+                            console.log('Loading market data sections...');
+                            await this.loadEventFeed();
+                            await this.loadDealTape();
+                            await this.loadDataHealth();
+                            await this.loadScrapingJobs();
+                            console.log('All market data sections loaded');
+                            break;
+                        case 'players':
+                            console.log('Loading players sections...');
+                            await this.loadPlayersFilters();
+                            await this.loadPlayersTable();
+                            this.currentPlayersOffset = 0;
+                            console.log('All players sections loaded');
+                            break;
+                        case 'analytics':
+                            console.log('Loading analytics sections...');
+                            await this.loadAnalyticsData();
+                            console.log('All analytics sections loaded');
+                            break;
+                    }
+                } catch (error) {
+                    console.error(`❌ Error loading ${sectionName} data:`, error);
                 }
             }
 
