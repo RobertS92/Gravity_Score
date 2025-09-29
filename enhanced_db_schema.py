@@ -297,8 +297,7 @@ class EnhancedNFLDatabase:
         indexes_sql = [
             "CREATE INDEX IF NOT EXISTS idx_players_team_id ON players(team_id)",
             "CREATE INDEX IF NOT EXISTS idx_players_position ON players(position)",
-            "CREATE INDEX IF NOT EXISTS idx_players_status ON players(status)",
-            "CREATE INDEX IF NOT EXISTS idx_players_last_scraped ON players(last_scraped)",
+            "CREATE INDEX IF NOT EXISTS idx_players_scraped_at ON players(scraped_at)",
             "CREATE INDEX IF NOT EXISTS idx_social_media_player_id ON social_media_metrics(player_id)",
             "CREATE INDEX IF NOT EXISTS idx_social_media_scraped_at ON social_media_metrics(scraped_at)",
             "CREATE INDEX IF NOT EXISTS idx_scraping_jobs_status ON scraping_jobs(status)",
