@@ -1308,10 +1308,10 @@
             
             try {
                 const [eventFeed, dealTape, dataHealth, scrapingJobs] = await Promise.all([
-                    fetch(`/api/market-data/event-feed?mode=${currentMode}`).then(r => r.json()).catch(() => []),
-                    fetch(`/api/market-data/deal-tape?mode=${currentMode}`).then(r => r.json()).catch(() => []),
-                    fetch(`/api/market-data/data-health?mode=${currentMode}`).then(r => r.json()).catch(() => ({})),
-                    fetch(`/api/market-data/scraping-jobs?mode=${currentMode}`).then(r => r.json()).catch(() => [])
+                    fetch(`/api/market-data/event-feed?mode=${currentMode}`).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).catch(err => { console.error('Event feed error:', err); return []; }),
+                    fetch(`/api/market-data/deal-tape?mode=${currentMode}`).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).catch(err => { console.error('Deal tape error:', err); return []; }),
+                    fetch(`/api/market-data/data-health?mode=${currentMode}`).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).catch(err => { console.error('Data health error:', err); return {}; }),
+                    fetch(`/api/market-data/scraping-jobs?mode=${currentMode}`).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).catch(err => { console.error('Scraping jobs error:', err); return []; })
                 ]);
                 
                 renderEventFeed(eventFeed);
@@ -1445,6 +1445,7 @@
             
             try {
                 const response = await fetch(`/api/players?mode=${currentMode}`);
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.json();
                 allPlayersData = data.players || [];
                 
@@ -1454,7 +1455,7 @@
                 loadPlayersTable();
                 
             } catch (error) {
-                console.error('Error loading players:', error);
+                console.error('Players error:', error);
                 document.getElementById('players-table-content').innerHTML = '<div style="color: #94A3B8; text-align: center; padding: 40px;">Error loading players data</div>';
             }
         }
@@ -1782,13 +1783,14 @@
             
             try {
                 const response = await fetch(`/api/players?mode=${currentMode}`);
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.json();
                 const players = data.players || [];
                 
                 renderGravityChart(players);
                 
             } catch (error) {
-                console.error('Error loading analytics:', error);
+                console.error('Analytics error:', error);
             }
         }
         
