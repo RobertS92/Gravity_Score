@@ -25,10 +25,6 @@ try:
 except ImportError as e:
     SCRAPER_AVAILABLE = False
 
-# Data paths for ECOS↔NFL toggle
-ECOS_DATA_PATH = "data/ecos_players.csv"
-NFL_DATA_PATH = "data/ecos_methodology_all_players_20250722_024930.csv"
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,36 +53,60 @@ gravity_calculator = GravityScoreCalculator()
 # Enhanced Data Processor for ECOS↔NFL Toggle
 class DataProcessor:
     def __init__(self):
-        self.ecos_data = None
-        self.nfl_data = None
-        self.load_data()
+        self.db_url = os.environ.get('DATABASE_URL')
+        if not self.db_url:
+            logger.error("DATABASE_URL environment variable not set")
     
     def load_data(self):
-        """Load both ECOS and NFL datasets"""
+        """Load data from PostgreSQL database"""
         try:
-            # Load ECOS data
-            if os.path.exists(ECOS_DATA_PATH):
-                self.ecos_data = pd.read_csv(ECOS_DATA_PATH)
-                logger.info(f"Loaded {len(self.ecos_data)} ECOS players")
-            else:
-                logger.warning(f"ECOS data file not found: {ECOS_DATA_PATH}")
-                
-            # Load NFL data
-            if os.path.exists(NFL_DATA_PATH):
-                self.nfl_data = pd.read_csv(NFL_DATA_PATH)
-                logger.info(f"Loaded {len(self.nfl_data)} NFL players")
-            else:
-                logger.warning(f"NFL data file not found: {NFL_DATA_PATH}")
+            import psycopg2
+            
+            if not self.db_url:
+                logger.error("Cannot load data: DATABASE_URL not set")
+                return pd.DataFrame(), pd.DataFrame()
+            
+            conn = psycopg2.connect(self.db_url)
+            
+            ecos_query = "SELECT * FROM comprehensive_nfl_players WHERE team IN ('bills', 'dolphins')"
+            ecos_data = pd.read_sql_query(ecos_query, conn)
+            logger.info(f"Loaded {len(ecos_data)} ECOS players from database")
+            
+            nfl_query = "SELECT * FROM comprehensive_nfl_players"
+            nfl_data = pd.read_sql_query(nfl_query, conn)
+            logger.info(f"Loaded {len(nfl_data)} NFL players from database")
+            
+            conn.close()
+            
+            return ecos_data, nfl_data
                 
         except Exception as e:
-            logger.error(f"Error loading data: {e}")
+            logger.error(f"Error loading data from database: {e}")
+            return pd.DataFrame(), pd.DataFrame()
     
     def get_data_by_mode(self, mode="ecos"):
         """Get dataset based on mode (ecos or nfl)"""
-        if mode.lower() == "ecos":
-            return self.ecos_data if self.ecos_data is not None else pd.DataFrame()
-        else:
-            return self.nfl_data if self.nfl_data is not None else pd.DataFrame()
+        try:
+            import psycopg2
+            
+            if not self.db_url:
+                return pd.DataFrame()
+            
+            conn = psycopg2.connect(self.db_url)
+            
+            if mode.lower() == "ecos":
+                query = "SELECT * FROM comprehensive_nfl_players WHERE team IN ('bills', 'dolphins')"
+            else:
+                query = "SELECT * FROM comprehensive_nfl_players"
+            
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error getting data by mode: {e}")
+            return pd.DataFrame()
     
     def calculate_financial_overview(self, mode="ecos"):
         """Calculate financial overview metrics for the specified mode"""
@@ -123,10 +143,19 @@ class DataProcessor:
             avg_brand_scores = []
             
             for _, player in df.iterrows():
-                brand_power = player.get('brand_power', 0)
-                total_gravity = player.get('total_gravity', 0)
-                instagram = player.get('instagram_followers', 0) or 0
-                twitter = player.get('twitter_followers', 0) or 0
+                brand_power = float(player.get('brand_power', 0) or 0)
+                total_gravity = float(player.get('total_gravity', 0) or 0)
+                
+                # Convert string numeric fields to float
+                try:
+                    instagram = float(player.get('instagram_followers', 0) or 0)
+                except (ValueError, TypeError):
+                    instagram = 0
+                
+                try:
+                    twitter = float(player.get('twitter_followers', 0) or 0)
+                except (ValueError, TypeError):
+                    twitter = 0
                 
                 # Calculate individual market value using ECOS methodology
                 # Brand power weight: 40%, Social media: 30%, Total gravity: 30%
@@ -170,11 +199,14 @@ class DataProcessor:
                 avg_velocity = float(df['velocity'].fillna(0).mean())
                 market_activity = min(99.9, max(80.0, avg_velocity * 1.2))
         
+        # Convert NaN to 0 for JSON serialization
+        import math
+        
         return {
-            "total_market_value": float(total_market_value),
+            "total_market_value": float(total_market_value) if not math.isnan(total_market_value) else 0.0,
             "active_contracts": int(active_contracts),
-            "avg_brand_value": float(avg_brand_value),
-            "market_activity": float(market_activity),
+            "avg_brand_value": float(avg_brand_value) if not math.isnan(avg_brand_value) else 0.0,
+            "market_activity": float(market_activity) if not math.isnan(market_activity) else 0.0,
             "athlete_count": int(total_players)
         }
     
@@ -188,17 +220,29 @@ class DataProcessor:
         # Determine the ranking column
         rank_col = 'total_gravity' if 'total_gravity' in df.columns else 'brand_power'
         
-        # Sort by ranking column and get top performers
-        top_performers = df.nlargest(limit, rank_col) if rank_col in df.columns else df.head(limit)
+        # Sort by ranking column and get top performers, handling NaN values
+        df_clean = df.copy()
+        df_clean[rank_col] = pd.to_numeric(df_clean[rank_col], errors='coerce').fillna(0)
+        top_performers = df_clean.nlargest(limit, rank_col) if rank_col in df_clean.columns else df_clean.head(limit)
         
         # Calculate average brand value for comparison
-        avg_brand_raw = df[rank_col].mean() if rank_col in df.columns else 50
+        avg_brand_raw = df_clean[rank_col].mean() if rank_col in df_clean.columns else 50
         avg_brand_value = avg_brand_raw * 1_000_000  # Convert to same scale
         
         performers = []
         for i, (_, player) in enumerate(top_performers.iterrows()):
-            # Calculate brand value in millions
-            brand_value = player.get(rank_col, 0) * 1_000_000 if rank_col in player else 0
+            # Calculate brand value in millions, handling NaN
+            brand_raw = player.get(rank_col, 0)
+            brand_raw = float(brand_raw) if brand_raw and not pd.isna(brand_raw) else 0
+            brand_value = brand_raw * 1_000_000
+            
+            # Calculate change percentage safely
+            import math
+            if avg_brand_value > 0:
+                change_pct = (brand_value - avg_brand_value) / avg_brand_value * 100
+                change_pct = float(change_pct) if not math.isnan(change_pct) else 0.0
+            else:
+                change_pct = 0.0
             
             performers.append({
                 "rank": i + 1,
@@ -206,13 +250,13 @@ class DataProcessor:
                 "position": player.get('position', 'N/A'),
                 "team": player.get('current_team', player.get('team', 'N/A')),
                 "brand_value": float(brand_value),
-                "change_pct": float((brand_value - avg_brand_value) / avg_brand_value * 100) if avg_brand_value > 0 else 0.0  # Real change based on performance vs average
+                "change_pct": change_pct
             })
         
         return performers
     
     def get_market_activity(self, mode="ecos", limit=5):
-        """Get recent market activity events"""
+        """Get recent market activity events generated from live database player data"""
         df = self.get_data_by_mode(mode)
         
         if df.empty:
@@ -220,91 +264,214 @@ class DataProcessor:
         
         activities = []
         
-        if mode.lower() == "ecos":
-            # ECOS-specific activity based on real player achievements and data
-            ecos_activities = [
-                {
-                    "player": "Courtland Sutton",
-                    "type": "CONTRACT",
-                    "tag_class": "tag-contract",
-                    "priority": "High",
-                    "description": "Courtland Sutton – $92M extension signed (4-year deal through 2029)",
-                    "time": "09:42"
-                },
-                {
-                    "player": "Patrick Surtain II", 
+        # Sort by total_gravity descending, handling NaN values
+        df_sorted = df.copy()
+        if 'total_gravity' in df_sorted.columns:
+            df_sorted['total_gravity'] = pd.to_numeric(df_sorted['total_gravity'], errors='coerce')
+            df_sorted = df_sorted.sort_values('total_gravity', ascending=False, na_position='last')
+        
+        # Get enough players to generate diverse activities
+        candidate_players = df_sorted.head(min(len(df_sorted), limit * 4))
+        
+        time_offset = 0
+        
+        for _, player in candidate_players.iterrows():
+            name = player.get('name', 'Unknown Player')
+            position = player.get('position', '')
+            
+            # Safe numeric conversions
+            try:
+                total_gravity = float(player.get('total_gravity', 0) or 0)
+            except (ValueError, TypeError):
+                total_gravity = 0
+            
+            try:
+                instagram_followers = float(player.get('instagram_followers', 0) or 0)
+            except (ValueError, TypeError):
+                instagram_followers = 0
+            
+            try:
+                twitter_followers = float(player.get('twitter_followers', 0) or 0)
+            except (ValueError, TypeError):
+                twitter_followers = 0
+            
+            try:
+                brand_power = float(player.get('brand_power', 0) or 0)
+            except (ValueError, TypeError):
+                brand_power = 0
+            
+            awards = str(player.get('awards', ''))
+            
+            # Generate CONTRACT activities for players with contract info in awards
+            if '$' in awards and 'M' in awards and len(activities) < limit:
+                import re
+                contract_match = re.search(r'\$(\d+)M', awards)
+                if contract_match:
+                    amount = contract_match.group(1)
+                    activities.append({
+                        "player": name,
+                        "type": "CONTRACT",
+                        "tag_class": "tag-contract",
+                        "priority": "High",
+                        "description": f"{name} – ${amount}M contract extension signed",
+                        "time": f"09:{42 - time_offset:02d}"
+                    })
+                    time_offset += 7
+                    if len(activities) >= limit:
+                        break
+                    continue
+            
+            # Generate PERFORMANCE activities for award winners or high gravity players
+            if ('Award' in awards or 'All-Pro' in awards or total_gravity > 70) and len(activities) < limit:
+                if 'Award' in awards or 'All-Pro' in awards:
+                    desc = f"{name} – {awards.split('.')[0]}" if awards else f"{name} – Elite performance recognition"
+                else:
+                    desc = f"{name} – Top performer (Gravity Score: {total_gravity:.1f})"
+                
+                activities.append({
+                    "player": name,
                     "type": "PERFORMANCE",
                     "tag_class": "tag-performance",
-                    "priority": "High",
-                    "description": "Patrick Surtain II – 2024 NFL Defensive Player of the Year Award",
-                    "time": "09:35"
-                },
-                {
-                    "player": "Jaylen Waddle",
+                    "priority": "High" if total_gravity > 80 else "Medium",
+                    "description": desc,
+                    "time": f"09:{42 - time_offset:02d}"
+                })
+                time_offset += 7
+                if len(activities) >= limit:
+                    break
+                continue
+            
+            # Generate SOCIAL activities for high social media presence
+            if instagram_followers > 100000 and len(activities) < limit:
+                followers_k = int(instagram_followers / 1000)
+                activities.append({
+                    "player": name,
                     "type": "SOCIAL",
-                    "tag_class": "tag-social", 
-                    "priority": "Medium",
-                    "description": "Jaylen Waddle – Instagram reaches 447K followers (+12% this quarter)",
-                    "time": "09:28"
-                },
-                {
-                    "player": "Nik Bonitto",
-                    "type": "PERFORMANCE",
-                    "tag_class": "tag-performance",
-                    "priority": "Medium", 
-                    "description": "Nik Bonitto – 2024 AP 2nd Team All-Pro selection (13.5 sacks)",
-                    "time": "09:21"
-                },
-                {
-                    "player": "Patrick Surtain II",
+                    "tag_class": "tag-social",
+                    "priority": "Medium" if instagram_followers > 500000 else "Low",
+                    "description": f"{name} – Instagram reaches {followers_k}K followers",
+                    "time": f"09:{42 - time_offset:02d}"
+                })
+                time_offset += 7
+                if len(activities) >= limit:
+                    break
+                continue
+            
+            # Generate ENDORSEMENT activities for high brand power players
+            if brand_power > 70 and len(activities) < limit:
+                if position in ['QB', 'WR', 'CB']:
+                    desc = f"{name} – High-value endorsement potential (Brand Power: {brand_power:.1f})"
+                else:
+                    desc = f"{name} – Brand partnership opportunities emerging"
+                
+                activities.append({
+                    "player": name,
                     "type": "ENDORSEMENT",
                     "tag_class": "tag-endorsement",
                     "priority": "Medium",
-                    "description": "Patrick Surtain II – DPOY status drives defensive equipment partnerships",
-                    "time": "09:14"
-                }
-            ]
+                    "description": desc,
+                    "time": f"09:{42 - time_offset:02d}"
+                })
+                time_offset += 7
+                if len(activities) >= limit:
+                    break
+                continue
             
-            # Return the most relevant ECOS activities
-            activities = ecos_activities[:limit]
-            
-        else:
-            # NFL mode - generate activity from larger dataset
-            recent_players = df.nlargest(limit, 'total_gravity') if 'total_gravity' in df.columns else df.head(limit)
-            
+            # Generate PERFORMANCE activities for key positions with decent gravity
+            if position in ['QB', 'WR', 'CB', 'RB', 'DE', 'LB'] and total_gravity > 50 and len(activities) < limit:
+                activities.append({
+                    "player": name,
+                    "type": "PERFORMANCE",
+                    "tag_class": "tag-performance",
+                    "priority": "Low",
+                    "description": f"{name} – Strong {position} performance metrics",
+                    "time": f"09:{42 - time_offset:02d}"
+                })
+                time_offset += 7
+                if len(activities) >= limit:
+                    break
+        
+        # If we don't have enough activities, fill with available players
+        if len(activities) < limit:
+            # Try different activity types for variety
             activity_types = [
-                {"type": "CONTRACT", "tag_class": "tag-contract", "priority": "High"},
-                {"type": "ENDORSEMENT", "tag_class": "tag-endorsement", "priority": "Medium"},
-                {"type": "TRADE", "tag_class": "tag-trade", "priority": "High"},
-                {"type": "PERFORMANCE", "tag_class": "tag-performance", "priority": "Low"},
-                {"type": "SOCIAL", "tag_class": "tag-social", "priority": "Medium"}
+                {"type": "PERFORMANCE", "tag_class": "tag-performance"},
+                {"type": "SOCIAL", "tag_class": "tag-social"},
+                {"type": "ENDORSEMENT", "tag_class": "tag-endorsement"},
+                {"type": "CONTRACT", "tag_class": "tag-contract"}
             ]
             
-            for i, (_, player) in enumerate(recent_players.iterrows()):
-                activity = activity_types[i % len(activity_types)]
+            type_idx = 0
+            remaining_players = df_sorted.head(min(len(df_sorted), limit * 3))
+            
+            for _, player in remaining_players.iterrows():
+                if len(activities) >= limit:
+                    break
+                
                 name = player.get('name', 'Unknown Player')
                 
-                if activity["type"] == "CONTRACT":
-                    desc = f"{name} – Contract extension negotiations"
+                # Skip if already in activities
+                if any(a['player'] == name for a in activities):
+                    continue
+                
+                position = player.get('position', '')
+                team = player.get('team', player.get('current_team', ''))
+                
+                try:
+                    total_gravity = float(player.get('total_gravity', 0) or 0)
+                    if pd.isna(total_gravity):
+                        total_gravity = 0
+                except (ValueError, TypeError):
+                    total_gravity = 0
+                
+                # Select activity type
+                activity = activity_types[type_idx % len(activity_types)]
+                type_idx += 1
+                
+                # Create varied descriptions based on available data
+                if activity["type"] == "PERFORMANCE":
+                    if total_gravity > 0:
+                        desc = f"{name} – Performance tracking (Gravity: {total_gravity:.1f})"
+                        priority = "High" if total_gravity > 60 else "Medium"
+                    elif position:
+                        desc = f"{name} – {position} performance metrics update"
+                        priority = "Medium" if position in ['QB', 'WR', 'RB', 'CB'] else "Low"
+                    else:
+                        desc = f"{name} – Player performance analysis"
+                        priority = "Low"
+                        
+                elif activity["type"] == "SOCIAL":
+                    if position:
+                        desc = f"{name} – Social media engagement trending ({position})"
+                    else:
+                        desc = f"{name} – Growing fan engagement"
+                    priority = "Low"
+                    
                 elif activity["type"] == "ENDORSEMENT":
-                    desc = f"{name} – Brand partnership opportunity"
-                elif activity["type"] == "TRADE":
-                    team = player.get('current_team', player.get('team', 'Team'))
-                    desc = f"{name} – Market value analysis"
-                elif activity["type"] == "PERFORMANCE":
-                    desc = f"{name} – Performance metrics update"
-                else:  # SOCIAL
-                    desc = f"{name} – Social media engagement tracking"
+                    if team:
+                        desc = f"{name} – Brand partnership opportunities with {team}"
+                    else:
+                        desc = f"{name} – Endorsement potential analysis"
+                    priority = "Medium"
+                    
+                else:  # CONTRACT
+                    if team:
+                        desc = f"{name} – Contract status monitoring ({team})"
+                    else:
+                        desc = f"{name} – Market value assessment"
+                    priority = "Medium"
                 
                 activities.append({
-                    "time": f"09:{42 - i*7:02d}",
+                    "player": name,
                     "type": activity["type"],
                     "tag_class": activity["tag_class"],
-                    "priority": activity["priority"],
-                    "description": str(desc)
+                    "priority": priority,
+                    "description": desc,
+                    "time": f"09:{42 - time_offset:02d}"
                 })
+                time_offset += 7
         
-        return activities
+        return activities[:limit]
     
     def get_quick_stats(self, mode="ecos"):
         """Get quick statistics for the dashboard"""
@@ -591,28 +758,30 @@ def get_all_players():
 
 @app.route('/api/data/latest')
 def get_latest_data():
-    """Get latest comprehensive data with gravity scores."""
+    """Get latest comprehensive data with gravity scores from database."""
     try:
-        # Prioritize authentic gravity files first
-        authentic_gravity_files = glob.glob('data/authentic_gravity_scores_*.csv')
-        gravity_files = glob.glob('data/players_with_gravity_*.csv')
-        comprehensive_files = glob.glob('data/comprehensive_players_*.csv')
-        age_files = glob.glob('data/players_with_ages_*.csv')
-        standard_files = glob.glob('data/players_*.csv')
-
-        # Priority order: authentic gravity > other gravity > comprehensive > age > standard
-        all_files = authentic_gravity_files + gravity_files + comprehensive_files + age_files + standard_files
-
-        best_file = _find_largest_file_with_good_data(all_files)
-
-        if not best_file:
+        import psycopg2
+        
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
+            return jsonify({
+                "players": [],
+                "count": 0,
+                "status": "no_database",
+                "error": "DATABASE_URL not configured"
+            })
+        
+        conn = psycopg2.connect(db_url)
+        query = "SELECT * FROM comprehensive_nfl_players"
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        if df.empty:
             return jsonify({
                 "players": [],
                 "count": 0,
                 "status": "no_data"
             })
-
-        df = pd.read_csv(best_file)
         
         # Calculate gravity scores if not present
         gravity_columns = ['brand_power', 'proof', 'proximity', 'velocity', 'risk', 'total_gravity']
@@ -627,7 +796,7 @@ def get_latest_data():
             "count": len(players),
             "status": "success",
             "columns": list(df.columns),
-            "source_file": best_file
+            "source": "database"
         })
 
     except Exception as e:
@@ -638,35 +807,42 @@ def get_latest_data():
 def api_ecos_players():
     """API endpoint for Ecos Players collection"""
     try:
-        file_path = 'data/ecos_players.csv'
-        if os.path.exists(file_path):
-            df = pd.read_csv(file_path)
-            players = df.to_dict('records')
-            
-            # Clean up any NaN values
-            for player in players:
-                for key, value in player.items():
-                    if pd.isna(value):
-                        player[key] = None
-            
-            # Sort by gravity score descending
-            players.sort(key=lambda x: x.get('total_gravity', 0), reverse=True)
-            
+        import psycopg2
+        
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
             return jsonify({
-                'status': 'success',
-                'players': players,
-                'total': len(players),
-                'message': f'Loaded {len(players)} Ecos Players'
-            })
-        else:
-            return jsonify({
-                'status': 'success',
+                'status': 'error',
                 'players': [],
                 'total': 0,
-                'message': 'No Ecos Players found'
-            })
+                'message': 'Database connection not available'
+            }), 500
+        
+        conn = psycopg2.connect(db_url)
+        query = "SELECT * FROM comprehensive_nfl_players WHERE team IN ('bills', 'dolphins')"
+        df = pd.read_sql_query(query, conn)
+        conn.close()
+        
+        players = df.to_dict('records')
+        
+        # Clean up any NaN values
+        for player in players:
+            for key, value in player.items():
+                if pd.isna(value):
+                    player[key] = None
+        
+        # Sort by gravity score descending
+        players.sort(key=lambda x: x.get('total_gravity', 0) if x.get('total_gravity') else 0, reverse=True)
+        
+        return jsonify({
+            'status': 'success',
+            'players': players,
+            'total': len(players),
+            'message': f'Loaded {len(players)} Ecos Players from database'
+        })
+        
     except Exception as e:
-        logger.error(f"Error loading Ecos Players: {e}")
+        logger.error(f"Error loading Ecos Players from database: {e}")
         return jsonify({
             'status': 'error',
             'players': [],
@@ -706,26 +882,31 @@ def calculate_gravity_for_player():
 
 @app.route('/api/gravity/bulk-calculate', methods=['POST'])
 def bulk_calculate_gravity():
-    """Calculate gravity scores for all players in dataset."""
+    """Calculate gravity scores for all players in dataset from database."""
     try:
-        data = request.get_json()
-        file_path = data.get('file_path')
+        import psycopg2
         
-        if not file_path or not os.path.exists(file_path):
-            # Find latest file
-            file_path = _find_best_data_file()
-            
-        if not file_path:
-            return jsonify({"error": "No data file found"}), 400
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
+            return jsonify({"error": "DATABASE_URL not configured"}), 400
 
-        logger.info(f"Calculating gravity scores for dataset: {file_path}")
+        logger.info("Calculating gravity scores for dataset from database")
         
-        # Calculate gravity scores for entire dataset
-        enhanced_df = calculate_gravity_scores_for_dataset(file_path)
+        # Load data from database
+        conn = psycopg2.connect(db_url)
+        df = pd.read_sql_query("SELECT * FROM comprehensive_nfl_players", conn)
+        conn.close()
         
-        # Save enhanced dataset
+        if df.empty:
+            return jsonify({"error": "No players found in database"}), 404
+        
+        # Calculate gravity scores for entire dataset using DataFrame
+        enhanced_df = _calculate_gravity_scores_for_dataframe(df)
+        
+        # Optionally save enhanced dataset as export
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_file = f"data/players_with_gravity_{timestamp}.csv"
+        os.makedirs("data", exist_ok=True)
         enhanced_df.to_csv(output_file, index=False)
         
         # Get top players
@@ -1093,43 +1274,52 @@ def search_players():
             
             return jsonify(results)
         
-        # Legacy query search
+        # Legacy query search using database
         if not query:
             return jsonify({"players": [], "message": "No search query provided"})
         
-        # Get all available player names from data files
-        all_players = []
-        data_files = glob.glob('data/players_*.csv') + glob.glob('data/comprehensive_*.csv')
-        
-        for file_path in data_files:
-            try:
-                df = pd.read_csv(file_path)
-                if 'name' in df.columns:
-                    players = df[['name', 'position', 'current_team']].fillna('').to_dict(orient='records')
-                    all_players.extend(players)
-            except:
-                continue
-        
-        # Remove duplicates and filter by search query
-        seen_names = set()
-        unique_players = []
-        
-        for player in all_players:
-            name = player.get('name', '').strip()
-            if name and name.lower() not in seen_names:
-                if query in name.lower():
+        # Get all available player names from database
+        try:
+            import psycopg2
+            
+            db_url = os.environ.get('DATABASE_URL')
+            if not db_url:
+                return jsonify({"players": [], "message": "Database not available"})
+            
+            conn = psycopg2.connect(db_url)
+            df = pd.read_sql_query("SELECT name, position, current_team FROM comprehensive_nfl_players WHERE name IS NOT NULL", conn)
+            conn.close()
+            
+            if df.empty:
+                return jsonify({"players": [], "message": "No players found in database"})
+            
+            # Filter by search query
+            filtered_df = df[df['name'].str.contains(query, case=False, na=False)]
+            
+            # Convert to dict and remove duplicates
+            all_players = filtered_df.to_dict(orient='records')
+            seen_names = set()
+            unique_players = []
+            
+            for player in all_players:
+                name = player.get('name', '').strip()
+                if name and name.lower() not in seen_names:
                     unique_players.append(player)
                     seen_names.add(name.lower())
-        
-        # Sort by name and limit results
-        unique_players.sort(key=lambda x: x.get('name', ''))
-        limited_results = unique_players[:50]  # Limit to 50 results
-        
-        return jsonify({
-            "players": limited_results,
-            "total_found": len(unique_players),
-            "showing": len(limited_results)
-        })
+            
+            # Sort by name and limit results
+            unique_players.sort(key=lambda x: x.get('name', ''))
+            limited_results = unique_players[:50]  # Limit to 50 results
+            
+            return jsonify({
+                "players": limited_results,
+                "total_found": len(unique_players),
+                "showing": len(limited_results)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in legacy search: {e}")
+            return jsonify({"players": [], "message": f"Search error: {str(e)}"})
     
     except Exception as e:
         logger.error(f"Error searching players: {e}")
@@ -1240,104 +1430,32 @@ def process_selected_players():
 
 @app.route('/api/my-players', methods=['GET'])
 def get_my_players():
-    """Get saved players from my_players.csv."""
-    try:
-        my_players_file = "data/my_players.csv"
-        
-        if not os.path.exists(my_players_file):
-            return jsonify({
-                "players": [],
-                "total": 0,
-                "message": "No saved players found"
-            })
-        
-        df = pd.read_csv(my_players_file)
-        players = _clean_players_data(df)
-        
-        # Sort by total gravity score descending
-        if 'total_gravity' in df.columns:
-            players.sort(key=lambda x: x.get('total_gravity', 0), reverse=True)
-        
-        return jsonify({
-            "players": players,
-            "total": len(players),
-            "status": "success"
-        })
-        
-    except Exception as e:
-        logger.error(f"Error getting my players: {e}")
-        return jsonify({"error": str(e), "status": "error"}), 500
+    """Get saved players - feature requires database table implementation."""
+    return jsonify({
+        "players": [],
+        "total": 0,
+        "message": "My Players feature requires database table - use comprehensive_nfl_players table instead"
+    })
 
 @app.route('/api/my-players', methods=['DELETE'])
 def clear_my_players():
-    """Clear all saved players."""
-    try:
-        my_players_file = "data/my_players.csv"
-        
-        if os.path.exists(my_players_file):
-            os.remove(my_players_file)
-        
-        return jsonify({
-            "status": "success",
-            "message": "All saved players cleared"
-        })
-        
-    except Exception as e:
-        logger.error(f"Error clearing my players: {e}")
-        return jsonify({"error": str(e), "status": "error"}), 500
+    """Clear saved players - feature requires database table implementation."""
+    return jsonify({
+        "status": "success",
+        "message": "My Players feature requires database table - no action taken"
+    })
 
 # ===== HELPER FUNCTIONS =====
 
 def _find_best_data_file():
-    """Find the best comprehensive data file with all available columns."""
-    data_files = glob.glob('data/*.csv')
-    best_file = None
-    max_columns = 0
-    max_players = 0
-    
-    # Find the file with most comprehensive data (most columns and players)
-    for file in data_files:
-        try:
-            # Skip ecos and my_players files
-            if 'ecos' in file or 'my_players' in file:
-                continue
-                
-            df_temp = pd.read_csv(file)
-            num_cols = len(df_temp.columns)
-            num_players = len(df_temp)
-            
-            # Prioritize files with both many columns AND many players
-            if num_players > 1000 and num_cols > max_columns:
-                max_columns = num_cols
-                max_players = num_players
-                best_file = file
-        except:
-            continue
-    
-    return best_file
+    """Database-only: Returns None as all data comes from PostgreSQL."""
+    logger.info("_find_best_data_file called - all data now from database")
+    return None
 
 def _find_largest_file_with_good_data(file_list):
-    """Find the largest file with realistic data."""
-    if not file_list:
-        return None
-
-    best_file = None
-    max_players_with_good_data = 0
-
-    for file_path in file_list:
-        try:
-            df_temp = pd.read_csv(file_path)
-            if len(df_temp) > 0:
-                # Check data quality
-                realistic_data_score = _assess_data_quality(df_temp)
-                
-                if realistic_data_score > 0 and len(df_temp) > max_players_with_good_data:
-                    max_players_with_good_data = len(df_temp)
-                    best_file = file_path
-        except:
-            continue
-
-    return best_file
+    """Database-only: Returns None as all data comes from PostgreSQL."""
+    logger.info("_find_largest_file_with_good_data called - all data now from database")
+    return None
 
 def _assess_data_quality(df):
     """Assess the quality of data in a DataFrame."""
@@ -1438,20 +1556,28 @@ def _clean_players_data(df):
     return players
 
 def _find_existing_player_data(player_name):
-    """Find existing data for a specific player."""
-    data_files = glob.glob('data/players_*.csv') + glob.glob('data/comprehensive_*.csv') + glob.glob('data/my_players.csv')
-    
-    for file_path in data_files:
-        try:
-            df = pd.read_csv(file_path)
-            if 'name' in df.columns:
-                player_rows = df[df['name'].str.lower() == player_name.lower()]
-                if not player_rows.empty:
-                    return player_rows.iloc[0].to_dict()
-        except:
-            continue
-    
-    return None
+    """Find existing data for a specific player from database."""
+    try:
+        import psycopg2
+        
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
+            logger.error("DATABASE_URL not set")
+            return None
+        
+        conn = psycopg2.connect(db_url)
+        query = "SELECT * FROM comprehensive_nfl_players WHERE LOWER(name) = LOWER(%s) LIMIT 1"
+        df = pd.read_sql_query(query, conn, params=(player_name,))
+        conn.close()
+        
+        if not df.empty:
+            return df.iloc[0].to_dict()
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error finding player data: {e}")
+        return None
 
 def _has_comprehensive_data(player_data):
     """Check if player data has comprehensive information for gravity calculation."""
@@ -1473,47 +1599,9 @@ def _has_comprehensive_data(player_data):
     return has_basic and (has_social or has_performance or has_financial)
 
 def _save_to_my_players(player_results):
-    """Save player results to my_players.csv file."""
-    try:
-        my_players_file = "data/my_players.csv"
-        
-        # Prepare data for saving
-        players_to_save = []
-        
-        for result in player_results:
-            if result.get("status") in ["existing_data", "new_data_collected"]:
-                player_data = result.get("data", {}).copy()
-                gravity_scores = result.get("gravity_scores", {})
-                
-                # Add gravity scores to player data
-                player_data.update(gravity_scores)
-                player_data['saved_at'] = datetime.now().isoformat()
-                
-                players_to_save.append(player_data)
-        
-        if not players_to_save:
-            return
-        
-        new_df = pd.DataFrame(players_to_save)
-        
-        # If file exists, merge with existing data
-        if os.path.exists(my_players_file):
-            existing_df = pd.read_csv(my_players_file)
-            
-            # Remove duplicates by name and merge
-            existing_df = existing_df[~existing_df['name'].isin(new_df['name'])]
-            combined_df = pd.concat([existing_df, new_df], ignore_index=True)
-        else:
-            combined_df = new_df
-        
-        # Save to file
-        os.makedirs("data", exist_ok=True)
-        combined_df.to_csv(my_players_file, index=False)
-        
-        logger.info(f"Saved {len(players_to_save)} players to my_players.csv")
-        
-    except Exception as e:
-        logger.error(f"Error saving to my_players.csv: {e}")
+    """Save player results - feature disabled (requires database table implementation)."""
+    logger.info("_save_to_my_players called - feature requires database table implementation")
+    return
 
 # ===== MARKET DASHBOARD API ENDPOINTS =====
 
@@ -1524,15 +1612,21 @@ def api_market_financial_overview():
         mode = request.args.get('mode', 'ecos')  # 'ecos' or 'nfl'
         
         if mode == 'ecos':
-            # Use ecos_players.csv for Ecos athletes
-            ecos_file = 'data/ecos_players.csv'
-            if not os.path.exists(ecos_file):
+            # Use database for Ecos athletes
+            import psycopg2
+            
+            db_url = os.environ.get('DATABASE_URL')
+            if not db_url:
                 return jsonify({
                     "success": False,
-                    "error": "Ecos players data not found"
+                    "error": "Database connection not available"
                 })
             
-            df = pd.read_csv(ecos_file)
+            conn = psycopg2.connect(db_url)
+            query = "SELECT * FROM comprehensive_nfl_players WHERE team IN ('bills', 'dolphins')"
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+            
             player_count = len(df)
             
             # Calculate metrics based on ecos players
@@ -1577,15 +1671,21 @@ def api_market_financial_overview():
             })
         
         else:  # NFL mode
-            # Use comprehensive player data for NFL mode
-            best_file = _find_best_data_file()
-            if not best_file:
+            # Use database for NFL mode
+            import psycopg2
+            
+            db_url = os.environ.get('DATABASE_URL')
+            if not db_url:
                 return jsonify({
                     "success": False,
-                    "error": "NFL player data not found"
+                    "error": "Database connection not available"
                 })
             
-            df = pd.read_csv(best_file)
+            conn = psycopg2.connect(db_url)
+            query = "SELECT * FROM comprehensive_nfl_players"
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+            
             player_count = len(df)
             
             return jsonify({
@@ -1614,15 +1714,20 @@ def api_market_financial_overview():
 def api_market_top_performers():
     """Get top brand performers for market intelligence."""
     try:
-        # Use ecos_players.csv for top performers
-        ecos_file = 'data/ecos_players.csv'
-        if not os.path.exists(ecos_file):
+        # Use database for top performers
+        import psycopg2
+        
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
             return jsonify({
                 "success": False,
-                "error": "Ecos players data not found"
+                "error": "Database connection not available"
             })
         
-        df = pd.read_csv(ecos_file)
+        conn = psycopg2.connect(db_url)
+        query = "SELECT * FROM comprehensive_nfl_players WHERE team IN ('bills', 'dolphins')"
+        df = pd.read_sql_query(query, conn)
+        conn.close()
         
         # Sort by total gravity score and get top 5
         df_sorted = df.sort_values('total_gravity', ascending=False).head(5)
