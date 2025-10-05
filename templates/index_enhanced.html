@@ -827,10 +827,10 @@
                                         <button class="mover-tab active" onclick="showMovers('gainers')">Gainers</button>
                                         <button class="mover-tab" onclick="showMovers('losers')">Losers</button>
                                     </div>
-                                    <div id="gainers-content" class="movers-content">
+                                    <div id="top-gainers-list" class="movers-content">
                                         <div class="loading">Loading...</div>
                                     </div>
-                                    <div id="losers-content" class="movers-content" style="display: none;">
+                                    <div id="top-losers-list" class="movers-content" style="display: none;">
                                         <div class="loading">Loading...</div>
                                     </div>
                                 </div>
@@ -945,7 +945,7 @@
                                 <p class="card-subtitle">Real-time updates</p>
                             </div>
                             <div class="card-body">
-                                <div id="market-activity-feed">
+                                <div id="market-activity-list">
                                     <div class="loading" style="height: 200px; position: relative;"></div>
                                 </div>
                             </div>
@@ -1249,6 +1249,25 @@
             document.getElementById('rarv-change').className = 'kpi-change positive';
             document.getElementById('frv-change').textContent = '+2.3%';
             document.getElementById('frv-change').className = 'kpi-change positive';
+        }
+        
+        function showMovers(type) {
+            const gainersTab = document.querySelector('.mover-tab:nth-child(1)');
+            const losersTab = document.querySelector('.mover-tab:nth-child(2)');
+            const gainersList = document.getElementById('top-gainers-list');
+            const losersList = document.getElementById('top-losers-list');
+            
+            if (type === 'gainers') {
+                gainersTab.classList.add('active');
+                losersTab.classList.remove('active');
+                gainersList.style.display = 'block';
+                losersList.style.display = 'none';
+            } else {
+                gainersTab.classList.remove('active');
+                losersTab.classList.add('active');
+                gainersList.style.display = 'none';
+                losersList.style.display = 'block';
+            }
         }
         
         function updateTopPerformers(performers) {
