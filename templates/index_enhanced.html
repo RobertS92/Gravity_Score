@@ -1326,17 +1326,17 @@
             console.log('Loading Market Data section for mode:', currentMode);
             
             try {
-                const [eventFeed, dealTape, dataHealth, scrapingJobs] = await Promise.all([
-                    fetch(`/api/market-data/event-feed?mode=${currentMode}`).then(r => r.ok ? r.json() : []),
-                    fetch(`/api/market-data/deal-tape?mode=${currentMode}`).then(r => r.ok ? r.json() : []),
-                    fetch(`/api/market-data/data-health?mode=${currentMode}`).then(r => r.ok ? r.json() : {}),
-                    fetch(`/api/market-data/scraping-jobs?mode=${currentMode}`).then(r => r.ok ? r.json() : [])
+                const [eventFeedData, dealTapeData, dataHealthData, scrapingJobsData] = await Promise.all([
+                    fetch(`/api/market-data/event-feed?mode=${currentMode}`).then(r => r.ok ? r.json() : {events: []}),
+                    fetch(`/api/market-data/deal-tape?mode=${currentMode}`).then(r => r.ok ? r.json() : {deals: [], avg_deal_size: 0}),
+                    fetch(`/api/market-data/data-health?mode=${currentMode}`).then(r => r.ok ? r.json() : {metrics: [], overall: 0}),
+                    fetch(`/api/market-data/scraping-jobs?mode=${currentMode}`).then(r => r.ok ? r.json() : {jobs: []})
                 ]);
                 
-                renderEventFeed(eventFeed);
-                renderDealTape(dealTape);
-                renderDataHealth(dataHealth);
-                renderScrapingJobs(scrapingJobs);
+                renderEventFeed(eventFeedData.events || []);
+                renderDealTape(dealTapeData.deals || [], dealTapeData.avg_deal_size || 0);
+                renderDataHealth(dataHealthData);
+                renderScrapingJobs(scrapingJobsData.jobs || []);
                 
             } catch (error) {
                 console.error('Market Data Error Details:', {
@@ -1377,7 +1377,7 @@
             `).join('');
         }
         
-        function renderDealTape(deals) {
+        function renderDealTape(deals, avgDealSize) {
             const container = document.getElementById('deal-tape-content');
             if (!container) return;
             
@@ -1391,10 +1391,9 @@
             }
             
             const totalVolume = deals.reduce((sum, d) => sum + (d.value || 0), 0);
-            const avgDeal = deals.length > 0 ? totalVolume / deals.length : 0;
             
             document.getElementById('total-volume').textContent = formatCurrency(totalVolume);
-            document.getElementById('avg-deal-size').textContent = formatCurrency(avgDeal);
+            document.getElementById('avg-deal-size').textContent = formatCurrency(avgDealSize);
             
             container.innerHTML = deals.map(deal => `
                 <div style="display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #202938;">
