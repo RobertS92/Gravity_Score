@@ -1327,10 +1327,10 @@
             
             try {
                 const [eventFeed, dealTape, dataHealth, scrapingJobs] = await Promise.all([
-                    fetch(`/api/market-data/event-feed?mode=${currentMode}`).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).catch(err => { console.error('Event feed error:', err); return []; }),
-                    fetch(`/api/market-data/deal-tape?mode=${currentMode}`).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).catch(err => { console.error('Deal tape error:', err); return []; }),
-                    fetch(`/api/market-data/data-health?mode=${currentMode}`).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).catch(err => { console.error('Data health error:', err); return {}; }),
-                    fetch(`/api/market-data/scraping-jobs?mode=${currentMode}`).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).catch(err => { console.error('Scraping jobs error:', err); return []; })
+                    fetch(`/api/market-data/event-feed?mode=${currentMode}`).then(r => r.ok ? r.json() : []),
+                    fetch(`/api/market-data/deal-tape?mode=${currentMode}`).then(r => r.ok ? r.json() : []),
+                    fetch(`/api/market-data/data-health?mode=${currentMode}`).then(r => r.ok ? r.json() : {}),
+                    fetch(`/api/market-data/scraping-jobs?mode=${currentMode}`).then(r => r.ok ? r.json() : [])
                 ]);
                 
                 renderEventFeed(eventFeed);
@@ -1339,7 +1339,12 @@
                 renderScrapingJobs(scrapingJobs);
                 
             } catch (error) {
-                console.error('Error loading market data:', error);
+                console.error('Market Data Error Details:', {
+                    message: error?.message || 'Unknown',
+                    name: error?.name || 'Unknown',
+                    stack: error?.stack,
+                    fullError: error
+                });
             }
         }
         
@@ -1474,7 +1479,12 @@
                 loadPlayersTable();
                 
             } catch (error) {
-                console.error('Players error:', error);
+                console.error('Players Error Details:', {
+                    message: error?.message || 'Unknown',
+                    name: error?.name || 'Unknown',
+                    stack: error?.stack,
+                    fullError: error
+                });
                 document.getElementById('players-table-content').innerHTML = '<div style="color: #94A3B8; text-align: center; padding: 40px;">Error loading players data</div>';
             }
         }
@@ -1809,7 +1819,12 @@
                 renderGravityChart(players);
                 
             } catch (error) {
-                console.error('Analytics error:', error);
+                console.error('Analytics Error Details:', {
+                    message: error?.message || 'Unknown',
+                    name: error?.name || 'Unknown',
+                    stack: error?.stack,
+                    fullError: error
+                });
             }
         }
         
