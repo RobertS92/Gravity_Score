@@ -1308,10 +1308,10 @@
             
             try {
                 const [eventFeed, dealTape, dataHealth, scrapingJobs] = await Promise.all([
-                    fetch(`/api/event-feed?mode=${currentMode}`).then(r => r.json()).catch(() => []),
-                    fetch(`/api/deal-tape?mode=${currentMode}`).then(r => r.json()).catch(() => []),
-                    fetch(`/api/data-health?mode=${currentMode}`).then(r => r.json()).catch(() => ({})),
-                    fetch(`/api/scraping-jobs?mode=${currentMode}`).then(r => r.json()).catch(() => [])
+                    fetch(`/api/market-data/event-feed?mode=${currentMode}`).then(r => r.json()).catch(() => []),
+                    fetch(`/api/market-data/deal-tape?mode=${currentMode}`).then(r => r.json()).catch(() => []),
+                    fetch(`/api/market-data/data-health?mode=${currentMode}`).then(r => r.json()).catch(() => ({})),
+                    fetch(`/api/market-data/scraping-jobs?mode=${currentMode}`).then(r => r.json()).catch(() => [])
                 ]);
                 
                 renderEventFeed(eventFeed);
