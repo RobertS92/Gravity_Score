@@ -36,3 +36,20 @@ export interface SystemStatus {
   data_freshness: string
   sync_rate: string
 }
+
+export interface PlayerSummary {
+  id?: string
+  name: string
+  position: string
+  team: string
+  brand_value?: number
+  brand_power?: number
+  total_gravity?: number
+  risk?: number
+}
+
+export interface PlayersResponse {
+  players: PlayerSummary[]
+  total: number
+  mode: DataMode
+}
