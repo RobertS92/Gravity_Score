@@ -10,7 +10,20 @@ import {
   type PlayersResponse,
 } from '../types'
 
-const API_BASE_URL = 'http://localhost:5000/api'
+const resolveBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL?.trim()
+  if (envUrl && envUrl.length > 0) {
+    return envUrl.replace(/\/+$/, '')
+  }
+
+  if (typeof window !== 'undefined' && window.location) {
+    return `${window.location.origin}/api`
+  }
+
+  return 'http://localhost:5000/api'
+}
+
+const API_BASE_URL = resolveBaseUrl()
 
 const api = axios.create({
   baseURL: API_BASE_URL,
