@@ -1,6 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
-import { DataMode, FinancialOverview, TopPerformer, MarketActivity, QuickStats, SystemStatus } from '../types'
+import {
+  DataMode,
+  FinancialOverview,
+  TopPerformer,
+  MarketActivity,
+  QuickStats,
+  SystemStatus,
+  type PlayersResponse,
+} from '../types'
 
 const API_BASE_URL = 'http://localhost:5000/api'
 
@@ -56,5 +64,15 @@ export const useSystemStatus = () => {
       return response.data
     },
     refetchInterval: 60000, // Refetch every minute
+  })
+}
+
+export const usePlayers = (mode: DataMode, limit = 20) => {
+  return useQuery({
+    queryKey: ['players', mode, limit],
+    queryFn: async (): Promise<PlayersResponse> => {
+      const response = await api.get(`/players?mode=${mode}&limit=${limit}`)
+      return response.data
+    },
   })
 }
