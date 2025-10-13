@@ -221,24 +221,19 @@ def mock_llm_response():
 
 
 @pytest.fixture(autouse=True)
-def disable_external_requests(monkeypatch):
+def disable_external_requests(monkeypatch, request):
     """Disable external HTTP requests by default in tests."""
     def mock_get(*args, **kwargs):
         raise Exception("HTTP requests are disabled in tests. Use mock_requests fixture.")
-    
+
     def mock_post(*args, **kwargs):
         raise Exception("HTTP requests are disabled in tests. Use mock_requests fixture.")
-    
-    # Only patch if not explicitly using mock_requests
-    if 'mock_requests' not in [fixture.name for fixture in pytest.current_fixtures]:
-        monkeypatch.setattr('requests.get', mock_get)
-        monkeypatch.setattr('requests.post', mock_post)
 
+    if 'mock_requests' in request.fixturenames or 'requests_mock' in request.fixturenames:
+        return
 
-@pytest.fixture
-def pytest_current_fixtures():
-    """Helper to track current fixtures in use."""
-    return []
+    monkeypatch.setattr('requests.get', mock_get)
+    monkeypatch.setattr('requests.post', mock_post)
 
 
 # Pytest hooks for better test output
