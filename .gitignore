@@ -21,6 +21,10 @@ build/
 credentials.json
 secrets/
 
+# Shell scripts that may contain keys
+run_ultra_fast_fixed.sh
+*_with_keys.sh
+
 # IDE
 .vscode/
 .idea/
