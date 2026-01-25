@@ -1,34 +1,67 @@
 import React from 'react'
-import { 
-  TrendingUp, 
-  BarChart3, 
-  Users, 
-  Search, 
-  PieChart, 
-  Server, 
+import {
+  TrendingUp,
+  BarChart3,
+  Users,
+  Search,
+  PieChart,
+  Server,
   Settings,
-  X
+  X,
+  type LucideIcon,
 } from 'lucide-react'
+
+export type SidebarSection =
+  | 'dashboard'
+  | 'market-data'
+  | 'players'
+  | 'search'
+  | 'analytics'
+  | 'system-status'
+  | 'settings'
+
+interface SidebarLink {
+  icon: LucideIcon
+  label: string
+  section: SidebarSection
+  href: string
+}
 
 interface SidebarProps {
   isOpen: boolean
   onClose: () => void
+  activeSection: SidebarSection
+  onNavigate: (section: SidebarSection) => void
 }
 
-const navigationItems = [
-  { icon: TrendingUp, label: 'Dashboard', href: '#', active: true },
-  { icon: BarChart3, label: 'Market Data', href: '#' },
-  { icon: Users, label: 'Players', href: '#' },
-  { icon: Search, label: 'Search', href: '#' },
-  { icon: PieChart, label: 'Analytics', href: '#' },
+const navigationItems: SidebarLink[] = [
+  { icon: TrendingUp, label: 'Dashboard', section: 'dashboard', href: '#dashboard' },
+  { icon: BarChart3, label: 'Market Data', section: 'market-data', href: '#market-data' },
+  { icon: Users, label: 'Players', section: 'players', href: '#players' },
+  { icon: Search, label: 'Search', section: 'search', href: '#search' },
+  { icon: PieChart, label: 'Analytics', section: 'analytics', href: '#analytics' },
 ]
 
-const systemItems = [
-  { icon: Server, label: 'System Status', href: '#' },
-  { icon: Settings, label: 'Settings', href: '#' },
+const systemItems: SidebarLink[] = [
+  { icon: Server, label: 'System Status', section: 'system-status', href: '#system-status' },
+  { icon: Settings, label: 'Settings', section: 'settings', href: '#settings' },
 ]
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  isOpen,
+  onClose,
+  activeSection,
+  onNavigate,
+}) => {
+  const handleNavigation = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    section: SidebarSection,
+  ) => {
+    event.preventDefault()
+    onNavigate(section)
+    onClose()
+  }
+
   return (
     <>
       {/* Sidebar */}
@@ -62,16 +95,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <nav className="space-y-1">
                 {navigationItems.map((item) => (
                   <a
-                    key={item.label}
+                    key={item.section}
                     href={item.href}
+                    onClick={(event) => handleNavigation(event, item.section)}
                     className={`
                       flex items-center gap-3 px-6 py-2.5 text-sm font-medium transition-colors
-                      ${item.active 
-                        ? 'bg-dark-border text-dark-text' 
+                      ${activeSection === item.section
+                        ? 'bg-dark-border text-dark-text'
                         : 'text-dark-muted hover:text-dark-text hover:bg-dark-border'
                       }
                     `}
-                    data-testid={`nav-${item.label.toLowerCase().replace(' ', '-')}`}
+                    data-testid={`nav-${item.section}`}
+                    aria-current={activeSection === item.section ? 'page' : undefined}
                   >
                     <item.icon size={16} />
                     <span>{item.label}</span>
@@ -88,10 +123,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <nav className="space-y-1">
                 {systemItems.map((item) => (
                   <a
-                    key={item.label}
+                    key={item.section}
                     href={item.href}
-                    className="flex items-center gap-3 px-6 py-2.5 text-sm font-medium text-dark-muted hover:text-dark-text hover:bg-dark-border transition-colors"
-                    data-testid={`nav-${item.label.toLowerCase().replace(' ', '-')}`}
+                    onClick={(event) => handleNavigation(event, item.section)}
+                    className={`
+                      flex items-center gap-3 px-6 py-2.5 text-sm font-medium transition-colors
+                      ${activeSection === item.section
+                        ? 'bg-dark-border text-dark-text'
+                        : 'text-dark-muted hover:text-dark-text hover:bg-dark-border'
+                      }
+                    `}
+                    data-testid={`nav-${item.section}`}
+                    aria-current={activeSection === item.section ? 'page' : undefined}
                   >
                     <item.icon size={16} />
                     <span>{item.label}</span>
