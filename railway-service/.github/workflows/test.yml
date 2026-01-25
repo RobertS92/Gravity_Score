@@ -1,0 +1,56 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          cd railway-service
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run tests
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          API_KEY: test_key_for_ci
+          PERPLEXITY_API_KEY: test
+          OPENAI_API_KEY: test
+          ANTHROPIC_API_KEY: test
+          FIRECRAWL_API_KEY: test
+          REDDIT_CLIENT_ID: test
+          REDDIT_CLIENT_SECRET: test
+        run: |
+          cd railway-service
+          pytest tests/ -v --cov=app --cov-report=term-missing --cov-report=json
+      
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: railway-service/coverage.json
+      
+      - name: Display test summary
+        if: always()
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "Tests completed. Check artifacts for detailed coverage report." >> $GITHUB_STEP_SUMMARY

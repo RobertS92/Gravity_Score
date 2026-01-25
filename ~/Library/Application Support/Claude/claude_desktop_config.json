@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "feature-testing": {
+      "command": "/Users/robcseals/Downloads/excel-mcp-server-main/venv/bin/feature-testing-mcp",
+      "args": ["stdio"],
+      "env": {
+        "GOOGLE_SHEET_ID": "REPLACE_WITH_YOUR_SHEET_ID",
+        "GOOGLE_CREDENTIALS_PATH": "/Users/robcseals/Downloads/excel-mcp-server-main/credentials.json"
+      }
+    }
+  }
+}
+

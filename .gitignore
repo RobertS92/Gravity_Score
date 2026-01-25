@@ -1,0 +1,61 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials.json
+secrets/
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+*.swp
+*.swo
+.DS_Store
+
+# Data files (don't commit scraped data)
+*.csv
+*.db
+*.sqlite
+*.log
+scrapes/
+cache/
+test_outputs/
+test_results/
+final_scores/
+Gravity_Final_Scores/
+nfl_gravity/
+
+# Coverage & testing
+.coverage
+htmlcov/
+.pytest_cache/
+coverage.json
+
+# React/Node (if accidentally in folder)
+node_modules/
+build/
+.next/
+dist/
+
+# Large model files
+*.pkl
+*.h5
+*.joblib
+models/*.pkl

@@ -1,0 +1,8 @@
+# Additional dependencies for async scraper enhancements
+# Add these to your existing requirements.txt
+
+# Async HTTP client
+httpx>=0.27.0
+
+# AI extraction (optional - only if using AI fallback)
+openai>=1.0.0

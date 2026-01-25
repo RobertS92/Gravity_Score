@@ -1,0 +1,116 @@
+[
+  {
+    "athlete": {
+      "name": "Shedeur Sanders",
+      "school": "Colorado",
+      "sport": "football",
+      "position": "QB",
+      "conference": "Big 12",
+      "jersey_number": 2,
+      "class_year": "Senior"
+    },
+    "nil_data": {
+      "sources": 4,
+      "deals": 6,
+      "valuation": 307653
+    },
+    "gravity_score": 59.949999999999996,
+    "components": {
+      "brand": 83,
+      "proof": 66,
+      "proximity": 70,
+      "velocity": 76,
+      "risk": 18
+    },
+    "iacv": {
+      "p25": 82260.08762954138,
+      "p50": 106142.04855424693,
+      "p75": 130024.00947895249
+    },
+    "underwriting": {
+      "decision": "counter",
+      "radv": 105558.26728719857
+    },
+    "negotiation": {
+      "anchor_price": 132677.56069280865,
+      "target_price": 105558.26728719857,
+      "walk_away_price": 79168.70046539893
+    }
+  },
+  {
+    "athlete": {
+      "name": "Arch Manning",
+      "school": "Texas",
+      "sport": "football",
+      "position": "QB",
+      "conference": "SEC",
+      "jersey_number": 16,
+      "class_year": "Sophomore"
+    },
+    "nil_data": {
+      "sources": 3,
+      "deals": 5,
+      "valuation": 323294
+    },
+    "gravity_score": 57.2,
+    "components": {
+      "brand": 67,
+      "proof": 81,
+      "proximity": 65,
+      "velocity": 70,
+      "risk": 22
+    },
+    "iacv": {
+      "p25": 100994.70609117967,
+      "p50": 130315.74979507054,
+      "p75": 159636.79349896143
+    },
+    "underwriting": {
+      "decision": "counter",
+      "radv": 129599.01317119767
+    },
+    "negotiation": {
+      "anchor_price": 162894.68724383818,
+      "target_price": 129599.01317119767,
+      "walk_away_price": 97199.25987839825
+    }
+  },
+  {
+    "athlete": {
+      "name": "Travis Hunter",
+      "school": "Colorado",
+      "sport": "football",
+      "position": "WR/CB",
+      "conference": "Big 12",
+      "jersey_number": 12,
+      "class_year": "Junior"
+    },
+    "nil_data": {
+      "sources": 5,
+      "deals": 6,
+      "valuation": 212489
+    },
+    "gravity_score": 60.449999999999996,
+    "components": {
+      "brand": 80,
+      "proof": 80,
+      "proximity": 70,
+      "velocity": 69,
+      "risk": 26
+    },
+    "iacv": {
+      "p25": 65609.72758149962,
+      "p50": 84657.7130083866,
+      "p75": 103705.6984352736
+    },
+    "underwriting": {
+      "decision": "counter",
+      "radv": 84192.09558684049
+    },
+    "negotiation": {
+      "anchor_price": 105822.14126048326,
+      "target_price": 84192.09558684049,
+      "walk_away_price": 63144.07169013037
+    }
+  }
+]

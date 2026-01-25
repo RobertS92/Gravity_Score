@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-12-10T08:25:01.045581",
+  "imputation_models": {},
+  "prediction_models": {
+    "draft": {
+      "error": "'identity.draft_round'"
+    },
+    "contract": {
+      "error": "'identity.contract_value'"
+    },
+    "performance": {
+      "error": "list index out of range"
+    },
+    "injury": {
+      "error": "list index out of range"
+    }
+  },
+  "data_stats": {
+    "total_players": 7329,
+    "total_files": 3,
+    "columns": 267,
+    "missing_percentage": 80.60452473703818
+  }
+}

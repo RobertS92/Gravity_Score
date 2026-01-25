@@ -1,0 +1,58 @@
+2025-12-10 08:23:05,358 - __main__ - INFO - 
+================================================================================
+2025-12-10 08:23:05,358 - __main__ - INFO - 🚀 STARTING MODEL TRAINING PIPELINE
+2025-12-10 08:23:05,358 - __main__ - INFO - ================================================================================
+2025-12-10 08:23:05,358 - __main__ - INFO - Output directory: models
+2025-12-10 08:23:05,358 - __main__ - INFO - Timestamp: 2025-12-10T08:23:05.358489
+
+2025-12-10 08:23:05,358 - __main__ - INFO - ================================================================================
+2025-12-10 08:23:05,358 - __main__ - INFO - 📂 LOADING TRAINING DATA
+2025-12-10 08:23:05,358 - __main__ - INFO - ================================================================================
+2025-12-10 08:23:05,358 - __main__ - INFO - Found 3 data files
+2025-12-10 08:23:05,382 - __main__ - INFO -   ✅ Loaded 2575 rows from nfl_players_20251209_123629.csv
+2025-12-10 08:23:05,387 - __main__ - INFO -   ✅ Loaded 310 rows from nba_players_20251203_231046.csv
+2025-12-10 08:23:05,406 - __main__ - INFO -   ✅ Loaded 4500 rows from cfb_power5_players_20251204_193153.csv
+2025-12-10 08:23:05,430 - __main__ - INFO -   Removed 56 duplicate players
+2025-12-10 08:23:05,441 - __main__ - INFO - 
+✅ Loaded 7329 total players
+2025-12-10 08:23:05,441 - __main__ - INFO -    Columns: 267
+2025-12-10 08:23:05,441 - __main__ - INFO -    Missing data: 80.6%
+
+2025-12-10 08:23:05,441 - __main__ - INFO - ================================================================================
+2025-12-10 08:23:05,441 - __main__ - INFO - 🔄 FLATTENING DATA
+2025-12-10 08:23:05,441 - __main__ - INFO - ================================================================================
+2025-12-10 08:23:05,441 - __main__ - INFO - No nested structures found
+
+2025-12-10 08:23:05,441 - __main__ - INFO - ================================================================================
+2025-12-10 08:23:05,441 - __main__ - INFO - 🔧 ENGINEERING FEATURES
+2025-12-10 08:23:05,441 - __main__ - INFO - ================================================================================
+2025-12-10 08:23:05,455 - gravity.ml_feature_engineering - INFO - 🔧 Engineering ML features...
+2025-12-10 08:23:05,461 - gravity.ml_feature_engineering - INFO - ✅ Created 5 new features
+2025-12-10 08:23:05,461 - __main__ - INFO - ✅ Created 5 engineered features
+
+2025-12-10 08:23:05,462 - __main__ - INFO - ================================================================================
+2025-12-10 08:23:05,462 - __main__ - INFO - 🤖 TRAINING IMPUTATION MODELS
+2025-12-10 08:23:05,462 - __main__ - INFO - ================================================================================
+2025-12-10 08:23:05,462 - __main__ - INFO - Training imputation models for 0 fields...
+
+2025-12-10 08:23:05,462 - gravity.ml_imputer - ERROR - XGBoost not available. Install with: pip install xgboost
+2025-12-10 08:23:05,462 - __main__ - INFO - 
+================================================================================
+2025-12-10 08:23:05,462 - __main__ - INFO - ✅ IMPUTATION MODELS TRAINED
+2025-12-10 08:23:05,462 - __main__ - INFO - ================================================================================
+2025-12-10 08:23:05,462 - __main__ - ERROR - 
+❌ PIPELINE FAILED: 'str' object has no attribute 'get'
+Traceback (most recent call last):
+  File "/Users/robcseals/Gravity_Score/train_models.py", line 547, in <module>
+    main()
+    ~~~~^^
+  File "/Users/robcseals/Gravity_Score/train_models.py", line 543, in main
+    pipeline.run_full_pipeline(args.data, models_to_train=models_to_train)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/robcseals/Gravity_Score/train_models.py", line 417, in run_full_pipeline
+    self.train_imputation_models(df)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "/Users/robcseals/Gravity_Score/train_models.py", line 262, in train_imputation_models
+    perf = result.get('performance', {})
+           ^^^^^^^^^^
+AttributeError: 'str' object has no attribute 'get'

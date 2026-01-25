@@ -1,0 +1,190 @@
+{
+  "timestamp": "2026-01-23T02:41:38.370563",
+  "athletes": [
+    {
+      "name": "Shedeur Sanders",
+      "school": "Colorado",
+      "position": "QB",
+      "gravity": 0,
+      "iacv": 0,
+      "decision": "N/A",
+      "pack_generated": false
+    },
+    {
+      "name": "Arch Manning",
+      "school": "Texas",
+      "position": "QB",
+      "gravity": 0,
+      "iacv": 0,
+      "decision": "N/A",
+      "pack_generated": false
+    },
+    {
+      "name": "Travis Hunter",
+      "school": "Colorado",
+      "position": "WR/CB",
+      "gravity": 0,
+      "iacv": 0,
+      "decision": "N/A",
+      "pack_generated": false
+    }
+  ],
+  "full_results": [
+    {
+      "athlete": {
+        "name": "Shedeur Sanders",
+        "school": "Colorado",
+        "sport": "football",
+        "position": "QB",
+        "conference": "Big 12",
+        "jersey_number": 2,
+        "class_year": "Senior",
+        "season_id": "2025-26"
+      },
+      "timestamp": "2026-01-23T02:41:30.647032",
+      "steps": {
+        "collection": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "entity": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "normalization": {
+          "success": true,
+          "records_created": {
+            "deals": 0,
+            "valuations": 0
+          }
+        },
+        "features": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "gravity": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "valuation": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "underwriting": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "pack": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        }
+      },
+      "errors": [],
+      "athlete_id": null
+    },
+    {
+      "athlete": {
+        "name": "Arch Manning",
+        "school": "Texas",
+        "sport": "football",
+        "position": "QB",
+        "conference": "SEC",
+        "jersey_number": 16,
+        "class_year": "Sophomore",
+        "season_id": "2025-26"
+      },
+      "timestamp": "2026-01-23T02:41:34.015905",
+      "steps": {
+        "collection": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "entity": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "normalization": {
+          "success": true,
+          "records_created": {
+            "deals": 0,
+            "valuations": 0
+          }
+        },
+        "features": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "gravity": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "valuation": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "underwriting": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "pack": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        }
+      },
+      "errors": [],
+      "athlete_id": null
+    },
+    {
+      "athlete": {
+        "name": "Travis Hunter",
+        "school": "Colorado",
+        "sport": "football",
+        "position": "WR/CB",
+        "conference": "Big 12",
+        "jersey_number": 12,
+        "class_year": "Junior",
+        "season_id": "2025-26"
+      },
+      "timestamp": "2026-01-23T02:41:36.318610",
+      "steps": {
+        "collection": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "entity": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "normalization": {
+          "success": true,
+          "records_created": {
+            "deals": 0,
+            "valuations": 0
+          }
+        },
+        "features": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "gravity": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "valuation": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "underwriting": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        },
+        "pack": {
+          "success": false,
+          "error": "No module named 'sqlalchemy'"
+        }
+      },
+      "errors": [],
+      "athlete_id": null
+    }
+  ]
+}
