@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "Gravity_Score",
+      "path": "."
+    },
+    {
+      "name": "gravity-scrapers",
+      "path": "../gravity-scrapers"
+    },
+    {
+      "name": "gravity-ml",
+      "path": "../gravity-ml"
+    }
+  ],
+  "settings": {}
+}

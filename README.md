@@ -1,17 +1,28 @@
 # Gravity Score / Gravity NIL Terminal
 
-College-focused NIL intelligence: **CFB**, **MCBB**, PostgreSQL schema, **FastAPI** (`gravity_api/`), and the **gravity-terminal** React UI.
+College-focused NIL intelligence: PostgreSQL schema, **FastAPI** (`gravity_api/`), rule-based **scoring pipeline** (`gravity/data_pipeline.py`), and the **gravity-terminal** React UI.
+
+## Sibling repositories
+
+| | GitHub |
+|---|--------|
+| **Scrapers** (rosters, NIL, social, collection APIs) | [RobertS92/gravity-scrapers](https://github.com/RobertS92/gravity-scrapers) |
+| **ML** (training, models, optional inference service) | [RobertS92/gravity-ml](https://github.com/RobertS92/gravity-ml) |
+
+This monorepo consumes data those services produce (e.g. Postgres or HTTP). See **`docs/SCRAPER_EXHAUSTIVE.md`** for wiring notes and suggested env vars (`SCRAPERS_SERVICE_URL`, `ML_SERVICE_URL`, etc.).
+
+**One Cursor/VS Code window (multi-root):** Clone `gravity-scrapers` and `gravity-ml` as **sibling folders** next to this repo. Open the file **`gravity-platform.code-workspace`** at the **repo root** (next to `README.md`): Command Palette → **Open Workspace from File** → select it. Don’t open only a subfolder like `gravity-terminal/`, or you won’t see that file in the tree.
 
 ## Quick start
 
 ### API
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements-gravity-api.txt
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirements-gravity-api.txt
 export PG_DSN="postgresql://user:pass@host:5432/db"
 .venv/bin/python -m uvicorn gravity_api.main:app --reload --port 8000
 ```
 
-Apply SQL in `migrations/001_gravity_nil_terminal.sql` to your database before using the API.
+Apply SQL in `migrations/001_gravity_nil_terminal.sql` before using the API.
 
 ### Terminal UI
 ```bash
@@ -20,37 +31,34 @@ cd gravity-terminal && npm install && npm run dev
 
 Set `VITE_API_URL` (see `.env.example`) if the API is not on `http://localhost:8000`.
 
-### College scrapers (legacy Python pipelines)
-- **CFB**: `gravity/cfb_scraper.py`
-- **Men’s college basketball**: `gravity/ncaab_scraper.py`
-- **WNBA** (optional): `gravity/wnba_scraper.py`
-
-**Removed:** `gravity/nfl_scraper.py`, `gravity/nba_scraper.py`, `gravity/unified_scraper.py` — use college pipelines and `gravity_api` above.
+### Scoring CSVs (local pipeline)
+```bash
+python run_pipeline.py input.csv output.csv
+python score_all_sports.py
+```
 
 ### Environment
 ```bash
-export FIRECRAWL_API_KEY="fc-…"   # scraping / enrichment
-export ANTHROPIC_API_KEY="sk-ant-…"  # agentic `/v1/query`
+export ANTHROPIC_API_KEY="sk-ant-…"   # agentic `/v1/query` in gravity_api
 ```
 
-Optional: `OPENAI_API_KEY`, tuning vars (`MAX_CONCURRENT_PLAYERS`, etc.) as needed for `gravity/` collectors.
+Copy `.env.example` to `.env` and fill values for Postgres, scrapers/ML URLs when deployed.
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| `gravity_api/` | FastAPI: athletes, scores, query agent, watchlist stubs, jobs |
+| `gravity_api/` | FastAPI: athletes, scores, query agent, watchlist, jobs (wire to gravity-scrapers) |
 | `gravity-terminal/` | Vite + React terminal |
-| `gravity/` | Scrapers, NIL connectors, data pipeline, scoring helpers |
-| `migrations/` | Postgres schema for NIL terminal |
-| `railway-service/` | Deployed scrapers/crawlers service (college + NIL orchestrator) |
-| `nfl_gravity/` | Separate NFL-focused package (tests still reference it) |
+| `gravity/` | Data pipeline, scoring, valuation, NIL stubs, packs, DB helpers |
+| `migrations/` | Postgres schema |
+| `railway-service/` | Deployable service; stub crawlers; ScraperService → wire to gravity-scrapers |
+| `api/` | Legacy Gravity Score API (rule-based `api/model_cache.py`) |
 
 ## Docs
 
-- `docs/SCRAPER_EXHAUSTIVE.md` — scraper inventory (note: NFL/NBA CLI files listed there are removed; prefer CFB/MCBB and `gravity_api`).
-- Other `*.md` files in the repo may be historical; trust `README.md`, `migrations/`, and `gravity_api/` for the current NIL-terminal path.
+- `docs/SCRAPER_EXHAUSTIVE.md` — links to **gravity-scrapers** / **gravity-ml** and integration checklist.
 
 ## License & credits
 
-See repository history for authors and dependencies (Firecrawl, Anthropic, etc.).
+See repository history for authors and dependencies.
