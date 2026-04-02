@@ -12,7 +12,7 @@ Command-line tool to run the complete Gravity Score data pipeline:
 Usage:
     python run_pipeline.py input.csv output.csv
     python run_pipeline.py input.json output.json
-    python run_pipeline.py --scrape nfl --output nfl_scores.csv
+    python run_pipeline.py --scrape cfb --output scores.csv  # scrape path disabled; use college scrapers
 
 Author: Gravity Score Team
 """
@@ -22,7 +22,6 @@ import os
 import logging
 import argparse
 from datetime import datetime
-from dataclasses import asdict
 import pandas as pd
 
 # Add gravity module to path
@@ -54,12 +53,6 @@ Examples:
   # Process JSON data
   python run_pipeline.py data.json output.json
   
-  # Scrape NFL data and process
-  python run_pipeline.py --scrape nfl --output nfl_gravity_scores.csv
-  
-  # Scrape NBA data and process
-  python run_pipeline.py --scrape nba --output nba_gravity_scores.csv
-  
   # Keep more historical years (default: 3)
   python run_pipeline.py input.csv output.csv --max-years 5
   
@@ -72,8 +65,8 @@ Examples:
     parser.add_argument('output', nargs='?', help='Output file (CSV or JSON) - positional argument')
     parser.add_argument('--output', dest='output_file', metavar='FILE',
                        help='Output file path (alternative to positional output argument)')
-    parser.add_argument('--scrape', choices=['nfl', 'nba', 'wnba', 'cfb', 'ncaab', 'wncaab'],
-                       help='Scrape fresh data for sport')
+    parser.add_argument('--scrape', choices=['wnba', 'cfb', 'ncaab', 'wncaab'],
+                       help='Scrape fresh data for sport (NFL/NBA removed; use college scrapers / gravity_api)')
     parser.add_argument('--scrape-mode', default='test',
                        help='Scraping mode: test, team, all, player (default: test)')
     parser.add_argument('--max-years', type=int, default=3,
@@ -220,120 +213,15 @@ Examples:
 
 def scrape_data(sport: str, mode: str = 'test') -> list:
     """
-    Scrape fresh data for a sport
-    
-    Args:
-        sport: Sport to scrape (nfl, nba, wnba, cfb, ncaab, wncaab)
-        mode: Scraping mode (test, team, all, player)
-        
-    Returns:
-        List of player data dictionaries
+    Live scrape from this entrypoint is disabled (NFL/NBA modules removed).
+    Use ``gravity/cfb_scraper.py``, ``gravity/ncaab_scraper.py``, or ``gravity_api`` jobs.
     """
-    try:
-        if sport == 'nfl':
-            from gravity.nfl_scraper import NFLPlayerCollector, collect_players_by_selection
-            from gravity.scrape import get_direct_api
-            
-            collector = NFLPlayerCollector(get_direct_api())
-            
-            if mode == 'test':
-                # Test mode: one player per team
-                from gravity import scrape as scrape_module
-                players = scrape_module.get_test_players_from_all_teams(collector)
-            elif mode == 'all':
-                # All players
-                players = collect_players_by_selection(collector, 'all')
-            else:
-                # Default to test
-                from gravity import scrape as scrape_module
-                players = scrape_module.get_test_players_from_all_teams(collector)
-            
-            # Collect player data in parallel
-            from concurrent.futures import ThreadPoolExecutor, as_completed
-            import os
-            
-            max_workers = int(os.getenv('MAX_CONCURRENT_PLAYERS', '100'))
-            player_timeout = int(os.getenv('PLAYER_TIMEOUT', '45'))
-            
-            logger.info(f"🚀 Processing {len(players)} players with {max_workers} workers...")
-            
-            player_data_list = []
-            
-            def collect_single_player(player_info):
-                """Collect data for a single player"""
-                try:
-                    player_data = collector.collect_player_data(
-                        player_info['name'],
-                        player_info.get('team', ''),
-                        player_info.get('position', 'UNK')
-                    )
-                    return player_data
-                except Exception as e:
-                    logger.warning(f"Failed to collect data for {player_info.get('name', 'Unknown')}: {e}")
-                    return None
-            
-            # Process players in parallel
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                # Submit all players
-                future_to_player = {
-                    executor.submit(collect_single_player, player): player 
-                    for player in players
-                }
-                
-                # Collect results as they complete
-                completed = 0
-                for future in as_completed(future_to_player, timeout=player_timeout*len(players)):
-                    try:
-                        player_data = future.result(timeout=player_timeout)
-                        if player_data:
-                            player_data_list.append(player_data)
-                        completed += 1
-                        if completed % 100 == 0:
-                            logger.info(f"   Progress: {completed}/{len(players)} players completed ({completed*100//len(players)}%)")
-                    except Exception as e:
-                        player = future_to_player[future]
-                        logger.warning(f"Player collection failed: {player.get('name', 'Unknown')}: {e}")
-                        continue
-            
-            # Convert to dict format
-            return [asdict(player) for player in player_data_list if player]
-        
-        elif sport == 'nba':
-            from gravity.nba_scraper import NBAPlayerCollector
-            from gravity.scrape import get_direct_api
-            
-            collector = NBAPlayerCollector(get_direct_api())
-            
-            if mode == 'test':
-                from gravity import scrape as scrape_module
-                players = scrape_module.get_test_players_from_all_nba_teams(collector)
-            else:
-                # For now, default to test
-                from gravity import scrape as scrape_module
-                players = scrape_module.get_test_players_from_all_nba_teams(collector)
-            
-            player_data_list = []
-            for player in players:
-                data = collector.collect_player_data(
-                    player['name'],
-                    player.get('team'),
-                    player.get('position')
-                )
-                if data:
-                    player_data_list.append(asdict(data))
-            
-            return player_data_list
-        
-        # Add other sports as needed
-        else:
-            logger.error(f"Scraping not yet implemented for {sport}")
-            return []
-            
-    except Exception as e:
-        logger.error(f"Scraping failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return []
+    _ = mode
+    logger.error(
+        "run_pipeline --scrape is not wired for %s. Use college scrapers or gravity_api.",
+        sport,
+    )
+    return []
 
 
 if __name__ == '__main__':

@@ -1,6 +1,5 @@
 """
-Scraper Service
-Wraps existing NIL/NFL/NBA scrapers and provides unified interface
+Scraper Service — college NIL / CFB / MCBB; pro league scrapers removed per Gravity NIL Terminal spec.
 """
 
 import asyncio
@@ -17,16 +16,6 @@ try:
 except ImportError:
     ConnectorOrchestrator = None
 
-try:
-    from gravity.nfl_scraper import NFLScraper
-except ImportError:
-    NFLScraper = None
-
-try:
-    from gravity.nba_scraper import NBAScraper
-except ImportError:
-    NBAScraper = None
-
 logger = logging.getLogger(__name__)
 
 
@@ -42,14 +31,11 @@ class ScraperService:
         
         # Initialize scrapers
         self.nil_orchestrator = ConnectorOrchestrator() if ConnectorOrchestrator else None
-        self.nfl_scraper = NFLScraper() if NFLScraper else None
-        self.nba_scraper = NBAScraper() if NBAScraper else None
-        
+
         logger.info(
             f"Scraper service initialized - "
             f"NIL: {self.nil_orchestrator is not None}, "
-            f"NFL: {self.nfl_scraper is not None}, "
-            f"NBA: {self.nba_scraper is not None}"
+            f"college-only (NFL/NBA scrapers removed per Gravity NIL Terminal spec)"
         )
     
     async def scrape_athlete(
@@ -93,12 +79,15 @@ class ScraperService:
         # Route to appropriate scraper
         league_lower = league.lower()
         
-        if league_lower in ['cfb', 'ncaaf', 'nil']:
+        if league_lower in ['cfb', 'ncaaf', 'nil', 'mcbb']:
             result = await self._scrape_nil(athlete)
-        elif league_lower == 'nfl':
-            result = await self._scrape_nfl(athlete)
-        elif league_lower == 'nba':
-            result = await self._scrape_nba(athlete)
+        elif league_lower in ('nfl', 'nba', 'wnba'):
+            result = {
+                'success': False,
+                'error': (
+                    'Pro league scrapers removed; use CFB / MCBB (cfb, mcbb, nil) only.'
+                ),
+            }
         else:
             raise ValueError(f"Unsupported league: {league}")
         
@@ -132,64 +121,6 @@ class ScraperService:
             return {
                 'success': False,
                 'league': 'nil',
-                'athlete_id': athlete['athlete_id'],
-                'error': str(e)
-            }
-    
-    async def _scrape_nfl(self, athlete: Dict) -> Dict[str, Any]:
-        """Scrape NFL data using existing scraper"""
-        if not self.nfl_scraper:
-            return {'success': False, 'error': 'NFL scraper not available'}
-        
-        try:
-            loop = asyncio.get_event_loop()
-            # Assuming NFLScraper has a scrape method
-            result = await loop.run_in_executor(
-                None,
-                self.nfl_scraper.scrape_player,
-                athlete['canonical_name']
-            )
-            
-            return {
-                'success': True,
-                'league': 'nfl',
-                'athlete_id': athlete['athlete_id'],
-                'data': result
-            }
-        except Exception as e:
-            logger.error(f"NFL scraper failed for {athlete['canonical_name']}: {e}")
-            return {
-                'success': False,
-                'league': 'nfl',
-                'athlete_id': athlete['athlete_id'],
-                'error': str(e)
-            }
-    
-    async def _scrape_nba(self, athlete: Dict) -> Dict[str, Any]:
-        """Scrape NBA data using existing scraper"""
-        if not self.nba_scraper:
-            return {'success': False, 'error': 'NBA scraper not available'}
-        
-        try:
-            loop = asyncio.get_event_loop()
-            # Assuming NBAScraper has a scrape method
-            result = await loop.run_in_executor(
-                None,
-                self.nba_scraper.scrape_player,
-                athlete['canonical_name']
-            )
-            
-            return {
-                'success': True,
-                'league': 'nba',
-                'athlete_id': athlete['athlete_id'],
-                'data': result
-            }
-        except Exception as e:
-            logger.error(f"NBA scraper failed for {athlete['canonical_name']}: {e}")
-            return {
-                'success': False,
-                'league': 'nba',
                 'athlete_id': athlete['athlete_id'],
                 'error': str(e)
             }

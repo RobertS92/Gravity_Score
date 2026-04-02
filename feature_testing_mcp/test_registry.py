@@ -4,41 +4,17 @@ from typing import Dict, List
 
 # Map test function names to actual test scripts and arguments
 TEST_REGISTRY: Dict[str, Dict[str, any]] = {
-    'test_nfl_scraper': {
-        'script': 'gravity/nfl_scraper.py',
-        'args': ['player', 'Patrick Mahomes', 'Chiefs', 'QB'],
-        'description': 'Test NFL player data scraping with Patrick Mahomes',
-        'timeout': 180
-    },
-    'test_nba_scraper': {
-        'script': 'gravity/nba_scraper.py',
-        'args': ['player', 'LeBron James', 'Lakers', 'SF'],
-        'description': 'Test NBA player data scraping with LeBron James',
-        'timeout': 180
-    },
     'test_cfb_scraper': {
-        'script': 'gravity/cfb_scraper.py',
-        'args': ['player', 'Caleb Williams', 'USC', 'QB'],
+        'script': 'gravity/scrapers/cfb_scraper.py',
+        'args': ['team', 'Big Ten', 'USC', '--limit', '1'],
         'description': 'Test college football scraper',
         'timeout': 180
-    },
-    'test_data_pipeline': {
-        'script': 'test_all_changes.py',
-        'args': [],
-        'description': 'Run comprehensive test suite for all recent changes',
-        'timeout': 600
     },
     'test_social_collection': {
         'script': 'quick_social_collector.py',
         'args': [],
         'description': 'Test social media data collection',
         'timeout': 120
-    },
-    'test_contract_collection': {
-        'script': 'test_contract_social_nfl.py',
-        'args': [],
-        'description': 'Test contract data collection for NFL',
-        'timeout': 180
     },
     'test_risk_analysis': {
         'script': 'test_risk_collection.py',
@@ -70,18 +46,6 @@ TEST_REGISTRY: Dict[str, Dict[str, any]] = {
         'description': 'Test free API collectors (no Firecrawl costs)',
         'timeout': 180
     },
-    'test_nfl_2_per_team': {
-        'script': 'test_nfl_2_per_team.py',
-        'args': [],
-        'description': 'Test NFL scraper with 2 players per team',
-        'timeout': 300
-    },
-    'test_nba_2_per_team': {
-        'script': 'test_nba_2_per_team.py',
-        'args': [],
-        'description': 'Test NBA scraper with 2 players per team',
-        'timeout': 300
-    },
     'test_cfb_2_per_team': {
         'script': 'test_cfb_2_per_team.py',
         'args': [],
@@ -92,12 +56,8 @@ TEST_REGISTRY: Dict[str, Dict[str, any]] = {
 
 # Keyword-based test inference mapping
 KEYWORD_MAPPING: Dict[str, List[str]] = {
-    'test_nfl_scraper': ['nfl', 'football', 'mahomes', 'chiefs'],
-    'test_nba_scraper': ['nba', 'basketball', 'lebron', 'lakers'],
     'test_cfb_scraper': ['cfb', 'college football', 'ncaaf', 'ncaa'],
-    'test_data_pipeline': ['pipeline', 'comprehensive', 'all changes'],
     'test_social_collection': ['social', 'social media', 'twitter', 'instagram'],
-    'test_contract_collection': ['contract', 'contracts', 'spotrac'],
     'test_risk_analysis': ['risk', 'injury', 'injuries', 'controversy'],
     'test_ml_pipeline': ['ml', 'machine learning', 'model', 'training'],
     'test_nil_collector': ['nil', 'name image likeness'],

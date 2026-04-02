@@ -19,19 +19,17 @@ async def test_scraper_service_init():
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_scrape_athlete_invalid_league(mock_athlete_data):
-    """Test scraping with invalid league"""
+    """Unsupported league raises ValueError"""
     service = ScraperService()
-    
+
     with patch.object(service.supabase, 'table') as mock_table:
         mock_table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value.data = mock_athlete_data
-        
-        result = await service.scrape_athlete(
-            mock_athlete_data['athlete_id'],
-            'invalid_league'
-        )
-        
-        assert result['success'] == False
-        assert 'error' in result
+
+        with pytest.raises(ValueError, match="Unsupported league"):
+            await service.scrape_athlete(
+                mock_athlete_data['athlete_id'],
+                'invalid_league',
+            )
 
 
 @pytest.mark.unit
@@ -75,11 +73,7 @@ def test_scraper_service_availability():
     """Test which scrapers are available"""
     service = ScraperService()
     
-    # At least one scraper should be available
     available = [
         service.nil_orchestrator is not None,
-        service.nfl_scraper is not None,
-        service.nba_scraper is not None
     ]
-    
-    assert any(available), "At least one scraper should be available"
+    assert any(available), "NIL orchestrator should be available for college pipeline"

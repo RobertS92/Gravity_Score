@@ -142,8 +142,7 @@ List all registered tests that can be executed.
 
 Tests are registered in `test_registry.py`. Current tests include:
 
-- `test_nfl_scraper` - NFL player data scraping
-- `test_nba_scraper` - NBA player data scraping
+- `test_cfb_scraper` - College football scraping (NFL/NBA registry entries removed)
 - `test_cfb_scraper` - College football scraping
 - `test_data_pipeline` - Comprehensive test suite
 - `test_social_collection` - Social media data collection

@@ -3,8 +3,7 @@
 Score All Sports - Commercial Value
 ====================================
 
-Runs the commercial value gravity score formula on NFL, NBA, and CFB data.
-Generates final scored datasets for each sport.
+Runs the commercial value gravity score formula on college (and optional custom CSV) data.
 
 Usage:
     python score_all_sports.py
@@ -93,7 +92,7 @@ def main():
     print("\n" + "="*80)
     print("🚀 COMMERCIAL VALUE SCORING - ALL SPORTS")
     print("="*80)
-    print("\nScoring NFL, NBA, and CFB players with the new commercial value formula:")
+    print("\nScoring college/player CSVs with the commercial value formula:")
     print("  • Performance (20%): Current season priority")
     print("  • Market (25%): Endorsement-heavy")
     print("  • Social (30%): Celebrity effect included")
@@ -111,24 +110,13 @@ def main():
         success = score_sport_data(input_file, output_file, sport_name)
         return
     
-    # Default: All sports mode
-    # Define input/output files
+    # Default: college data only (adjust paths to your latest scrapes)
     sports_data = [
-        {
-            'name': 'NFL',
-            'input': 'scrapes/NFL/20251209_113136/nfl_players_20251209_123629.csv',
-            'output': 'final_scores/NFL_Commercial_Value_Final.csv'
-        },
-        {
-            'name': 'NBA',
-            'input': 'scrapes/NBA/20251203_214612/nba_players_20251203_231046.csv',
-            'output': 'final_scores/NBA_Commercial_Value_Final.csv'
-        },
         {
             'name': 'CFB',
             'input': 'scrapes/CFB/20251203_233730/cfb_power5_players_20251204_193153.csv',
-            'output': 'final_scores/CFB_Commercial_Value_Final.csv'
-        }
+            'output': 'final_scores/CFB_Commercial_Value_Final.csv',
+        },
     ]
     
     # Process each sport

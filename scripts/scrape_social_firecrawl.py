@@ -1,7 +1,54 @@
 from __future__ import annotations
-import os, sys, csv, json, time
+
+import csv
+import json
+import os
+import re
+import sys
+import time
+
 import psycopg
-from gravity.firecrawl_sdk import scrape_social_json
+import requests
+
+FIRECRAWL_V2 = "https://api.firecrawl.dev/v2"
+
+
+def scrape_social_json(url: str) -> dict:
+    """Firecrawl v2 markdown scrape; map rough follower counts into legacy JSON shape."""
+    key = os.environ.get("FIRECRAWL_API_KEY", "").strip()
+    if not key:
+        raise RuntimeError("FIRECRAWL_API_KEY is required")
+    resp = requests.post(
+        f"{FIRECRAWL_V2}/scrape",
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        json={"url": url, "formats": [{"type": "markdown"}], "onlyMainContent": True},
+        timeout=120,
+    )
+    resp.raise_for_status()
+    body = resp.json()
+    if not body.get("success"):
+        raise RuntimeError(body.get("error", "scrape_failed"))
+    md = (body.get("data") or {}).get("markdown") or ""
+    follower = None
+    for pat in (r"([\d,.]+)\s+Followers", r"([\d,.]+)\s+followers", r"\"follower_count\":\s*(\d+)"):
+        m = re.search(pat, md)
+        if m:
+            try:
+                follower = int(m.group(1).replace(",", "").replace(".", "")[:15])
+                break
+            except ValueError:
+                continue
+    return {
+        "data": {
+            "json": {
+                "platform": None,
+                "handle": None,
+                "follower_count": follower,
+                "bio_text": md[:2000] if md else None,
+                "external_links": [],
+            }
+        }
+    }
 
 PG_DSN = os.getenv("PG_DSN", f"postgresql://{os.getenv('USER','postgres')}@localhost:5432/gravity")
 

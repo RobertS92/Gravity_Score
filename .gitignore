@@ -6,6 +6,7 @@ __pycache__/
 *.so
 .Python
 venv/
+.venv/
 env/
 ENV/
 *.egg-info/
@@ -63,3 +64,7 @@ dist/
 *.h5
 *.joblib
 models/*.pkl
+
+# Standalone Railway repos (separate GitHub: gravity-scrapers, gravity-ml)
+gravity-scrapers/
+gravity-ml/

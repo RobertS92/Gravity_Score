@@ -11,9 +11,8 @@ import logging
 
 from gravity.valuation import calculate_iacv, underwrite_deal
 from gravity.packs import aggregate_pack_data, export_pack_json, generate_pack_pdf
-from gravity.nil import run_nil_collection
+from gravity.nil import run_nil_collection, calculate_and_store_features
 from gravity.scoring import calculate_gravity_score
-from gravity.nil.feature_calculator import calculate_and_store_features
 
 logger = logging.getLogger(__name__)
 

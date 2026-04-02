@@ -141,7 +141,7 @@ def example_4_scrape_and_process():
     else:
         print("\n⚠️  No player CSV files found.")
         print("   Run a scraper first:")
-        print("   python3 gravity/nfl_scraper.py test")
+        print("   python3 gravity/cfb_scraper.py test")
 
 
 def example_5_compare_teams():

@@ -11,8 +11,6 @@ from datetime import date, datetime
 from gravity.storage import get_storage_manager
 from gravity.db.models import Athlete, GravityScore, NILDeal, NILValuation
 from gravity.valuation import calculate_iacv, underwrite_deal, generate_negotiation_terms
-from gravity.nil.feature_calculator import FeatureCalculator
-
 logger = logging.getLogger(__name__)
 
 
@@ -161,13 +159,9 @@ class PackAggregator:
         season_id: str,
         as_of_date: date
     ) -> Dict[str, Any]:
-        """Get feature snapshot"""
-        try:
-            calculator = FeatureCalculator()
-            return calculator.calculate_all_features(athlete_id, season_id, as_of_date)
-        except Exception as e:
-            logger.error(f"Failed to get features: {e}")
-            return {}
+        """FeatureCalculator removed with NIL rebuild; extend with DB reads if needed."""
+        _ = (athlete_id, season_id, as_of_date)
+        return {}
     
     def _get_nil_portfolio(self, athlete_id: uuid.UUID) -> Dict[str, Any]:
         """Get NIL deal portfolio"""

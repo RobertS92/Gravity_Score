@@ -192,7 +192,7 @@ def main():
         print("  ✅ Arrests, suspensions, fines")
         print("  ✅ Reputation & risk scores")
         print("\nExample:")
-        print("  python3 gravity/nba_scraper.py player 'LeBron James' 'Lakers' 'SF'")
+        print("  python3 gravity/cfb_scraper.py player 'Caleb Williams' 'USC' 'QB'")
         print("="*70)
     else:
         print("\n⚠️  Some tests failed. Check errors above.")

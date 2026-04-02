@@ -8,13 +8,16 @@ from typing import Dict, Any, Optional
 import uuid
 from datetime import date
 
-from gravity.nil import run_nil_collection
-from gravity.nil.normalization import normalize_nil_data
+from gravity.nil import calculate_and_store_features, run_nil_collection
 from gravity.nil.entity_resolution import EntityResolver
-from gravity.nil.feature_calculator import calculate_and_store_features
 from gravity.scoring import calculate_gravity_score
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_nil_stub(collection_results: Dict[str, Any], athlete_id: str) -> Dict[str, Any]:
+    """Placeholder — gravity.nil.normalization was removed with connector stack."""
+    return {"athlete_id": str(athlete_id), "records_created": 0}
 
 
 def integrate_nil_pipeline(
@@ -68,7 +71,7 @@ def integrate_nil_pipeline(
         
         # Step 3: Normalize and store NIL data
         logger.info(f"Step 3: Normalizing and storing NIL data...")
-        normalization_summary = normalize_nil_data(collection_results, athlete_id)
+        normalization_summary = _normalize_nil_stub(collection_results, athlete_id)
         result['nil_data'] = {
             'collection_summary': collection_results.get('summary', {}),
             'normalization_summary': normalization_summary
