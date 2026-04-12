@@ -39,6 +39,19 @@ Set in `.env` / Railway / hosting (names are suggestions—match whatever those 
 
 Use these in `railway-service` (`ScraperService`) and `gravity_api/jobs/*` when you replace in-process stubs with HTTP clients.
 
+## GitHub Actions (`gravity-scrapers` repo)
+
+Scheduled workflows (**Daily Scrape**, **Weekly Full Scrape**, monitors) call your **deployed** scraper API on Railway (or elsewhere). If **`Weekly Full Scrape`** fails with *RAILWAY_SCRAPER_URL* / exit code 1, configure the **gravity-scrapers** repository on GitHub:
+
+1. **Settings → Secrets and variables → Actions**
+2. Add **Repository secret** (or **Variable**) **`RAILWAY_SCRAPER_URL`**  
+   - Value: public HTTPS base URL only, e.g. `https://your-service.up.railway.app`  
+   - **No trailing slash**, no `/jobs` suffix (workflows append `/jobs/weekly`, `/jobs/daily`, etc.).
+3. Add **Repository secret** **`SCRAPER_API_KEY`**  
+   - Same bearer token your FastAPI app checks (`Authorization: Bearer …` — see `gravity-scrapers` `app/auth.py` / `README.md`).
+
+After deploy, confirm in a browser or with `curl` that `https://…/docs` or a health route responds. Manual **Run workflow** will fail fast if secrets are missing until you set them; scheduled runs skip quietly so the Actions tab is not full of red noise.
+
 ## What remains in this repo
 
 - **`gravity/`** — rule-based **data pipeline**, **scoring**, **valuation** helpers, **NIL stubs**, DB models, packs.
