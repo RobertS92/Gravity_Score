@@ -93,3 +93,37 @@ Prints the last few `scraper_jobs` rows so you can see `processed_count` without
 3. For learned scores or imputation, consume **gravity-ml** artifacts or its inference API as documented in that repo.
 
 Historical markdown files in the repo root may still mention removed paths (`gravity/ml_imputer.py`, `nfl_gravity/`, etc.); treat them as archive only.
+
+---
+
+## No rows in Supabase — is the scraper broken?
+
+**`SCRAPER_API_KEY` is not a built-in value.** You choose it (e.g. `openssl rand -hex 32`), then set the **same** string in:
+
+1. **Railway** → `gravity-scrapers` service → **Variables** → `SCRAPER_API_KEY`
+2. **GitHub** → `gravity-scrapers` repo → **Actions secrets** → `SCRAPER_API_KEY`  
+   The app compares `Authorization: Bearer <token>` to that env var (`gravity-scrapers` `app/auth.py`). If you forgot what you used, **set a new random value** in Railway and GitHub and redeploy.
+
+**Supabase URL** uses your project ref (Dashboard → **Project Settings** → **Reference ID**):  
+`https://<YOUR_PROJECT_REF>.supabase.co`  
+Plus **`SUPABASE_SERVICE_KEY`** = **service role** key (Settings → **API** → *service_role* — server only, never in the browser).
+
+**Why tables stay empty**
+
+| Check | Detail |
+|--------|--------|
+| SQL migrations | Run the `supabase/*.sql` scripts from **gravity-scrapers** in the Supabase SQL editor so `athletes`, `scraper_jobs`, `raw_athlete_data`, etc. exist. |
+| No **athletes** | Daily/weekly jobs load rows from **`athletes`**. If the table is empty, jobs finish with **`processed_count = 0`** and nothing is written to `raw_athlete_data`. Run **`POST /jobs/roster-sync`** (with Bearer token) or seed athletes first. |
+| **GitHub Actions** | Only **calls** your Railway URL; they do not write to Supabase themselves. Data appears when **Railway** runs the job logic. |
+| **Railway logs** | Errors (missing `FIRECRAWL_API_KEY`, aggregator skip, Supabase RLS) show there. |
+
+**Quick checks in Supabase (SQL editor)**
+
+```sql
+select count(*) as athletes from athletes;
+select * from scraper_jobs order by started_at desc limit 10;
+select count(*) as raw_rows from raw_athlete_data;
+```
+
+If `athletes` is `0`, fix **roster sync / imports** before expecting scrape volume.
+
