@@ -50,7 +50,7 @@ Scheduled workflows (**Daily Scrape**, **Weekly Full Scrape**, monitors) call yo
 3. Add **Repository secret** **`SCRAPER_API_KEY`**  
    - Same bearer token your FastAPI app checks (`Authorization: Bearer …` — see `gravity-scrapers` `app/auth.py` / `README.md`).
 
-After deploy, confirm in a browser or with `curl` that `https://…/docs` or a health route responds. Manual **Run workflow** will fail fast if secrets are missing until you set them; scheduled runs skip quietly so the Actions tab is not full of red noise.
+After deploy, confirm in a browser or with `curl` that `https://…/` or `/health` responds. **Railway:** use **`/`** or **`/health`** as the health check path — **not** `/health/ready` (that returns 503 until Supabase is wired). Manual **Run workflow** will fail fast if secrets are missing until you set them; scheduled runs skip quietly so the Actions tab is not full of red noise.
 
 ### Verify daily / weekly actually did work (not just “8 seconds on GitHub”)
 
