@@ -52,6 +52,34 @@ Scheduled workflows (**Daily Scrape**, **Weekly Full Scrape**, monitors) call yo
 
 After deploy, confirm in a browser or with `curl` that `https://…/docs` or a health route responds. Manual **Run workflow** will fail fast if secrets are missing until you set them; scheduled runs skip quietly so the Actions tab is not full of red noise.
 
+### Verify daily / weekly actually did work (not just “8 seconds on GitHub”)
+
+**Why GitHub finishes in seconds:** The Actions workflow only sends `POST …/jobs/daily` or `POST …/jobs/weekly`. The FastAPI handlers **enqueue** work with `BackgroundTasks` and immediately return `{"status":"started",…}`. The real scrape runs **on Railway** after the HTTP response.
+
+**Fast “success” with no data usually means one of:**
+
+1. **`athletes` is empty** — Weekly selects all rows; Daily builds a batch from `gravity_scores` / `athletes` / events. **Zero athletes → job completes in seconds** with `processed_count = 0` (still “success”).
+2. **Background task errors** — Check **Railway → gravity-scrapers → Logs** for tracebacks after the POST time.
+3. **Supabase env wrong on Railway** — `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` missing or wrong → `_create_job` or queries fail (see logs).
+
+**Where to check (in order):**
+
+| Where | What to look for |
+|--------|------------------|
+| **Supabase → Table `scraper_jobs`** | Latest rows: `job_type` = `daily_vip_update` or `weekly_full_scrape`, `status` = `completed` / `failed`, **`processed_count`**, **`failed_count`**, `started_at` / `completed_at`. |
+| **Supabase → `raw_athlete_data`** | New rows after the job window; `scraped_at` moving forward. |
+| **Supabase → `athletes`** | `last_scraped_at` updating for rows that were scraped. |
+| **Railway logs** | Lines like `Starting daily job`, `Scraping <name>`, `Daily job done. Processed: …`. |
+| **HTTP** | `GET <RAILWAY_URL>/jobs/status` with header `Authorization: Bearer <SCRAPER_API_KEY>` — same data as the table (see `gravity-scrapers` `app/routers/jobs.py`). |
+
+**Local check script** (clone **gravity-scrapers**, set `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` in `.env`, then):
+
+```bash
+cd gravity-scrapers && python scripts/verify_scraper_jobs.py
+```
+
+Prints the last few `scraper_jobs` rows so you can see `processed_count` without opening SQL.
+
 ## What remains in this repo
 
 - **`gravity/`** — rule-based **data pipeline**, **scoring**, **valuation** helpers, **NIL stubs**, DB models, packs.
