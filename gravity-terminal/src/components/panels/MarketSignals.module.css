@@ -32,3 +32,11 @@
   color: var(--text-primary);
   text-align: right;
 }
+
+.vHighlight {
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--accent-green);
+  text-align: right;
+  font-weight: 700;
+}

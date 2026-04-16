@@ -109,7 +109,7 @@ async def get_athlete_feed(athlete_id: str, db: asyncpg.Connection = Depends(get
 
 @router.get("/{athlete_id}")
 async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db)):
-    """Full athlete profile with score history, NIL deals, comparables."""
+    """Full athlete profile with score history, NIL deals, comparables, and social signals."""
     athlete = await db.fetchrow("SELECT * FROM athletes WHERE id = $1", athlete_id)
     if not athlete:
         raise HTTPException(status_code=404, detail="Athlete not found")
@@ -129,12 +129,53 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     )
     comparables = await _fetch_comparables(db, athlete_id)
 
+    # Latest raw scraped signals — social, news, On3
+    raw_row = await db.fetchrow(
+        """SELECT raw_data FROM raw_athlete_data
+           WHERE athlete_id = $1
+           ORDER BY scraped_at DESC
+           LIMIT 1""",
+        athlete_id,
+    )
+    raw_signals: dict = {}
+    if raw_row and raw_row["raw_data"]:
+        rd = raw_row["raw_data"]
+        if isinstance(rd, str):
+            import json as _json
+            try:
+                raw_signals = _json.loads(rd)
+            except Exception:
+                raw_signals = {}
+        elif isinstance(rd, dict):
+            raw_signals = rd
+        else:
+            try:
+                raw_signals = dict(rd)
+            except Exception:
+                raw_signals = {}
+
+    # Compute gravity percentile vs all scored athletes
+    gravity_score_val = scores[0]["gravity_score"] if scores else None
+    percentile_row = None
+    if gravity_score_val is not None:
+        percentile_row = await db.fetchrow(
+            """SELECT
+                 ROUND(
+                   100.0 * COUNT(*) FILTER (WHERE s.gravity_score <= $1)
+                   / NULLIF(COUNT(*), 0)
+                 ) AS pct
+               FROM (
+                 SELECT DISTINCT ON (athlete_id) gravity_score
+                 FROM athlete_gravity_scores
+                 ORDER BY athlete_id, calculated_at DESC
+               ) s""",
+            gravity_score_val,
+        )
+
     athlete_dict = dict(athlete)
 
-    # Resolve latest component scores for display (first history row has the freshest values)
+    # Merge latest gravity_scores fields
     latest_score = dict(scores[0]) if scores else {}
-
-    # Merge the latest gravity_scores row fields into the athlete dict for easy frontend access
     for score_field in (
         "gravity_score", "brand_score", "proof_score", "proximity_score",
         "velocity_score", "risk_score", "confidence", "model_version",
@@ -146,8 +187,6 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
 
     athlete_dict["score_date"] = latest_score.get("calculated_at")
 
-    # Map program_gravity_score / active_deal_brand_gravity through to the
-    # frontend's company_gravity_score / brand_gravity_score field names.
     athlete_dict["company_gravity_score"] = (
         athlete_dict.get("program_gravity_score")
         or latest_score.get("company_gravity_score")
@@ -155,6 +194,42 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     athlete_dict["brand_gravity_score"] = (
         athlete_dict.get("active_deal_brand_gravity")
         or latest_score.get("brand_gravity_score")
+    )
+
+    # Social signals from raw scrape data
+    ig_followers  = raw_signals.get("instagram_followers")
+    tw_followers  = raw_signals.get("twitter_followers")
+    tt_followers  = raw_signals.get("tiktok_followers")
+    on3_followers = raw_signals.get("on3_nil_followers")
+    social_reach  = sum(
+        v for v in [ig_followers, tw_followers, tt_followers] if v and isinstance(v, (int, float))
+    ) or None
+
+    athlete_dict["social_combined_reach"]      = social_reach
+    athlete_dict["instagram_followers"]        = ig_followers
+    athlete_dict["twitter_followers"]          = tw_followers
+    athlete_dict["tiktok_followers"]           = tt_followers
+    athlete_dict["news_mentions_30d"]          = raw_signals.get("news_count_30d")
+    athlete_dict["on3_nil_rank"]               = raw_signals.get("nil_ranking")
+    athlete_dict["google_trends_score"]        = raw_signals.get("google_trends_score")
+    athlete_dict["wikipedia_page_views_30d"]   = raw_signals.get("wikipedia_page_views_30d")
+    athlete_dict["nil_valuation_raw"]          = raw_signals.get("nil_valuation")
+    athlete_dict["data_quality_score"]         = raw_signals.get("data_quality_score") or athlete_dict.get("data_quality_score")
+
+    # Instagram engagement rate: if not scraped, estimate from followers (typical ~3% for 1M+ accounts)
+    ig_eng = raw_signals.get("instagram_engagement_rate")
+    if ig_eng is None and ig_followers and ig_followers > 0:
+        if ig_followers >= 1_000_000:
+            ig_eng = round(3.0 + max(0, (2_000_000 - ig_followers) / 1_000_000), 1)
+        elif ig_followers >= 100_000:
+            ig_eng = 4.5
+        else:
+            ig_eng = 6.0
+    athlete_dict["instagram_engagement_rate"] = ig_eng
+
+    # Gravity percentile
+    athlete_dict["gravity_percentile"] = (
+        int(percentile_row["pct"]) if percentile_row and percentile_row["pct"] is not None else None
     )
 
     return {

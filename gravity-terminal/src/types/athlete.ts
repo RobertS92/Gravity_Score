@@ -59,10 +59,18 @@ export interface AthleteRecord {
     dollar_comparable_verified_sport_position?: number
   } | null
   social_combined_reach?: number | null
+  instagram_followers?: number | null
+  twitter_followers?: number | null
+  tiktok_followers?: number | null
   instagram_engagement_rate?: number | null
   news_mentions_30d?: number | null
+  google_trends_score?: number | null
+  wikipedia_page_views_30d?: number | null
   on3_nil_rank?: string | null
   verified_deals_count?: number | null
+  nil_valuation_raw?: number | null
+  google_trends_score_raw?: number | null
+  data_quality_score?: number | null
   shap_drivers?: ShapDrivers | null
   updated_at?: string | null
 }
