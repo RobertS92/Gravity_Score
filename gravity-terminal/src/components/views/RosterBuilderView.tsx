@@ -138,8 +138,8 @@ export function RosterBuilderView() {
             className={styles.numberInput}
             type="number"
             min={0}
-            max={10_000_000}
-            step={50_000}
+            max={50_000_000}
+            step={250_000}
             value={budget_usd}
             onChange={(e) => setBudget(Number(e.target.value))}
           />
@@ -148,13 +148,13 @@ export function RosterBuilderView() {
           type="range"
           className={styles.slider}
           min={0}
-          max={10_000_000}
-          step={50_000}
+          max={50_000_000}
+          step={250_000}
           value={budget_usd}
           onChange={(e) => setBudget(Number(e.target.value))}
         />
         <div className={styles.sliderLabels}>
-          <span>$0</span><span>$10M</span>
+          <span>$0</span><span>$50M</span>
         </div>
 
         <div className={styles.actionRow}>

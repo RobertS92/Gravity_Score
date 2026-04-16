@@ -33,6 +33,14 @@
   color: var(--text-secondary);
 }
 
+.schoolFilters {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border-default);
+  width: fit-content;
+  margin-bottom: 8px;
+}
+
 .tableWrap {
   border: 1px solid var(--border-default);
   overflow: auto;

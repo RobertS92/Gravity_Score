@@ -55,7 +55,14 @@ export interface BrandMatchResult {
 export interface SchoolIndexRow {
   school: string
   conference?: string | null
+  sport?: string | null
   avg_gravity_score?: number | null
+  program_gravity_score?: number | null
+  program_brand_score?: number | null
+  program_proof_score?: number | null
+  program_velocity_score?: number | null
+  program_risk_score?: number | null
+  athlete_count?: number | null
   watchlisted_count?: number | null
   top_athlete_name?: string | null
   nil_market_size_estimate?: number | null

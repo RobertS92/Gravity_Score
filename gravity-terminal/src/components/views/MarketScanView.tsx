@@ -6,6 +6,19 @@ import { formatInteger, formatNilMillions, formatScore } from '../../lib/formatt
 import { useUiStore } from '../../stores/uiStore'
 import styles from './MarketScanView.module.css'
 
+const SPORT_LABELS: Record<string, string> = {
+  cfb: 'CFB',
+  ncaab_mens: 'MBB',
+  ncaab_womens: 'WBB',
+}
+
+function progGColor(g: number | null | undefined) {
+  if (g == null) return 'var(--text-muted)'
+  if (g >= 75) return '#00ff88'
+  if (g >= 60) return '#f0c844'
+  return '#f07a44'
+}
+
 const CohortRadar = lazy(() => import('./CohortRadar'))
 
 type SortKey = keyof AthleteRecord | 'name'
@@ -19,6 +32,8 @@ export function MarketScanView() {
   const [schools, setSchools] = useState<SchoolIndexRow[]>([])
   const [sortKey, setSortKey] = useState<SortKey>('gravity_score')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [schoolSport, setSchoolSport] = useState<string>('all')
+  const [schoolSort, setSchoolSort] = useState<keyof SchoolIndexRow>('program_gravity_score')
 
   useEffect(() => {
     void getMarketScan({}).then(setRows)
@@ -115,24 +130,66 @@ export function MarketScanView() {
 
       {sub === 'school' && (
         <div className={styles.tableWrap}>
+          <div className={styles.schoolFilters}>
+            {(['all', 'cfb', 'ncaab_mens', 'ncaab_womens'] as const).map((sp) => (
+              <button
+                key={sp}
+                type="button"
+                className={schoolSport === sp ? styles.subOn : styles.subOff}
+                onClick={() => setSchoolSport(sp)}
+              >
+                {sp === 'all' ? 'ALL' : SPORT_LABELS[sp]}
+              </button>
+            ))}
+          </div>
           <table className={styles.table}>
             <thead>
               <tr>
                 <th className={styles.th}>SCHOOL</th>
                 <th className={styles.th}>CONF</th>
-                <th className={styles.thR}>AVG GS</th>
-                <th className={styles.thR}>WL</th>
-                <th className={styles.th}>TOP</th>
+                <th className={styles.th}>SPORT</th>
+                <th
+                  className={styles.thR}
+                  style={{ cursor: 'pointer', textDecoration: schoolSort === 'program_gravity_score' ? 'underline' : undefined }}
+                  onClick={() => setSchoolSort('program_gravity_score')}
+                >
+                  PROG G
+                </th>
+                <th
+                  className={styles.thR}
+                  style={{ cursor: 'pointer', textDecoration: schoolSort === 'avg_gravity_score' ? 'underline' : undefined }}
+                  onClick={() => setSchoolSort('avg_gravity_score')}
+                >
+                  AVG G
+                </th>
+                <th className={styles.thR}># ATH</th>
+                <th className={styles.th}>TOP ATHLETE</th>
                 <th className={styles.thR}>NIL MKT</th>
               </tr>
             </thead>
             <tbody>
-              {schools.map((s) => (
-                <tr key={s.school}>
+              {[...schools]
+                .filter((s) => schoolSport === 'all' || s.sport === schoolSport)
+                .sort((a, b) => {
+                  const av = a[schoolSort] as number | null | undefined
+                  const bv = b[schoolSort] as number | null | undefined
+                  if (av == null && bv == null) return 0
+                  if (av == null) return 1
+                  if (bv == null) return -1
+                  return bv - av
+                })
+                .map((s) => (
+                <tr key={`${s.school}-${s.sport}`}>
                   <td className={styles.td}>{s.school}</td>
                   <td className={styles.td}>{s.conference ?? '\u2014'}</td>
+                  <td className={styles.td}>{SPORT_LABELS[s.sport ?? ''] ?? s.sport ?? '\u2014'}</td>
+                  <td className={styles.tdR}>
+                    <span style={{ color: progGColor(s.program_gravity_score), fontWeight: 700 }}>
+                      {s.program_gravity_score != null ? s.program_gravity_score.toFixed(1) : '\u2014'}
+                    </span>
+                  </td>
                   <td className={styles.tdR}>{formatScore(s.avg_gravity_score)}</td>
-                  <td className={styles.tdR}>{formatInteger(s.watchlisted_count)}</td>
+                  <td className={styles.tdR}>{s.athlete_count ?? '\u2014'}</td>
                   <td className={styles.td}>{s.top_athlete_name ?? '\u2014'}</td>
                   <td className={styles.tdR}>{formatNilMillions(s.nil_market_size_estimate)}</td>
                 </tr>
