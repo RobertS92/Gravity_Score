@@ -157,6 +157,7 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     # Compute gravity percentile vs all scored athletes
     gravity_score_val = scores[0]["gravity_score"] if scores else None
     percentile_row = None
+    nil_percentile_row = None
     if gravity_score_val is not None:
         percentile_row = await db.fetchrow(
             """SELECT
@@ -170,6 +171,24 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
                  ORDER BY athlete_id, calculated_at DESC
                ) s""",
             gravity_score_val,
+        )
+
+    # NIL valuation percentile — compare deal median vs all athletes with verified deals
+    nil_consensus_val = raw_signals.get("nil_valuation") or raw_signals.get("verified_nil_amount_usd")
+    if nil_consensus_val:
+        nil_percentile_row = await db.fetchrow(
+            """SELECT
+                 ROUND(
+                   100.0 * COUNT(*) FILTER (WHERE d.deal_value <= $1)
+                   / NULLIF(COUNT(*), 0)
+                 ) AS pct
+               FROM (
+                 SELECT athlete_id, AVG(deal_value) AS deal_value
+                 FROM athlete_nil_deals
+                 WHERE deal_value > 0
+                 GROUP BY athlete_id
+               ) d""",
+            float(nil_consensus_val),
         )
 
     athlete_dict = dict(athlete)
@@ -230,6 +249,10 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     # Gravity percentile
     athlete_dict["gravity_percentile"] = (
         int(percentile_row["pct"]) if percentile_row and percentile_row["pct"] is not None else None
+    )
+    # NIL valuation percentile
+    athlete_dict["nil_valuation_percentile"] = (
+        int(nil_percentile_row["pct"]) if nil_percentile_row and nil_percentile_row["pct"] is not None else None
     )
 
     return {

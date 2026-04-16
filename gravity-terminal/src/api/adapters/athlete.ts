@@ -145,7 +145,7 @@ export function mapAthleteFromBundle(b: AthleteDetailBundle): AthleteRecord {
     nil_valuation_consensus: nilAgg.consensus ?? num(a.nil_valuation_raw),
     nil_range_low: nilAgg.low,
     nil_range_high: nilAgg.high,
-    nil_valuation_percentile: null,
+    nil_valuation_percentile: num(a.nil_valuation_percentile),
     nil_valuation_delta_30d: null,
     dollar_p10_usd: num(latest?.dollar_p10_usd),
     dollar_p50_usd: num(latest?.dollar_p50_usd),

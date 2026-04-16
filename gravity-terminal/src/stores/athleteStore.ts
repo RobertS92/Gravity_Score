@@ -6,7 +6,7 @@ import {
   type ScoreUpdatePayload,
 } from '../lib/supabaseRealtime'
 
-const BUNDLE_PREFIX = 'gravity_bundle_v1_'
+const BUNDLE_PREFIX = 'gravity_bundle_v2_'
 
 let _unsubscribeScore: (() => void) | null = null
 
