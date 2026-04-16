@@ -1,0 +1,16 @@
+.root {
+  max-width: 100%;
+}
+
+.sparkLabel {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.empty {
+  padding: 20px;
+}

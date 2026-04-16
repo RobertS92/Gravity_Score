@@ -79,7 +79,13 @@ CREATE TABLE IF NOT EXISTS athlete_gravity_scores (
   top_factors_up JSONB DEFAULT '[]',
   top_factors_down JSONB DEFAULT '[]',
   model_version TEXT DEFAULT 'v1.0',
-  calculated_at TIMESTAMPTZ DEFAULT NOW()
+  calculated_at TIMESTAMPTZ DEFAULT NOW(),
+  dollar_p10_usd NUMERIC,
+  dollar_p50_usd NUMERIC,
+  dollar_p90_usd NUMERIC,
+  dollar_confidence JSONB,
+  company_gravity_score NUMERIC,
+  brand_gravity_score NUMERIC
 );
 
 -- NIL deals (verified and estimated)

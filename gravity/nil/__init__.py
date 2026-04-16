@@ -1,7 +1,7 @@
 """
-NIL package — connectors removed during scraper rebuild.
+NIL package — data collection lives in the external scrapers repository.
 
-Use ``gravity.scrapers`` for Power 5 collection. Stubs keep legacy imports importable.
+Stubs keep legacy imports (e.g. Railway ``ConnectorOrchestrator``) importable.
 """
 
 from __future__ import annotations
@@ -19,12 +19,12 @@ def run_nil_collection(
 ) -> Dict[str, Any]:
     """Legacy entrypoint. NIL multi-connector pipeline was removed."""
     logger.warning(
-        "run_nil_collection is stubbed; use gravity.scrapers for college data (%s)",
+        "run_nil_collection is stubbed; use external scrapers repo (%s)",
         athlete_name,
     )
     return {
         "status": "deprecated",
-        "message": "Use gravity.scrapers.cfb_scraper / ncaab_scraper",
+        "message": "College/NIL collection runs from the external scrapers repository.",
         "athlete_name": athlete_name,
         "school": school,
         "sport": sport,

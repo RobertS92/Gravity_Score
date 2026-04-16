@@ -5,6 +5,7 @@ Provides reusable test fixtures and test execution tracking
 
 import pytest
 from app.services.supabase_client import get_supabase_client
+from app.config import settings
 import time
 import os
 import logging
@@ -20,7 +21,10 @@ def supabase():
     Returns:
         Supabase Client instance for testing
     """
-    return get_supabase_client()
+    client = get_supabase_client()
+    if client is None:
+        pytest.skip("Supabase not configured (set SUPABASE_URL and SUPABASE_SERVICE_KEY)")
+    return client
 
 
 @pytest.fixture
@@ -86,9 +90,11 @@ def track_test_execution(request):
         error_msg = None
     
     # Store in database (only if running with real database)
-    if os.getenv('SUPABASE_URL') and not os.getenv('SKIP_TEST_TRACKING'):
+    if settings.supabase_enabled and not os.getenv('SKIP_TEST_TRACKING'):
         try:
             supabase = get_supabase_client()
+            if supabase is None:
+                return
             supabase.table('test_executions').insert({
                 'test_name': test_name,
                 'test_type': test_type,

@@ -31,6 +31,7 @@ def test_detailed_health_endpoint():
     data = response.json()
     assert data['status'] == 'healthy'
     assert 'components' in data
+    assert data['components']['database'] in ('operational', 'not_configured')
 
 
 @pytest.mark.unit
@@ -47,7 +48,7 @@ def test_root_endpoint():
 def test_refresh_athlete_no_auth():
     """Test athlete refresh without authentication"""
     response = client.post("/api/v1/athletes/test-id/refresh")
-    assert response.status_code == 403  # Forbidden without auth
+    assert response.status_code == 401  # Unauthorized without auth
 
 
 @pytest.mark.unit
@@ -64,7 +65,7 @@ def test_refresh_athlete_invalid_auth(test_athlete_id):
 def test_trigger_daily_job_no_auth():
     """Test daily job trigger without authentication"""
     response = client.post("/api/v1/jobs/daily")
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.unit
@@ -118,7 +119,7 @@ def test_get_athlete_status(test_athlete_id):
     """Test getting athlete status"""
     response = client.get(f"/api/v1/athletes/{test_athlete_id}/status")
     # May return 404 if test athlete doesn't exist, which is ok
-    assert response.status_code in [200, 404, 500]
+    assert response.status_code in [200, 404, 500, 503]
 
 
 @pytest.mark.integration

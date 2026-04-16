@@ -140,16 +140,9 @@ List all registered tests that can be executed.
 
 ## Test Registry
 
-Tests are registered in `test_registry.py`. Current tests include:
+Tests are registered in `test_registry.py`. Scrapers and ML training run in other repositories; the registry currently exposes:
 
-- `test_cfb_scraper` - College football scraping (NFL/NBA registry entries removed)
-- `test_cfb_scraper` - College football scraping
-- `test_data_pipeline` - Comprehensive test suite
-- `test_social_collection` - Social media data collection
-- `test_contract_collection` - Contract data collection
-- `test_risk_analysis` - Risk and injury analysis
-- `test_ml_pipeline` - Machine learning pipeline
-- And more...
+- `test_recruiting_collector` — in-repo recruiting smoke script (`test_recruiting_collector.py`)
 
 ## Google Sheets Format
 

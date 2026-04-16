@@ -16,7 +16,6 @@ import sys
 from pathlib import Path
 from typing import List
 import pandas as pd
-import numpy as np
 from datetime import datetime
 import time
 
@@ -241,12 +240,7 @@ async def models_status():
     
     Returns version, performance metrics, and metadata for each model.
     """
-    if not model_cache.registry:
-        raise HTTPException(status_code=503, detail="Model registry not available")
-    
-    registry = model_cache.registry
-    
-    # Build response
+    registry = model_cache.registry or {}
     imputation_models = {}
     for model_name, model_info in registry.get('imputation_models', {}).items():
         imputation_models[model_name] = ModelStatus(
@@ -270,7 +264,7 @@ async def models_status():
     return ModelsStatusResponse(
         imputation_models=imputation_models,
         prediction_models=prediction_models,
-        last_updated=registry.get('last_updated', 'unknown')
+        last_updated=registry.get('last_updated', 'external_ml_repo'),
     )
 
 
@@ -327,53 +321,10 @@ def _flatten_column_names(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _process_player_data(df: pd.DataFrame) -> pd.DataFrame:
-    """Process player data through full pipeline"""
-    
-    # 1. Impute missing values
-    if model_cache.ml_imputer:
-        df = model_cache.ml_imputer.impute_dataframe(df, use_ml=True)
-    else:
-        df = model_cache.rule_based_imputer.impute_data(df)
-    
-    # 2. Engineer features
-    if model_cache.ml_feature_engineer:
-        df = model_cache.ml_feature_engineer.engineer_features(df, include_all=True)
-    
-    # Extract standard features for gravity score
+    """Process player data through the rule-based pipeline (ML lives in external repo)."""
+    df = model_cache.rule_based_imputer.impute_data(df)
     df = model_cache.feature_extractor.extract_features(df)
-    
-    # 3. Run ML predictions
-    if model_cache.prediction_models:
-        for model_type, model in model_cache.prediction_models.items():
-            try:
-                predictions = model.predict(df)
-                df[f'ml_{model_type}_prediction'] = predictions
-                
-                # Add confidence if available
-                if hasattr(model, 'predict_proba'):
-                    try:
-                        probas = model.predict_proba(df)
-                        confidence = np.max(probas, axis=1)
-                        df[f'ml_{model_type}_confidence'] = confidence
-                    except:
-                        pass
-            except Exception as e:
-                logger.warning(f"Failed to run {model_type} prediction: {e}")
-    
-    # 4. Calculate gravity score
     df = model_cache.gravity_calculator.calculate_scores(df)
-    
-    # 5. Create ensemble score
-    if 'ml_market_prediction' in df.columns and 'gravity_score' in df.columns:
-        ml_score = df['ml_market_prediction']
-        rule_score = df['gravity_score']
-        
-        # Weighted ensemble (60% ML, 40% rule-based)
-        ml_weight = 0.6
-        rule_weight = 0.4
-        
-        df['ensemble_score'] = (ml_score * ml_weight) + (rule_score * rule_weight)
-    
     return df
 
 

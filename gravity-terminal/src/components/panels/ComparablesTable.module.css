@@ -1,0 +1,101 @@
+.box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.title {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.10em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin: 0 0 10px;
+}
+
+.warnTitle {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.10em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin: 0 0 10px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-data);
+  font-size: 13px;
+}
+
+.th {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  padding: 6px 8px 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.thRight {
+  text-align: right;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  padding: 6px 0 8px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.td {
+  padding: 8px 8px 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+  color: var(--text-secondary);
+}
+
+.tdRight {
+  padding: 8px 0 8px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.selfRow {
+  background: var(--bg-elevated);
+}
+
+.selfName {
+  color: var(--accent-amber);
+}
+
+.nameMain {
+  color: var(--text-primary);
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.nil {
+  color: var(--accent-amber);
+}
+
+.deltaPos {
+  color: var(--accent-green);
+}
+
+.deltaNeg {
+  color: var(--accent-red);
+}
+
+.deltaDim {
+  color: var(--text-dim);
+}

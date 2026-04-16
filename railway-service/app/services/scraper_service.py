@@ -3,16 +3,18 @@ Scraper Service — college NIL / CFB / MCBB; pro league scrapers removed per Gr
 """
 
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from supabase import Client
 import logging
 from datetime import datetime
 import uuid
 
 from app.services.supabase_client import get_supabase_client
 
-# Import existing scrapers
 try:
-    from gravity.nil.connector_orchestrator import ConnectorOrchestrator
+    from gravity.nil import ConnectorOrchestrator
 except ImportError:
     ConnectorOrchestrator = None
 
@@ -27,7 +29,7 @@ class ScraperService:
     
     def __init__(self):
         """Initialize scraper service with all available scrapers"""
-        self.supabase = get_supabase_client()
+        self.supabase: Optional["Client"] = get_supabase_client()
         
         # Initialize scrapers
         self.nil_orchestrator = ConnectorOrchestrator() if ConnectorOrchestrator else None
@@ -59,7 +61,13 @@ class ScraperService:
             ValueError: If athlete not found or league not supported
         """
         logger.info(f"Scraping athlete {athlete_id} for league {league}")
-        
+
+        if not self.supabase:
+            raise ValueError(
+                "Supabase is not configured; set SUPABASE_URL and SUPABASE_SERVICE_KEY "
+                "to look up athletes and store results."
+            )
+
         # Fetch athlete info from Supabase
         try:
             athlete_result = self.supabase.table('athletes')\
@@ -132,6 +140,9 @@ class ScraperService:
         result: Dict[str, Any]
     ):
         """Store scraper results in Supabase raw_payloads table"""
+        if not self.supabase:
+            logger.warning("Skip storing scraper result: Supabase not configured")
+            return
         try:
             payload_record = {
                 'payload_id': str(uuid.uuid4()),

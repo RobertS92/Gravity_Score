@@ -1,6 +1,8 @@
 # Gravity Scrapers & Crawlers API
 
-FastAPI service for automated athlete data collection, deployed on Railway. This service orchestrates scrapers and crawlers for NIL, NFL, and NBA data, storing results in Supabase.
+FastAPI service for automated athlete data collection, deployed on Railway. **Scraper implementations** live in **[gravity-scrapers](https://github.com/RobertS92/gravity-scrapers)**; wire `ScraperService` via HTTP when that API is deployed (see repo root `docs/SCRAPER_EXHAUSTIVE.md`). **ML** lives in **[gravity-ml](https://github.com/RobertS92/gravity-ml)**.
+
+This Railway app stores results in Supabase and schedules jobs; crawler orchestration in this repo is largely stubbed—prefer the external scrapers service for new work.
 
 ## Architecture
 

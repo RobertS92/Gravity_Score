@@ -11,7 +11,10 @@ from app.services.supabase_client import get_supabase_client
 import logging
 import uuid
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from supabase import Client
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +30,7 @@ class SchedulerService:
         self.scheduler = AsyncIOScheduler()
         self.scraper_service = ScraperService()
         self.crawler_service = CrawlerService()
-        self.supabase = get_supabase_client()
+        self.supabase: Optional["Client"] = get_supabase_client()
         self._started = False
         
         logger.info("Scheduler service initialized")
@@ -74,7 +77,11 @@ class SchedulerService:
         job_id = str(uuid.uuid4())
         
         logger.info(f"Starting daily VIP job {job_id}")
-        
+
+        if not self.supabase:
+            logger.warning("run_daily_job skipped: Supabase not configured")
+            return job_id
+
         # Create job record
         try:
             self.supabase.table('scraper_jobs').insert({
@@ -110,19 +117,13 @@ class SchedulerService:
                         athlete['sport']
                     )
                     
-                    # Run crawlers
-                    crawler_result = await self.crawler_service.run_all_crawlers(
-                        athlete['athlete_id']
-                    )
-                    
-                    if scraper_result.get('success') and crawler_result.get('success'):
+                    if scraper_result.get('success'):
                         processed += 1
                     else:
                         failed += 1
                         errors.append({
                             'athlete_id': athlete['athlete_id'],
                             'scraper_error': scraper_result.get('error'),
-                            'crawler_error': crawler_result.get('error')
                         })
                 except Exception as e:
                     logger.error(f"Failed to process {athlete['athlete_id']}: {e}")
@@ -167,7 +168,11 @@ class SchedulerService:
         job_id = str(uuid.uuid4())
         
         logger.info(f"Starting weekly full job {job_id}")
-        
+
+        if not self.supabase:
+            logger.warning("run_weekly_job skipped: Supabase not configured")
+            return job_id
+
         # Create job record
         try:
             self.supabase.table('scraper_jobs').insert({
@@ -200,18 +205,11 @@ class SchedulerService:
                 
                 for athlete in batch:
                     try:
-                        # Run scrapers
                         scraper_result = await self.scraper_service.scrape_athlete(
                             athlete['athlete_id'],
                             athlete['sport']
                         )
-                        
-                        # Run crawlers
-                        crawler_result = await self.crawler_service.run_all_crawlers(
-                            athlete['athlete_id']
-                        )
-                        
-                        if scraper_result.get('success') and crawler_result.get('success'):
+                        if scraper_result.get('success'):
                             processed += 1
                         else:
                             failed += 1
@@ -267,7 +265,13 @@ class SchedulerService:
             Dict with results
         """
         logger.info(f"On-demand scrape for athlete {athlete_id}")
-        
+
+        if not self.supabase:
+            return {
+                'success': False,
+                'error': 'Supabase is not configured; cannot load athlete records.',
+            }
+
         # Get athlete info
         try:
             athlete = self.supabase.table('athletes')\

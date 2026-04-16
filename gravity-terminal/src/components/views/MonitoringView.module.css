@@ -1,0 +1,122 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.title {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.10em;
+  color: var(--text-muted);
+}
+
+.feed {
+  border: 1px solid var(--border-default);
+  background: var(--bg-secondary);
+}
+
+.feedRow {
+  display: grid;
+  grid-template-columns: 120px 1fr 120px 1fr 64px;
+  gap: 8px;
+  align-items: start;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+}
+
+.feedRow:hover {
+  background: var(--bg-tertiary);
+}
+
+.ts {
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.who {
+  font-family: var(--font-prose);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.badge {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  border-radius: 2px;
+  border: 1px solid var(--border-default);
+}
+
+.badgeScore {
+  color: var(--accent-green);
+}
+
+.badgeNil {
+  color: var(--accent-amber);
+}
+
+.badgeRisk {
+  color: var(--accent-red);
+}
+
+.badgeDeal {
+  color: var(--accent-blue);
+}
+
+.desc {
+  font-family: var(--font-prose);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.num {
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.tableWrap {
+  border: 1px solid var(--border-default);
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-data);
+  font-size: 13px;
+}
+
+.th,
+.thR {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.thR {
+  text-align: right;
+}
+
+.td,
+.tdR {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.tdR {
+  text-align: right;
+}

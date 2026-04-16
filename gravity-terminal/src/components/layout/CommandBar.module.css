@@ -1,0 +1,106 @@
+.bar {
+  display: flex;
+  align-items: center;
+  height: var(--cmd-bar-h);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-default);
+  padding: 0 10px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.prompt {
+  font-family: var(--font-data);
+  font-size: 14px;
+  color: var(--accent-green);
+  flex-shrink: 0;
+}
+
+.promptBlink {
+  animation: cmdPromptBlink 1s ease-in-out infinite;
+}
+
+@keyframes cmdPromptBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.promptError {
+  color: var(--accent-red);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-data);
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.hint {
+  flex-shrink: 0;
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+.errorInline {
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--accent-red);
+  margin-right: 8px;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestWrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.suggestions {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 2px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  max-height: 160px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.suggestion {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+}
+
+.suggestion:hover,
+.suggestionFocus {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}

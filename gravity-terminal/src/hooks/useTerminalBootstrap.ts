@@ -1,0 +1,64 @@
+import { useEffect } from 'react'
+import { useAthleteStore } from '../stores/athleteStore'
+import { useAuthStore } from '../stores/authStore'
+import { useFeedStore } from '../stores/feedStore'
+import { useWatchlistStore, startWatchlistRefresh } from '../stores/watchlistStore'
+import { useAlertStore, startAlertPolling } from '../stores/alertStore'
+
+const LAST_KEY = 'gravity_last_athlete_id'
+
+function readLastAthleteId(): string | null {
+  try {
+    const v = localStorage.getItem(LAST_KEY)
+    return v && v.length ? v : null
+  } catch {
+    return null
+  }
+}
+
+export function useTerminalBootstrap() {
+  useEffect(() => {
+    void (async () => {
+      await useAuthStore.getState().hydrate()
+      await useWatchlistStore.getState().loadWatchlist()
+      startWatchlistRefresh()
+      void useAlertStore.getState().loadAlerts()
+      startAlertPolling()
+
+      const { activeAthleteId, setActiveAthlete } = useAthleteStore.getState()
+      if (activeAthleteId) return
+
+      const wl = useWatchlistStore.getState().athletes
+      if (wl.length > 0) {
+        void setActiveAthlete(wl[0].athlete_id)
+        return
+      }
+
+      const last = readLastAthleteId()
+      if (last) {
+        void setActiveAthlete(last)
+      }
+    })()
+
+    return () => {
+      useFeedStore.getState().stopPoll()
+    }
+  }, [])
+}
+
+export function useFeedSync() {
+  const id = useAthleteStore((s) => s.activeAthleteId)
+  const loadFeed = useFeedStore((s) => s.loadFeed)
+  const pollFeed = useFeedStore((s) => s.pollFeed)
+  const stopPoll = useFeedStore((s) => s.stopPoll)
+
+  useEffect(() => {
+    if (!id) {
+      stopPoll()
+      return
+    }
+    void loadFeed(id)
+    pollFeed(id)
+    return () => stopPoll()
+  }, [id, loadFeed, pollFeed, stopPoll])
+}

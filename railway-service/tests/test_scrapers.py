@@ -4,7 +4,22 @@ Tests for scraper service
 
 import pytest
 from app.services.scraper_service import ScraperService
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, patch
+
+
+@pytest.fixture(autouse=True)
+def _mock_supabase_client(monkeypatch):
+    """Unit tests do not require a real Supabase project."""
+    mock_client = MagicMock()
+    monkeypatch.setattr(
+        "app.services.supabase_client.get_supabase_client",
+        lambda: mock_client,
+    )
+    monkeypatch.setattr(
+        "app.services.scraper_service.get_supabase_client",
+        lambda: mock_client,
+    )
+    return mock_client
 
 
 @pytest.mark.unit

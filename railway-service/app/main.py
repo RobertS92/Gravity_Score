@@ -53,19 +53,24 @@ async def startup_event():
     logger.info("=" * 60)
     logger.info("Starting Gravity Scrapers Service")
     logger.info(f"API Key configured: {bool(settings.API_KEY)}")
-    logger.info(f"Supabase URL: {settings.SUPABASE_URL}")
+    _sb_msg = (
+        f"enabled ({settings.SUPABASE_URL.strip()})"
+        if settings.supabase_enabled
+        else "disabled (no SUPABASE_URL / SUPABASE_SERVICE_KEY)"
+    )
+    logger.info("Supabase: %s", _sb_msg)
     logger.info(f"CORS Origins: {settings.cors_origins_list}")
     logger.info("=" * 60)
-    
-    # Initialize and start scheduler
+
+    # Scheduler construction calls ScraperService → get_supabase_client(); must not crash the API.
     try:
         scheduler = SchedulerService()
         scheduler.start()
         app.state.scheduler = scheduler
         logger.info("Scheduler initialized and started")
     except Exception as e:
-        logger.error(f"Failed to start scheduler: {e}")
-        logger.warning("Continuing without scheduler - manual triggers only")
+        logger.exception("Failed to construct or start scheduler — /health still available: %s", e)
+        app.state.scheduler = None
 
 
 @app.on_event("shutdown")
@@ -73,9 +78,10 @@ async def shutdown_event():
     """Cleanup on shutdown"""
     logger.info("Shutting down Gravity Scrapers Service")
     
-    if hasattr(app.state, "scheduler"):
+    sch = getattr(app.state, "scheduler", None)
+    if sch is not None:
         try:
-            app.state.scheduler.stop()
+            sch.stop()
             logger.info("Scheduler stopped")
         except Exception as e:
             logger.error(f"Error stopping scheduler: {e}")

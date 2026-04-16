@@ -1,0 +1,51 @@
+.label {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.10em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.item {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.ts {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.body {
+  font-family: var(--font-prose);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.entity {
+  color: var(--text-secondary);
+}
+
+.newItem {
+  animation: feedItemIn 0.2s ease-out 1;
+}
+
+@keyframes feedItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

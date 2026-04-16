@@ -14,6 +14,12 @@ class Settings:
     anthropic_api_key: str | None
     anthropic_model: str
     cors_origins: str
+    jwt_secret: str | None
+    jwt_algorithm: str
+    allow_query_user_id: bool
+    ml_service_url: str | None
+    ml_api_key: str | None
+    internal_api_key: str | None
 
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -33,4 +39,14 @@ def get_settings() -> Settings:
             "CORS_ORIGINS",
             "http://localhost:5173,https://gravity.yourdomain.com",
         ),
+        jwt_secret=os.environ.get("JWT_SECRET") or os.environ.get("GRAVITY_JWT_SECRET"),
+        jwt_algorithm=os.environ.get("JWT_ALGORITHM", "HS256"),
+        allow_query_user_id=os.environ.get("GRAVITY_ALLOW_QUERY_USER_ID", "1").lower()
+        in ("1", "true", "yes"),
+        ml_service_url=(
+            os.environ.get("ML_SERVICE_URL") or os.environ.get("ML_API_URL") or ""
+        ).rstrip("/")
+        or None,
+        ml_api_key=os.environ.get("ML_API_KEY") or os.environ.get("ML_SERVICE_API_KEY"),
+        internal_api_key=os.environ.get("GRAVITY_INTERNAL_API_KEY"),
     )

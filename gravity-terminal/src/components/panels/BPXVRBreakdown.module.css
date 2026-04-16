@@ -1,0 +1,82 @@
+.box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.title {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.10em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin: 0 0 10px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 18px 1fr 24px 80px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.row:last-child {
+  margin-bottom: 0;
+}
+
+.letter {
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.track {
+  height: 6px;
+  background: var(--bg-tertiary);
+  position: relative;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  min-width: 0;
+}
+
+.fillB {
+  background: var(--accent-blue);
+}
+
+.fillP {
+  background: var(--text-muted);
+}
+
+.fillX {
+  background: var(--accent-purple);
+}
+
+.fillV {
+  background: var(--accent-green);
+}
+
+.fillR {
+  background: var(--accent-red);
+}
+
+.score {
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.ctx {
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

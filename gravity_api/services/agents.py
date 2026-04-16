@@ -1,14 +1,34 @@
 import json
+import uuid
+import decimal
+import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import asyncpg
 
 try:
     import anthropic
+    from anthropic import AsyncAnthropic
 except ImportError:
     anthropic = None  # type: ignore
+    AsyncAnthropic = None  # type: ignore
 
 from gravity_api.config import get_settings
+
+
+def _json_safe(obj: Any) -> Any:
+    """Recursively convert non-JSON-serializable types from asyncpg results."""
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(i) for i in obj]
+    if isinstance(obj, uuid.UUID):
+        return str(obj)
+    if isinstance(obj, decimal.Decimal):
+        return float(obj)
+    if isinstance(obj, (datetime.datetime, datetime.date)):
+        return obj.isoformat()
+    return obj
 
 GRAVITY_SYSTEM_PROMPT = """You are the Gravity NIL Intelligence engine. You help
 sports agents, NIL attorneys, and brand teams make data-driven decisions about
@@ -132,12 +152,22 @@ _SORT_SQL = {
 
 
 class GravityQueryAgent:
+    # Always use a model that exists; fall back to a stable alias
+    _PREFERRED_MODELS = [
+        "claude-sonnet-4-5",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-sonnet-20240229",
+    ]
+
     def __init__(self, db: asyncpg.Connection):
         self.db = db
         self.settings = get_settings()
         api_key = self.settings.anthropic_api_key
-        self.client = (
-            anthropic.Anthropic(api_key=api_key) if anthropic and api_key else None
+        # Use the configured model or the first preferred fallback
+        cfg_model = (self.settings.anthropic_model or "").strip()
+        self.model = cfg_model if cfg_model else self._PREFERRED_MODELS[0]
+        self.client: "AsyncAnthropic | None" = (
+            AsyncAnthropic(api_key=api_key) if AsyncAnthropic and api_key else None
         )
 
     async def execute_tool(self, tool_name: str, tool_input: Dict[str, Any]) -> Dict[str, Any]:
@@ -351,12 +381,29 @@ class GravityQueryAgent:
 
     def _classify_query(self, query: str) -> str:
         q = query.lower()
-        if any(w in q for w in ["deal", "contract", "worth", "value", "pay"]):
+        # Campaign-style briefs before generic "deal" to avoid mis-routing.
+        if any(
+            phrase in q
+            for phrase in (
+                "find athletes",
+                "for a campaign",
+                "budget per athlete",
+                "regional bank",
+                "max 2 transfer",
+                "controversy history",
+            )
+        ):
+            return "brand_match"
+        if "deal ceiling" in q or "ceiling for" in q:
+            return "category_ceiling"
+        if any(w in q for w in ["deal", "contract", "worth", "pay"]) or "assess a" in q:
             return "deal_assessment"
         if any(w in q for w in ["brand", "sponsor", "endorse", "partner"]):
             return "brand_match"
-        if any(w in q for w in ["transfer", "portal", "school", "program"]):
-            return "program_fit"
+        if any(w in q for w in ["transfer", "transferred", "portal"]):
+            return "program_comparison"
+        if "gravity" in q and "score" in q and "from" in q and "to" in q:
+            return "program_comparison"
         if any(w in q for w in ["risk", "injury", "controversy"]):
             return "risk_analysis"
         return "athlete_search"
@@ -383,8 +430,8 @@ class GravityQueryAgent:
         messages: List[Dict[str, Any]] = [{"role": "user", "content": user_content}]
         tool_results: List[Dict[str, Any]] = []
 
-        response = self.client.messages.create(
-            model=self.settings.anthropic_model,
+        response = await self.client.messages.create(
+            model=self.model,
             max_tokens=4096,
             system=GRAVITY_SYSTEM_PROMPT,
             tools=TOOLS,
@@ -397,20 +444,21 @@ class GravityQueryAgent:
 
             for tool_call in tool_calls:
                 result = await self.execute_tool(tool_call.name, dict(tool_call.input))
+                safe_result = _json_safe(result)
                 tool_result_content.append(
                     {
                         "type": "tool_result",
                         "tool_use_id": tool_call.id,
-                        "content": json.dumps(result),
+                        "content": json.dumps(safe_result),
                     }
                 )
-                tool_results.append({"tool": tool_call.name, "input": tool_call.input, "result": result})
+                tool_results.append({"tool": tool_call.name, "input": tool_call.input, "result": safe_result})
 
             messages.append({"role": "assistant", "content": response.content})
             messages.append({"role": "user", "content": tool_result_content})
 
-            response = self.client.messages.create(
-                model=self.settings.anthropic_model,
+            response = await self.client.messages.create(
+                model=self.model,
                 max_tokens=4096,
                 system=GRAVITY_SYSTEM_PROMPT,
                 tools=TOOLS,

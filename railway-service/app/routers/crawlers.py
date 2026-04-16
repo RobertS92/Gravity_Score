@@ -67,9 +67,9 @@ async def run_crawler(
 @router.post("/run-all")
 async def run_all_crawlers(
     athlete_id: str,
-    sport: Optional[str] = None,
     background_tasks: BackgroundTasks,
-    api_key: str = Depends(verify_api_key)
+    sport: Optional[str] = None,
+    api_key: str = Depends(verify_api_key),
 ):
     """
     Run all crawlers for an athlete

@@ -7,8 +7,8 @@ from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from app.auth import verify_api_key
 from app.services.scraper_service import ScraperService
 from app.services.crawler_service import CrawlerService
-from app.services.scheduler_service import SchedulerService
 from app.schemas.responses import RefreshResponse
+from app.config import settings
 import logging
 
 router = APIRouter()
@@ -48,9 +48,15 @@ async def refresh_athlete(
     Returns:
         Refresh status
     """
+    if not settings.supabase_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Supabase is not configured; athlete refresh requires SUPABASE_URL and SUPABASE_SERVICE_KEY.",
+        )
+
     scraper = ScraperService()
     crawler = CrawlerService()
-    
+
     # Get athlete info
     try:
         athlete = scraper.supabase.table('athletes')\
@@ -96,8 +102,14 @@ async def get_athlete_status(athlete_id: str):
     Returns:
         Status information
     """
+    if not settings.supabase_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Supabase is not configured; status requires SUPABASE_URL and SUPABASE_SERVICE_KEY.",
+        )
+
     scraper = ScraperService()
-    
+
     try:
         # Get athlete and latest payload info
         athlete = scraper.supabase.table('athletes')\

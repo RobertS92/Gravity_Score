@@ -1,0 +1,36 @@
+:root {
+  /* Backgrounds — slightly lifted so borders read against them */
+  --bg-primary:   #0b1017;
+  --bg-secondary: #111820;
+  --bg-tertiary:  #192030;
+  --bg-elevated:  #141c28;
+  --bg-right:     #0d1420;
+
+  /* Borders — visible without being harsh */
+  --border-default: #2a3545;
+  --border-subtle:  #1e2a38;
+
+  /* Text — full 4-stop hierarchy with WCAG AA contrast on dark bg */
+  --text-primary:   #eef2f7;   /* almost white — headlines, values       */
+  --text-secondary: #c8d4e0;   /* body copy, table cells                  */
+  --text-muted:     #8ea5bb;   /* labels, secondary metadata              */
+  --text-dim:       #5a7080;   /* helper text, timestamps — still legible */
+  --text-ghost:     #3d5060;   /* truly background-level; use sparingly   */
+
+  /* Accents — slightly brighter for legibility on dark bg */
+  --accent-green:  #4cc963;
+  --accent-amber:  #e0ac3a;
+  --accent-red:    #ff5f5a;
+  --accent-blue:   #6ab4ff;
+  --accent-purple: #b48afb;
+
+  /* Typography — slightly larger base and a more legible mono stack */
+  --font-data:  'JetBrains Mono', 'Fira Code', 'Courier New', Courier, monospace;
+  --font-prose: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+
+  /* Layout */
+  --top-bar-h: 32px;
+  --cmd-bar-h: 36px;
+  --sidebar-w: 196px;
+  --right-w:   328px;
+}

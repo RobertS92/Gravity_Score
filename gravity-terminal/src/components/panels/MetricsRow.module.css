@@ -1,0 +1,80 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.cell {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  padding: 8px 10px;
+}
+
+.label {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.val {
+  font-family: var(--font-data);
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.delta {
+  font-family: var(--font-data);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.flash {
+  animation: metricFlash 0.6s ease-out 1;
+}
+
+@keyframes metricFlash {
+  0% {
+    color: var(--accent-amber);
+  }
+  100% {
+    color: inherit;
+  }
+}
+
+.cBlue {
+  color: var(--accent-blue);
+}
+
+.cGreen {
+  color: var(--accent-green);
+}
+
+.cPurple {
+  color: var(--accent-purple);
+}
+
+.cRiskLo {
+  color: var(--accent-green);
+}
+
+.cRiskHi {
+  color: var(--accent-red);
+}
+
+.cMuted {
+  color: var(--text-muted);
+}
+
+.cAmber {
+  color: var(--accent-amber);
+}
+
+.cTeal {
+  color: var(--accent-teal, #2dd4bf);
+}

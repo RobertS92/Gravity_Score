@@ -3,10 +3,11 @@ Job management endpoints
 Trigger and monitor scraper/crawler jobs
 """
 
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from app.auth import verify_api_key
 from app.services.scheduler_service import SchedulerService
 from app.services.supabase_client import get_supabase_client
+from app.config import settings
 from app.schemas.responses import JobResponse, JobStatusResponse
 from typing import List
 import logging
@@ -30,11 +31,17 @@ async def trigger_daily_job(
     Returns:
         Job trigger confirmation
     """
+    if not settings.supabase_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Supabase is not configured; daily jobs require SUPABASE_URL and SUPABASE_SERVICE_KEY.",
+        )
+
     scheduler = SchedulerService()
-    
+
     # Run in background
     background_tasks.add_task(scheduler.run_daily_job)
-    
+
     logger.info("Daily VIP job triggered")
     
     return {
@@ -58,11 +65,17 @@ async def trigger_weekly_job(
     Returns:
         Job trigger confirmation
     """
+    if not settings.supabase_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Supabase is not configured; weekly jobs require SUPABASE_URL and SUPABASE_SERVICE_KEY.",
+        )
+
     scheduler = SchedulerService()
-    
+
     # Run in background
     background_tasks.add_task(scheduler.run_weekly_job)
-    
+
     logger.info("Weekly full job triggered")
     
     return {
@@ -83,7 +96,9 @@ async def get_jobs_status(limit: int = 20):
         List of recent job statuses
     """
     supabase = get_supabase_client()
-    
+    if not supabase:
+        return []
+
     try:
         jobs = supabase.table('scraper_jobs')\
             .select('*')\
@@ -109,7 +124,13 @@ async def get_job_status(job_id: str):
         Job status information
     """
     supabase = get_supabase_client()
-    
+    if not supabase:
+        return {
+            "id": job_id,
+            "job_type": "unknown",
+            "status": "not_configured",
+        }
+
     try:
         job = supabase.table('scraper_jobs')\
             .select('*')\

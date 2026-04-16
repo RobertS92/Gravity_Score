@@ -4,18 +4,10 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from gravity_api.database import get_db
+from gravity_api.services.athlete_feed import build_athlete_feed_events
+from gravity_api.services.athlete_search import search_athletes as run_athlete_search
 
 router = APIRouter()
-
-_VALID_SORTS = {
-    "gravity_score": "s.gravity_score",
-    "brand_score": "s.brand_score",
-    "proof_score": "s.proof_score",
-    "proximity_score": "s.proximity_score",
-    "velocity_score": "s.velocity_score",
-    "risk_score": "s.risk_score",
-    "name": "a.name",
-}
 
 
 @router.get("/")
@@ -36,90 +28,22 @@ async def search_athletes(
     db: asyncpg.Connection = Depends(get_db),
 ):
     """Search athletes with filters — terminal search and leaderboards."""
-    conditions: list[str] = []
-    params: list = []
-    idx = 1
-
-    if q:
-        conditions.append(f"a.name ILIKE ${idx}")
-        params.append(f"%{q}%")
-        idx += 1
-    if sport:
-        conditions.append(f"a.sport = ${idx}")
-        params.append(sport)
-        idx += 1
-    if conference:
-        conditions.append(f"a.conference = ${idx}")
-        params.append(conference)
-        idx += 1
-    if position_group:
-        conditions.append(f"a.position_group = ${idx}")
-        params.append(position_group)
-        idx += 1
-    if school:
-        conditions.append(f"a.school ILIKE ${idx}")
-        params.append(f"%{school}%")
-        idx += 1
-    if min_gravity is not None:
-        conditions.append(f"s.gravity_score >= ${idx}")
-        params.append(min_gravity)
-        idx += 1
-    if max_gravity is not None:
-        conditions.append(f"s.gravity_score <= ${idx}")
-        params.append(max_gravity)
-        idx += 1
-    if min_brand is not None:
-        conditions.append(f"s.brand_score >= ${idx}")
-        params.append(min_brand)
-        idx += 1
-    if max_risk is not None:
-        conditions.append(f"s.risk_score <= ${idx}")
-        params.append(max_risk)
-        idx += 1
-
-    where = "WHERE " + " AND ".join(conditions) if conditions else ""
-    sort_col = _VALID_SORTS.get(sort_by, "s.gravity_score")
-    sort_direction = "DESC" if sort_dir.lower() == "desc" else "ASC"
-    nulls = "NULLS LAST"
-    if sort_col == "a.name":
-        nulls = "NULLS LAST"
-
-    query = f"""
-        SELECT
-            a.*,
-            s.gravity_score, s.brand_score, s.proof_score,
-            s.proximity_score, s.velocity_score, s.risk_score,
-            s.confidence, s.top_factors_up, s.top_factors_down,
-            s.calculated_at as score_date
-        FROM athletes a
-        LEFT JOIN LATERAL (
-            SELECT * FROM athlete_gravity_scores
-            WHERE athlete_id = a.id
-            ORDER BY calculated_at DESC
-            LIMIT 1
-        ) s ON true
-        {where}
-        ORDER BY {sort_col} {sort_direction} {nulls}
-        LIMIT ${idx} OFFSET ${idx + 1}
-    """
-    params.extend([limit, offset])
-
-    rows = await db.fetch(query, *params)
-    count_sql = f"""
-        SELECT COUNT(*) FROM (
-            SELECT a.id
-            FROM athletes a
-            LEFT JOIN LATERAL (
-                SELECT * FROM athlete_gravity_scores
-                WHERE athlete_id = a.id
-                ORDER BY calculated_at DESC
-                LIMIT 1
-            ) s ON true
-            {where}
-        ) c
-    """
-    total = await db.fetchval(count_sql, *params[:-2])
-    return {"athletes": [dict(r) for r in rows], "total": total, "returned": len(rows)}
+    return await run_athlete_search(
+        db,
+        q=q,
+        sport=sport,
+        conference=conference,
+        position_group=position_group,
+        school=school,
+        min_gravity=min_gravity,
+        max_gravity=max_gravity,
+        min_brand=min_brand,
+        max_risk=max_risk,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/{athlete_id}/score-history")
@@ -142,6 +66,47 @@ async def get_score_history(
     return {"history": [dict(r) for r in rows]}
 
 
+async def _fetch_comparables(db: asyncpg.Connection, athlete_id: str):
+    return await db.fetch(
+        """SELECT a.*, s.gravity_score, s.brand_score, s.proof_score,
+                  s.proximity_score, s.velocity_score, s.risk_score,
+                  cs.similarity_score
+           FROM comparable_sets cs
+           JOIN athletes a ON a.id = cs.comparable_athlete_id
+           LEFT JOIN LATERAL (
+               SELECT * FROM athlete_gravity_scores
+               WHERE athlete_id = a.id
+               ORDER BY calculated_at DESC LIMIT 1
+           ) s ON true
+           WHERE cs.subject_athlete_id = $1
+           ORDER BY cs.similarity_score DESC
+           LIMIT 15""",
+        athlete_id,
+    )
+
+
+@router.get("/{athlete_id}/comparables")
+async def get_comparables(athlete_id: str, db: asyncpg.Connection = Depends(get_db)):
+    exists = await db.fetchval("SELECT 1 FROM athletes WHERE id = $1", athlete_id)
+    if not exists:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+    comparables = await _fetch_comparables(db, athlete_id)
+    return {"comparables": [dict(c) for c in comparables]}
+
+
+@router.get("/{athlete_id}/feed")
+async def get_athlete_feed(athlete_id: str, db: asyncpg.Connection = Depends(get_db)):
+    athlete = await db.fetchrow("SELECT id, name FROM athletes WHERE id = $1", athlete_id)
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+    events = await build_athlete_feed_events(
+        db,
+        str(athlete["id"]),
+        str(athlete["name"]),
+    )
+    return {"events": events}
+
+
 @router.get("/{athlete_id}")
 async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db)):
     """Full athlete profile with score history, NIL deals, comparables."""
@@ -162,25 +127,38 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
            ORDER BY deal_date DESC NULLS LAST""",
         athlete_id,
     )
-    comparables = await db.fetch(
-        """SELECT a.*, s.gravity_score, s.brand_score, s.proof_score,
-                  s.proximity_score, s.velocity_score, s.risk_score,
-                  cs.similarity_score
-           FROM comparable_sets cs
-           JOIN athletes a ON a.id = cs.comparable_athlete_id
-           LEFT JOIN LATERAL (
-               SELECT * FROM athlete_gravity_scores
-               WHERE athlete_id = a.id
-               ORDER BY calculated_at DESC LIMIT 1
-           ) s ON true
-           WHERE cs.subject_athlete_id = $1
-           ORDER BY cs.similarity_score DESC
-           LIMIT 15""",
-        athlete_id,
+    comparables = await _fetch_comparables(db, athlete_id)
+
+    athlete_dict = dict(athlete)
+
+    # Resolve latest component scores for display (first history row has the freshest values)
+    latest_score = dict(scores[0]) if scores else {}
+
+    # Merge the latest gravity_scores row fields into the athlete dict for easy frontend access
+    for score_field in (
+        "gravity_score", "brand_score", "proof_score", "proximity_score",
+        "velocity_score", "risk_score", "confidence", "model_version",
+        "dollar_p10_usd", "dollar_p50_usd", "dollar_p90_usd",
+        "dollar_confidence", "shap_values", "top_factors_up", "top_factors_down",
+    ):
+        if latest_score.get(score_field) is not None:
+            athlete_dict[score_field] = latest_score[score_field]
+
+    athlete_dict["score_date"] = latest_score.get("calculated_at")
+
+    # Map program_gravity_score / active_deal_brand_gravity through to the
+    # frontend's company_gravity_score / brand_gravity_score field names.
+    athlete_dict["company_gravity_score"] = (
+        athlete_dict.get("program_gravity_score")
+        or latest_score.get("company_gravity_score")
+    )
+    athlete_dict["brand_gravity_score"] = (
+        athlete_dict.get("active_deal_brand_gravity")
+        or latest_score.get("brand_gravity_score")
     )
 
     return {
-        "athlete": dict(athlete),
+        "athlete": athlete_dict,
         "score_history": [dict(s) for s in scores],
         "nil_deals": [dict(d) for d in deals],
         "comparables": [dict(c) for c in comparables],

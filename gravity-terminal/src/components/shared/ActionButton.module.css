@@ -1,0 +1,25 @@
+.btn {
+  border: 1px solid var(--border-default);
+  border-radius: 2px;
+  padding: 5px 8px;
+  font-family: var(--font-prose);
+  font-size: 13px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.primary {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.primary:hover {
+  background: var(--bg-tertiary);
+  color: var(--accent-green);
+}

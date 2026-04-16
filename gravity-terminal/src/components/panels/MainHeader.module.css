@@ -1,0 +1,113 @@
+.wrap {
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.left {
+  min-width: 0;
+}
+
+.name {
+  font-family: var(--font-prose);
+  font-size: 18px;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+
+.meta {
+  font-family: var(--font-data);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+.scoreBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.scoreLabel {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.10em;
+  color: var(--text-dim);
+}
+
+.scoreRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.scoreVal {
+  font-family: var(--font-data);
+  font-size: 26px;
+  font-weight: bold;
+  color: var(--accent-green);
+}
+
+.delta {
+  font-family: var(--font-data);
+  font-size: 13px;
+}
+
+.deltaPos {
+  color: var(--accent-green);
+}
+
+.deltaNeg {
+  color: var(--accent-red);
+}
+
+.updated {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.updatedStale {
+  color: var(--accent-amber);
+}
+
+.tier {
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--accent-amber);
+  letter-spacing: 0.08em;
+}
+
+.pct {
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.programG {
+  font-family: var(--font-data);
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--accent-amber);
+  letter-spacing: 0.04em;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

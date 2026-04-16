@@ -12,7 +12,7 @@ Command-line tool to run the complete Gravity Score data pipeline:
 Usage:
     python run_pipeline.py input.csv output.csv
     python run_pipeline.py input.json output.json
-    python run_pipeline.py --scrape cfb --output scores.csv  # scrape path disabled; use college scrapers
+    python run_pipeline.py --scrape cfb --output scores.csv  # disabled: use external scrapers + --input
 
 Author: Gravity Score Team
 """
@@ -66,7 +66,7 @@ Examples:
     parser.add_argument('--output', dest='output_file', metavar='FILE',
                        help='Output file path (alternative to positional output argument)')
     parser.add_argument('--scrape', choices=['wnba', 'cfb', 'ncaab', 'wncaab'],
-                       help='Scrape fresh data for sport (NFL/NBA removed; use college scrapers / gravity_api)')
+                       help='Disabled: use external scrapers repo; pass --input instead')
     parser.add_argument('--scrape-mode', default='test',
                        help='Scraping mode: test, team, all, player (default: test)')
     parser.add_argument('--max-years', type=int, default=3,
@@ -212,13 +212,10 @@ Examples:
 
 
 def scrape_data(sport: str, mode: str = 'test') -> list:
-    """
-    Live scrape from this entrypoint is disabled (NFL/NBA modules removed).
-    Use ``gravity/cfb_scraper.py``, ``gravity/ncaab_scraper.py``, or ``gravity_api`` jobs.
-    """
+    """Scraping is not in this repo; use the external scrapers repository or pass a CSV/JSON file."""
     _ = mode
     logger.error(
-        "run_pipeline --scrape is not wired for %s. Use college scrapers or gravity_api.",
+        "run_pipeline --scrape is disabled here. Use external scrapers or --input file (%s).",
         sport,
     )
     return []

@@ -1,6 +1,7 @@
 """
-CFB Scraper Integration
-Integrates NIL pipeline with existing CFB scraper
+CFB integration helpers (NIL stubs).
+
+Player ingestion runs from the external scrapers repository.
 """
 
 import logging
@@ -29,8 +30,7 @@ def integrate_nil_pipeline(
     """
     Integrate NIL pipeline into CFB scraper workflow
     
-    This function should be called from cfb_scraper.py after collecting
-    basic player data.
+    Intended to run after external CFB scraper produces player payloads.
     
     Args:
         player_name: Name of player
@@ -123,34 +123,4 @@ def integrate_nil_pipeline(
     return result
 
 
-# Example of how to integrate into cfb_scraper.py:
-"""
-# In gravity/cfb_scraper.py, add after proof data collection (around line 620):
-
-try:
-    from gravity.integrations.cfb_integration import integrate_nil_pipeline
-    
-    logger.info(f"🚀 Running NIL pipeline integration...")
-    nil_pipeline_result = integrate_nil_pipeline(
-        player_name=player_name,
-        team=team,
-        sport='football',
-        player_data=player_data.dict() if player_data else None
-    )
-    
-    if nil_pipeline_result.get('success'):
-        # Update player_data with NIL pipeline results
-        if nil_pipeline_result.get('gravity_score'):
-            logger.info(f"   ⭐ Gravity Score: {nil_pipeline_result['gravity_score']['gravity_conf']:.2f}/100")
-        
-        if nil_pipeline_result.get('valuation'):
-            val = nil_pipeline_result['valuation']['iacv_p50']
-            logger.info(f"   💰 IACV: ${val:,.0f}")
-        
-        # Store athlete_id for future reference
-        player_data.athlete_id = nil_pipeline_result.get('athlete_id')
-    
-except Exception as e:
-    logger.warning(f"NIL pipeline integration failed: {e}")
-    # Continue with existing scraper flow
-"""
+# Call integrate_nil_pipeline() from your external CFB scraper after each player payload is built.
