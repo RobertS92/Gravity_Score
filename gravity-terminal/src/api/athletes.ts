@@ -85,12 +85,21 @@ function normalizeSearchFull(raw: unknown): AthleteRecord[] {
 export function searchAthletes(query: string) {
   const q = query.trim()
   if (!q) return Promise.resolve([] as AthleteSearchHit[])
-  return apiGet<unknown>(`athletes?q=${encodeURIComponent(q)}&limit=25`).then(normalizeSearchResponse)
+  const sp = new URLSearchParams({
+    q,
+    limit: '25',
+    exclude_inactive: 'true',
+  })
+  return apiGet<unknown>(`athletes?${sp.toString()}`).then(normalizeSearchResponse)
 }
 
 /** Search with optional filter params, returns full AthleteRecord (score, school, etc.). */
 export function searchAthletesFiltered(params: Record<string, string>): Promise<AthleteRecord[]> {
-  const qs = new URLSearchParams({ limit: '30', ...params }).toString()
+  const qs = new URLSearchParams({
+    limit: '100',
+    exclude_inactive: 'true',
+    ...params,
+  }).toString()
   return apiGet<unknown>(`athletes?${qs}`).then(normalizeSearchFull)
 }
 

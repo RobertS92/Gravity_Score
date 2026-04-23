@@ -7,11 +7,41 @@
   flex-shrink: 0;
 }
 
+.sports {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-right: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.sportChip {
+  padding: 4px 8px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.sportChip:hover {
+  color: var(--text-secondary);
+}
+
+.sportChipOn {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
 .brand {
   display: flex;
   align-items: center;
   padding: 0 14px;
-  margin-right: 16px;
+  margin-right: 0;
   border-right: 1px solid var(--border-default);
   font-family: var(--font-data);
   font-size: 14px;
@@ -128,6 +158,19 @@
 .logoutBtn:hover {
   color: var(--text-muted);
   border-color: var(--text-dim);
+}
+
+.settingsLink {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 3px 6px;
+}
+
+.settingsLink:hover {
+  color: var(--text-muted);
 }
 
 .clock {

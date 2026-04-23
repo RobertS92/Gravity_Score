@@ -13,6 +13,9 @@ from typing import Any
 
 import asyncpg
 
+# Roster eligibility: same rule as athlete search (NULL is_active = still on roster).
+_ROSTER_ELIGIBLE_SQL = "(a.is_active IS DISTINCT FROM FALSE)"
+
 # Proof score tier boundaries for peer-comparison
 _TIER_BOUNDS = [(85, "elite"), (70, "high"), (55, "mid"), (0, "low")]
 
@@ -125,6 +128,7 @@ async def score_roster(
     if not slots:
         return {
             "athletes": [],
+            "removed_athletes": [],
             "talent_grade": "N/A",
             "avg_proof": 0.0,
             "total_spend": 0.0,
@@ -146,6 +150,7 @@ async def score_roster(
             a.position,
             a.conference,
             a.sport,
+            {_ROSTER_ELIGIBLE_SQL} AS roster_eligible,
             s.proof_score,
             s.brand_score,
             s.gravity_score,
@@ -165,6 +170,20 @@ async def score_roster(
         *athlete_ids,
     )
 
+    by_id = {r["athlete_id"]: r for r in rows}
+    removed_athletes: list[dict[str, Any]] = []
+
+    for s in slots:
+        aid = str(s["athlete_id"])
+        row = by_id.get(aid)
+        if row is None:
+            removed_athletes.append({"athlete_id": aid, "name": None, "reason": "not_found"})
+            continue
+        if not row["roster_eligible"]:
+            removed_athletes.append(
+                {"athlete_id": aid, "name": row["name"], "reason": "inactive"}
+            )
+
     peer_medians = await peer_value_ratios(db)
 
     athlete_rows = []
@@ -173,6 +192,8 @@ async def score_roster(
     position_depth: dict[str, int] = {}
 
     for r in rows:
+        if not r["roster_eligible"]:
+            continue
         aid = r["athlete_id"]
         proof = float(r["proof_score"] or 0)
         base_cost = float(r["dollar_p50_usd"] or 0)
@@ -207,6 +228,7 @@ async def score_roster(
 
     return {
         "athletes": athlete_rows,
+        "removed_athletes": removed_athletes,
         "talent_grade": talent_grade(avg_proof),
         "avg_proof": round(avg_proof, 1),
         "total_spend": round(total_spend, 0),

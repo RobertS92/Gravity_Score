@@ -18,14 +18,19 @@ from gravity_api.routers import (
     athletes,
     auth,
     brands_scoring,
+    cap,
+    data_submissions,
     deals,
     market,
     match,
+    operations,
     programs,
     query,
     reports,
     roster,
     scores,
+    scraper_jobs,
+    user_preferences,
     watchlist,
     webhooks,
 )
@@ -58,6 +63,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/v1/auth", tags=["auth"])
+app.include_router(user_preferences.router, prefix="/v1/user", tags=["user"])
 app.include_router(athletes.router, prefix="/v1/athletes", tags=["athletes"])
 app.include_router(scores.router, prefix="/v1/scores", tags=["scores"])
 app.include_router(reports.router, prefix="/v1/reports", tags=["reports"])
@@ -72,6 +78,10 @@ app.include_router(webhooks.router, prefix="/v1/webhooks", tags=["webhooks"])
 app.include_router(match.router, prefix="/v1/match", tags=["match"])
 app.include_router(brands_scoring.router, prefix="/v1/brands", tags=["brands"])
 app.include_router(roster.router, prefix="/v1/roster", tags=["roster"])
+app.include_router(operations.router, prefix="/v1/operations", tags=["operations"])
+app.include_router(cap.router, prefix="/v1/cap", tags=["cap"])
+app.include_router(data_submissions.router, prefix="/v1/data", tags=["data"])
+app.include_router(scraper_jobs.router, prefix="/v1/scraper", tags=["scraper-pipeline"])
 
 
 @app.get("/health")

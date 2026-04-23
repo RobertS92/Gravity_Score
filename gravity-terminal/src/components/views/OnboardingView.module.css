@@ -1,0 +1,121 @@
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg-primary);
+}
+
+.card {
+  width: 100%;
+  max-width: 520px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-secondary);
+  padding: 28px 24px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.progress {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.grid {
+  display: grid;
+  gap: 10px;
+}
+
+.cardPick {
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.cardPick:hover {
+  border-color: var(--accent-cyan);
+}
+
+.cardPickActive {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 1px var(--accent-cyan);
+}
+
+.sub {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.chip {
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.chipOn {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.btn {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 10px 16px;
+  border: 1px solid var(--accent-cyan);
+  background: transparent;
+  color: var(--accent-cyan);
+  cursor: pointer;
+}
+
+.btnPrimary {
+  background: var(--accent-cyan);
+  color: var(--bg-primary);
+}
+
+.error {
+  color: #e08090;
+  font-size: 12px;
+  margin-top: 8px;
+}

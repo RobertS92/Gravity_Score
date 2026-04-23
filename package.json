@@ -1,0 +1,13 @@
+{
+  "name": "gravity-score",
+  "private": true,
+  "description": "Root scripts delegate to gravity-terminal (Vite app). Python API lives under gravity_api/. For npm run test:api use a venv: python3 -m venv .venv && .venv/bin/pip install -r requirements-gravity-api.txt",
+  "scripts": {
+    "build": "npm run build --prefix gravity-terminal",
+    "dev": "npm run dev --prefix gravity-terminal",
+    "lint": "npm run lint --prefix gravity-terminal",
+    "test": "npm run test --prefix gravity-terminal",
+    "preview": "npm run preview --prefix gravity-terminal",
+    "test:api": "bash scripts/run_api_tests.sh"
+  }
+}

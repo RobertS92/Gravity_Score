@@ -1,20 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { searchAthletesFiltered } from '../../api/athletes'
 import type { AthleteRecord } from '../../types/athlete'
+import { usePreferencesStore } from '../../stores/preferencesStore'
 import { useWatchlistStore } from '../../stores/watchlistStore'
-import { useRosterStore } from '../../stores/rosterStore'
 import { formatScore } from '../../lib/formatters'
 import styles from './WatchlistModal.module.css'
 
 interface Props {
   onClose: () => void
-  /** When set, clicking a result adds to roster instead of watchlist */
-  mode?: 'watchlist' | 'roster'
 }
 
 const POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'DB', 'K', 'PG', 'SG', 'SF', 'PF', 'C']
 const CONFERENCES = ['SEC', 'Big Ten', 'Big 12', 'ACC', 'Pac-12', 'AAC', 'Mountain West']
-const SPORTS = ['football', 'basketball', 'baseball']
+
+/** Values must match `athletes.sport` (scrapers: cfb / ncaab_*; older DBs may use `mcbb` for MBB). */
+const SPORT_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Football (CFB)', value: 'cfb' },
+  { label: "Men's basketball", value: 'ncaab_mens' },
+  { label: "Women's basketball", value: 'ncaab_womens' },
+  { label: "Men's basketball (schema: mcbb)", value: 'mcbb' },
+]
 
 type Filters = {
   q: string
@@ -23,7 +28,7 @@ type Filters = {
   sport: string
 }
 
-export function WatchlistModal({ onClose, mode = 'watchlist' }: Props) {
+export function WatchlistModal({ onClose }: Props) {
   const [filters, setFilters] = useState<Filters>({ q: '', position: '', conference: '', sport: '' })
   const [results, setResults] = useState<AthleteRecord[]>([])
   const [loading, setLoading] = useState(false)
@@ -31,8 +36,8 @@ export function WatchlistModal({ onClose, mode = 'watchlist' }: Props) {
 
   const watchlist = useWatchlistStore((s) => s.athletes)
   const addToWatchlist = useWatchlistStore((s) => s.addToWatchlist)
-  const addSlot = useRosterStore((s) => s.addSlot)
-  const rosterSlots = useRosterStore((s) => s.slots)
+  const activeSports = usePreferencesStore((s) => s.activeSports)
+  const sportsCsv = activeSports.filter(Boolean).join(',')
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -42,9 +47,10 @@ export function WatchlistModal({ onClose, mode = 'watchlist' }: Props) {
     try {
       const params: Record<string, string> = {}
       if (f.q) params.q = f.q
-      if (f.position) params.position = f.position
+      if (f.position) params.position_group = f.position
       if (f.conference) params.conference = f.conference
       if (f.sport) params.sport = f.sport
+      if (sportsCsv) params.sports = sportsCsv
       const r = await searchAthletesFiltered(params)
       setResults(r)
     } catch (e) {
@@ -52,7 +58,7 @@ export function WatchlistModal({ onClose, mode = 'watchlist' }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [sportsCsv])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -60,32 +66,15 @@ export function WatchlistModal({ onClose, mode = 'watchlist' }: Props) {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [filters, doSearch])
-
-  // Search on mount
-  useEffect(() => { void doSearch(filters) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filters, doSearch, sportsCsv])
 
   const isOnWatchlist = (id: string) => watchlist.some((a) => a.athlete_id === id)
-  const isOnRoster = (id: string) => rosterSlots.some((s) => s.athlete_id === id)
-
-  const handleAdd = (a: AthleteRecord) => {
-    if (mode === 'roster') {
-      addSlot(a.athlete_id)
-    } else {
-      void addToWatchlist(a.athlete_id)
-    }
-  }
-
-  const alreadyAdded = (a: AthleteRecord) =>
-    mode === 'roster' ? isOnRoster(a.athlete_id) : isOnWatchlist(a.athlete_id)
 
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <header className={styles.header}>
-          <span className={styles.title}>
-            {mode === 'roster' ? 'ADD PLAYER TO ROSTER' : 'ADD TO WATCHLIST'}
-          </span>
+          <span className={styles.title}>ADD TO WATCHLIST</span>
           <button type="button" className={styles.closeBtn} onClick={onClose}>
             ×
           </button>
@@ -110,7 +99,9 @@ export function WatchlistModal({ onClose, mode = 'watchlist' }: Props) {
           >
             <option value="">All Conferences</option>
             {CONFERENCES.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
           <select
@@ -120,7 +111,9 @@ export function WatchlistModal({ onClose, mode = 'watchlist' }: Props) {
           >
             <option value="">All Positions</option>
             {POSITIONS.map((p) => (
-              <option key={p} value={p}>{p}</option>
+              <option key={p} value={p}>
+                {p}
+              </option>
             ))}
           </select>
           <select
@@ -129,8 +122,10 @@ export function WatchlistModal({ onClose, mode = 'watchlist' }: Props) {
             onChange={(e) => setFilters((f) => ({ ...f, sport: e.target.value }))}
           >
             <option value="">All Sports</option>
-            {SPORTS.map((s) => (
-              <option key={s} value={s}>{s}</option>
+            {SPORT_OPTIONS.map(({ label, value }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
             ))}
           </select>
           {(filters.conference || filters.position || filters.sport || filters.q) && (
@@ -147,11 +142,9 @@ export function WatchlistModal({ onClose, mode = 'watchlist' }: Props) {
         <div className={styles.resultsArea}>
           {loading && <div className={styles.statusMsg}>Searching…</div>}
           {error && <div className={styles.errorMsg}>{error}</div>}
-          {!loading && results.length === 0 && !error && (
-            <div className={styles.statusMsg}>No results</div>
-          )}
+          {!loading && results.length === 0 && !error && <div className={styles.statusMsg}>No results</div>}
           {results.map((a) => {
-            const added = alreadyAdded(a)
+            const added = isOnWatchlist(a.athlete_id)
             return (
               <div key={a.athlete_id} className={styles.resultRow}>
                 <div className={styles.resultInfo}>
@@ -166,7 +159,7 @@ export function WatchlistModal({ onClose, mode = 'watchlist' }: Props) {
                     type="button"
                     className={added ? styles.addedBtn : styles.addBtn}
                     disabled={added}
-                    onClick={() => handleAdd(a)}
+                    onClick={() => void addToWatchlist(a.athlete_id)}
                   >
                     {added ? '✓ ADDED' : '+ ADD'}
                   </button>

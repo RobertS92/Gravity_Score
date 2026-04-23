@@ -14,6 +14,7 @@ except ImportError:
     AsyncAnthropic = None  # type: ignore
 
 from gravity_api.config import get_settings
+from gravity_api.services.position_group_match import position_group_sql_predicate
 
 
 def _json_safe(obj: Any) -> Any:
@@ -193,7 +194,6 @@ class GravityQueryAgent:
         field_map = {
             "sport": ("a.sport", "="),
             "conference": ("a.conference", "ILIKE"),
-            "position_group": ("a.position_group", "="),
             "school": ("a.school", "ILIKE"),
             "min_gravity": ("s.gravity_score", ">="),
             "max_gravity": ("s.gravity_score", "<="),
@@ -202,6 +202,11 @@ class GravityQueryAgent:
             "min_proof": ("s.proof_score", ">="),
             "max_risk": ("s.risk_score", "<="),
         }
+
+        if params.get("position_group") is not None:
+            frag, extra, idx = position_group_sql_predicate(str(params["position_group"]), idx)
+            conditions.append(frag)
+            values.extend(extra)
 
         for key, (col, op) in field_map.items():
             if key in params and params[key] is not None:

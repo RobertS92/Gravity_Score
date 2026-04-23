@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { getMarketScan, getMarketSchools } from '../../api/market'
+import { getMarketScan, getMarketSchools, MARKET_SCAN_ROW_CAP } from '../../api/market'
 import type { AthleteRecord } from '../../types/athlete'
 import type { SchoolIndexRow } from '../../types/reports'
 import { formatNilMillions, formatScore } from '../../lib/formatters'
+import { usePreferencesStore } from '../../stores/preferencesStore'
 import { useUiStore } from '../../stores/uiStore'
 import styles from './MarketScanView.module.css'
 
@@ -27,8 +28,11 @@ export function MarketScanView() {
   const sub = useUiStore((s) => s.marketScanSub)
   const setSub = useUiStore((s) => s.setMarketScanSub)
   const cohortIds = useUiStore((s) => s.cohortIds)
+  const activeSports = usePreferencesStore((s) => s.activeSports)
+  const sportsCsv = useMemo(() => activeSports.filter(Boolean).join(','), [activeSports])
 
   const [rows, setRows] = useState<AthleteRecord[]>([])
+  const [scanTotal, setScanTotal] = useState<number | null>(null)
   const [schools, setSchools] = useState<SchoolIndexRow[]>([])
   const [sortKey, setSortKey] = useState<SortKey>('gravity_score')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -36,9 +40,12 @@ export function MarketScanView() {
   const [schoolSort, setSchoolSort] = useState<keyof SchoolIndexRow>('program_gravity_score')
 
   useEffect(() => {
-    void getMarketScan({}).then(setRows)
+    void getMarketScan(sportsCsv ? { sports: sportsCsv } : {}).then((r) => {
+      setRows(r.athletes)
+      setScanTotal(r.total)
+    })
     void getMarketSchools().then(setSchools)
-  }, [])
+  }, [sportsCsv])
 
   const sorted = useMemo(() => {
     const out = [...rows]
@@ -69,6 +76,14 @@ export function MarketScanView() {
 
   return (
     <div className={styles.root}>
+      {sub === 'position' && scanTotal != null && (
+        <div className={styles.muted}>
+          Showing {rows.length} of {scanTotal}
+          {rows.length >= MARKET_SCAN_ROW_CAP && scanTotal > MARKET_SCAN_ROW_CAP
+            ? ` (display limited to first ${MARKET_SCAN_ROW_CAP} rows)`
+            : ''}
+        </div>
+      )}
       <div className={styles.subBar}>
         <button type="button" className={sub === 'position' ? styles.subOn : styles.subOff} onClick={() => setSub('position')}>
           POSITION RANK

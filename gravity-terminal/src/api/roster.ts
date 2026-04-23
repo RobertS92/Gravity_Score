@@ -31,11 +31,20 @@ export interface RosterAthleteRow {
   nil_cost_override: number | null
 }
 
+export interface RemovedAthleteSlot {
+  athlete_id: string
+  name: string | null
+  reason: 'inactive' | 'not_found'
+}
+
 export interface RosterScored {
   id?: string
   name: string
   budget_usd: number
+  /** Pruned slot list (matches DB after inactive players removed). */
+  slots?: RosterSlot[]
   athletes: RosterAthleteRow[]
+  removed_athletes?: RemovedAthleteSlot[]
   talent_grade: string
   avg_proof: number
   total_spend: number

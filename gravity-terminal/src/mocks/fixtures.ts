@@ -4,6 +4,8 @@ import type { FeedEventRecord } from '../types/feed'
 import type { BrandMatchResult, CscReportJson, SchoolIndexRow } from '../types/reports'
 
 export const MOCK_USER_ID = '00000000-0000-4000-8000-000000000001'
+/** Demo org for CapIQ mocks (align with DB after migration 006). */
+export const MOCK_ORG_ID = '00000000-0000-4000-8000-0000000000aa'
 
 export const ARCH_MANNING_ID = 'a1111111-1111-4111-8111-111111111111'
 

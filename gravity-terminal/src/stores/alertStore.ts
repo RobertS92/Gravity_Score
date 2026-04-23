@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { getAlerts } from '../api/alerts'
 import type { AlertRecord } from '../types/alerts'
 import { getTerminalUserId } from './authStore'
+import { usePreferencesStore } from './preferencesStore'
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let alertsBootstrapped = false
@@ -24,7 +25,8 @@ export const useAlertStore = create<AlertStore>((set, get) => ({
 
   loadAlerts: async () => {
     try {
-      const alerts = await getAlerts(getTerminalUserId())
+      const sportsCsv = usePreferencesStore.getState().activeSports.join(',')
+      const alerts = await getAlerts(getTerminalUserId(), sportsCsv || null)
       const { readIds } = get()
       const unread = alerts.filter((a) => !readIds.has(a.alert_id)).length
       const prevUnread = get().unreadCount

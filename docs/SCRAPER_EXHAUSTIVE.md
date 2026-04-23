@@ -71,6 +71,7 @@ After deploy, confirm in a browser or with `curl` that `https://…/` or `/healt
 | **Supabase → `athletes`** | `last_scraped_at` updating for rows that were scraped. |
 | **Railway logs** | Lines like `Starting daily job`, `Scraping <name>`, `Daily job done. Processed: …`. |
 | **HTTP** | `GET <RAILWAY_URL>/jobs/status` with header `Authorization: Bearer <SCRAPER_API_KEY>` — same data as the table (see `gravity-scrapers` `app/routers/jobs.py`). |
+| **Progress / ETA** | `GET …/jobs/progress` — newest `running` job with `progress` JSON (`percent`, `eta_seconds`, `phase`, current team). Repo script: `./scripts/check_scraper_progress.sh`. Requires Supabase migration `gravity-scrapers/supabase/007_scraper_jobs_progress.sql`. |
 
 **Local check script** (clone **gravity-scrapers**, set `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` in `.env`, then):
 

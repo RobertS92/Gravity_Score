@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useAthleteStore } from '../stores/athleteStore'
 import { useAuthStore } from '../stores/authStore'
 import { useFeedStore } from '../stores/feedStore'
+import { usePreferencesStore } from '../stores/preferencesStore'
 import { useWatchlistStore, startWatchlistRefresh } from '../stores/watchlistStore'
 import { useAlertStore, startAlertPolling } from '../stores/alertStore'
 
@@ -20,6 +21,10 @@ export function useTerminalBootstrap() {
   useEffect(() => {
     void (async () => {
       await useAuthStore.getState().hydrate()
+      const prefState = usePreferencesStore.getState()
+      if (!prefState.hydrated) {
+        await prefState.hydratePreferences()
+      }
       await useWatchlistStore.getState().loadWatchlist()
       startWatchlistRefresh()
       void useAlertStore.getState().loadAlerts()

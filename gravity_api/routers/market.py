@@ -1,12 +1,13 @@
 """Market scan + school index for the terminal."""
 
-from typing import Optional
+from typing import List, Optional
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query
 
 from gravity_api.database import get_db
 from gravity_api.services.athlete_search import search_athletes as run_athlete_search
+from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 
 router = APIRouter()
 
@@ -15,6 +16,10 @@ router = APIRouter()
 async def market_scan(
     q: Optional[str] = None,
     sport: Optional[str] = None,
+    sports: Optional[str] = Query(
+        None,
+        description="Comma-separated cap codes: CFB,NCAAB,NCAAW (overrides single sport when set)",
+    ),
     conference: Optional[str] = None,
     position_group: Optional[str] = None,
     school: Optional[str] = None,
@@ -24,13 +29,33 @@ async def market_scan(
     max_risk: Optional[float] = None,
     sort_by: str = "gravity_score",
     sort_dir: str = "desc",
-    limit: int = Query(default=100, le=200),
+    limit: int = Query(default=500, le=1000),
+    offset: int = Query(default=0, ge=0, le=500000),
+    exclude_inactive: bool = Query(
+        default=True,
+        description="Hide athletes with is_active=false (departed). Requires migration 005.",
+    ),
+    roster_verified_within_days: Optional[int] = Query(
+        default=180,
+        ge=1,
+        le=3650,
+        description="Hide rows with roster_verified_at older than N days (NULL still shown).",
+    ),
+    include_stale_roster: bool = Query(
+        default=False,
+        description="If true, ignore roster age filter (still respects exclude_inactive).",
+    ),
     db: asyncpg.Connection = Depends(get_db),
 ):
+    roster_days = None if include_stale_roster else roster_verified_within_days
+    sports_db: Optional[List[str]] = None
+    if sports and sports.strip():
+        sports_db = cap_prefs_to_db_slugs([s.strip() for s in sports.split(",") if s.strip()])
     return await run_athlete_search(
         db,
         q=q,
-        sport=sport,
+        sport=sport if not sports_db else None,
+        sports_db=sports_db,
         conference=conference,
         position_group=position_group,
         school=school,
@@ -38,10 +63,12 @@ async def market_scan(
         max_gravity=max_gravity,
         min_brand=min_brand,
         max_risk=max_risk,
+        exclude_inactive=exclude_inactive,
+        roster_verified_within_days=roster_days,
         sort_by=sort_by,
         sort_dir=sort_dir,
         limit=limit,
-        offset=0,
+        offset=offset,
     )
 
 

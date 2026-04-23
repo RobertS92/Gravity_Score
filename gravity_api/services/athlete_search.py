@@ -4,6 +4,8 @@ from typing import Any, List, Optional
 
 import asyncpg
 
+from gravity_api.services.position_group_match import position_group_sql_predicate
+
 _VALID_SORTS = {
     "gravity_score": "s.gravity_score",
     "brand_score": "s.brand_score",
@@ -20,6 +22,7 @@ async def search_athletes(
     *,
     q: Optional[str] = None,
     sport: Optional[str] = None,
+    sports_db: Optional[List[str]] = None,
     conference: Optional[str] = None,
     position_group: Optional[str] = None,
     school: Optional[str] = None,
@@ -27,6 +30,8 @@ async def search_athletes(
     max_gravity: Optional[float] = None,
     min_brand: Optional[float] = None,
     max_risk: Optional[float] = None,
+    exclude_inactive: bool = False,
+    roster_verified_within_days: Optional[int] = None,
     sort_by: str = "gravity_score",
     sort_dir: str = "desc",
     limit: int = 50,
@@ -40,18 +45,23 @@ async def search_athletes(
         conditions.append(f"a.name ILIKE ${idx}")
         params.append(f"%{q}%")
         idx += 1
-    if sport:
+    if sports_db:
+        conditions.append(f"a.sport = ANY(${idx}::text[])")
+        params.append(sports_db)
+        idx += 1
+    elif sport:
         conditions.append(f"a.sport = ${idx}")
         params.append(sport)
         idx += 1
     if conference:
-        conditions.append(f"a.conference = ${idx}")
-        params.append(conference)
+        # Substring match so UI labels like "SEC" match stored names (e.g. "Southeastern Conference")
+        conditions.append(f"a.conference ILIKE ${idx}")
+        params.append(f"%{conference}%")
         idx += 1
     if position_group:
-        conditions.append(f"a.position_group = ${idx}")
-        params.append(position_group)
-        idx += 1
+        frag, extra, idx = position_group_sql_predicate(position_group, idx)
+        conditions.append(frag)
+        params.extend(extra)
     if school:
         conditions.append(f"a.school ILIKE ${idx}")
         params.append(f"%{school}%")
@@ -71,6 +81,17 @@ async def search_athletes(
     if max_risk is not None:
         conditions.append(f"s.risk_score <= ${idx}")
         params.append(max_risk)
+        idx += 1
+    if exclude_inactive:
+        # NULL or TRUE = include; explicit FALSE = departed / hidden
+        conditions.append("(a.is_active IS DISTINCT FROM FALSE)")
+    if roster_verified_within_days is not None:
+        # NULL = not yet verified by roster job — still show until scraper sets timestamps
+        conditions.append(
+            f"(a.roster_verified_at IS NULL OR a.roster_verified_at >= "
+            f"NOW() - (${idx}::int * INTERVAL '1 day'))"
+        )
+        params.append(roster_verified_within_days)
         idx += 1
 
     where = "WHERE " + " AND ".join(conditions) if conditions else ""

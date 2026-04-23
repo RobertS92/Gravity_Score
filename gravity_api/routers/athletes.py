@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from gravity_api.database import get_db
 from gravity_api.services.athlete_feed import build_athlete_feed_events
 from gravity_api.services.athlete_search import search_athletes as run_athlete_search
+from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 
 router = APIRouter()
 
@@ -14,6 +15,10 @@ router = APIRouter()
 async def search_athletes(
     q: Optional[str] = None,
     sport: Optional[str] = None,
+    sports: Optional[str] = Query(
+        None,
+        description="Comma-separated cap codes: CFB,NCAAB,NCAAW (overrides single sport when set)",
+    ),
     conference: Optional[str] = None,
     position_group: Optional[str] = None,
     school: Optional[str] = None,
@@ -21,6 +26,8 @@ async def search_athletes(
     max_gravity: Optional[float] = None,
     min_brand: Optional[float] = None,
     max_risk: Optional[float] = None,
+    exclude_inactive: bool = True,
+    roster_verified_within_days: Optional[int] = None,
     sort_by: str = "gravity_score",
     sort_dir: str = "desc",
     limit: int = Query(default=50, le=200),
@@ -28,10 +35,14 @@ async def search_athletes(
     db: asyncpg.Connection = Depends(get_db),
 ):
     """Search athletes with filters — terminal search and leaderboards."""
+    sports_db: Optional[List[str]] = None
+    if sports and sports.strip():
+        sports_db = cap_prefs_to_db_slugs([s.strip() for s in sports.split(",") if s.strip()])
     return await run_athlete_search(
         db,
         q=q,
-        sport=sport,
+        sport=sport if not sports_db else None,
+        sports_db=sports_db,
         conference=conference,
         position_group=position_group,
         school=school,
@@ -39,6 +50,8 @@ async def search_athletes(
         max_gravity=max_gravity,
         min_brand=min_brand,
         max_risk=max_risk,
+        exclude_inactive=exclude_inactive,
+        roster_verified_within_days=roster_verified_within_days,
         sort_by=sort_by,
         sort_dir=sort_dir,
         limit=limit,
@@ -235,15 +248,8 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     athlete_dict["nil_valuation_raw"]          = raw_signals.get("nil_valuation")
     athlete_dict["data_quality_score"]         = raw_signals.get("data_quality_score") or athlete_dict.get("data_quality_score")
 
-    # Instagram engagement rate: if not scraped, estimate from followers (typical ~3% for 1M+ accounts)
+    # Only surface engagement rate when it was actually scraped — never fabricate it.
     ig_eng = raw_signals.get("instagram_engagement_rate")
-    if ig_eng is None and ig_followers and ig_followers > 0:
-        if ig_followers >= 1_000_000:
-            ig_eng = round(3.0 + max(0, (2_000_000 - ig_followers) / 1_000_000), 1)
-        elif ig_followers >= 100_000:
-            ig_eng = 4.5
-        else:
-            ig_eng = 6.0
     athlete_dict["instagram_engagement_rate"] = ig_eng
 
     # Gravity percentile

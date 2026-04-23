@@ -3,7 +3,7 @@
 import os
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,9 @@ class Settings:
     ml_service_url: str | None
     ml_api_key: str | None
     internal_api_key: str | None
+    scrapers_service_url: Optional[str]
+    scrapers_service_api_key: Optional[str]
+    redis_url: Optional[str]
 
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -49,4 +52,11 @@ def get_settings() -> Settings:
         or None,
         ml_api_key=os.environ.get("ML_API_KEY") or os.environ.get("ML_SERVICE_API_KEY"),
         internal_api_key=os.environ.get("GRAVITY_INTERNAL_API_KEY"),
+        scrapers_service_url=(
+            (os.environ.get("SCRAPERS_SERVICE_URL") or "").strip().rstrip("/") or None
+        ),
+        scrapers_service_api_key=(
+            (os.environ.get("SCRAPERS_SERVICE_API_KEY") or "").strip() or None
+        ),
+        redis_url=(os.environ.get("REDIS_URL") or "").strip() or None,
     )
