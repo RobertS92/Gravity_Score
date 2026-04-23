@@ -51,13 +51,24 @@ Use a **second service** in the same Railway project as `gravity_api` so you can
 7. **GoDaddy custom domain (optional):** In Railway, add your domain under the terminal service; Railway shows **DNS records** (usually `CNAME` for `www`, or **A/CNAME** for apex). Add those in GoDaddy **DNS** (not “forwarding”). TLS is provisioned after DNS verifies.  
 8. **SPA routing:** This image uses **`serve -s`**, which serves `index.html` for unknown paths—no extra Railway SPA config required for client-side routes.
 
-**Find your API base URL (not stored in Git):** Run after `railway login` and `railway link` from the repo root. If **`railway login`** fails in a terminal without a working browser (e.g. Cursor, SSH), use **`railway login --browserless`**: the CLI prints a **URL and pairing code**; open the URL on **any** device, enter the code, then return to the terminal.
+**Find your API base URL (not stored in Git):** Log in, then **link** this folder to your Railway project, then run the helper. If **`railway login`** fails in a terminal without a working browser (e.g. Cursor, SSH), use **`railway login --browserless`**: the CLI prints a **URL and pairing code**; open the URL on **any** device, enter the code, then return to the terminal.
+
+Run **one line at a time** (do not paste whole blocks with `#` comment lines if your zsh has **interactivecomments** off, or you will see `command not found: #`).
 
 ```bash
+cd /path/to/Gravity_Score
+railway login --browserless
+railway link
 bash scripts/railway-print-api-base.sh
-# or, with your API service name from the Railway canvas:
-bash scripts/railway-print-api-base.sh your-api-service-name
 ```
+
+Optional (replace with your real API service name from the Railway canvas):
+
+```bash
+bash scripts/railway-print-api-base.sh my-api-service-name
+```
+
+If the script exits with **“Not linked to a project”**, `railway link` did not finish or was never run in this directory.
 
 Then set **`VITE_API_URL`** on the **terminal** service to `https://<that-host>/v1` (or without `/v1`; the app normalizes it).
 

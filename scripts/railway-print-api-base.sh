@@ -31,6 +31,16 @@ echo "=== Railway whoami ==="
 railway whoami
 echo ""
 
+# Detect missing `railway link` (common when pasting multi-line instructions).
+_link_check=$(railway status 2>&1) || true
+if echo "$_link_check" | grep -qi 'No linked project'; then
+  echo "=== Not linked to a project ===" >&2
+  echo "From this repo root, run **only** this (interactive; complete the prompts):" >&2
+  echo "  railway link" >&2
+  echo "Then run this script again." >&2
+  exit 2
+fi
+
 API_SERVICE="${1:-}"
 if [ -n "$API_SERVICE" ]; then
   echo "=== Variables for service: ${API_SERVICE} (look for RAILWAY_PUBLIC_DOMAIN if listed) ==="
