@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { getMarketScan, getMarketSchools } from '../../api/market'
 import type { AthleteRecord } from '../../types/athlete'
 import type { SchoolIndexRow } from '../../types/reports'
-import { formatInteger, formatNilMillions, formatScore } from '../../lib/formatters'
+import { formatNilMillions, formatScore } from '../../lib/formatters'
 import { useUiStore } from '../../stores/uiStore'
 import styles from './MarketScanView.module.css'
 
