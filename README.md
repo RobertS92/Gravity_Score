@@ -43,12 +43,18 @@ Use a **second service** in the same Railway project as `gravity_api` so you can
 2. **Monorepo root:** Service → **Settings** → set **Root Directory** to `gravity-terminal` ([monorepo guide](https://docs.railway.com/guides/deploying-a-monorepo)).  
 3. **Build:** Confirm **Dockerfile** deploys (`gravity-terminal/railway.toml` sets `builder = "DOCKERFILE"`).  
 4. **`VITE_API_URL` (required):** Variables → add **`VITE_API_URL`**. Same name as **`ARG VITE_API_URL`** in the Dockerfile so Railway passes it into the **build** ([Dockerfiles](https://docs.railway.com/builds/dockerfiles#using-variables-at-build-time), [frontend env vars](https://docs.railway.com/guides/frontend-environment-variables)).  
-   - **Reference your API service** (replace `API_SERVICE_NAME` with the exact service name in Railway, e.g. `gravity-api`):  
+   - **Reference your API service** (replace `API_SERVICE_NAME` with the exact service name on the Railway canvas, e.g. `Gravity_Score`):  
      `https://${{API_SERVICE_NAME.RAILWAY_PUBLIC_DOMAIN}}/v1`  
+   - **Before references work:** the API service must have a **generated Railway public URL** (Networking). If `RAILWAY_PUBLIC_DOMAIN` is empty at build time, the value becomes **`https:///v1`** and the Docker build will fail with a hostname error. Until the API has a domain, paste the **full** API HTTPS URL (copy from the API service → Networking).  
    - Or paste the full public API URL if you prefer. **Redeploy** after changing this value so Vite rebakes the bundle.  
 5. **Networking:** Service → **Settings** → **Networking** → generate **Public URL** for the terminal. HTTPS is automatic on Railway’s domain.  
 6. **CORS:** On **`gravity_api`**, add the terminal’s public origin to **`CORS_ORIGINS`** (comma-separated), e.g. `https://your-terminal.up.railway.app`, then redeploy the API.  
-7. **GoDaddy custom domain (optional):** In Railway, add your domain under the terminal service; Railway shows **DNS records** (usually `CNAME` for `www`, or **A/CNAME** for apex). Add those in GoDaddy **DNS** (not “forwarding”). TLS is provisioned after DNS verifies.  
+7. **GoDaddy custom domain (optional):** Use **DNS records** only (avoid GoDaddy “forwarding” for the app URL).  
+   1. Railway → **Gravity Frontend** (or your UI service) → **Settings** → **Networking** → **Custom Domain** → enter e.g. `app.yourdomain.com` or `www.yourdomain.com`.  
+   2. Railway shows the **CNAME** (or **A**) targets to create.  
+   3. GoDaddy → **My Products** → your domain → **DNS** → **Add** the exact **host** (often `app` or `www`) and **points to** value Railway gave you.  
+   4. Wait for Railway to verify (can take a few minutes). HTTPS certificates are issued by Railway after verification.  
+   5. Add the **final https://…** UI origin to **`CORS_ORIGINS`** on the API and redeploy the API.  
 8. **SPA routing:** This image uses **`serve -s`**, which serves `index.html` for unknown paths—no extra Railway SPA config required for client-side routes.
 
 **Find your API base URL (not stored in Git):** Log in, then **link** this folder to your Railway project, then run the helper. If **`railway login`** fails in a terminal without a working browser (e.g. Cursor, SSH), use **`railway login --browserless`**: the CLI prints a **URL and pairing code**; open the URL on **any** device, enter the code, then return to the terminal.

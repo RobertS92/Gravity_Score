@@ -14,10 +14,16 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Must include `/v1` suffix (see `getApiBaseUrl` in src/api/client.ts), e.g. https://api.example.com/v1
+# Must be a real origin with a hostname (see `getApiBaseUrl` in src/api/client.ts), e.g. https://api.up.railway.app/v1
 ARG VITE_API_URL
 RUN if [ -z "$VITE_API_URL" ]; then \
-      echo "ERROR: pass --build-arg VITE_API_URL=https://your-api-host/v1" >&2; exit 1; \
+      echo "ERROR: VITE_API_URL is empty. On Railway, set Variables → VITE_API_URL on this service, then redeploy." >&2; exit 1; \
+    fi; \
+    if ! echo "$VITE_API_URL" | grep -qE '^https?://[^/]+'; then \
+      echo "ERROR: VITE_API_URL must include a hostname (example: https://your-api.up.railway.app/v1)." >&2; \
+      echo "Got: $VITE_API_URL" >&2; \
+      echo "If you see https:///v1, the API service reference (RAILWAY_PUBLIC_DOMAIN) did not resolve at build time: enable Networking on the API service first, or set VITE_API_URL to the full HTTPS API URL (no template)." >&2; \
+      exit 1; \
     fi
 ENV VITE_API_URL=${VITE_API_URL}
 RUN npm run build
