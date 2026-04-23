@@ -33,16 +33,25 @@ Set `VITE_API_URL` (see `.env.example`) if the API is not on `http://localhost:8
 
 ### Deploy terminal (cloud)
 
-The UI is a static Vite build. Point **`VITE_API_URL`** at your deployed **`gravity_api`** origin **including `/v1`** (example: `https://gravity-api.up.railway.app/v1`). Enable **CORS** on the API for your frontend origin (`CORS_ORIGINS` in `.env.example`).
+The UI is a static Vite build. Point **`VITE_API_URL`** at your deployed **`gravity_api`** base URL. The app appends **`/v1`** if it is missing ([`getApiBaseUrl`](gravity-terminal/src/api/client.ts)). On the API, set **`CORS_ORIGINS`** to include your terminal’s public origin (see `.env.example`).
 
-**Railway (Docker)**  
-1. New service → same Git repo → set **Root Directory** to `gravity-terminal` (see [Deploying a monorepo](https://docs.railway.com/guides/deploying-a-monorepo)).  
-2. Ensure **`Dockerfile`** is used (repo includes `gravity-terminal/railway.toml` with `builder = "DOCKERFILE"`).  
-3. Under **Variables**, add **`VITE_API_URL`** (same name as the `ARG` in the Dockerfile). Railway exposes service variables during the Docker build; declare matching `ARG` lines in each build stage that needs them ([Dockerfiles](https://docs.railway.com/builds/dockerfiles)). Prefer a [reference variable](https://docs.railway.com/variables#referencing-another-services-variable) to your API service’s public URL.  
-4. Deploy. The image runs **`serve -s`** on **`$PORT`** ([frontend env vars](https://docs.railway.com/guides/frontend-environment-variables)).  
-5. If client-side routes 404 on refresh, enable SPA fallback for this service ([SPA routing](https://docs.railway.com/guides/spa-routing-configuration)).
+#### Railway (recommended for this repo)
 
-**Local image check**
+Use a **second service** in the same Railway project as `gravity_api` so you can [reference variables](https://docs.railway.com/variables#referencing-another-services-variable) and one-click HTTPS on the generated `*.up.railway.app` domain (or attach a custom domain later).
+
+1. **Create the service:** New → **GitHub repo** → pick **Gravity_Score** → **Add variables** (you can skip for a moment) → **Deploy** (or finish wizard).  
+2. **Monorepo root:** Service → **Settings** → set **Root Directory** to `gravity-terminal` ([monorepo guide](https://docs.railway.com/guides/deploying-a-monorepo)).  
+3. **Build:** Confirm **Dockerfile** deploys (`gravity-terminal/railway.toml` sets `builder = "DOCKERFILE"`).  
+4. **`VITE_API_URL` (required):** Variables → add **`VITE_API_URL`**. Same name as **`ARG VITE_API_URL`** in the Dockerfile so Railway passes it into the **build** ([Dockerfiles](https://docs.railway.com/builds/dockerfiles#using-variables-at-build-time), [frontend env vars](https://docs.railway.com/guides/frontend-environment-variables)).  
+   - **Reference your API service** (replace `API_SERVICE_NAME` with the exact service name in Railway, e.g. `gravity-api`):  
+     `https://${{API_SERVICE_NAME.RAILWAY_PUBLIC_DOMAIN}}/v1`  
+   - Or paste the full public API URL if you prefer. **Redeploy** after changing this value so Vite rebakes the bundle.  
+5. **Networking:** Service → **Settings** → **Networking** → generate **Public URL** for the terminal. HTTPS is automatic on Railway’s domain.  
+6. **CORS:** On **`gravity_api`**, add the terminal’s public origin to **`CORS_ORIGINS`** (comma-separated), e.g. `https://your-terminal.up.railway.app`, then redeploy the API.  
+7. **GoDaddy custom domain (optional):** In Railway, add your domain under the terminal service; Railway shows **DNS records** (usually `CNAME` for `www`, or **A/CNAME** for apex). Add those in GoDaddy **DNS** (not “forwarding”). TLS is provisioned after DNS verifies.  
+8. **SPA routing:** This image uses **`serve -s`**, which serves `index.html` for unknown paths—no extra Railway SPA config required for client-side routes.
+
+**Local Docker check**
 
 ```bash
 cd gravity-terminal
@@ -50,8 +59,9 @@ docker build --build-arg VITE_API_URL=https://your-api.example.com/v1 -t gravity
 docker run --rm -p 8080:8080 -e PORT=8080 gravity-terminal:prod
 ```
 
-**Vercel**  
-Import the repo, set project **Root Directory** to `gravity-terminal`, add env **`VITE_API_URL`** (with `/v1`), and deploy. `vercel.json` adds SPA fallback rewrites.
+#### Vercel (alternative)
+
+Import the repo, set project **Root Directory** to `gravity-terminal`, add env **`VITE_API_URL`**, and deploy. `vercel.json` adds SPA fallback rewrites.
 
 ### Scoring CSVs (local pipeline)
 ```bash

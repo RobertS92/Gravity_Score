@@ -1,8 +1,9 @@
 # Production static hosting for the Vite SPA (Railway, Fly, ECS, etc.).
-# Build with your API origin baked in, e.g.:
+# Local build:
 #   docker build --build-arg VITE_API_URL=https://your-api.up.railway.app/v1 -t gravity-terminal .
-# Railway: set VITE_API_URL in the service Variables and add a Dockerfile build ARG binding in the dashboard,
-# or use Railway's "Dockerfile ARG" from the same variable name.
+# Railway: add service variable VITE_API_URL (same name as ARG below). Railway injects service variables
+# into the Docker build for matching ARG declarations.
+# https://docs.railway.com/builds/dockerfiles#using-variables-at-build-time
 
 FROM node:22-alpine AS deps
 WORKDIR /app
