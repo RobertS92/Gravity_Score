@@ -2,6 +2,8 @@
 # Print hints / Railway status so you can set VITE_API_URL on the terminal service.
 # Requires: https://docs.railway.com/develop/cli
 #   railway login
+#   If the browser flow fails (SSH, IDE terminal, headless):  railway login --browserless
+#     (CLI prints a URL + code; open the URL on any device and paste the code.)
 #   cd /path/to/Gravity_Score && railway link   # pick your Gravity project + default service (any)
 #
 # Usage:
@@ -18,7 +20,9 @@ if ! command -v railway >/dev/null 2>&1; then
 fi
 
 if ! railway whoami >/dev/null 2>&1; then
-  echo "Not logged in. Run:  railway login" >&2
+  echo "Not logged in. Run one of:" >&2
+  echo "  railway login" >&2
+  echo "  railway login --browserless   # if browser login errors (e.g. Cursor/SSH)" >&2
   echo "Then:  railway link   (from this repo root)" >&2
   exit 1
 fi
