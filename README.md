@@ -51,6 +51,16 @@ Use a **second service** in the same Railway project as `gravity_api` so you can
 7. **GoDaddy custom domain (optional):** In Railway, add your domain under the terminal service; Railway shows **DNS records** (usually `CNAME` for `www`, or **A/CNAME** for apex). Add those in GoDaddy **DNS** (not “forwarding”). TLS is provisioned after DNS verifies.  
 8. **SPA routing:** This image uses **`serve -s`**, which serves `index.html` for unknown paths—no extra Railway SPA config required for client-side routes.
 
+**Find your API base URL (not stored in Git):** Run after `railway login` and `railway link` from the repo root:
+
+```bash
+bash scripts/railway-print-api-base.sh
+# or, with your API service name from the Railway canvas:
+bash scripts/railway-print-api-base.sh your-api-service-name
+```
+
+Then set **`VITE_API_URL`** on the **terminal** service to `https://<that-host>/v1` (or without `/v1`; the app normalizes it).
+
 **Local Docker check**
 
 ```bash
