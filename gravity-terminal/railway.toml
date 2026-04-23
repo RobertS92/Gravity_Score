@@ -1,0 +1,7 @@
+# Use this file when the Railway service root is set to `gravity-terminal/`.
+# Add variable VITE_API_URL (e.g. https://your-gravity-api.up.railway.app) and map it to a Docker build
+# argument with the same name in the Railway service settings so the SPA is built against your API.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"

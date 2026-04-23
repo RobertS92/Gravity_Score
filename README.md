@@ -31,6 +31,28 @@ cd gravity-terminal && npm install && npm run dev
 
 Set `VITE_API_URL` (see `.env.example`) if the API is not on `http://localhost:8000`.
 
+### Deploy terminal (cloud)
+
+The UI is a static Vite build. Point **`VITE_API_URL`** at your deployed **`gravity_api`** origin **including `/v1`** (example: `https://gravity-api.up.railway.app/v1`). Enable **CORS** on the API for your frontend origin (`CORS_ORIGINS` in `.env.example`).
+
+**Railway (Docker)**  
+1. New service → same Git repo → set **Root Directory** to `gravity-terminal` (see [Deploying a monorepo](https://docs.railway.com/guides/deploying-a-monorepo)).  
+2. Ensure **`Dockerfile`** is used (repo includes `gravity-terminal/railway.toml` with `builder = "DOCKERFILE"`).  
+3. Under **Variables**, add **`VITE_API_URL`** (same name as the `ARG` in the Dockerfile). Railway exposes service variables during the Docker build; declare matching `ARG` lines in each build stage that needs them ([Dockerfiles](https://docs.railway.com/builds/dockerfiles)). Prefer a [reference variable](https://docs.railway.com/variables#referencing-another-services-variable) to your API service’s public URL.  
+4. Deploy. The image runs **`serve -s`** on **`$PORT`** ([frontend env vars](https://docs.railway.com/guides/frontend-environment-variables)).  
+5. If client-side routes 404 on refresh, enable SPA fallback for this service ([SPA routing](https://docs.railway.com/guides/spa-routing-configuration)).
+
+**Local image check**
+
+```bash
+cd gravity-terminal
+docker build --build-arg VITE_API_URL=https://your-api.example.com/v1 -t gravity-terminal:prod .
+docker run --rm -p 8080:8080 -e PORT=8080 gravity-terminal:prod
+```
+
+**Vercel**  
+Import the repo, set project **Root Directory** to `gravity-terminal`, add env **`VITE_API_URL`** (with `/v1`), and deploy. `vercel.json` adds SPA fallback rewrites.
+
 ### Scoring CSVs (local pipeline)
 ```bash
 python run_pipeline.py input.csv output.csv
@@ -57,6 +79,8 @@ Copy `.env.example` to `.env` and fill values for Postgres, scrapers/ML URLs whe
 
 ## Docs
 
+- **`docs/GRAVITY_PLATFORM_SOURCE_OF_TRUTH.md`** — team & agent onboarding: Gravity vs terminal vs scrapers vs NN, repos, stack, architecture (start here).
+- **`docs/SCRAPERS_AND_GRAVITY_ML_SOURCE_OF_TRUTH.md`** — sibling repos only: scraper jobs, Supabase, ML inference, env matrix, failure triage.
 - `docs/SCRAPER_EXHAUSTIVE.md` — links to **gravity-scrapers** / **gravity-ml** and integration checklist.
 
 ## License & credits
