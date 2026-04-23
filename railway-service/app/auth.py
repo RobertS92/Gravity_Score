@@ -26,7 +26,13 @@ async def verify_api_key(
     Raises:
         HTTPException: If API key is invalid
     """
-    if credentials.credentials != settings.API_KEY:
+    configured_key = (settings.API_KEY or "").strip()
+    if not configured_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="API_KEY is not configured on this service",
+        )
+    if credentials.credentials != configured_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key",
