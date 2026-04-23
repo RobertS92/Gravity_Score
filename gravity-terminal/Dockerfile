@@ -26,5 +26,5 @@ COPY --from=build /app/dist ./dist
 ENV NODE_ENV=production
 EXPOSE 3000
 ENTRYPOINT ["/docker-entrypoint.sh"]
-# Railway sets PORT; serve listens on all interfaces.
-CMD ["sh", "-c", "exec serve -s dist -l ${PORT:-3000}"]
+# Railway sets PORT. Bind 0.0.0.0 — `serve` with only a port often listens on 127.0.0.1, which breaks edge healthchecks (503).
+CMD ["sh", "-c", "exec serve -s dist -l tcp://0.0.0.0:${PORT:-3000}"]
