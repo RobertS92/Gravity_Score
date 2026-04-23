@@ -1,14 +1,13 @@
 # Service root in Railway must be `gravity-terminal/` (monorepo).
-# Set VITE_API_URL (same name as ARG in Dockerfile) for the Docker build.
-# Example referencing your API service in the same project (replace API_SERVICE_NAME):
-#   VITE_API_URL=https://${{API_SERVICE_NAME.RAILWAY_PUBLIC_DOMAIN}}/v1
+# Set VITE_API_URL on this service (runtime). The container entrypoint writes dist/env-config.js before serve.
+# Example: https://${{Gravity_Score.RAILWAY_PUBLIC_DOMAIN}}/v1
 
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-healthcheckPath = "/"
+healthcheckPath = "/health"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3

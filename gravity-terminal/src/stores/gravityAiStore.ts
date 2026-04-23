@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { apiGet, apiPost } from '../api/client'
+import { getRawViteApiUrl } from '../lib/apiBaseUrl'
 import { getTerminalUserId } from './authStore'
 
 export type ChatRole = 'user' | 'assistant'
@@ -250,8 +251,7 @@ function _saveConversations(convs: Conversation[]) {
 }
 
 function _apiBase() {
-  const raw = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? ''
-  return raw
+  return getRawViteApiUrl()
 }
 
 function _getToken() {

@@ -42,11 +42,10 @@ Use a **second service** in the same Railway project as `gravity_api` so you can
 1. **Create the service:** New → **GitHub repo** → pick **Gravity_Score** → **Add variables** (you can skip for a moment) → **Deploy** (or finish wizard).  
 2. **Monorepo root:** Service → **Settings** → set **Root Directory** to `gravity-terminal` ([monorepo guide](https://docs.railway.com/guides/deploying-a-monorepo)).  
 3. **Build:** Confirm **Dockerfile** deploys (`gravity-terminal/railway.toml` sets `builder = "DOCKERFILE"`).  
-4. **`VITE_API_URL` (required):** Variables → add **`VITE_API_URL`**. Same name as **`ARG VITE_API_URL`** in the Dockerfile so Railway passes it into the **build** ([Dockerfiles](https://docs.railway.com/builds/dockerfiles#using-variables-at-build-time), [frontend env vars](https://docs.railway.com/guides/frontend-environment-variables)).  
-   - **Reference your API service** (replace `API_SERVICE_NAME` with the exact service name on the Railway canvas, e.g. `Gravity_Score`):  
+4. **`VITE_API_URL` (required):** Variables → add **`VITE_API_URL`** on the **frontend** service. It is read **when the container starts** (written to `env-config.js` by `docker-entrypoint.sh`), so Railway [variable references](https://docs.railway.com/variables#referencing-another-services-variable) can resolve after the API has a public URL—you do **not** need a successful build-time value for references to work.  
+   - **Reference your API service** (replace `API_SERVICE_NAME` with the exact canvas name, e.g. `Gravity_Score`):  
      `https://${{API_SERVICE_NAME.RAILWAY_PUBLIC_DOMAIN}}/v1`  
-   - **Before references work:** the API service must have a **generated Railway public URL** (Networking). If `RAILWAY_PUBLIC_DOMAIN` is empty at build time, the value becomes **`https:///v1`** and the Docker build will fail with a hostname error. Until the API has a domain, paste the **full** API HTTPS URL (copy from the API service → Networking).  
-   - Or paste the full public API URL if you prefer. **Redeploy** after changing this value so Vite rebakes the bundle.  
+   - The API service still needs **Networking → public URL** so that hostname exists. If the container starts with an invalid URL (e.g. **`https:///v1`**), the entrypoint exits with a clear error—fix the variable and redeploy.  
 5. **Networking:** Service → **Settings** → **Networking** → generate **Public URL** for the terminal. HTTPS is automatic on Railway’s domain.  
 6. **CORS:** On **`gravity_api`**, add the terminal’s public origin to **`CORS_ORIGINS`** (comma-separated), e.g. `https://your-terminal.up.railway.app`, then redeploy the API.  
 7. **GoDaddy custom domain (optional):** Use **DNS records** only (avoid GoDaddy “forwarding” for the app URL).  
@@ -82,8 +81,8 @@ Then set **`VITE_API_URL`** on the **terminal** service to `https://<that-host>/
 
 ```bash
 cd gravity-terminal
-docker build --build-arg VITE_API_URL=https://your-api.example.com/v1 -t gravity-terminal:prod .
-docker run --rm -p 8080:8080 -e PORT=8080 gravity-terminal:prod
+docker build -t gravity-terminal:prod .
+docker run --rm -p 8080:8080 -e PORT=8080 -e VITE_API_URL=https://your-api.example.com/v1 gravity-terminal:prod
 ```
 
 #### Vercel (alternative)

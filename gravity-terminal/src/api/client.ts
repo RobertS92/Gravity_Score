@@ -1,12 +1,9 @@
 import { mockRequest } from '../mocks/handlers'
+import { getApiBaseUrlWithV1 } from '../lib/apiBaseUrl'
 
-const RAW_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? ''
-
-/** API root must include `/v1`. If `VITE_API_URL` is `http://host:8000`, we append `/v1`. */
+/** API root must include `/v1`. If the URL is `http://host:8000`, we append `/v1`. */
 export function getApiBaseUrl(): string {
-  if (!RAW_BASE) return ''
-  if (RAW_BASE.endsWith('/v1')) return RAW_BASE
-  return `${RAW_BASE}/v1`
+  return getApiBaseUrlWithV1()
 }
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
@@ -64,6 +61,22 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   if (!base) throw new Error('VITE_API_URL is not set')
   const r = await fetch(`${base}/${rel}`, {
     method: 'POST',
+    headers: { ...headers(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+  return r.json() as Promise<T>
+}
+
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  const rel = path.startsWith('/') ? path.slice(1) : path
+  if (USE_MOCKS) {
+    return mockRequest('PATCH', rel, body) as Promise<T>
+  }
+  const base = getApiBaseUrl()
+  if (!base) throw new Error('VITE_API_URL is not set')
+  const r = await fetch(`${base}/${rel}`, {
+    method: 'PATCH',
     headers: { ...headers(), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
