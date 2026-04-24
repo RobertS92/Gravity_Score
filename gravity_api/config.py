@@ -14,6 +14,7 @@ class Settings:
     anthropic_api_key: str | None
     anthropic_model: str
     cors_origins: str
+    cors_origin_regex: str | None
     jwt_secret: str | None
     jwt_algorithm: str
     allow_query_user_id: bool
@@ -40,7 +41,20 @@ def get_settings() -> Settings:
         ),
         cors_origins=os.environ.get(
             "CORS_ORIGINS",
-            "http://localhost:5173,https://www.gravityscore.ai,https://gravityscore.ai",
+            "http://localhost:5173,http://localhost:3000,"
+            "https://www.gravityscore.ai,https://gravityscore.ai,"
+            "https://gravityscore-production.up.railway.app,"
+            "https://gravity-terminal-production.up.railway.app",
+        ),
+        # Default regex lets any *.up.railway.app subdomain through so Railway
+        # preview deployments work without re-configuring CORS. Override with
+        # CORS_ORIGIN_REGEX="" to disable, or a stricter pattern if needed.
+        cors_origin_regex=(
+            os.environ.get(
+                "CORS_ORIGIN_REGEX",
+                r"^https://[A-Za-z0-9._-]+\.up\.railway\.app$",
+            ).strip()
+            or None
         ),
         jwt_secret=os.environ.get("JWT_SECRET") or os.environ.get("GRAVITY_JWT_SECRET"),
         jwt_algorithm=os.environ.get("JWT_ALGORITHM", "HS256"),
