@@ -48,10 +48,15 @@ async def lifespan(app: FastAPI):
 
 
 settings = get_settings()
+# redirect_slashes=False prevents FastAPI from returning 307 redirects when a
+# request is missing a trailing slash (e.g. GET /v1/watchlist?user_id=…).
+# Browsers strip the Authorization header on cross-origin redirects, so those
+# 307s caused every authenticated XHR from the terminal to silently lose data.
 app = FastAPI(
     title="Gravity NIL Intelligence API",
     version="1.0.0",
     lifespan=lifespan,
+    redirect_slashes=False,
 )
 
 app.add_middleware(

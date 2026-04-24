@@ -35,7 +35,8 @@ async def _fetch_alerts(
     return {"unread": unread, "items": [dict(r) for r in rows]}
 
 
-@router.get("/")
+@router.get("")
+@router.get("/", include_in_schema=False)
 async def get_alerts(
     db: asyncpg.Connection = Depends(get_db),
     effective_user: uuid.UUID | None = Depends(optional_user_id),

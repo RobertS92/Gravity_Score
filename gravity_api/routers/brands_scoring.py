@@ -13,7 +13,8 @@ from gravity_api.database import get_db
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
+@router.get("/", include_in_schema=False)
 async def list_brands(
     limit: int = 50,
     offset: int = 0,

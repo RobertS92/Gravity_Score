@@ -6,7 +6,8 @@ from gravity_api.database import get_db
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
+@router.get("/", include_in_schema=False)
 async def list_deals(
     athlete_id: str | None = None,
     limit: int = Query(50, le=200),

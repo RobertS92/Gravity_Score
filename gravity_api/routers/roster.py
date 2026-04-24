@@ -66,7 +66,8 @@ class RosterSaveBody(BaseModel):
     slots: List[RosterSlot] = Field(default_factory=list)
 
 
-@router.get("/")
+@router.get("")
+@router.get("/", include_in_schema=False)
 async def list_rosters(
     db: asyncpg.Connection = Depends(get_db),
     user_id: uuid.UUID = Depends(require_user_id),
@@ -138,7 +139,8 @@ async def get_roster(
     }
 
 
-@router.post("/")
+@router.post("")
+@router.post("/", include_in_schema=False)
 async def save_roster(
     body: RosterSaveBody,
     db: asyncpg.Connection = Depends(get_db),

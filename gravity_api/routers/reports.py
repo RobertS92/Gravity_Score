@@ -13,7 +13,8 @@ from gravity_api.services.csc_report_builder import build_csc_report_json
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
+@router.get("/", include_in_schema=False)
 async def list_reports_placeholder(db: asyncpg.Connection = Depends(get_db)):
     rows = await db.fetch(
         """SELECT id, report_uuid, athlete_id, status, created_at
@@ -24,7 +25,8 @@ async def list_reports_placeholder(db: asyncpg.Connection = Depends(get_db)):
     return {"reports": [dict(r) for r in rows]}
 
 
-@router.post("/")
+@router.post("")
+@router.post("/", include_in_schema=False)
 async def create_report(req: Dict[str, Any], db: asyncpg.Connection = Depends(get_db)):
     """Placeholder create — extend with auth + Stripe."""
     return {"detail": "Implement report intake + underwriter in services/report_gen.py", "received": req}

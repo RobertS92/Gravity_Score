@@ -38,7 +38,8 @@ async def _fetch_watchlist(db: asyncpg.Connection, uid: uuid.UUID) -> List[dict[
     return [dict(r) for r in rows]
 
 
-@router.get("/")
+@router.get("")
+@router.get("/", include_in_schema=False)
 async def get_watchlist(
     db: asyncpg.Connection = Depends(get_db),
     effective_user: uuid.UUID | None = Depends(optional_user_id),
@@ -48,7 +49,8 @@ async def get_watchlist(
     return {"athletes": await _fetch_watchlist(db, effective_user)}
 
 
-@router.post("/")
+@router.post("")
+@router.post("/", include_in_schema=False)
 async def add_to_watchlist(
     body: WatchlistAddBody,
     db: asyncpg.Connection = Depends(get_db),

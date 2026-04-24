@@ -11,7 +11,8 @@ from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
+@router.get("/", include_in_schema=False)
 async def search_athletes(
     q: Optional[str] = None,
     sport: Optional[str] = None,

@@ -8,7 +8,8 @@ from gravity_api.database import get_db
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
+@router.get("/", include_in_schema=False)
 async def list_programs(
     sport: Optional[str] = None,
     db: asyncpg.Connection = Depends(get_db),

@@ -45,7 +45,8 @@ async def stream_query(req: QueryRequest, db: asyncpg.Connection = Depends(get_d
     )
 
 
-@router.post("/")
+@router.post("")
+@router.post("/", include_in_schema=False)
 async def run_query(req: QueryRequest, db: asyncpg.Connection = Depends(get_db)):
     """Non-streaming agent run + query_history insert."""
     agent = GravityQueryAgent(db=db)
