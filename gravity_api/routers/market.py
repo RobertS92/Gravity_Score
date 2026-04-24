@@ -117,7 +117,7 @@ async def market_schools(
                    tgs.velocity_score, tgs.risk_score, tgs.scored_at
             FROM team_gravity_scores tgs
             JOIN teams t ON t.id = tgs.team_id
-            WHERE t.school = p.school AND t.sport = p.sport
+            WHERE t.school_name = p.school AND t.sport = p.sport
             ORDER BY tgs.scored_at DESC
             LIMIT 1
         ) tg ON true
