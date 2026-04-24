@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { searchAthletesFiltered } from '../api/athletes'
 import { useAthleteStore } from '../stores/athleteStore'
 import { useAuthStore } from '../stores/authStore'
 import { useFeedStore } from '../stores/feedStore'
@@ -12,6 +13,20 @@ function readLastAthleteId(): string | null {
   try {
     const v = localStorage.getItem(LAST_KEY)
     return v && v.length ? v : null
+  } catch {
+    return null
+  }
+}
+
+/** Fallback for brand-new users with no watchlist and no prior selection:
+ *  pick the top athlete in the user's first active sport so the default
+ *  NIL Intelligence view renders real data instead of an empty dash. */
+async function pickDefaultAthleteId(): Promise<string | null> {
+  const sports = usePreferencesStore.getState().activeSports
+  const primary = sports[0] ?? 'CFB'
+  try {
+    const rows = await searchAthletesFiltered({ sports: primary, limit: '1' })
+    return rows[0]?.athlete_id ?? null
   } catch {
     return null
   }
@@ -42,6 +57,12 @@ export function useTerminalBootstrap() {
       const last = readLastAthleteId()
       if (last) {
         void setActiveAthlete(last)
+        return
+      }
+
+      const defaultId = await pickDefaultAthleteId()
+      if (defaultId) {
+        void setActiveAthlete(defaultId)
       }
     })()
 
