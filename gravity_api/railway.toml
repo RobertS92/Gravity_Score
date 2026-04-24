@@ -1,0 +1,15 @@
+# Railway config for the Gravity NIL Intelligence API service.
+# In Railway → this service → Settings:
+#   - Root Directory: (leave empty / "/") — Dockerfile needs access to migrations/ and requirements-gravity-api.txt
+#   - Config-as-code: enable, path = gravity_api/railway.toml
+# The Dockerfile CMD expands ${PORT} via sh -c; no startCommand override needed.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "gravity_api/Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
