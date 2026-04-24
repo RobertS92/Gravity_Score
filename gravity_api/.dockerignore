@@ -1,0 +1,15 @@
+# Keep the image small and build-cache friendly.
+Dockerfile
+.dockerignore
+railway.toml
+railway.json
+README.md
+*.md
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+tests
+.env
+.env.*
+*.log
