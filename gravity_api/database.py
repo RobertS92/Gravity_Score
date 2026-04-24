@@ -18,11 +18,16 @@ async def init_db() -> None:
     if _pool is not None:
         return
     settings = get_settings()
+    # Supabase's transaction-mode pooler (port 6543) is PgBouncer, which does not
+    # support prepared statements. Disable asyncpg's statement cache so queries
+    # don't fail with "prepared statement 'X' does not exist" errors. Safe on
+    # direct-connection deployments too.
     _pool = await asyncpg.create_pool(
         dsn=settings.pg_dsn,
         min_size=1,
         max_size=10,
         command_timeout=60,
+        statement_cache_size=0,
     )
     logger.info("PostgreSQL pool initialized")
 
