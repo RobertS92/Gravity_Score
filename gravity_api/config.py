@@ -40,7 +40,7 @@ def get_settings() -> Settings:
         ),
         cors_origins=os.environ.get(
             "CORS_ORIGINS",
-            "http://localhost:5173,https://gravity.yourdomain.com",
+            "http://localhost:5173,https://www.gravityscore.ai,https://gravityscore.ai",
         ),
         jwt_secret=os.environ.get("JWT_SECRET") or os.environ.get("GRAVITY_JWT_SECRET"),
         jwt_algorithm=os.environ.get("JWT_ALGORITHM", "HS256"),
