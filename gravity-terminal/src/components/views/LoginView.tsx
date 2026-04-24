@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { loginWithEmail } from '../../api/auth'
-import { setSessionToken } from '../../api/client'
 import { useAuthStore } from '../../stores/authStore'
 import styles from './LoginView.module.css'
 
 export function LoginView() {
   const navigate = useNavigate()
-  const hydrate = useAuthStore((s) => s.hydrate)
+  const applySessionFromAuth = useAuthStore((s) => s.applySessionFromAuth)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -23,8 +22,15 @@ export function LoginView() {
     setError(null)
     try {
       const res = await loginWithEmail(email, password)
-      setSessionToken(res.access_token)
-      await hydrate()
+      // Seed auth state immediately so the first render after navigation is
+      // authenticated; /auth/me will refine role/org shortly via hydrate().
+      applySessionFromAuth({
+        access_token: res.access_token,
+        user_id: res.user_id,
+        email: res.email ?? email,
+      })
+      // Kick off a background refresh to fill role/org/coachSports.
+      void useAuthStore.getState().hydrate()
       navigate('/', { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed. Check credentials.')

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { fetchMe } from '../api/auth'
-import { getSessionToken } from '../api/client'
+import { getSessionToken, setSessionToken } from '../api/client'
 
 const ENV_USER = (import.meta.env.VITE_TERMINAL_USER_ID as string | undefined)?.trim() || ''
 const DEFAULT_DEV_USER = '00000000-0000-4000-8000-000000000001'
@@ -22,6 +22,14 @@ export type AuthStore = {
   coachSports: string[]
   hydrated: boolean
   hydrate: () => Promise<void>
+  /** Seed the store immediately after /auth/register or /auth/login so the
+   *  first render after navigation is authenticated (no race vs. fetchMe). */
+  applySessionFromAuth: (args: {
+    access_token: string
+    user_id: string
+    email?: string | null
+    role?: string | null
+  }) => void
   clearSession: () => void
 }
 
@@ -60,7 +68,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
         hydrated: true,
       })
     } catch {
-      // Token invalid/expired — surface as unauth so the router can redirect to /login.
+      // Token invalid/expired — clear it so the user isn't stuck on the
+      // Shell waiting for /me to succeed. The router will redirect to /login.
+      setSessionToken('')
       set({
         userId: devFallbackUserId(),
         email: null,
@@ -73,7 +83,21 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
   },
 
+  applySessionFromAuth: ({ access_token, user_id, email, role }) => {
+    setSessionToken(access_token)
+    set({
+      userId: user_id,
+      email: email ?? null,
+      role: role ?? null,
+      organizationId: null,
+      organizationSlug: null,
+      coachSports: [],
+      hydrated: true,
+    })
+  },
+
   clearSession: () => {
+    setSessionToken('')
     set({
       userId: null,
       email: null,

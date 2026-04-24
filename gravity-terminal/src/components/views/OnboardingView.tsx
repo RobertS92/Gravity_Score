@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { completeOnboarding, registerAccount } from '../../api/auth'
 import { getSessionToken } from '../../api/client'
+import { useAuthStore } from '../../stores/authStore'
 import { mapDashboardTabToPath, usePreferencesStore } from '../../stores/preferencesStore'
 import styles from './OnboardingView.module.css'
 
@@ -69,8 +70,14 @@ export function OnboardingView() {
         password,
         display_name: displayName.trim(),
       })
-      const { setSessionToken } = await import('../../api/client')
-      setSessionToken(r.access_token)
+      // Seed the auth store synchronously so the next route guard already
+      // sees an authenticated session — no race against fetchMe().
+      useAuthStore.getState().applySessionFromAuth({
+        access_token: r.access_token,
+        user_id: r.user_id,
+        email: r.email ?? email.trim(),
+        role: 'agent',
+      })
       setStep(2)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Registration failed')
