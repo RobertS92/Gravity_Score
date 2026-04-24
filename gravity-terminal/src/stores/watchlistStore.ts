@@ -20,9 +20,14 @@ export const useWatchlistStore = create<WatchlistStore>((set, get) => ({
   isLoading: false,
 
   loadWatchlist: async () => {
+    const userId = getTerminalUserId()
+    if (!userId) {
+      set({ athletes: [], isLoading: false })
+      return
+    }
     set({ isLoading: true })
     try {
-      const athletes = await getWatchlist(getTerminalUserId())
+      const athletes = await getWatchlist(userId)
       set({ athletes, isLoading: false })
       // Start Realtime feed for all watchlist athletes
       const ids = athletes.map((a) => a.athlete_id)

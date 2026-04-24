@@ -83,6 +83,7 @@ export const useGravityAiStore = create<GravityAiStore>((set, get) => ({
 
     try {
       const userId = getTerminalUserId()
+      if (!userId) return
       const remote = await apiGet<Conversation[]>(`agent/conversations?user_id=${userId}`)
       if (remote?.length) {
         set({ conversations: remote })
@@ -213,6 +214,7 @@ export const useGravityAiStore = create<GravityAiStore>((set, get) => ({
     // Persist to backend if available
     try {
       const userId = getTerminalUserId()
+      if (!userId) return
       const conv = get().conversations.find((c) => c.id === convId)
       if (conv) {
         await apiPost('agent/conversations', { user_id: userId, conversation: conv })

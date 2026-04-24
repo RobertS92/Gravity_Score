@@ -102,6 +102,26 @@
   cursor: not-allowed;
 }
 
+.signupHint {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 14px 0 0;
+  text-align: center;
+}
+
+.signupLink {
+  color: var(--accent-green);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.signupLink:hover {
+  border-bottom-color: var(--accent-green);
+}
+
 .footer {
   font-family: var(--font-data);
   font-size: 12px;

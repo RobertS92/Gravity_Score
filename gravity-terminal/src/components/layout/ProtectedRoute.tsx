@@ -4,30 +4,37 @@ import { useAuthStore } from '../../stores/authStore'
 import { getSessionToken } from '../../api/client'
 
 /**
- * Guards every route inside Shell. Kicks off auth hydration immediately on
- * mount so it never deadlocks waiting for Shell (which is a child of Outlet).
+ * Guards every route inside Shell. Kicks off auth hydration immediately on mount
+ * so we don't deadlock waiting for Shell (which is a child of Outlet).
+ *
+ * In production: no JWT in localStorage → redirect to /login. Signup lives at
+ * /onboarding which is a public route (reachable without a token).
+ *
+ * In local dev (vite dev or VITE_USE_MOCKS=true): authStore.hydrate() stubs a
+ * DEFAULT_DEV_USER so the UI is usable without running the backend.
  */
 export function ProtectedRoute() {
   const hydrated = useAuthStore((s) => s.hydrated)
   const userId = useAuthStore((s) => s.userId)
 
-  // Kick off hydration here so we don't deadlock waiting for Shell to mount
   useEffect(() => {
     if (!hydrated) {
       void useAuthStore.getState().hydrate()
     }
   }, [hydrated])
 
-  const token = getSessionToken()
-  const devMode =
-    !token && (import.meta.env.VITE_USE_MOCKS === 'true' || import.meta.env.DEV)
-
-  // Show nothing while auth resolves (happens in < 1 frame when no token)
   if (!hydrated) return null
 
-  if (!userId && !devMode) {
+  const token = getSessionToken()
+  const hasSession = !!token && !!userId
+
+  // Local-dev convenience: no token but the store populated a fallback userId.
+  // `vite build` sets import.meta.env.DEV=false so this never triggers in prod.
+  const devFallbackActive = !token && !!userId &&
+    (import.meta.env.VITE_USE_MOCKS === 'true' || import.meta.env.DEV)
+
+  if (!hasSession && !devFallbackActive) {
     return <Navigate to="/login" replace />
   }
-
   return <Outlet />
 }

@@ -24,9 +24,11 @@ export const useAlertStore = create<AlertStore>((set, get) => ({
   readIds: new Set(),
 
   loadAlerts: async () => {
+    const userId = getTerminalUserId()
+    if (!userId) return
     try {
       const sportsCsv = usePreferencesStore.getState().activeSports.join(',')
-      const alerts = await getAlerts(getTerminalUserId(), sportsCsv || null)
+      const alerts = await getAlerts(userId, sportsCsv || null)
       const { readIds } = get()
       const unread = alerts.filter((a) => !readIds.has(a.alert_id)).length
       const prevUnread = get().unreadCount

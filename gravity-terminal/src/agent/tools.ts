@@ -156,6 +156,7 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
       }
       case 'get_watchlist_summary': {
         const userId = getTerminalUserId()
+        if (!userId) return JSON.stringify({ athletes: [] })
         const wl = await getWatchlist(userId)
         return JSON.stringify(wl)
       }

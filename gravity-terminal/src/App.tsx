@@ -22,10 +22,13 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/login" element={<LoginView />} />
+        {/* Onboarding is public so new users can register here. Step 1 of
+            OnboardingView creates the account and stores the JWT; step 2+
+            runs under that token and calls POST /v1/auth/onboarding. */}
+        <Route path="/onboarding" element={<OnboardingView />} />
 
-        {/* Protected: onboarding is full-screen without Shell */}
+        {/* Protected: everything inside Shell requires an authenticated session. */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/onboarding" element={<OnboardingView />} />
           <Route element={<RequireOnboardingComplete />}>
             <Route element={<Shell />}>
               <Route path="/" element={<NilIntelligenceView />} />

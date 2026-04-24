@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { loginWithEmail } from '../../api/auth'
 import { setSessionToken } from '../../api/client'
 import { useAuthStore } from '../../stores/authStore'
@@ -70,6 +70,9 @@ export function LoginView() {
             {loading ? 'AUTHENTICATING...' : 'SIGN IN'}
           </button>
         </form>
+        <p className={styles.signupHint}>
+          No account? <Link to="/onboarding" className={styles.signupLink}>Create one</Link>
+        </p>
         <p className={styles.footer}>POWER 5 CFB · NCAAB MENS ONLY</p>
       </div>
     </div>
