@@ -68,19 +68,44 @@ def _jsonb_to_obj(v: Any) -> Optional[dict[str, Any] | list[Any]]:
     return None
 
 # Single source of truth for category names exposed over the wire.
-ALLOWED_CATEGORIES = {
+# Order matters: this is the order chips render in the UI.
+CATALOG_CATEGORIES = [
+    "NIL_DEAL",       # NIL & brand endorsement deals
+    "TRANSFER",       # transfer portal moves
+    "INJURY",         # injuries / clearances
+    "NEWS",           # general news / mentions
+    "AWARD",          # awards / honors / all-conference
+    "RECRUITING",     # commits / decommits / recruit ranking changes
+    "PERFORMANCE",    # game stats / spikes
+    "ANNOUNCEMENT",   # official program / league announcements
+    "BUSINESS",       # collective deals, conference moves, revenue
+    "INCIDENT",       # suspensions / controversies / legal
+    "SCORE",          # gravity score updates
+    "ROSTER",         # roster additions
+    "SOCIAL",         # social media spikes
+    "RANKING",        # team / poll rankings
+    "RISK",           # risk-related events
+    "OTHER",          # fallback
+]
+
+ALLOWED_CATEGORIES = set(CATALOG_CATEGORIES)
+
+# Categories the "general" bucket shows by default when the caller has not
+# pinned an explicit category filter.  We deliberately drop ROSTER, SOCIAL,
+# SCORE, RANKING, RISK, OTHER because they are high-volume / low-signal —
+# they would drown out NIL deals, big news, transfers, and incidents.
+DEFAULT_GENERAL_CATEGORIES = [
     "NIL_DEAL",
-    "SCORE_UPDATE",
-    "RISK",
-    "INJURY",
     "TRANSFER",
-    "ROSTER",
+    "INJURY",
     "NEWS",
-    "SOCIAL",
-    "RANKING",
+    "AWARD",
     "RECRUITING",
-    "OTHER",
-}
+    "PERFORMANCE",
+    "ANNOUNCEMENT",
+    "BUSINESS",
+    "INCIDENT",
+]
 
 ALLOWED_SOURCES = {"watchlist", "teams", "general"}
 
@@ -271,7 +296,17 @@ async def build_feed(
 
     relevant_athletes: list[uuid.UUID] = list({*watchlist_ids, *team_athlete_ids})
 
-    cat_filter = categories  # None = all
+    # Honor explicit category filter when given. Otherwise apply the default
+    # high-signal whitelist *only* to the GENERAL bucket — watchlist/teams
+    # buckets keep showing everything because they are user-curated and the
+    # absolute volume is low.
+    explicit_cat_filter = categories  # None = caller did not pin a filter
+    cat_filter = explicit_cat_filter
+    general_cat_filter = (
+        explicit_cat_filter
+        if explicit_cat_filter is not None
+        else DEFAULT_GENERAL_CATEGORIES
+    )
     sport_filter = sports or None
     before_dt = _parse_before(before_iso)
 
@@ -303,6 +338,9 @@ async def build_feed(
         items.extend(_athlete_event_to_item(r) for r in rows)
 
     # Bucket B: "general" — any athlete event in the user's active sports.
+    # We always apply the high-signal default whitelist here (caller can
+    # override with an explicit categories filter — incl. ROSTER if they
+    # really want that firehose).
     if "general" in sources:
         params = []
         sql = """SELECT ev.id, ev.athlete_id, ev.event_type, ev.category,
@@ -316,8 +354,8 @@ async def build_feed(
         if sport_filter:
             params.append([s.lower() for s in sport_filter])
             sql += f" AND LOWER(a.sport) = ANY(${len(params)}::text[])"
-        if cat_filter:
-            params.append(cat_filter)
+        if general_cat_filter:
+            params.append(general_cat_filter)
             sql += f" AND ev.category = ANY(${len(params)}::text[])"
         if before_dt is not None:
             params.append(before_dt)
@@ -382,8 +420,8 @@ async def build_feed(
         if sport_filter:
             params.append([_team_sport_for(s) for s in sport_filter])
             sql += f" AND t.sport = ANY(${len(params)}::text[])"
-        if cat_filter:
-            params.append(cat_filter)
+        if general_cat_filter:
+            params.append(general_cat_filter)
             sql += f" AND te.category = ANY(${len(params)}::text[])"
         if before_dt is not None:
             params.append(before_dt)

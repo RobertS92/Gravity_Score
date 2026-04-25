@@ -11,11 +11,14 @@ const DEFAULT_CATEGORIES: string[] = [
   'TRANSFER',
   'INJURY',
   'NEWS',
-  'ROSTER',
-  'PERFORMANCE',
   'AWARD',
   'RECRUITING',
+  'PERFORMANCE',
+  'ANNOUNCEMENT',
+  'BUSINESS',
+  'INCIDENT',
   'SCORE',
+  'ROSTER',
 ]
 
 const DEFAULT_SOURCES: FeedSource[] = ['watchlist', 'teams', 'general']

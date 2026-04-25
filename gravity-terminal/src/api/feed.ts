@@ -49,6 +49,7 @@ export async function fetchFeed(q: FeedQuery = {}): Promise<FeedResponse> {
 
 export type FeedCatalog = {
   categories: string[]
+  default_general_categories?: string[]
   sources: string[]
 }
 

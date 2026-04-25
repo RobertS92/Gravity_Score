@@ -24,6 +24,8 @@ from gravity_api.database import get_db
 from gravity_api.services.feed import (
     ALLOWED_CATEGORIES,
     ALLOWED_SOURCES,
+    CATALOG_CATEGORIES,
+    DEFAULT_GENERAL_CATEGORIES,
     _normalize_categories,
     _normalize_sources,
     build_feed,
@@ -95,8 +97,12 @@ async def get_feed(
 
 @router.get("/categories", include_in_schema=True)
 async def list_feed_categories():
-    """Static enum used by the UI to render category toggles."""
+    """Static enum used by the UI to render category toggles. Order matches
+    the recommended UI order; `default_general_categories` is the high-signal
+    whitelist applied to the general bucket when the user has not pinned a
+    category filter."""
     return {
-        "categories": sorted(ALLOWED_CATEGORIES),
-        "sources": sorted(ALLOWED_SOURCES),
+        "categories": list(CATALOG_CATEGORIES),
+        "default_general_categories": list(DEFAULT_GENERAL_CATEGORIES),
+        "sources": ["watchlist", "teams", "general"],
     }
