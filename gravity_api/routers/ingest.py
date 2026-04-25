@@ -28,6 +28,12 @@ from pydantic import BaseModel, Field
 
 from gravity_api.database import get_db
 from gravity_api.routers.scraper_jobs import require_ops
+from gravity_api.services.news_collector import (
+    FEED_REGISTRY,
+    collect_all,
+    collect_feed,
+    coverage_report,
+)
 from gravity_api.services.news_ingest import (
     IngestRejected,
     IngestResult,
@@ -236,6 +242,81 @@ async def list_sources(
         "SELECT domain, display_name, tier, enabled FROM news_sources ORDER BY tier, domain"
     )
     return {"sources": [dict(r) for r in rows]}
+
+
+# ---------------------------------------------------------------------------
+# News collection — pulls registered RSS feeds into the trust pipeline.
+# ---------------------------------------------------------------------------
+class CollectIn(BaseModel):
+    """Optional restrictions for which feeds to run."""
+    domains: Optional[list[str]] = None  # restrict to e.g. ['espn.com']
+    use_llm: bool = True
+    max_entries_per_feed: int = 50
+
+
+@router.post("/collect")
+async def collect_news(
+    body: CollectIn = CollectIn(),
+    db: asyncpg.Connection = Depends(get_db),
+    _: uuid.UUID = Depends(require_ops),
+):
+    """Pull every registered RSS feed (optionally filtered) and route
+    every entry through the trust pipeline."""
+    feeds = FEED_REGISTRY
+    if body.domains:
+        wanted = set(d.lower() for d in body.domains)
+        feeds = [f for f in FEED_REGISTRY if f.domain.lower() in wanted]
+        if not feeds:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No registered feeds match domains={body.domains}",
+            )
+    stats = await collect_all(
+        db,
+        feeds=feeds,
+        use_llm=body.use_llm,
+        max_entries_per_feed=max(1, min(100, body.max_entries_per_feed)),
+    )
+    return {
+        "feeds_processed": stats.feeds_processed,
+        "entries_seen": stats.entries_seen,
+        "inserted": stats.inserted,
+        "duplicates": stats.duplicates,
+        "rejected": stats.rejected,
+        "unmatched": stats.unmatched,
+        "by_category": stats.by_category,
+        "by_source": stats.by_source,
+        "errors": stats.errors[:20],
+    }
+
+
+@router.get("/feeds")
+async def list_feeds(_: uuid.UUID = Depends(require_ops)):
+    """Surface the configured feed registry so admins can audit which
+    publishers feed which categories."""
+    return {
+        "feeds": [
+            {
+                "name": f.name,
+                "domain": f.domain,
+                "url": f.url,
+                "default_category": f.default_category,
+                "sport_hint": f.sport_hint,
+                "description": f.description,
+            }
+            for f in FEED_REGISTRY
+        ]
+    }
+
+
+@router.get("/coverage")
+async def coverage(
+    db: asyncpg.Connection = Depends(get_db),
+    _: uuid.UUID = Depends(require_ops),
+):
+    """Per-category coverage: which categories have recent data and
+    which are stale or have no feed configured."""
+    return await coverage_report(db)
 
 
 @router.get("/rejections")
