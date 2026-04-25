@@ -8,6 +8,7 @@ import { CapScenariosView } from './components/views/CapScenariosView'
 import { CapSchoolDataView } from './components/views/CapSchoolDataView'
 import { CscReportsView } from './components/views/CscReportsView'
 import { GravityAiView } from './components/views/GravityAiView'
+import { LiveFeedView } from './components/views/LiveFeedView'
 import { LoginView } from './components/views/LoginView'
 import { MarketScanView } from './components/views/MarketScanView'
 import { MonitoringView } from './components/views/MonitoringView'
@@ -42,6 +43,7 @@ export default function App() {
               <Route path="/cap/school-data" element={<CapSchoolDataView />} />
               <Route path="/roster" element={<Navigate to="/cap/scenarios" replace />} />
               <Route path="/gravity-ai" element={<GravityAiView />} />
+              <Route path="/feed" element={<LiveFeedView />} />
               <Route path="/settings" element={<SettingsView />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

@@ -1,0 +1,33 @@
+.btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-dim);
+  padding: 0;
+  line-height: 1;
+}
+
+.btn:hover {
+  color: var(--accent-amber);
+}
+
+.active {
+  color: var(--accent-amber);
+}
+
+.busy {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.sm {
+  font-size: 14px;
+  width: 18px;
+  height: 18px;
+}
+
+.md {
+  font-size: 18px;
+  width: 24px;
+  height: 24px;
+}

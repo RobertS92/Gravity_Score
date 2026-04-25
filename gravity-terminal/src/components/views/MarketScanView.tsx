@@ -5,6 +5,7 @@ import type { SchoolIndexRow } from '../../types/reports'
 import { formatNilMillions, formatScore } from '../../lib/formatters'
 import { usePreferencesStore } from '../../stores/preferencesStore'
 import { useUiStore } from '../../stores/uiStore'
+import { TeamFavoriteStar } from '../shared/TeamFavoriteStar'
 import styles from './MarketScanView.module.css'
 
 const SPORT_LABELS: Record<string, string> = {
@@ -160,6 +161,7 @@ export function MarketScanView() {
           <table className={styles.table}>
             <thead>
               <tr>
+                <th className={styles.th} style={{ width: 24 }} aria-label="Favorite" />
                 <th className={styles.th}>SCHOOL</th>
                 <th className={styles.th}>CONF</th>
                 <th className={styles.th}>SPORT</th>
@@ -195,6 +197,9 @@ export function MarketScanView() {
                 })
                 .map((s) => (
                 <tr key={`${s.school}-${s.sport}`}>
+                  <td className={styles.td}>
+                    <TeamFavoriteStar teamId={s.team_id ?? null} teamName={s.school} />
+                  </td>
                   <td className={styles.td}>{s.school}</td>
                   <td className={styles.td}>{s.conference ?? '\u2014'}</td>
                   <td className={styles.td}>{SPORT_LABELS[s.sport ?? ''] ?? s.sport ?? '\u2014'}</td>

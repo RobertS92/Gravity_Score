@@ -1,0 +1,181 @@
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useLiveFeedStore } from '../../stores/liveFeedStore'
+import { usePreferencesStore } from '../../stores/preferencesStore'
+import { formatFeedTime } from '../../lib/time'
+import styles from './LiveFeedV2.module.css'
+
+const COMPACT_LIMIT = 12
+
+const CATEGORY_LABEL: Record<string, string> = {
+  NIL_DEAL: 'NIL',
+  TRANSFER: 'TRANSFER',
+  INJURY: 'INJURY',
+  NEWS: 'NEWS',
+  ROSTER: 'ROSTER',
+  PERFORMANCE: 'PERF',
+  AWARD: 'AWARD',
+  RECRUITING: 'RECRUITING',
+  SCORE: 'SCORE',
+  OTHER: 'OTHER',
+}
+
+const CATEGORY_CLASS: Record<string, string> = {
+  NIL_DEAL: styles.tagNil,
+  TRANSFER: styles.tagTransfer,
+  INJURY: styles.tagRisk,
+  NEWS: styles.tagInfo,
+  ROSTER: styles.tagInfo,
+  PERFORMANCE: styles.tagPerf,
+  AWARD: styles.tagAccent,
+  RECRUITING: styles.tagAccent,
+  SCORE: styles.tagAccent,
+  OTHER: styles.tagInfo,
+}
+
+function CategoryTag({ category }: { category: string }) {
+  const label = CATEGORY_LABEL[category] ?? category
+  const cls = CATEGORY_CLASS[category] ?? styles.tagInfo
+  return <span className={`${styles.tag} ${cls}`}>{label}</span>
+}
+
+export function LiveFeedV2({ compact = true }: { compact?: boolean }) {
+  const navigate = useNavigate()
+  const items = useLiveFeedStore((s) => s.items)
+  const isLoading = useLiveFeedStore((s) => s.isLoading)
+  const isHydrated = useLiveFeedStore((s) => s.isHydrated)
+  const error = useLiveFeedStore((s) => s.error)
+  const sources = useLiveFeedStore((s) => s.sources)
+  const categories = useLiveFeedStore((s) => s.categories)
+  const toggleSource = useLiveFeedStore((s) => s.toggleSource)
+  const load = useLiveFeedStore((s) => s.load)
+  const setSports = useLiveFeedStore((s) => s.setSports)
+  const activeSports = usePreferencesStore((s) => s.activeSports)
+
+  useEffect(() => {
+    setSports(activeSports.map((s) => s.toLowerCase()))
+  }, [activeSports.join(','), setSports])
+
+  useEffect(() => {
+    if (!isHydrated) {
+      void load()
+    }
+  }, [isHydrated, load])
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      void load()
+    }, 60_000)
+    return () => clearInterval(t)
+  }, [load])
+
+  const top = compact ? items.slice(0, COMPACT_LIMIT) : items
+
+  return (
+    <div>
+      <div className={styles.header}>
+        <span className={styles.label}>LIVE FEED</span>
+        {compact && (
+          <button
+            type="button"
+            className={styles.expandBtn}
+            onClick={() => navigate('/feed')}
+            title="Open full live feed"
+          >
+            EXPAND →
+          </button>
+        )}
+      </div>
+
+      <div className={styles.toggleRow}>
+        <ToggleChip active={sources.has('watchlist')} onClick={() => toggleSource('watchlist')}>
+          WATCH
+        </ToggleChip>
+        <ToggleChip active={sources.has('teams')} onClick={() => toggleSource('teams')}>
+          TEAMS
+        </ToggleChip>
+        <ToggleChip active={sources.has('general')} onClick={() => toggleSource('general')}>
+          GENERAL
+        </ToggleChip>
+      </div>
+
+      {error && <div className={styles.error}>{error}</div>}
+
+      {isLoading && top.length === 0 && (
+        <div className={styles.empty}>Loading…</div>
+      )}
+
+      {!isLoading && isHydrated && top.length === 0 && (
+        <div className={styles.empty}>
+          No matching events.{' '}
+          {!sources.has('general') && 'Enable GENERAL to widen your feed.'}
+        </div>
+      )}
+
+      {top.map((it) => (
+        <div key={it.id} className={styles.item}>
+          <div className={styles.tsRow}>
+            <span className={styles.ts}>
+              {it.occurred_at ? formatFeedTime(it.occurred_at) : ''}
+            </span>
+            <CategoryTag category={it.category || 'OTHER'} />
+          </div>
+          <div className={styles.body}>
+            {it.title || it.body || it.category}
+            {it.athlete_name && (
+              <>
+                {' · '}
+                <span className={styles.entity}>{it.athlete_name}</span>
+              </>
+            )}
+            {it.team_name && !it.athlete_name && (
+              <>
+                {' · '}
+                <span className={styles.entity}>{it.team_name}</span>
+              </>
+            )}
+          </div>
+          {it.body && it.body !== it.title && (
+            <div className={styles.subBody}>{it.body}</div>
+          )}
+          {!compact && it.source_url && (
+            <a
+              className={styles.sourceLink}
+              href={it.source_url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {it.source ?? 'source'} ↗
+            </a>
+          )}
+        </div>
+      ))}
+
+      {compact && categories.size > 0 && (
+        <div className={styles.filterHint}>
+          {categories.size} category filter{categories.size === 1 ? '' : 's'} active
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToggleChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      className={active ? styles.chipActive : styles.chip}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  )
+}

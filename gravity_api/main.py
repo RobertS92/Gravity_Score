@@ -21,6 +21,7 @@ from gravity_api.routers import (
     cap,
     data_submissions,
     deals,
+    feed,
     market,
     match,
     operations,
@@ -30,6 +31,7 @@ from gravity_api.routers import (
     roster,
     scores,
     scraper_jobs,
+    team_favorites,
     user_preferences,
     watchlist,
     webhooks,
@@ -88,6 +90,8 @@ app.include_router(operations.router, prefix="/v1/operations", tags=["operations
 app.include_router(cap.router, prefix="/v1/cap", tags=["cap"])
 app.include_router(data_submissions.router, prefix="/v1/data", tags=["data"])
 app.include_router(scraper_jobs.router, prefix="/v1/scraper", tags=["scraper-pipeline"])
+app.include_router(team_favorites.router, prefix="/v1/team-favorites", tags=["team-favorites"])
+app.include_router(feed.router, prefix="/v1/feed", tags=["feed"])
 
 
 @app.get("/health")

@@ -23,6 +23,8 @@ export interface AthleteRecord {
   name: string
   position?: string | null
   school?: string | null
+  /** Resolved team UUID for this athlete's program (school + sport). */
+  team_id?: string | null
   conference?: string | null
   sport?: Sport | string | null
   class_year?: ClassYear | string | null

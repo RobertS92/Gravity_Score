@@ -6,6 +6,7 @@ import { downloadAthleteScoreCardPdf } from '../../lib/pdfExport'
 import type { AthleteRecord } from '../../types/athlete'
 import { ActionButton } from '../shared/ActionButton'
 import { ScoreDisplay } from '../shared/ScoreDisplay'
+import { TeamFavoriteStar } from '../shared/TeamFavoriteStar'
 import styles from './MainHeader.module.css'
 
 function dotJoin(parts: (string | null | undefined)[]) {
@@ -41,7 +42,14 @@ export function MainHeader({
     <header className={styles.wrap}>
       <div className={styles.left}>
         <h1 className={styles.name}>{athlete.name}</h1>
-        <div className={styles.meta}>{meta || '\u2014'}</div>
+        <div className={styles.meta}>
+          {meta || '\u2014'}
+          {athlete.team_id && athlete.school && (
+            <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <TeamFavoriteStar teamId={athlete.team_id} teamName={athlete.school} size="md" />
+            </span>
+          )}
+        </div>
       </div>
       <div className={styles.right}>
         <div className={styles.scoreBlock}>

@@ -114,6 +114,16 @@ export function Sidebar() {
           >
             MARKET SCAN
           </button>
+          <button
+            type="button"
+            className={location.pathname.startsWith('/feed') ? styles.navItemActive : styles.navItem}
+            onClick={() => {
+              setActiveSidebarItem({ section: 'research', id: 'feed' })
+              navigate('/feed')
+            }}
+          >
+            LIVE FEED
+          </button>
           <button type="button" className={styles.navItem} onClick={() => nav('cohort', 'research')}>
             COHORT COMPARE
           </button>

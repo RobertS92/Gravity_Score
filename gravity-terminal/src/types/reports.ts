@@ -53,6 +53,7 @@ export interface BrandMatchResult {
 }
 
 export interface SchoolIndexRow {
+  team_id?: string | null
   school: string
   conference?: string | null
   sport?: string | null

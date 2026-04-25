@@ -1,10 +1,9 @@
 import { useLocation } from 'react-router-dom'
 import { useAthleteStore } from '../../stores/athleteStore'
-import { useFeedStore } from '../../stores/feedStore'
 import { useUiStore } from '../../stores/uiStore'
 import { useWatchlistStore } from '../../stores/watchlistStore'
 import { formatNilMillions, formatScore } from '../../lib/formatters'
-import { LiveFeed } from '../panels/LiveFeed'
+import { LiveFeedV2 } from '../panels/LiveFeedV2'
 import { MarketSignals } from '../panels/MarketSignals'
 import { NilValuation } from '../panels/NilValuation'
 import { QuickActions } from '../panels/QuickActions'
@@ -13,10 +12,14 @@ import styles from './RightPanel.module.css'
 export function RightPanel() {
   const { pathname } = useLocation()
   const athlete = useAthleteStore((s) => s.activeAthlete)
-  const events = useFeedStore((s) => s.events)
-  const newIds = useFeedStore((s) => s.newEventIds)
   const brandSummary = useUiStore((s) => s.brandMatchSummary)
   const watchlist = useWatchlistStore((s) => s.athletes)
+
+  const fallbackFeedBlock = (
+    <div className={styles.section}>
+      <LiveFeedV2 />
+    </div>
+  )
 
   if (!athlete) {
     return (
@@ -24,8 +27,11 @@ export function RightPanel() {
         <div className={styles.scroll}>
           <div className={styles.section}>
             <div className={styles.title}>NIL VALUATION</div>
-            <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-data)', fontSize: 10 }}>—</p>
+            <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-data)', fontSize: 10 }}>
+              Pick an athlete from the watchlist to see their valuation.
+            </p>
           </div>
+          {fallbackFeedBlock}
         </div>
       </aside>
     )
@@ -45,7 +51,7 @@ export function RightPanel() {
 
   const feedBlock = (
     <div className={styles.section}>
-      <LiveFeed events={events} newEventIds={newIds} />
+      <LiveFeedV2 />
     </div>
   )
 

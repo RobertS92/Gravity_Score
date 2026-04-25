@@ -207,6 +207,20 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
 
     athlete_dict = dict(athlete)
 
+    # Resolve the team_id for the athlete's school+sport so the FE can
+    # offer a "favorite this program" toggle on the profile.
+    school_name = athlete_dict.get("school")
+    sport_slug = athlete_dict.get("sport")
+    if school_name and sport_slug:
+        team_row = await db.fetchrow(
+            "SELECT id FROM teams WHERE school_name = $1 AND sport = $2 LIMIT 1",
+            school_name,
+            sport_slug,
+        )
+        athlete_dict["team_id"] = str(team_row["id"]) if team_row else None
+    else:
+        athlete_dict["team_id"] = None
+
     # Merge latest gravity_scores fields
     latest_score = dict(scores[0]) if scores else {}
     for score_field in (

@@ -3,7 +3,9 @@ import { searchAthletesFiltered } from '../api/athletes'
 import { useAthleteStore } from '../stores/athleteStore'
 import { useAuthStore } from '../stores/authStore'
 import { useFeedStore } from '../stores/feedStore'
+import { useLiveFeedStore } from '../stores/liveFeedStore'
 import { usePreferencesStore } from '../stores/preferencesStore'
+import { useTeamFavoritesStore } from '../stores/teamFavoritesStore'
 import { useWatchlistStore, startWatchlistRefresh } from '../stores/watchlistStore'
 import { useAlertStore, startAlertPolling } from '../stores/alertStore'
 
@@ -44,6 +46,8 @@ export function useTerminalBootstrap() {
       startWatchlistRefresh()
       void useAlertStore.getState().loadAlerts()
       startAlertPolling()
+      void useTeamFavoritesStore.getState().load()
+      void useLiveFeedStore.getState().loadCatalog()
 
       const { activeAthleteId, setActiveAthlete } = useAthleteStore.getState()
       if (activeAthleteId) return

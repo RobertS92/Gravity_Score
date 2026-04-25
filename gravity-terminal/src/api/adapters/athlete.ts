@@ -124,6 +124,7 @@ export function mapAthleteFromBundle(b: AthleteDetailBundle): AthleteRecord {
     name: str(a.name) ?? 'Unknown',
     position: str(a.position),
     school: str(a.school),
+    team_id: str(a.team_id),
     conference: str(a.conference),
     sport: mapSport(a.sport),
     class_year: str(a.eligibility_year != null ? String(a.eligibility_year) : null),

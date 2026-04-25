@@ -93,8 +93,10 @@ async def market_schools(
             tg.proof_score          AS program_proof_score,
             tg.velocity_score       AS program_velocity_score,
             tg.risk_score           AS program_risk_score,
-            tg.scored_at            AS program_scored_at
+            tg.scored_at            AS program_scored_at,
+            tm.id                   AS team_id
         FROM programs p
+        LEFT JOIN teams tm ON tm.school_name = p.school AND tm.sport = p.sport
         LEFT JOIN (
             SELECT
                 a.school AS sch,
@@ -134,6 +136,7 @@ async def market_schools(
         prog_g = r["program_gravity_score"]
         schools.append(
             {
+                "team_id": str(r["team_id"]) if r["team_id"] is not None else None,
                 "school": r["school"],
                 "conference": r["conference"],
                 "sport": r["sport"],
