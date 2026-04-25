@@ -4,6 +4,8 @@ import { useTeamFavoritesStore } from '../../stores/teamFavoritesStore'
 import { usePreferencesStore } from '../../stores/preferencesStore'
 import { useWatchlistStore } from '../../stores/watchlistStore'
 import { formatFeedTime } from '../../lib/time'
+import { TrustBadge } from '../shared/TrustBadge'
+import type { VerificationLevel } from '../../api/feed'
 import styles from './LiveFeedView.module.css'
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -32,6 +34,14 @@ const SOURCE_LABEL: Record<string, string> = {
   general: 'GENERAL',
 }
 
+const VERIF_LABEL: Record<VerificationLevel, string> = {
+  OFFICIAL: 'OFFICIAL ONLY',
+  MULTI_SOURCE: 'MULTI-SOURCE+',
+  SINGLE_SOURCE: 'VERIFIED+',
+  LOW_CONFIDENCE: 'INCLUDE LOW',
+  UNVERIFIED: 'ALL (incl. unverified)',
+}
+
 export function LiveFeedView() {
   const items = useLiveFeedStore((s) => s.items)
   const isLoading = useLiveFeedStore((s) => s.isLoading)
@@ -43,6 +53,9 @@ export function LiveFeedView() {
   const categories = useLiveFeedStore((s) => s.categories)
   const catalogCategories = useLiveFeedStore((s) => s.catalogCategories)
   const catalogSources = useLiveFeedStore((s) => s.catalogSources)
+  const catalogVerificationLevels = useLiveFeedStore((s) => s.catalogVerificationLevels)
+  const minVerification = useLiveFeedStore((s) => s.minVerification)
+  const setMinVerification = useLiveFeedStore((s) => s.setMinVerification)
   const toggleSource = useLiveFeedStore((s) => s.toggleSource)
   const toggleCategory = useLiveFeedStore((s) => s.toggleCategory)
   const clearCategories = useLiveFeedStore((s) => s.clearCategories)
@@ -117,6 +130,23 @@ export function LiveFeedView() {
         </div>
 
         <div className={styles.controlGroup}>
+          <span className={styles.controlLabel}>TRUST</span>
+          <div className={styles.chipRow}>
+            {catalogVerificationLevels.map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={minVerification === v ? styles.chipActive : styles.chip}
+                onClick={() => setMinVerification(v)}
+                title={`Minimum verification: ${v}`}
+              >
+                {VERIF_LABEL[v] ?? v}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.controlGroup}>
           <span className={styles.controlLabel}>CATEGORIES</span>
           <div className={styles.chipRow}>
             <button
@@ -179,16 +209,26 @@ export function LiveFeedView() {
             {it.body && it.body !== it.title && (
               <div className={styles.rowBody}>{it.body}</div>
             )}
-            {it.source_url && (
-              <a
-                className={styles.sourceLink}
-                href={it.source_url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {it.source ?? 'source'} ↗
-              </a>
-            )}
+            <div className={styles.rowFooter}>
+              <TrustBadge
+                source={it.source}
+                sourceUrl={it.source_url}
+                sourceTier={it.source_tier ?? null}
+                verification={it.verification ?? null}
+                exactQuote={it.exact_quote}
+                correctionNote={it.correction_note}
+              />
+              {it.exact_quote && (
+                <span className={styles.quote} title={it.exact_quote}>
+                  &ldquo;{it.exact_quote.length > 140 ? it.exact_quote.slice(0, 140) + '…' : it.exact_quote}&rdquo;
+                </span>
+              )}
+              {it.correction_note && (
+                <span className={styles.correction}>
+                  Correction: {it.correction_note}
+                </span>
+              )}
+            </div>
           </article>
         ))}
 

@@ -22,6 +22,7 @@ from gravity_api.routers import (
     data_submissions,
     deals,
     feed,
+    ingest,
     market,
     match,
     operations,
@@ -92,6 +93,7 @@ app.include_router(data_submissions.router, prefix="/v1/data", tags=["data"])
 app.include_router(scraper_jobs.router, prefix="/v1/scraper", tags=["scraper-pipeline"])
 app.include_router(team_favorites.router, prefix="/v1/team-favorites", tags=["team-favorites"])
 app.include_router(feed.router, prefix="/v1/feed", tags=["feed"])
+app.include_router(ingest.router, prefix="/v1/ingest", tags=["ingest"])
 
 
 @app.get("/health")

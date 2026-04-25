@@ -26,6 +26,8 @@ from gravity_api.services.feed import (
     ALLOWED_SOURCES,
     CATALOG_CATEGORIES,
     DEFAULT_GENERAL_CATEGORIES,
+    DEFAULT_MIN_VERIFICATION,
+    VERIFICATION_RANK,
     _normalize_categories,
     _normalize_sources,
     build_feed,
@@ -61,6 +63,14 @@ async def get_feed(
         description="ISO8601 cursor — return only items occurred strictly before this.",
     ),
     limit: int = Query(50, ge=1, le=100),
+    min_verification: str = Query(
+        DEFAULT_MIN_VERIFICATION,
+        description=(
+            "Minimum trust level to include. Higher = stricter. One of: "
+            f"{sorted(VERIFICATION_RANK.keys(), key=VERIFICATION_RANK.get)}. "
+            f"Default = {DEFAULT_MIN_VERIFICATION}."
+        ),
+    ),
     db: asyncpg.Connection = Depends(get_db),
     user_id: uuid.UUID = Depends(require_user_id),
 ):
@@ -84,6 +94,13 @@ async def get_feed(
         except ValueError as e:
             raise HTTPException(status_code=400, detail="`before` must be ISO8601") from e
 
+    min_verif = (min_verification or DEFAULT_MIN_VERIFICATION).upper()
+    if min_verif not in VERIFICATION_RANK:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown min_verification '{min_verification}'.",
+        )
+
     return await build_feed(
         db,
         user_id=user_id,
@@ -92,6 +109,7 @@ async def get_feed(
         sports=athlete_sport_slugs,
         before_iso=before,
         limit=limit,
+        min_verification=min_verif,
     )
 
 
@@ -105,4 +123,8 @@ async def list_feed_categories():
         "categories": list(CATALOG_CATEGORIES),
         "default_general_categories": list(DEFAULT_GENERAL_CATEGORIES),
         "sources": ["watchlist", "teams", "general"],
+        "verification_levels": sorted(
+            VERIFICATION_RANK.keys(), key=VERIFICATION_RANK.get
+        ),
+        "default_min_verification": DEFAULT_MIN_VERIFICATION,
     }

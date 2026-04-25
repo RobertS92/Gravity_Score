@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useLiveFeedStore } from '../../stores/liveFeedStore'
 import { usePreferencesStore } from '../../stores/preferencesStore'
 import { formatFeedTime } from '../../lib/time'
+import { TrustBadge } from '../shared/TrustBadge'
 import styles from './LiveFeedV2.module.css'
 
 const COMPACT_LIMIT = 12
@@ -152,16 +153,17 @@ export function LiveFeedV2({ compact = true }: { compact?: boolean }) {
           {it.body && it.body !== it.title && (
             <div className={styles.subBody}>{it.body}</div>
           )}
-          {!compact && it.source_url && (
-            <a
-              className={styles.sourceLink}
-              href={it.source_url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {it.source ?? 'source'} ↗
-            </a>
-          )}
+          <div className={styles.trustRow}>
+            <TrustBadge
+              source={it.source}
+              sourceUrl={it.source_url}
+              sourceTier={it.source_tier ?? null}
+              verification={it.verification ?? null}
+              exactQuote={it.exact_quote}
+              correctionNote={it.correction_note}
+              compact
+            />
+          </div>
         </div>
       ))}
 

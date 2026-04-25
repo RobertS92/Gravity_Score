@@ -209,3 +209,30 @@
   color: var(--text-dim);
   cursor: not-allowed;
 }
+
+.rowFooter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.quote {
+  font-family: var(--font-prose);
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.4;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.correction {
+  font-size: 10px;
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.08);
+  border: 1px solid rgba(251, 146, 60, 0.3);
+  padding: 2px 6px;
+  border-radius: 3px;
+}

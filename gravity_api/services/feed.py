@@ -109,6 +109,28 @@ DEFAULT_GENERAL_CATEGORIES = [
 
 ALLOWED_SOURCES = {"watchlist", "teams", "general"}
 
+# Verification ladder used by the min_verification query param.  Higher
+# number == more trust.  Caller specifies the *minimum* level they want
+# in their feed; the SQL filter is `verification = ANY(allowed_levels)`.
+VERIFICATION_RANK = {
+    "UNVERIFIED": 1,
+    "LOW_CONFIDENCE": 2,
+    "SINGLE_SOURCE": 3,
+    "MULTI_SOURCE": 4,
+    "OFFICIAL": 5,
+}
+
+# Default minimum trust level: SINGLE_SOURCE means we hide unverified
+# legacy rows and LLM-rejected low-confidence extractions unless the
+# caller explicitly opts in via `min_verification=UNVERIFIED`.
+DEFAULT_MIN_VERIFICATION = "SINGLE_SOURCE"
+
+
+def _allowed_verification_levels(min_level: str) -> list[str]:
+    """Return the list of verification levels at or above ``min_level``."""
+    floor = VERIFICATION_RANK.get(min_level.upper(), VERIFICATION_RANK[DEFAULT_MIN_VERIFICATION])
+    return [k for k, v in VERIFICATION_RANK.items() if v >= floor]
+
 
 def _normalize_categories(raw: Optional[Iterable[str]]) -> Optional[list[str]]:
     if not raw:
@@ -192,6 +214,7 @@ def _rec_get(r: asyncpg.Record, key: str) -> Any:
 
 
 def _athlete_event_to_item(r: asyncpg.Record) -> dict[str, Any]:
+    conf = _rec_get(r, "confidence_score")
     return {
         "id": f"ae_{r['id']}",
         "kind": "athlete_event",
@@ -199,8 +222,16 @@ def _athlete_event_to_item(r: asyncpg.Record) -> dict[str, Any]:
         "title": r["title"],
         "body": _rec_get(r, "description"),
         "occurred_at": r["occurred_at"].isoformat() if r["occurred_at"] else None,
-        "source": _rec_get(r, "source"),
-        "source_url": None,
+        "published_at": _rec_get(r, "published_at").isoformat() if _rec_get(r, "published_at") else None,
+        # Provenance (post-migration 012)
+        "source": _rec_get(r, "source_name") or _rec_get(r, "source"),
+        "source_domain": _rec_get(r, "source_domain"),
+        "source_url": _rec_get(r, "source_url"),
+        "source_tier": _rec_get(r, "source_tier"),
+        "verification": _rec_get(r, "verification") or "UNVERIFIED",
+        "confidence_score": float(conf) if conf is not None else None,
+        "exact_quote": _rec_get(r, "exact_quote"),
+        "correction_note": _rec_get(r, "correction_note"),
         "athlete_id": str(r["athlete_id"]) if _rec_get(r, "athlete_id") else None,
         "athlete_name": _rec_get(r, "athlete_name"),
         "team_id": str(r["team_id"]) if _rec_get(r, "team_id") else None,
@@ -223,6 +254,7 @@ def _nil_deal_to_item(r: asyncpg.Record) -> dict[str, Any]:
         if r["deal_date"]
         else (r["ingested_at"].isoformat() if r["ingested_at"] else None)
     )
+    conf = _rec_get(r, "confidence_score")
     return {
         "id": f"nd_{r['id']}",
         "kind": "nil_deal",
@@ -231,7 +263,12 @@ def _nil_deal_to_item(r: asyncpg.Record) -> dict[str, Any]:
         "body": " · ".join([p for p in body_parts if p]) or None,
         "occurred_at": iso,
         "source": r["source"],
+        "source_domain": _rec_get(r, "source_domain"),
         "source_url": r["source_url"],
+        "source_tier": _rec_get(r, "source_tier"),
+        "verification": _rec_get(r, "verification") or ("OFFICIAL" if r["verified"] else "UNVERIFIED"),
+        "confidence_score": float(conf) if conf is not None else None,
+        "exact_quote": _rec_get(r, "exact_quote"),
         "athlete_id": str(r["athlete_id"]) if r["athlete_id"] else None,
         "athlete_name": r["athlete_name"],
         "team_id": None,
@@ -248,6 +285,7 @@ def _nil_deal_to_item(r: asyncpg.Record) -> dict[str, Any]:
 
 
 def _team_event_to_item(r: asyncpg.Record) -> dict[str, Any]:
+    conf = _rec_get(r, "confidence_score")
     return {
         "id": f"te_{r['id']}",
         "kind": "team_event",
@@ -255,8 +293,15 @@ def _team_event_to_item(r: asyncpg.Record) -> dict[str, Any]:
         "title": r["title"],
         "body": _rec_get(r, "body"),
         "occurred_at": r["occurred_at"].isoformat() if r["occurred_at"] else None,
-        "source": _rec_get(r, "source"),
+        "published_at": _rec_get(r, "published_at").isoformat() if _rec_get(r, "published_at") else None,
+        "source": _rec_get(r, "source_name") or _rec_get(r, "source"),
+        "source_domain": _rec_get(r, "source_domain"),
         "source_url": _rec_get(r, "source_url"),
+        "source_tier": _rec_get(r, "source_tier"),
+        "verification": _rec_get(r, "verification") or "UNVERIFIED",
+        "confidence_score": float(conf) if conf is not None else None,
+        "exact_quote": _rec_get(r, "exact_quote"),
+        "correction_note": _rec_get(r, "correction_note"),
         "athlete_id": None,
         "athlete_name": None,
         "team_id": str(r["team_id"]) if r["team_id"] else None,
@@ -275,6 +320,7 @@ async def build_feed(
     sports: Optional[list[str]],
     before_iso: Optional[str],
     limit: int,
+    min_verification: str = DEFAULT_MIN_VERIFICATION,
 ) -> dict[str, Any]:
     """Collect feed items honoring the requested sources / categories / sports.
 
@@ -310,6 +356,11 @@ async def build_feed(
     sport_filter = sports or None
     before_dt = _parse_before(before_iso)
 
+    # Minimum trust level — applied to athlete_events / team_events.
+    # NIL deals fall back to the legacy `verified` boolean if their
+    # verification column is null (kept for backward compat).
+    verif_levels = _allowed_verification_levels(min_verification)
+
     items: list[dict[str, Any]] = []
 
     # ---------- 1. athlete_events ---------------------------------------------
@@ -317,13 +368,20 @@ async def build_feed(
     if relevant_athletes:
         params: list[Any] = [relevant_athletes]
         sql = """SELECT ev.id, ev.athlete_id, ev.event_type, ev.category,
-                        ev.title, ev.description, ev.occurred_at, ev.metadata,
+                        ev.title, ev.description, ev.occurred_at, ev.published_at,
+                        ev.metadata,
+                        ev.source_name, ev.source_domain, ev.source_url,
+                        ev.source_tier, ev.verification, ev.confidence_score,
+                        ev.exact_quote, ev.correction_note,
                         ev.event_source AS source,
                         a.name AS athlete_name, a.school, a.sport,
                         NULL::uuid AS team_id
                  FROM athlete_events ev
                  JOIN athletes a ON a.id = ev.athlete_id
-                 WHERE ev.athlete_id = ANY($1::uuid[])"""
+                 WHERE ev.athlete_id = ANY($1::uuid[])
+                   AND ev.retracted_at IS NULL"""
+        params.append(verif_levels)
+        sql += f" AND ev.verification = ANY(${len(params)}::text[])"
         if cat_filter:
             params.append(cat_filter)
             sql += f" AND ev.category = ANY(${len(params)}::text[])"
@@ -344,13 +402,19 @@ async def build_feed(
     if "general" in sources:
         params = []
         sql = """SELECT ev.id, ev.athlete_id, ev.event_type, ev.category,
-                        ev.title, ev.description, ev.occurred_at, ev.metadata,
+                        ev.title, ev.description, ev.occurred_at, ev.published_at,
+                        ev.metadata,
+                        ev.source_name, ev.source_domain, ev.source_url,
+                        ev.source_tier, ev.verification, ev.confidence_score,
+                        ev.exact_quote, ev.correction_note,
                         ev.event_source AS source,
                         a.name AS athlete_name, a.school, a.sport,
                         NULL::uuid AS team_id
                  FROM athlete_events ev
                  JOIN athletes a ON a.id = ev.athlete_id
-                 WHERE TRUE"""
+                 WHERE ev.retracted_at IS NULL"""
+        params.append(verif_levels)
+        sql += f" AND ev.verification = ANY(${len(params)}::text[])"
         if sport_filter:
             params.append([s.lower() for s in sport_filter])
             sql += f" AND LOWER(a.sport) = ANY(${len(params)}::text[])"
@@ -388,10 +452,21 @@ async def build_feed(
         sql = f"""SELECT nd.id, nd.athlete_id, nd.deal_value, nd.brand_name,
                          nd.deal_type, nd.deal_date, nd.verified,
                          nd.source, nd.source_url, nd.ingested_at,
+                         nd.source_domain, nd.source_tier,
+                         nd.verification, nd.confidence_score, nd.exact_quote,
                          a.name AS athlete_name, a.school, a.sport
                   FROM athlete_nil_deals nd
                   JOIN athletes a ON a.id = nd.athlete_id
-                  WHERE TRUE {athlete_clause}"""
+                  WHERE nd.retracted_at IS NULL {athlete_clause}"""
+        # Trust filter: a NIL deal counts as verified if EITHER the new
+        # verification column meets the floor OR the legacy `verified` flag
+        # is true.  This keeps manually-curated deals visible until they
+        # are re-ingested through the new pipeline.
+        params.append(verif_levels)
+        sql += (
+            f" AND (nd.verification = ANY(${len(params)}::text[])"
+            f"      OR (nd.verification = 'UNVERIFIED' AND nd.verified IS TRUE))"
+        )
         if sport_filter:
             params.append([s.lower() for s in sport_filter])
             sql += f" AND LOWER(a.sport) = ANY(${len(params)}::text[])"
@@ -412,11 +487,17 @@ async def build_feed(
         # widen to any team in active sports if any
         params = []
         sql = """SELECT te.id, te.team_id, te.category, te.title, te.body,
-                        te.source, te.source_url, te.occurred_at, te.metadata,
+                        te.source, te.source_url, te.occurred_at, te.published_at,
+                        te.metadata,
+                        te.source_name, te.source_domain, te.source_tier,
+                        te.verification, te.confidence_score, te.exact_quote,
+                        te.correction_note,
                         t.school_name, t.sport
                  FROM team_events te
                  JOIN teams t ON t.id = te.team_id
-                 WHERE TRUE"""
+                 WHERE te.retracted_at IS NULL"""
+        params.append(verif_levels)
+        sql += f" AND te.verification = ANY(${len(params)}::text[])"
         if sport_filter:
             params.append([_team_sport_for(s) for s in sport_filter])
             sql += f" AND t.sport = ANY(${len(params)}::text[])"
@@ -432,11 +513,18 @@ async def build_feed(
     elif relevant_team_ids:
         params = [relevant_team_ids]
         sql = """SELECT te.id, te.team_id, te.category, te.title, te.body,
-                        te.source, te.source_url, te.occurred_at, te.metadata,
+                        te.source, te.source_url, te.occurred_at, te.published_at,
+                        te.metadata,
+                        te.source_name, te.source_domain, te.source_tier,
+                        te.verification, te.confidence_score, te.exact_quote,
+                        te.correction_note,
                         t.school_name, t.sport
                  FROM team_events te
                  JOIN teams t ON t.id = te.team_id
-                 WHERE te.team_id = ANY($1::uuid[])"""
+                 WHERE te.team_id = ANY($1::uuid[])
+                   AND te.retracted_at IS NULL"""
+        params.append(verif_levels)
+        sql += f" AND te.verification = ANY(${len(params)}::text[])"
         if cat_filter:
             params.append(cat_filter)
             sql += f" AND te.category = ANY(${len(params)}::text[])"

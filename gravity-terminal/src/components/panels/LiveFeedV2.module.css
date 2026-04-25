@@ -169,3 +169,10 @@
   background: #1a1f24;
   color: var(--text-secondary);
 }
+
+.trustRow {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

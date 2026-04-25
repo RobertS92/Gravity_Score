@@ -1,0 +1,79 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  opacity: 0.25;
+}
+
+.dotActive { opacity: 1; }
+
+.official {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.4);
+  background: rgba(74, 222, 128, 0.08);
+}
+.official .dot { background: #4ade80; }
+
+.multi {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.3);
+  background: rgba(74, 222, 128, 0.05);
+}
+.multi .dot { background: #4ade80; }
+
+.single {
+  color: #facc15;
+  border-color: rgba(250, 204, 21, 0.3);
+  background: rgba(250, 204, 21, 0.04);
+}
+.single .dot { background: #facc15; }
+
+.low {
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.3);
+  background: rgba(251, 146, 60, 0.04);
+}
+.low .dot { background: #fb923c; }
+
+.unverified {
+  color: var(--text-secondary);
+  border-color: var(--border);
+  background: transparent;
+  opacity: 0.7;
+}
+
+.sourceLink {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+}
+.sourceLink:hover { opacity: 0.8; }
+
+.compact {
+  padding: 1px 4px;
+  font-size: 9px;
+  gap: 4px;
+}
