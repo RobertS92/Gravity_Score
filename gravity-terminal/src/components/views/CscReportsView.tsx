@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { postCscReport } from '../../api/reports'
 import type { CscReportComparablesRow, CscReportJson } from '../../types/reports'
 import { formatNilMillions, formatScore } from '../../lib/formatters'
@@ -24,6 +24,8 @@ export function CscReportsView() {
   const location = useLocation()
   const navigate = useNavigate()
   const [report, setReport] = useState<CscReportJson | null>(null)
+  const [reportLoading, setReportLoading] = useState(false)
+  const [reportError, setReportError] = useState<string | null>(null)
 
   const selectorAthletes = useMemo(() => {
     if (!athlete) return watchlist
@@ -50,9 +52,24 @@ export function CscReportsView() {
     if (!athlete) return
     if (useUiStore.getState().cscLockedFromAgent) return
     let cancelled = false
-    void postCscReport(athlete.athlete_id, reportConfig).then((r) => {
-      if (!cancelled) setReport(r)
-    })
+    setReportLoading(true)
+    setReportError(null)
+    postCscReport(athlete.athlete_id, reportConfig)
+      .then((r) => {
+        if (!cancelled) {
+          setReport(r)
+          setReportError(null)
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setReport(null)
+          setReportError(err instanceof Error ? err.message : 'Failed to generate report')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setReportLoading(false)
+      })
     return () => {
       cancelled = true
     }
@@ -64,7 +81,17 @@ export function CscReportsView() {
   const regen = () => {
     if (!athlete) return
     setCscLocked(false)
-    void postCscReport(athlete.athlete_id, reportConfig).then(setReport)
+    setReportLoading(true)
+    setReportError(null)
+    postCscReport(athlete.athlete_id, reportConfig)
+      .then((r) => {
+        setReport(r)
+        setReportError(null)
+      })
+      .catch((err: unknown) =>
+        setReportError(err instanceof Error ? err.message : 'Failed to generate report'),
+      )
+      .finally(() => setReportLoading(false))
   }
 
   const handleExportPdf = async () => {
@@ -78,7 +105,31 @@ export function CscReportsView() {
   }
 
   if (!athlete) {
-    return <div className={styles.muted}>\u2014</div>
+    return (
+      <div
+        className={styles.muted}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          padding: '48px 24px',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ fontSize: 14, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          NO ATHLETE SELECTED
+        </div>
+        <div style={{ fontSize: 12, maxWidth: 420, lineHeight: 1.5 }}>
+          Pick an athlete from{' '}
+          <Link to="/market-scan" style={{ color: 'var(--accent-green)' }}>
+            Market Scan
+          </Link>{' '}
+          or your watchlist to generate a CSC valuation report.
+        </div>
+      </div>
+    )
   }
 
   const low = athlete.nil_range_low
@@ -92,7 +143,17 @@ export function CscReportsView() {
   return (
     <div className={styles.grid}>
       <div className={styles.preview}>
-        {!report ? (
+        {reportError ? (
+          <div className={styles.muted} style={{ color: 'var(--accent-red)' }}>
+            <div style={{ marginBottom: 8 }}>Report failed to load.</div>
+            <div style={{ fontSize: 11, opacity: 0.85 }}>{reportError}</div>
+            <div style={{ marginTop: 12 }}>
+              <ActionButton variant="secondary" onClick={() => regen()}>
+                Retry
+              </ActionButton>
+            </div>
+          </div>
+        ) : !report || reportLoading ? (
           <div className={styles.muted}>Loading report\u2026</div>
         ) : (
           <>

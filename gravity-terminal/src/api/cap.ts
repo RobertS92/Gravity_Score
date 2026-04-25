@@ -27,6 +27,13 @@ export type CapContract = {
   eligibility_years_remaining?: number | null
   status: string
   scenario_id: string | null
+  /** Latest gravity score components (joined server-side from athlete_gravity_scores).
+   *  All optional — older deployments may not populate these. */
+  gravity_score?: number | null
+  brand_score?: number | null
+  proof_score?: number | null
+  velocity_score?: number | null
+  risk_score?: number | null
 }
 
 export function fetchCapBudgets(orgId: string, sport: CapSport) {

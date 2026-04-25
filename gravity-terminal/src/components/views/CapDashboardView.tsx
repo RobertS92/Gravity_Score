@@ -80,8 +80,31 @@ export function CapDashboardView() {
     else if (pct >= 80) banner = { kind: 'warn', text: 'Elevated utilization (80–95%).' }
   }
 
+  // Gravity-per-Dollar leaderboard.
+  // GpD = gravity_score / (base_comp / $1k) — i.e. score per $1,000 of cap.
+  // Sorted desc; only on-cap contracts with a known gravity score and positive
+  // comp qualify. Slice the top 12 for the right-hand leaderboard.
   const leaderboard = useMemo(() => {
-    return [...contracts].filter((c) => !c.third_party_flag && c.base_comp > 0).slice(0, 12)
+    type Row = CapContract & { gpd: number | null }
+    const enriched: Row[] = contracts
+      .filter((c) => !c.third_party_flag && c.base_comp > 0)
+      .map((c) => {
+        const dollars = c.base_comp / 100
+        const gpd =
+          c.gravity_score != null && dollars > 0
+            ? (c.gravity_score / dollars) * 1000
+            : null
+        return { ...c, gpd }
+      })
+    enriched.sort((a, b) => {
+      const av = a.gpd
+      const bv = b.gpd
+      if (av == null && bv == null) return b.base_comp - a.base_comp
+      if (av == null) return 1
+      if (bv == null) return -1
+      return bv - av
+    })
+    return enriched.slice(0, 12)
   }, [contracts])
 
   return (
@@ -223,25 +246,37 @@ export function CapDashboardView() {
 
       <section>
         <h2 className={styles.title} style={{ fontSize: 12 }}>
-          GRAVITY / DOLLAR (PLACEHOLDER)
+          GRAVITY / DOLLAR
         </h2>
         <p className={styles.muted}>
-          Wire athlete scores into this table in a follow-up; slots reserved for gravity-per-dollar leaderboard.
+          Top on-cap contracts by score-per-$1k of base comp. Higher is better return on spend.
         </p>
         <table className={styles.table}>
           <thead>
             <tr>
               <th>ATHLETE</th>
+              <th>GRAVITY</th>
               <th>COMMIT</th>
+              <th>G / $1K</th>
             </tr>
           </thead>
           <tbody>
-            {leaderboard.map((c) => (
-              <tr key={c.id}>
-                <td>{c.athlete_name ?? c.athlete_id}</td>
-                <td>{fmtMoney(c.base_comp)}</td>
+            {leaderboard.length === 0 ? (
+              <tr>
+                <td colSpan={4} className={styles.muted}>
+                  No active contracts with gravity scores yet.
+                </td>
               </tr>
-            ))}
+            ) : (
+              leaderboard.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.athlete_name ?? c.athlete_id}</td>
+                  <td>{c.gravity_score != null ? c.gravity_score.toFixed(1) : '—'}</td>
+                  <td>{fmtMoney(c.base_comp)}</td>
+                  <td>{c.gpd != null ? c.gpd.toFixed(2) : '—'}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </section>

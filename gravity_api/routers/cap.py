@@ -207,10 +207,23 @@ async def list_contracts(
     user_id: uuid.UUID = Depends(require_user_id),
 ):
     ctx, sp = await _ctx(org_id, sport, user_id, db)
+    # LEFT JOIN LATERAL pulls the most recent gravity score for each
+    # contract athlete so the FE can render gravity-per-dollar without
+    # an extra round-trip per row.
     rows = await db.fetch(
-        """SELECT c.*, a.name AS athlete_name
+        """SELECT c.*, a.name AS athlete_name,
+                  s.gravity_score, s.brand_score, s.proof_score,
+                  s.velocity_score, s.risk_score, s.calculated_at
            FROM nil_roster_contracts c
            JOIN athletes a ON a.id = c.athlete_id
+           LEFT JOIN LATERAL (
+               SELECT gravity_score, brand_score, proof_score,
+                      velocity_score, risk_score, calculated_at
+               FROM athlete_gravity_scores
+               WHERE athlete_id = c.athlete_id
+               ORDER BY calculated_at DESC
+               LIMIT 1
+           ) s ON true
            WHERE c.org_id = $1 AND c.sport = $2 AND c.scenario_id IS NULL AND c.status = 'active'
            ORDER BY c.updated_at DESC""",
         ctx.org_id,
@@ -219,11 +232,21 @@ async def list_contracts(
     return {"contracts": [_contract_row(r) for r in rows]}
 
 
+def _f(v: Any) -> Optional[float]:
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def _contract_row(r: asyncpg.Record) -> dict[str, Any]:
+    keys = r.keys() if hasattr(r, "keys") else []
     return {
         "id": str(r["id"]),
         "athlete_id": str(r["athlete_id"]),
-        "athlete_name": r.get("athlete_name"),
+        "athlete_name": r.get("athlete_name") if hasattr(r, "get") else r["athlete_name"],
         "sport": r["sport"],
         "base_comp": int(r["base_comp"]),
         "incentives": r["incentives"],
@@ -233,6 +256,11 @@ def _contract_row(r: asyncpg.Record) -> dict[str, Any]:
         "eligibility_years_remaining": r["eligibility_years_remaining"],
         "status": r["status"],
         "scenario_id": str(r["scenario_id"]) if r["scenario_id"] else None,
+        "gravity_score": _f(r["gravity_score"]) if "gravity_score" in keys else None,
+        "brand_score": _f(r["brand_score"]) if "brand_score" in keys else None,
+        "proof_score": _f(r["proof_score"]) if "proof_score" in keys else None,
+        "velocity_score": _f(r["velocity_score"]) if "velocity_score" in keys else None,
+        "risk_score": _f(r["risk_score"]) if "risk_score" in keys else None,
     }
 
 
