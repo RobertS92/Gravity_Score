@@ -24,6 +24,8 @@ class Settings:
     scrapers_service_url: Optional[str]
     scrapers_service_api_key: Optional[str]
     redis_url: Optional[str]
+    stripe_webhook_secret: Optional[str]
+    stripe_secret_key: Optional[str]
 
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -58,7 +60,10 @@ def get_settings() -> Settings:
         ),
         jwt_secret=os.environ.get("JWT_SECRET") or os.environ.get("GRAVITY_JWT_SECRET"),
         jwt_algorithm=os.environ.get("JWT_ALGORITHM", "HS256"),
-        allow_query_user_id=os.environ.get("GRAVITY_ALLOW_QUERY_USER_ID", "1").lower()
+        # Default OFF in production: when JWT is configured, the only way to
+        # identify a caller is the bearer token. Set to "1" only for local dev
+        # against a backend without auth.
+        allow_query_user_id=os.environ.get("GRAVITY_ALLOW_QUERY_USER_ID", "0").lower()
         in ("1", "true", "yes"),
         ml_service_url=(
             os.environ.get("ML_SERVICE_URL") or os.environ.get("ML_API_URL") or ""
@@ -73,4 +78,7 @@ def get_settings() -> Settings:
             (os.environ.get("SCRAPERS_SERVICE_API_KEY") or "").strip() or None
         ),
         redis_url=(os.environ.get("REDIS_URL") or "").strip() or None,
+        stripe_webhook_secret=(os.environ.get("STRIPE_WEBHOOK_SECRET") or "").strip()
+        or None,
+        stripe_secret_key=(os.environ.get("STRIPE_SECRET_KEY") or "").strip() or None,
     )

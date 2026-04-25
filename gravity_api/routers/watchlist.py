@@ -100,9 +100,16 @@ async def remove_from_watchlist(
 
 
 @router.get("/{user_id}")
-async def get_watchlist_by_path(user_id: str, db: asyncpg.Connection = Depends(get_db)):
+async def get_watchlist_by_path(
+    user_id: str,
+    db: asyncpg.Connection = Depends(get_db),
+    effective_user: uuid.UUID = Depends(require_user_id),
+):
+    """Path-style alias kept for legacy clients. Caller may only read their own watchlist."""
     try:
         uid = uuid.UUID(user_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail="user_id must be UUID") from e
+    if uid != effective_user:
+        raise HTTPException(status_code=403, detail="Cannot read watchlist for another user")
     return {"athletes": await _fetch_watchlist(db, uid)}
