@@ -10,8 +10,6 @@ export type MarketScanQuery = {
   position?: string
   conference?: string
   min_score?: number
-  /** If true, show athletes with roster_verified_at older than API threshold (still excludes is_active=false). */
-  include_stale_roster?: boolean
 }
 
 export type MarketScanResult = {
@@ -34,7 +32,6 @@ function buildMarketScanSearchParams(q: MarketScanQuery, offset: number, limit: 
   if (q.position) sp.set('position_group', q.position)
   if (q.conference) sp.set('conference', q.conference)
   if (q.min_score != null) sp.set('min_gravity', String(q.min_score))
-  if (q.include_stale_roster) sp.set('include_stale_roster', 'true')
   return sp.toString()
 }
 

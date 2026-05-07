@@ -83,12 +83,10 @@ async def search_athletes(
         params.append(max_risk)
         idx += 1
     if exclude_inactive:
-        # NULL or TRUE = include; explicit FALSE = departed / hidden
-        conditions.append("(a.is_active IS DISTINCT FROM FALSE)")
+        conditions.append("(a.is_active IS TRUE)")
     if roster_verified_within_days is not None:
-        # NULL = not yet verified by roster job — still show until scraper sets timestamps
         conditions.append(
-            f"(a.roster_verified_at IS NULL OR a.roster_verified_at >= "
+            f"(a.roster_verified_at IS NOT NULL AND a.roster_verified_at >= "
             f"NOW() - (${idx}::int * INTERVAL '1 day'))"
         )
         params.append(roster_verified_within_days)

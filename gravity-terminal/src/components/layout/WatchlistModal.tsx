@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { searchAthletesFiltered } from '../../api/athletes'
+import { searchAthletesFilteredPaged } from '../../api/athletes'
 import type { AthleteRecord } from '../../types/athlete'
 import { usePreferencesStore } from '../../stores/preferencesStore'
 import { useWatchlistStore } from '../../stores/watchlistStore'
@@ -20,6 +20,7 @@ const SPORT_OPTIONS: { label: string; value: string }[] = [
   { label: "Women's basketball", value: 'ncaab_womens' },
   { label: "Men's basketball (schema: mcbb)", value: 'mcbb' },
 ]
+const PAGE_SIZE = 100
 
 type Filters = {
   q: string
@@ -31,8 +32,12 @@ type Filters = {
 export function WatchlistModal({ onClose }: Props) {
   const [filters, setFilters] = useState<Filters>({ q: '', position: '', conference: '', sport: '' })
   const [results, setResults] = useState<AthleteRecord[]>([])
+  const [total, setTotal] = useState<number>(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [emptyCorpusDetected, setEmptyCorpusDetected] = useState(false)
 
   const watchlist = useWatchlistStore((s) => s.athletes)
   const addToWatchlist = useWatchlistStore((s) => s.addToWatchlist)
@@ -41,8 +46,9 @@ export function WatchlistModal({ onClose }: Props) {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const doSearch = useCallback(async (f: Filters) => {
-    setLoading(true)
+  const doSearch = useCallback(async (f: Filters, offset = 0, append = false) => {
+    if (append) setIsLoadingMore(true)
+    else setLoading(true)
     setError(null)
     try {
       const params: Record<string, string> = {}
@@ -50,19 +56,38 @@ export function WatchlistModal({ onClose }: Props) {
       if (f.position) params.position_group = f.position
       if (f.conference) params.conference = f.conference
       if (f.sport) params.sport = f.sport
-      if (sportsCsv) params.sports = sportsCsv
-      const r = await searchAthletesFiltered(params)
-      setResults(r)
+      else if (sportsCsv) params.sports = sportsCsv
+      const page = await searchAthletesFilteredPaged(params, { limit: PAGE_SIZE, offset })
+      setTotal(page.total)
+      setHasMore(page.hasMore)
+      if (append) {
+        setResults((prev) => {
+          const seen = new Set(prev.map((x) => x.athlete_id))
+          const merged = [...prev]
+          for (const next of page.athletes) {
+            if (!seen.has(next.athlete_id)) merged.push(next)
+          }
+          return merged
+        })
+      } else {
+        setResults(page.athletes)
+      }
+      const isCorpusCheck =
+        !f.q.trim() && !f.position.trim() && !f.conference.trim() && !f.sport.trim() && offset === 0
+      if (isCorpusCheck) {
+        setEmptyCorpusDetected(page.total === 0)
+      }
     } catch (e) {
       setError(String(e))
     } finally {
-      setLoading(false)
+      if (append) setIsLoadingMore(false)
+      else setLoading(false)
     }
   }, [sportsCsv])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => void doSearch(filters), 300)
+    debounceRef.current = setTimeout(() => void doSearch(filters, 0, false), 300)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
@@ -142,7 +167,20 @@ export function WatchlistModal({ onClose }: Props) {
         <div className={styles.resultsArea}>
           {loading && <div className={styles.statusMsg}>Searching…</div>}
           {error && <div className={styles.errorMsg}>{error}</div>}
-          {!loading && results.length === 0 && !error && <div className={styles.statusMsg}>No results</div>}
+          {!loading && results.length === 0 && !error && (
+            <div className={styles.statusMsg}>
+              {emptyCorpusDetected
+                ? 'Database is being populated. Check Data Pipeline for scraper status.'
+                : filters.q.trim()
+                  ? 'No athletes match this search.'
+                  : 'No results'}
+            </div>
+          )}
+          {!loading && results.length > 0 && (
+            <div className={styles.resultsMeta}>
+              Showing {results.length} of {total}
+            </div>
+          )}
           {results.map((a) => {
             const added = isOnWatchlist(a.athlete_id)
             return (
@@ -167,6 +205,18 @@ export function WatchlistModal({ onClose }: Props) {
               </div>
             )
           })}
+          {!loading && hasMore && !error && (
+            <div className={styles.loadMoreWrap}>
+              <button
+                type="button"
+                className={styles.loadMoreBtn}
+                onClick={() => void doSearch(filters, results.length, true)}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore ? 'LOADING…' : `LOAD MORE (${PAGE_SIZE})`}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

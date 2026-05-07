@@ -1,5 +1,6 @@
 """JWT login (email → user_accounts), register, onboarding, and /me."""
 
+import re
 import uuid
 
 import bcrypt
@@ -22,6 +23,13 @@ from gravity_api.services.onboarding_defaults import (
 
 router = APIRouter()
 _bearer = HTTPBearer(auto_error=False)
+
+
+def _slugify_org_name(name: str) -> str:
+    base = re.sub(r"[^a-zA-Z0-9]+", "-", name.strip().lower()).strip("-")
+    if not base:
+        base = "org"
+    return base[:120]
 
 
 class LoginRequest(BaseModel):
@@ -143,6 +151,25 @@ async def complete_onboarding(
         raise HTTPException(status_code=400, detail=str(e)) from e
     tab = default_dashboard_tab_for_org_type(ot)
     sort_hint = default_athletes_sort_for_org_type(ot)
+    organization_id = None
+    organization_name = body.org_name.strip() if body.org_name else None
+    if ot in {"school", "nil_collective"} and organization_name:
+        existing_org = await db.fetchrow(
+            "SELECT id FROM organizations WHERE lower(name) = lower($1) LIMIT 1",
+            organization_name,
+        )
+        if existing_org:
+            organization_id = existing_org["id"]
+        else:
+            org_row = await db.fetchrow(
+                """INSERT INTO organizations (name, slug)
+                   VALUES ($1, $2)
+                   ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+                   RETURNING id""",
+                organization_name,
+                _slugify_org_name(organization_name),
+            )
+            organization_id = org_row["id"] if org_row else None
     await db.execute(
         """UPDATE user_accounts SET
              org_type = $2,
@@ -152,7 +179,9 @@ async def complete_onboarding(
              onboarding_goal = $6,
              default_dashboard_tab = $7,
              athletes_default_sort = $8,
-             onboarding_completed_at = NOW()
+             onboarding_completed_at = NOW(),
+             organization = COALESCE($4, organization),
+             organization_id = COALESCE($9, organization_id)
            WHERE id = $1 AND onboarding_completed_at IS NULL""",
         user_id,
         ot,
@@ -162,7 +191,16 @@ async def complete_onboarding(
         body.onboarding_goal,
         tab,
         sort_hint,
+        organization_id,
     )
+    if organization_id is not None:
+        await db.execute(
+            """INSERT INTO organization_members (user_id, org_id, role, sport)
+               VALUES ($1, $2, 'school_admin', NULL)
+               ON CONFLICT DO NOTHING""",
+            user_id,
+            organization_id,
+        )
     row = await db.fetchrow(
         """SELECT id, email, role, org_type, sport_preferences, org_name, team_or_athlete_seed,
                   default_dashboard_tab, athletes_default_sort, onboarding_completed_at, display_name,

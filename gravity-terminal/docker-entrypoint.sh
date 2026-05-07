@@ -4,6 +4,14 @@ cd /app
 if [ "${VITE_USE_MOCKS:-}" = "true" ]; then
   printf '%s\n' "window.__GRAVITY_API_URL__='';" > dist/env-config.js
 else
+  if [ "${VITE_AGENT_USE_PROXY:-true}" != "true" ]; then
+    echo "ERROR: VITE_AGENT_USE_PROXY must be true for production deployments."
+    exit 1
+  fi
+  if [ -n "${VITE_ANTHROPIC_API_KEY:-}" ]; then
+    echo "ERROR: VITE_ANTHROPIC_API_KEY must not be set in production frontend runtime."
+    exit 1
+  fi
   node <<'NODE'
 const fs = require('fs')
 const raw = (process.env.VITE_API_URL || '').trim()

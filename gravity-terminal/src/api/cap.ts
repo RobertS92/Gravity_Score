@@ -36,6 +36,64 @@ export type CapContract = {
   risk_score?: number | null
 }
 
+export type CapScenario = {
+  id: string
+  name: string
+  status: 'draft' | 'approved' | 'official' | 'promoted'
+  aggregate_gravity_score?: number | null
+  total_committed?: number | null
+  total_risk_exposure?: number | null
+  created_at?: string | null
+  updated_at?: string | null
+  promoted_at?: string | null
+}
+
+export type CapWorkflowQueue = {
+  permissions: { can_view: boolean; can_edit: boolean; can_approve: boolean }
+  pending: Array<{ id: string; name: string; status: string; created_at?: string | null; updated_at?: string | null }>
+  events: Array<{ scenario_id: string | null; action: string; actor_user_id: string; notes?: string | null; created_at?: string | null }>
+}
+
+export type CapAuditEvent = {
+  id: string
+  user_id: string
+  table_name: string
+  record_id: string
+  action: string
+  old_values?: Record<string, unknown> | null
+  new_values?: Record<string, unknown> | null
+  created_at?: string | null
+}
+
+export type CapAlertsResponse = {
+  derived: Array<{ type: string; severity: string; title: string; value: number }>
+  events: Array<{
+    id: string
+    fiscal_year?: number | null
+    alert_type: string
+    severity: string
+    title: string
+    description?: string | null
+    metric_value?: number | null
+    threshold?: number | null
+    created_at?: string | null
+  }>
+}
+
+export type CapCashFlowResponse = {
+  org_id: string
+  sport: string
+  fiscal_year: number
+  months: Array<{
+    month: string
+    cap_cents: number
+    third_party_cents: number
+    incentive_cents: number
+    total_cents: number
+    cumulative_cents: number
+  }>
+}
+
 export function fetchCapBudgets(orgId: string, sport: CapSport) {
   return apiGet<{ org_id: string; sport: string; budgets: unknown[] }>(`cap/budget/${orgId}/${sport}`)
 }
@@ -49,7 +107,7 @@ export function fetchCapContracts(orgId: string, sport: CapSport) {
 }
 
 export function fetchCapScenarios(orgId: string, sport: CapSport) {
-  return apiGet<{ scenarios: unknown[] }>(`cap/org/${orgId}/scenarios/${sport}`)
+  return apiGet<{ scenarios: CapScenario[] }>(`cap/org/${orgId}/scenarios/${sport}`)
 }
 
 export function createCapScenario(payload: { org_id: string; sport: CapSport; name: string }) {
@@ -68,6 +126,10 @@ export function promoteCapScenario(scenarioId: string) {
   return apiPost<{ ok: boolean }>(`cap/scenarios/${scenarioId}/promote`, {})
 }
 
+export function approveCapScenario(scenarioId: string, notes?: string) {
+  return apiPost<{ ok: boolean }>(`cap/scenarios/${scenarioId}/approve`, { notes: notes ?? null })
+}
+
 export function fetchCapOutlook(orgId: string, sport: CapSport) {
   return apiGet<{
     org_id: string
@@ -84,6 +146,38 @@ export function fetchCapOutlook(orgId: string, sport: CapSport) {
 
 export function fetchCapRollup(orgId: string) {
   return apiGet<{ org_id: string; sports: unknown[] }>(`cap/rollup/${orgId}`)
+}
+
+export function fetchCapWorkflowQueue(orgId: string, sport: CapSport) {
+  return apiGet<CapWorkflowQueue>(`cap/workflow/queue/${orgId}/${sport}`)
+}
+
+export function fetchCapAuditLog(orgId: string, params: { sport?: CapSport; action?: string; table_name?: string; limit?: number } = {}) {
+  const sp = new URLSearchParams()
+  if (params.sport) sp.set('sport', params.sport)
+  if (params.action) sp.set('action', params.action)
+  if (params.table_name) sp.set('table_name', params.table_name)
+  if (params.limit != null) sp.set('limit', String(params.limit))
+  return apiGet<{ events: CapAuditEvent[] }>(`cap/audit/${orgId}${sp.toString() ? `?${sp.toString()}` : ''}`)
+}
+
+export function fetchCapAlerts(orgId: string, sport: CapSport) {
+  return apiGet<CapAlertsResponse>(`cap/alerts/${orgId}/${sport}`)
+}
+
+export function fetchCapCashFlow(orgId: string, sport: CapSport, year: number) {
+  return apiGet<CapCashFlowResponse>(`cap/cash-flow/${orgId}/${sport}/${year}`)
+}
+
+export function upsertCapPermissions(payload: {
+  org_id: string
+  user_id: string
+  sport?: CapSport | null
+  can_view: boolean
+  can_edit: boolean
+  can_approve: boolean
+}) {
+  return apiPost<{ ok: boolean; id: string }>('cap/permissions', payload)
 }
 
 export function upsertCapBudget(payload: {

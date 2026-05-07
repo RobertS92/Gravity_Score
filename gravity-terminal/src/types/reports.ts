@@ -36,6 +36,19 @@ export interface BrandMatchBrief {
   risk_tolerance: number
   max_transfer_risk: boolean
   authenticity_weight: number
+  min_social_reach?: number
+  prioritize_engagement?: boolean
+  excluded_categories?: string[]
+  deal_density_preference?: 'few' | 'moderate' | 'any'
+  sports?: string[]
+}
+
+export interface BrandMatchBreakdown {
+  brand_alignment: number
+  geography_overlap: number
+  category_authenticity: number
+  engagement_quality: number
+  risk_alignment: number
 }
 
 export interface BrandMatchResult {
@@ -49,6 +62,15 @@ export interface BrandMatchResult {
   deal_range_low?: number | null
   deal_range_high?: number | null
   fit_rationale?: string
+  social_combined_reach?: number | null
+  instagram_engagement_rate?: number | null
+  verified_deals_count?: number | null
+  sport?: string | null
+  class_year?: string | null
+  conference?: string | null
+  match_breakdown?: BrandMatchBreakdown
+  recommended_structure?: 'FIXED' | 'PERFORMANCE_WEIGHTED' | 'HYBRID'
+  exclusion_flags?: string[]
   athlete?: AthleteRecord
 }
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import date
 from typing import Any, Dict, List, Optional
 
 import asyncpg
@@ -45,6 +46,73 @@ async def _ctx(org_id: str, sport: str, user_id: uuid.UUID, db: asyncpg.Connecti
     ctx = await load_school_auth(oid, user_id, db)
     ensure_sport_allowed(ctx, sp)
     return ctx, sp
+
+
+async def _permissions_for(
+    db: asyncpg.Connection,
+    *,
+    org_id: uuid.UUID,
+    sport: str,
+    user_id: uuid.UUID,
+) -> dict[str, bool]:
+    """
+    Role defaults:
+    - global admin, school_admin: view/edit/approve
+    - school_coach with sport access: view/edit
+    Overlay with capiq_user_permissions when present.
+    """
+    acct_role = await db.fetchval("SELECT role FROM user_accounts WHERE id = $1", user_id)
+    defaults = {"can_view": False, "can_edit": False, "can_approve": False}
+    if acct_role == "admin":
+        defaults = {"can_view": True, "can_edit": True, "can_approve": True}
+    else:
+        ctx = await load_school_auth(org_id, user_id, db)
+        if ctx.is_org_admin:
+            defaults = {"can_view": True, "can_edit": True, "can_approve": True}
+        elif sport in ctx.coach_sports:
+            defaults = {"can_view": True, "can_edit": True, "can_approve": False}
+
+    row = await db.fetchrow(
+        """SELECT can_view, can_edit, can_approve
+           FROM capiq_user_permissions
+           WHERE org_id = $1 AND user_id = $2 AND (sport = $3 OR sport IS NULL)
+           ORDER BY CASE WHEN sport = $3 THEN 0 ELSE 1 END
+           LIMIT 1""",
+        org_id,
+        user_id,
+        sport,
+    )
+    if row:
+        return {
+            "can_view": bool(row["can_view"]),
+            "can_edit": bool(row["can_edit"]),
+            "can_approve": bool(row["can_approve"]),
+        }
+    return defaults
+
+
+async def _ensure_can_edit(
+    db: asyncpg.Connection,
+    *,
+    org_id: uuid.UUID,
+    sport: str,
+    user_id: uuid.UUID,
+) -> None:
+    perms = await _permissions_for(db, org_id=org_id, sport=sport, user_id=user_id)
+    if not perms["can_edit"]:
+        raise HTTPException(status_code=403, detail="Edit permission required")
+
+
+async def _ensure_can_approve(
+    db: asyncpg.Connection,
+    *,
+    org_id: uuid.UUID,
+    sport: str,
+    user_id: uuid.UUID,
+) -> None:
+    perms = await _permissions_for(db, org_id=org_id, sport=sport, user_id=user_id)
+    if not perms["can_approve"]:
+        raise HTTPException(status_code=403, detail="Approve permission required")
 
 
 class BudgetUpsertBody(BaseModel):
@@ -271,6 +339,7 @@ async def create_contract(
     user_id: uuid.UUID = Depends(require_user_id),
 ):
     ctx, sp = await _ctx(body.org_id, body.sport, user_id, db)
+    await _ensure_can_edit(db, org_id=ctx.org_id, sport=sp, user_id=user_id)
     aid = _uuid(body.athlete_id, "athlete_id")
     ath = await db.fetchrow("SELECT id, sport FROM athletes WHERE id = $1", aid)
     if not ath:
@@ -324,6 +393,7 @@ async def patch_contract(
         raise HTTPException(status_code=404, detail="Contract not found")
     ctx = await load_school_auth(row["org_id"], user_id, db)
     ensure_sport_allowed(ctx, row["sport"])
+    await _ensure_can_edit(db, org_id=row["org_id"], sport=row["sport"], user_id=user_id)
     dump = body.model_dump(exclude_unset=True)
     if not dump:
         return {"ok": True}
@@ -375,6 +445,7 @@ async def delete_contract(
         raise HTTPException(status_code=404, detail="Contract not found")
     ctx = await load_school_auth(row["org_id"], user_id, db)
     ensure_sport_allowed(ctx, row["sport"])
+    await _ensure_can_edit(db, org_id=row["org_id"], sport=row["sport"], user_id=user_id)
     await db.execute(
         "UPDATE nil_roster_contracts SET status = 'expired', updated_at = NOW() WHERE id = $1",
         cid,
@@ -438,6 +509,7 @@ async def create_scenario(
     user_id: uuid.UUID = Depends(require_user_id),
 ):
     ctx, sp = await _ctx(body.org_id, body.sport, user_id, db)
+    await _ensure_can_edit(db, org_id=ctx.org_id, sport=sp, user_id=user_id)
     base_rid = None
     if body.base_roster_id:
         base_rid = _uuid(body.base_roster_id, "base_roster_id")
@@ -519,6 +591,7 @@ async def upsert_scenario_contract(
         raise HTTPException(status_code=404, detail="Scenario not found or not draft")
     ctx = await load_school_auth(scen["org_id"], user_id, db)
     ensure_sport_allowed(ctx, scen["sport"])
+    await _ensure_can_edit(db, org_id=scen["org_id"], sport=scen["sport"], user_id=user_id)
     aid = _uuid(body.athlete_id, "athlete_id")
     existing = await db.fetchrow(
         "SELECT id FROM nil_roster_contracts WHERE scenario_id = $1 AND athlete_id = $2",
@@ -593,6 +666,7 @@ async def delete_scenario_contract(
         raise HTTPException(status_code=404, detail="Contract not found")
     ctx = await load_school_auth(row["org_id"], user_id, db)
     ensure_sport_allowed(ctx, row["sport"])
+    await _ensure_can_edit(db, org_id=row["org_id"], sport=row["sport"], user_id=user_id)
     await db.execute("DELETE FROM nil_roster_contracts WHERE id = $1", cid)
     await write_cap_audit_log(
         conn=db,
@@ -711,11 +785,11 @@ async def promote_scenario(
 ):
     sid = _uuid(scenario_id, "scenario_id")
     scen = await db.fetchrow("SELECT * FROM nil_scenarios WHERE id = $1", sid)
-    if not scen or scen["status"] != "draft":
+    if not scen or scen["status"] not in {"approved", "draft"}:
         raise HTTPException(status_code=400, detail="Scenario not promotable")
     ctx = await load_school_auth(scen["org_id"], user_id, db)
     ensure_sport_allowed(ctx, scen["sport"])
-    ensure_org_admin(ctx)
+    await _ensure_can_approve(db, org_id=scen["org_id"], sport=scen["sport"], user_id=user_id)
     org_id = scen["org_id"]
     sport = scen["sport"]
     async with db.transaction():
@@ -731,10 +805,19 @@ async def promote_scenario(
             sid,
         )
         await db.execute(
-            """UPDATE nil_scenarios SET status = 'promoted', promoted_at = NOW(), promoted_by = $2, updated_at = NOW()
+            """UPDATE nil_scenarios SET status = 'official', promoted_at = NOW(), promoted_by = $2, updated_at = NOW()
                WHERE id = $1""",
             sid,
             user_id,
+        )
+        await db.execute(
+            """INSERT INTO nil_scenario_approval_events (scenario_id, org_id, sport, action, actor_user_id, notes)
+               VALUES ($1, $2, $3, 'promoted', $4, $5)""",
+            sid,
+            org_id,
+            sport,
+            user_id,
+            "Promoted to official roster",
         )
     await write_cap_audit_log(
         conn=db,
@@ -746,6 +829,318 @@ async def promote_scenario(
         new_values={"promoted": True},
     )
     return {"ok": True}
+
+
+class ScenarioApproveBody(BaseModel):
+    notes: Optional[str] = None
+
+
+@router.post("/scenarios/{scenario_id}/approve")
+async def approve_scenario(
+    scenario_id: str,
+    body: ScenarioApproveBody,
+    db: asyncpg.Connection = Depends(get_db),
+    user_id: uuid.UUID = Depends(require_user_id),
+):
+    sid = _uuid(scenario_id, "scenario_id")
+    scen = await db.fetchrow("SELECT * FROM nil_scenarios WHERE id = $1", sid)
+    if not scen or scen["status"] != "draft":
+        raise HTTPException(status_code=400, detail="Scenario not approvable")
+    ctx = await load_school_auth(scen["org_id"], user_id, db)
+    ensure_sport_allowed(ctx, scen["sport"])
+    await _ensure_can_approve(db, org_id=scen["org_id"], sport=scen["sport"], user_id=user_id)
+    await db.execute(
+        "UPDATE nil_scenarios SET status = 'approved', updated_at = NOW() WHERE id = $1",
+        sid,
+    )
+    await db.execute(
+        """INSERT INTO nil_scenario_approval_events (scenario_id, org_id, sport, action, actor_user_id, notes)
+           VALUES ($1, $2, $3, 'approved', $4, $5)""",
+        sid,
+        scen["org_id"],
+        scen["sport"],
+        user_id,
+        body.notes,
+    )
+    await write_cap_audit_log(
+        conn=db,
+        org_id=scen["org_id"],
+        user_id=user_id,
+        table_name="nil_scenarios",
+        record_id=sid,
+        action="UPDATE",
+        new_values={"status": "approved", "notes": body.notes},
+    )
+    return {"ok": True}
+
+
+@router.get("/workflow/queue/{org_id}/{sport}")
+async def workflow_queue(
+    org_id: str,
+    sport: str,
+    db: asyncpg.Connection = Depends(get_db),
+    user_id: uuid.UUID = Depends(require_user_id),
+):
+    ctx, sp = await _ctx(org_id, sport, user_id, db)
+    pending = await db.fetch(
+        """SELECT id, name, status, created_at, updated_at
+           FROM nil_scenarios
+           WHERE org_id = $1 AND sport = $2 AND status IN ('draft', 'approved')
+           ORDER BY updated_at DESC""",
+        ctx.org_id,
+        sp,
+    )
+    events = await db.fetch(
+        """SELECT scenario_id, action, actor_user_id, notes, created_at
+           FROM nil_scenario_approval_events
+           WHERE org_id = $1 AND sport = $2
+           ORDER BY created_at DESC
+           LIMIT 100""",
+        ctx.org_id,
+        sp,
+    )
+    perms = await _permissions_for(db, org_id=ctx.org_id, sport=sp, user_id=user_id)
+    return {
+        "permissions": perms,
+        "pending": [
+            {
+                "id": str(r["id"]),
+                "name": r["name"],
+                "status": r["status"],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                "updated_at": r["updated_at"].isoformat() if r["updated_at"] else None,
+            }
+            for r in pending
+        ],
+        "events": [
+            {
+                "scenario_id": str(r["scenario_id"]) if r["scenario_id"] else None,
+                "action": r["action"],
+                "actor_user_id": str(r["actor_user_id"]),
+                "notes": r["notes"],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in events
+        ],
+    }
+
+
+@router.get("/cash-flow/{org_id}/{sport}/{year}")
+async def cash_flow(
+    org_id: str,
+    sport: str,
+    year: int,
+    db: asyncpg.Connection = Depends(get_db),
+    user_id: uuid.UUID = Depends(require_user_id),
+):
+    ctx, sp = await _ctx(org_id, sport, user_id, db)
+    rows = await db.fetch(
+        """SELECT athlete_id, base_comp, incentives, third_party_flag, payment_schedule
+           FROM nil_roster_contracts
+           WHERE org_id = $1 AND sport = $2 AND scenario_id IS NULL AND status = 'active'
+             AND fiscal_year_start = $3""",
+        ctx.org_id,
+        sp,
+        year,
+    )
+    months = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+    month_data: dict[str, dict[str, int]] = {
+        m: {"cap_cents": 0, "third_party_cents": 0, "incentive_cents": 0} for m in months
+    }
+    for r in rows:
+        schedule = r["payment_schedule"] if isinstance(r["payment_schedule"], dict) else {}
+        base = int(r["base_comp"] or 0)
+        if schedule:
+            for m in months:
+                pct = float(schedule.get(m, 0) or 0)
+                cents = int(base * pct) if pct <= 1 else int(pct)
+                if r["third_party_flag"]:
+                    month_data[m]["third_party_cents"] += cents
+                else:
+                    month_data[m]["cap_cents"] += cents
+        else:
+            even = int(base / 12) if base > 0 else 0
+            for m in months:
+                if r["third_party_flag"]:
+                    month_data[m]["third_party_cents"] += even
+                else:
+                    month_data[m]["cap_cents"] += even
+        inc = incentive_exposure_cents(r["incentives"])
+        if inc > 0:
+            month_data["Jun"]["incentive_cents"] += inc
+    cumulative = 0
+    out_months = []
+    for m in months:
+        total = month_data[m]["cap_cents"] + month_data[m]["third_party_cents"] + month_data[m]["incentive_cents"]
+        cumulative += total
+        out_months.append({"month": m, **month_data[m], "total_cents": total, "cumulative_cents": cumulative})
+    return {"org_id": str(ctx.org_id), "sport": sp, "fiscal_year": year, "months": out_months}
+
+
+@router.get("/audit/{org_id}")
+async def audit_log(
+    org_id: str,
+    sport: Optional[str] = None,
+    action: Optional[str] = None,
+    table_name: Optional[str] = None,
+    limit: int = 100,
+    db: asyncpg.Connection = Depends(get_db),
+    user_id: uuid.UUID = Depends(require_user_id),
+):
+    oid = _uuid(org_id, "org_id")
+    ctx = await load_school_auth(oid, user_id, db)
+    if not ctx.is_org_admin:
+        raise HTTPException(status_code=403, detail="School admin role required")
+    params: list[Any] = [oid]
+    cond = ["org_id = $1"]
+    idx = 2
+    if action:
+        cond.append(f"action = ${idx}")
+        params.append(action)
+        idx += 1
+    if table_name:
+        cond.append(f"table_name = ${idx}")
+        params.append(table_name)
+        idx += 1
+    if sport:
+        cond.append(f"(new_values->>'sport' = ${idx} OR old_values->>'sport' = ${idx})")
+        params.append(assert_cap_sport(sport))
+        idx += 1
+    params.append(min(max(limit, 1), 500))
+    rows = await db.fetch(
+        f"""SELECT id, user_id, table_name, record_id, action, old_values, new_values, created_at
+            FROM cap_audit_log
+            WHERE {' AND '.join(cond)}
+            ORDER BY created_at DESC
+            LIMIT ${idx}""",
+        *params,
+    )
+    return {
+        "events": [
+            {
+                "id": str(r["id"]),
+                "user_id": str(r["user_id"]),
+                "table_name": r["table_name"],
+                "record_id": str(r["record_id"]),
+                "action": r["action"],
+                "old_values": r["old_values"],
+                "new_values": r["new_values"],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.get("/alerts/{org_id}/{sport}")
+async def cap_alerts(
+    org_id: str,
+    sport: str,
+    db: asyncpg.Connection = Depends(get_db),
+    user_id: uuid.UUID = Depends(require_user_id),
+):
+    ctx, sp = await _ctx(org_id, sport, user_id, db)
+    fy = date.today().year
+    util = await utilization(str(ctx.org_id), sp, fy, db, user_id)
+    alerts: list[dict[str, Any]] = []
+    pct = util.get("utilization_pct")
+    if pct is not None and pct > 100:
+        alerts.append({"type": "OVER_CAP", "severity": "critical", "title": "Over cap", "value": pct})
+    elif pct is not None and pct >= 95:
+        alerts.append({"type": "NEAR_CAP", "severity": "warning", "title": "Near cap", "value": pct})
+    elif pct is not None and pct < 75:
+        alerts.append(
+            {"type": "UNDERUTILIZED_CAP", "severity": "info", "title": "Underutilized cap opportunity", "value": pct}
+        )
+
+    outlook_data = await outlook(str(ctx.org_id), sp, db, user_id)
+    for y in outlook_data["years"]:
+        available = y["available_cap_cents"]
+        if available is not None and available < 0:
+            alerts.append(
+                {
+                    "type": "FUTURE_CAP_RISK",
+                    "severity": "critical",
+                    "title": f"Future cap risk {y['fiscal_year']}",
+                    "value": available,
+                }
+            )
+    persisted = await db.fetch(
+        """SELECT id, fiscal_year, alert_type, severity, title, description, metric_value, threshold, created_at
+           FROM cap_alert_events
+           WHERE org_id = $1 AND sport = $2
+           ORDER BY created_at DESC
+           LIMIT 50""",
+        ctx.org_id,
+        sp,
+    )
+    return {
+        "derived": alerts,
+        "events": [
+            {
+                "id": str(r["id"]),
+                "fiscal_year": r["fiscal_year"],
+                "alert_type": r["alert_type"],
+                "severity": r["severity"],
+                "title": r["title"],
+                "description": r["description"],
+                "metric_value": r["metric_value"],
+                "threshold": r["threshold"],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in persisted
+        ],
+    }
+
+
+class PermissionUpsertBody(BaseModel):
+    org_id: str
+    user_id: str
+    sport: Optional[str] = None
+    can_view: bool = True
+    can_edit: bool = False
+    can_approve: bool = False
+
+
+@router.post("/permissions")
+async def upsert_permissions(
+    body: PermissionUpsertBody,
+    db: asyncpg.Connection = Depends(get_db),
+    actor_user_id: uuid.UUID = Depends(require_user_id),
+):
+    oid = _uuid(body.org_id, "org_id")
+    target_uid = _uuid(body.user_id, "user_id")
+    ctx = await load_school_auth(oid, actor_user_id, db)
+    ensure_org_admin(ctx)
+    sport = assert_cap_sport(body.sport) if body.sport else None
+    row = await db.fetchrow(
+        """INSERT INTO capiq_user_permissions (org_id, user_id, sport, can_view, can_edit, can_approve, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)
+           ON CONFLICT (org_id, user_id, sport) DO UPDATE SET
+             can_view = EXCLUDED.can_view,
+             can_edit = EXCLUDED.can_edit,
+             can_approve = EXCLUDED.can_approve,
+             created_by = EXCLUDED.created_by,
+             updated_at = NOW()
+           RETURNING id""",
+        oid,
+        target_uid,
+        sport,
+        body.can_view,
+        body.can_edit,
+        body.can_approve,
+        actor_user_id,
+    )
+    await write_cap_audit_log(
+        conn=db,
+        org_id=oid,
+        user_id=actor_user_id,
+        table_name="capiq_user_permissions",
+        record_id=row["id"],
+        action="INSERT",
+        new_values=body.model_dump(),
+    )
+    return {"ok": True, "id": str(row["id"])}
 
 
 @router.get("/outlook/{org_id}/{sport}")

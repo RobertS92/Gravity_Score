@@ -13,6 +13,8 @@ const SPORT_LABELS: Record<string, string> = {
   ncaab_mens: 'MBB',
   ncaab_womens: 'WBB',
 }
+const POSITION_GROUPS = ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'DB', 'K', 'PG', 'SG', 'SF', 'PF', 'C']
+const CONFERENCES = ['SEC', 'Big Ten', 'Big 12', 'ACC', 'Pac-12', 'AAC', 'Mountain West']
 
 function progGColor(g: number | null | undefined) {
   if (g == null) return 'var(--text-muted)'
@@ -28,6 +30,9 @@ type SortKey = keyof AthleteRecord | 'name'
 export function MarketScanView() {
   const sub = useUiStore((s) => s.marketScanSub)
   const setSub = useUiStore((s) => s.setMarketScanSub)
+  const marketScanFilters = useUiStore((s) => s.marketScanFilters)
+  const setMarketScanFilters = useUiStore((s) => s.setMarketScanFilters)
+  const resetMarketScanFilters = useUiStore((s) => s.resetMarketScanFilters)
   const cohortIds = useUiStore((s) => s.cohortIds)
   const activeSports = usePreferencesStore((s) => s.activeSports)
   const sportsCsv = useMemo(() => activeSports.filter(Boolean).join(','), [activeSports])
@@ -41,12 +46,16 @@ export function MarketScanView() {
   const [schoolSort, setSchoolSort] = useState<keyof SchoolIndexRow>('program_gravity_score')
 
   useEffect(() => {
-    void getMarketScan(sportsCsv ? { sports: sportsCsv } : {}).then((r) => {
+    void getMarketScan({
+      ...(sportsCsv ? { sports: sportsCsv } : {}),
+      ...(marketScanFilters.position ? { position: marketScanFilters.position } : {}),
+      ...(marketScanFilters.conference ? { conference: marketScanFilters.conference } : {}),
+    }).then((r) => {
       setRows(r.athletes)
       setScanTotal(r.total)
     })
     void getMarketSchools().then(setSchools)
-  }, [sportsCsv])
+  }, [sportsCsv, marketScanFilters.position, marketScanFilters.conference])
 
   const sorted = useMemo(() => {
     const out = [...rows]
@@ -96,6 +105,37 @@ export function MarketScanView() {
           COHORT COMPARE
         </button>
       </div>
+      {sub === 'position' && (
+        <div className={styles.filterBar}>
+          <select
+            className={styles.filterSelect}
+            value={marketScanFilters.position}
+            onChange={(e) => setMarketScanFilters({ position: e.target.value })}
+          >
+            <option value="">All Positions</option>
+            {POSITION_GROUPS.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+          <select
+            className={styles.filterSelect}
+            value={marketScanFilters.conference}
+            onChange={(e) => setMarketScanFilters({ conference: e.target.value })}
+          >
+            <option value="">All Conferences</option>
+            {CONFERENCES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <button type="button" className={styles.clearBtn} onClick={resetMarketScanFilters}>
+            Clear filters
+          </button>
+        </div>
+      )}
 
       {sub === 'position' && (
         <div className={styles.tableWrap}>

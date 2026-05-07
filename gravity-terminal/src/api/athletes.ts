@@ -1,5 +1,10 @@
 import type { AthleteRecord, AthleteSearchHit, ComparableRecord, ScoreHistoryPoint } from '../types/athlete'
 import type { FeedEventRecord } from '../types/feed'
+import type {
+  AlternativesResponse,
+  ConfidenceResponse,
+  DealActionResponse,
+} from '../types/nilIntelligence'
 import {
   mapAthleteFromBundle,
   mapComparablesFromBundle,
@@ -13,6 +18,15 @@ export type AthleteDetailResult = {
   athlete: AthleteRecord
   comparables: ComparableRecord[]
   scoreHistory: ScoreHistoryPoint[]
+}
+
+export type PaginatedAthleteSearchResult = {
+  athletes: AthleteRecord[]
+  total: number
+  returned: number
+  offset: number
+  limit: number
+  hasMore: boolean
 }
 
 /** Single round-trip: profile + comparables + score history (production API bundle). */
@@ -94,13 +108,41 @@ export function searchAthletes(query: string) {
 }
 
 /** Search with optional filter params, returns full AthleteRecord (score, school, etc.). */
-export function searchAthletesFiltered(params: Record<string, string>): Promise<AthleteRecord[]> {
+export async function searchAthletesFiltered(
+  params: Record<string, string>,
+): Promise<AthleteRecord[]> {
+  const page = await searchAthletesFilteredPaged(params)
+  return page.athletes
+}
+
+export async function searchAthletesFilteredPaged(
+  params: Record<string, string>,
+  options: { limit?: number; offset?: number } = {},
+): Promise<PaginatedAthleteSearchResult> {
+  const limit = options.limit ?? 100
+  const offset = options.offset ?? 0
   const qs = new URLSearchParams({
-    limit: '100',
+    limit: String(limit),
+    offset: String(offset),
     exclude_inactive: 'true',
     ...params,
   }).toString()
-  return apiGet<unknown>(`athletes?${qs}`).then(normalizeSearchFull)
+  const raw = await apiGet<{
+    athletes?: unknown[]
+    total?: number
+    returned?: number
+  }>(`athletes?${qs}`)
+  const athletes = normalizeSearchFull(raw)
+  const total = typeof raw.total === 'number' ? raw.total : athletes.length
+  const returned = typeof raw.returned === 'number' ? raw.returned : athletes.length
+  return {
+    athletes,
+    total,
+    returned,
+    offset,
+    limit,
+    hasMore: offset + returned < total,
+  }
 }
 
 export async function getComparables(id: string): Promise<ComparableRecord[]> {
@@ -116,4 +158,16 @@ export async function getFeed(id: string): Promise<FeedEventRecord[]> {
 export async function getScoreHistory(id: string): Promise<ScoreHistoryPoint[]> {
   const raw = await apiGet<{ history: Record<string, unknown>[] }>(`athletes/${id}/score-history`)
   return mapScoreHistoryFromApi(raw.history ?? [])
+}
+
+export async function getDealAction(id: string): Promise<DealActionResponse> {
+  return apiGet<DealActionResponse>(`athletes/${id}/deal-action`)
+}
+
+export async function getConfidence(id: string): Promise<ConfidenceResponse> {
+  return apiGet<ConfidenceResponse>(`athletes/${id}/confidence`)
+}
+
+export async function getAlternatives(id: string): Promise<AlternativesResponse> {
+  return apiGet<AlternativesResponse>(`athletes/${id}/alternatives`)
 }

@@ -36,13 +36,13 @@ async def run_bulk(
     conn = await asyncpg.connect(dsn)
 
     try:
-        where = "WHERE a.gravity_score IS NULL"
+        # Score active athletes without a score row first.
         params: list = []
+        sport_clause = ""
         if sport:
-            where += f" AND a.sport = ${len(params)+1}"
+            sport_clause = "AND a.sport = $1"
             params.append(sport)
 
-        # athletes without a score yet — join on latest gravity_scores
         rows = await conn.fetch(
             f"""
             SELECT a.id FROM athletes a
@@ -52,7 +52,8 @@ async def run_bulk(
                 ORDER BY calculated_at DESC LIMIT 1
             ) s ON true
             WHERE s.athlete_id IS NULL
-            {"AND a.sport = $1" if sport else ""}
+              AND (a.is_active IS TRUE)
+              {sport_clause}
             ORDER BY a.updated_at DESC
             LIMIT {limit}
             """,

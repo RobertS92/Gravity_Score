@@ -47,6 +47,7 @@ export function CommandBar() {
   const setBrandSummary = useUiStore((s) => s.setBrandMatchSummary)
   const setCohort = useUiStore((s) => s.setCohortIds)
   const setMarketScanSub = useUiStore((s) => s.setMarketScanSub)
+  const setMarketScanFilters = useUiStore((s) => s.setMarketScanFilters)
 
   const isProcessing = useCommandStore((s) => s.isProcessing)
   const setProcessing = useCommandStore((s) => s.setProcessing)
@@ -149,6 +150,10 @@ export function CommandBar() {
     }
 
     if (parsed.kind === 'scan') {
+      setMarketScanFilters({
+        position: parsed.position ?? '',
+        conference: parsed.conference ?? '',
+      })
       setMarketScanSub('position')
       navigate('/market-scan')
       setLast(trimmed, `Market Scan${parsed.position ? ` · ${parsed.position}` : ''}${parsed.conference ? ` · ${parsed.conference}` : ''}.`, null)

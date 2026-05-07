@@ -24,11 +24,15 @@ export interface Conversation {
   updatedAt: number
 }
 
+const CONVERSATION_CAP = 20
+
 interface GravityAiStore {
   conversations: Conversation[]
   activeConversationId: string | null
   isStreaming: boolean
   streamingText: string
+  waitingMode: 'streaming' | 'processing' | null
+  conversationSyncStatus: 'unknown' | 'synced' | 'local_only'
   contextAthleteId: string | null
   contextAthleteName: string | null
   contextAthleteGS: number | null
@@ -50,6 +54,8 @@ export const useGravityAiStore = create<GravityAiStore>((set, get) => ({
   activeConversationId: null,
   isStreaming: false,
   streamingText: '',
+  waitingMode: null,
+  conversationSyncStatus: 'unknown',
   contextAthleteId: null,
   contextAthleteName: null,
   contextAthleteGS: null,
@@ -71,7 +77,7 @@ export const useGravityAiStore = create<GravityAiStore>((set, get) => ({
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }
-    set((s) => ({ conversations: [conv, ...s.conversations], activeConversationId: id }))
+    set((s) => ({ conversations: clampConversations([conv, ...s.conversations]), activeConversationId: id }))
     _saveConversations(get().conversations)
     return id
   },
@@ -79,18 +85,23 @@ export const useGravityAiStore = create<GravityAiStore>((set, get) => ({
   loadConversations: async () => {
     // Load from localStorage first (immediate), then sync with Supabase if available
     const local = _loadLocalConversations()
-    if (local.length) set({ conversations: local })
+    if (local.length) set({ conversations: clampConversations(local) })
 
     try {
       const userId = getTerminalUserId()
       if (!userId) return
       const remote = await apiGet<Conversation[]>(`agent/conversations?user_id=${userId}`)
       if (remote?.length) {
-        set({ conversations: remote })
-        _saveConversations(remote)
+        const trimmed = clampConversations(remote)
+        set({ conversations: trimmed })
+        _saveConversations(trimmed)
+        set({ conversationSyncStatus: 'synced' })
+      } else {
+        set({ conversationSyncStatus: local.length > 0 ? 'local_only' : 'unknown' })
       }
     } catch {
       // Offline / no backend endpoint — local storage is source of truth
+      set({ conversationSyncStatus: local.length > 0 ? 'local_only' : 'unknown' })
     }
   },
 
@@ -111,11 +122,12 @@ export const useGravityAiStore = create<GravityAiStore>((set, get) => ({
     }
 
     set((s) => ({
-      conversations: s.conversations.map((c) =>
+      conversations: clampConversations(s.conversations.map((c) =>
         c.id === convId ? { ...c, messages: [...c.messages, userMsg], updatedAt: Date.now() } : c,
-      ),
+      )),
       isStreaming: true,
       streamingText: '',
+      waitingMode: 'streaming',
     }))
 
     abortController = new AbortController()
@@ -171,6 +183,7 @@ export const useGravityAiStore = create<GravityAiStore>((set, get) => ({
           }
         } else {
           // Proxy didn't support streaming — get full response
+          set({ waitingMode: 'processing' })
           const data = await res.json() as { text?: string }
           fullText = data.text ?? '(no response)'
           streamCallback(fullText)
@@ -198,6 +211,7 @@ export const useGravityAiStore = create<GravityAiStore>((set, get) => ({
     set((s) => ({
       isStreaming: false,
       streamingText: '',
+      waitingMode: null,
       conversations: s.conversations.map((c) => {
         if (c.id !== convId) return c
         const updated = { ...c, messages: [...c.messages, assistantMsg], updatedAt: Date.now() }
@@ -218,16 +232,18 @@ export const useGravityAiStore = create<GravityAiStore>((set, get) => ({
       const conv = get().conversations.find((c) => c.id === convId)
       if (conv) {
         await apiPost('agent/conversations', { user_id: userId, conversation: conv })
+        set({ conversationSyncStatus: 'synced' })
       }
     } catch {
       // Best-effort only
+      set({ conversationSyncStatus: 'local_only' })
     }
   },
 
   stopStreaming: () => {
     abortController?.abort()
     abortController = null
-    set({ isStreaming: false, streamingText: '' })
+    set({ isStreaming: false, streamingText: '', waitingMode: null })
   },
 }))
 
@@ -238,7 +254,7 @@ function _loadLocalConversations(): Conversation[] {
   try {
     const raw = localStorage.getItem(LS_KEY)
     if (!raw) return []
-    return (JSON.parse(raw) as Conversation[]).slice(0, 20)
+    return clampConversations(JSON.parse(raw) as Conversation[])
   } catch {
     return []
   }
@@ -246,10 +262,16 @@ function _loadLocalConversations(): Conversation[] {
 
 function _saveConversations(convs: Conversation[]) {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(convs.slice(0, 20)))
+    localStorage.setItem(LS_KEY, JSON.stringify(clampConversations(convs)))
   } catch {
     /* quota */
   }
+}
+
+function clampConversations(convs: Conversation[]): Conversation[] {
+  return [...convs]
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, CONVERSATION_CAP)
 }
 
 function _apiBase() {

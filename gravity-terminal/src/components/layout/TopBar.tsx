@@ -31,6 +31,7 @@ export function TopBar() {
   const unread = useAlertStore((s) => s.unreadCount)
   const pulse = useAlertStore((s) => s.badgePulse)
   const email = useAuthStore((s) => s.email)
+  const role = useAuthStore((s) => s.role)
   const activeSports = usePreferencesStore((s) => s.activeSports)
   const queueSportPreferencesPatch = usePreferencesStore((s) => s.queueSportPreferencesPatch)
 
@@ -78,7 +79,7 @@ export function TopBar() {
         ))}
       </div>
       <nav className={styles.tabs} aria-label="Primary">
-        {TABS.map(({ path, label }) => (
+        {TABS.filter((t) => t.path !== '/data-pipeline' || role === 'admin').map(({ path, label }) => (
           <NavLink
             key={path}
             to={path}

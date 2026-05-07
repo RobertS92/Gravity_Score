@@ -18,6 +18,7 @@ from gravity_api.database import get_db
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+ROSTER_FRESHNESS_DAYS = 14
 
 
 async def _safe_val(db: asyncpg.Connection, sql: str, *args: Any) -> Any:
@@ -31,6 +32,9 @@ async def _safe_val(db: asyncpg.Connection, sql: str, *args: Any) -> Any:
 async def _collect_db(db: asyncpg.Connection) -> dict[str, Any]:
     out: dict[str, Any] = {
         "athletes_total": await _safe_val(db, "SELECT COUNT(*)::bigint FROM athletes"),
+        "athletes_active_total": await _safe_val(
+            db, "SELECT COUNT(*)::bigint FROM athletes WHERE (is_active IS TRUE)"
+        ),
         "athletes_with_scores": await _safe_val(
             db,
             """SELECT COUNT(DISTINCT athlete_id)::bigint FROM athlete_gravity_scores""",
@@ -122,6 +126,153 @@ async def _collect_db(db: asyncpg.Connection) -> dict[str, Any]:
             """SELECT COUNT(*)::bigint FROM athletes
                WHERE roster_verified_at IS NOT NULL
                  AND roster_verified_at >= NOW() - INTERVAL '180 days'""",
+        )
+
+    out["athletes_active_without_scores"] = await _safe_val(
+        db,
+        """SELECT COUNT(*)::bigint
+           FROM athletes a
+           LEFT JOIN LATERAL (
+               SELECT s.athlete_id
+               FROM athlete_gravity_scores s
+               WHERE s.athlete_id = a.id
+               ORDER BY s.calculated_at DESC
+               LIMIT 1
+           ) latest ON true
+           WHERE (a.is_active IS TRUE)
+             AND latest.athlete_id IS NULL""",
+    )
+    out["athletes_active_scores_stale_30d"] = await _safe_val(
+        db,
+        """SELECT COUNT(*)::bigint
+           FROM athletes a
+           LEFT JOIN LATERAL (
+               SELECT s.calculated_at
+               FROM athlete_gravity_scores s
+               WHERE s.athlete_id = a.id
+               ORDER BY s.calculated_at DESC
+               LIMIT 1
+           ) latest ON true
+           WHERE (a.is_active IS TRUE)
+             AND (
+                 latest.calculated_at IS NULL
+                 OR latest.calculated_at < NOW() - INTERVAL '30 days'
+             )""",
+    )
+    out["athletes_active_scores_stale_14d"] = await _safe_val(
+        db,
+        """SELECT COUNT(*)::bigint
+           FROM athletes a
+           LEFT JOIN LATERAL (
+               SELECT s.calculated_at
+               FROM athlete_gravity_scores s
+               WHERE s.athlete_id = a.id
+               ORDER BY s.calculated_at DESC
+               LIMIT 1
+           ) latest ON true
+           WHERE (a.is_active IS TRUE)
+             AND (
+                 latest.calculated_at IS NULL
+                 OR latest.calculated_at < NOW() - INTERVAL '14 days'
+             )""",
+    )
+    out["athletes_active_with_null_components"] = await _safe_val(
+        db,
+        """SELECT COUNT(*)::bigint
+           FROM athletes a
+           JOIN LATERAL (
+               SELECT s.brand_score, s.proof_score, s.proximity_score, s.velocity_score, s.risk_score
+               FROM athlete_gravity_scores s
+               WHERE s.athlete_id = a.id
+               ORDER BY s.calculated_at DESC
+               LIMIT 1
+           ) latest ON true
+           WHERE (a.is_active IS TRUE)
+             AND (
+                latest.brand_score IS NULL
+                OR latest.proof_score IS NULL
+                OR latest.proximity_score IS NULL
+                OR latest.velocity_score IS NULL
+                OR latest.risk_score IS NULL
+             )""",
+    )
+    out["athletes_active_without_company_gravity"] = await _safe_val(
+        db,
+        """SELECT COUNT(*)::bigint
+           FROM athletes a
+           JOIN LATERAL (
+               SELECT s.company_gravity_score
+               FROM athlete_gravity_scores s
+               WHERE s.athlete_id = a.id
+               ORDER BY s.calculated_at DESC
+               LIMIT 1
+           ) latest ON true
+           WHERE (a.is_active IS TRUE)
+             AND latest.company_gravity_score IS NULL""",
+    )
+    out["athletes_active_stale_or_unverified_roster_14d"] = await _safe_val(
+        db,
+        f"""SELECT COUNT(*)::bigint
+            FROM athletes a
+            WHERE (a.is_active IS TRUE)
+              AND (
+                a.roster_verified_at IS NULL
+                OR a.roster_verified_at < NOW() - INTERVAL '{ROSTER_FRESHNESS_DAYS} days'
+              )""",
+    )
+    out["athletes_lifecycle_status_unknown"] = await _safe_val(
+        db,
+        """SELECT COUNT(*)::bigint
+           FROM athletes
+           WHERE roster_status IS NULL
+              OR roster_status NOT IN ('active_on_roster', 'transferred', 'left_for_draft', 'graduated', 'out_other')""",
+    )
+
+    reg_jobs = await _safe_val(db, "SELECT to_regclass('public.scraper_jobs')")
+    if reg_jobs:
+        out["score_sync_jobs_failed_7d"] = await _safe_val(
+            db,
+            """SELECT COUNT(*)::bigint
+               FROM scraper_jobs
+               WHERE started_at >= NOW() - INTERVAL '7 days'
+                 AND (
+                   job_type ILIKE '%score%'
+                   OR job_type ILIKE '%ml%'
+                 )
+                 AND status = 'failed'""",
+        )
+        out["score_sync_rows_failed_7d"] = await _safe_val(
+            db,
+            """SELECT COALESCE(SUM(failed_count), 0)::bigint
+               FROM scraper_jobs
+               WHERE started_at >= NOW() - INTERVAL '7 days'
+                 AND (
+                   job_type ILIKE '%score%'
+                   OR job_type ILIKE '%ml%'
+                 )""",
+        )
+
+    reg_manual_impute = await _safe_val(db, "SELECT to_regclass('public.athlete_manual_imputations')")
+    if reg_manual_impute:
+        out["manual_imputations_30d"] = await _safe_val(
+            db,
+            """SELECT COUNT(*)::bigint
+               FROM athlete_manual_imputations
+               WHERE updated_at >= NOW() - INTERVAL '30 days'""",
+        )
+        out["manual_imputations_global_30d"] = await _safe_val(
+            db,
+            """SELECT COUNT(*)::bigint
+               FROM athlete_manual_imputations
+               WHERE scope = 'global'
+                 AND updated_at >= NOW() - INTERVAL '30 days'""",
+        )
+        out["manual_imputations_org_30d"] = await _safe_val(
+            db,
+            """SELECT COUNT(*)::bigint
+               FROM athlete_manual_imputations
+               WHERE scope = 'org'
+                 AND updated_at >= NOW() - INTERVAL '30 days'""",
         )
 
     return out

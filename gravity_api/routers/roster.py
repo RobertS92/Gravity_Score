@@ -4,17 +4,36 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime
 from typing import Any, List, Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from gravity_api.auth_deps import require_user_id
+from gravity_api.config import get_settings
 from gravity_api.database import get_db
+from gravity_api.services.roster_lifecycle import (
+    RosterLifecycleInput,
+    apply_roster_lifecycle_sync,
+    backfill_active_athlete_scores,
+)
 from gravity_api.services.roster_value import score_roster
 
 router = APIRouter()
+
+
+def _require_internal_key(x_gravity_internal_key: str | None = Header(None)) -> None:
+    settings = get_settings()
+    expected = settings.internal_api_key
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="Set GRAVITY_INTERNAL_API_KEY to enable roster lifecycle sync",
+        )
+    if not x_gravity_internal_key or x_gravity_internal_key != expected:
+        raise HTTPException(status_code=403, detail="Invalid X-Gravity-Internal-Key")
 
 
 async def _score_and_prune_slots(
@@ -64,6 +83,32 @@ class RosterSaveBody(BaseModel):
     name: str = Field(default="My Roster", max_length=120)
     budget_usd: float = Field(default=1_000_000, ge=0)
     slots: List[RosterSlot] = Field(default_factory=list)
+
+
+class RosterLifecycleAthlete(BaseModel):
+    athlete_id: str
+    lifecycle_status: str = Field(
+        default="active_on_roster",
+        pattern="^(active_on_roster|transferred|left_for_draft|graduated|out_other)$",
+    )
+    is_active: bool = True
+    school: Optional[str] = None
+    conference: Optional[str] = None
+    sport: Optional[str] = None
+    status_reason: Optional[str] = None
+
+
+class RosterLifecycleSyncBody(BaseModel):
+    athletes: list[RosterLifecycleAthlete] = Field(default_factory=list)
+    sport_scope: Optional[str] = None
+    verified_at: Optional[datetime] = None
+    mode: str = Field(default="replace_scope", pattern="^(replace_scope|patch)$")
+    trigger_rescore: bool = True
+
+
+class RosterScoreBackfillBody(BaseModel):
+    limit: int = Field(default=250, ge=1, le=5000)
+    sport: Optional[str] = None
 
 
 @router.get("")
@@ -235,3 +280,59 @@ async def delete_roster(
     if not deleted:
         raise HTTPException(status_code=404, detail="Roster not found")
     return {"ok": True}
+
+
+@router.post("/lifecycle/sync")
+async def sync_roster_lifecycle(
+    body: RosterLifecycleSyncBody,
+    db: asyncpg.Connection = Depends(get_db),
+    _: None = Depends(_require_internal_key),
+):
+    """
+    Authoritative roster lifecycle sync.
+    - Updates school/conference/sport + active status for known athletes.
+    - Tracks lifecycle status (transfer, draft, graduation, out).
+    - Stamps roster_verified_at for processed athletes.
+    - In replace_scope mode, marks out-of-scope athletes inactive for the given sport.
+    - Optionally triggers score refresh for changed active athletes.
+    """
+    inputs = [
+        RosterLifecycleInput(
+            athlete_id=row.athlete_id,
+            lifecycle_status=row.lifecycle_status,
+            is_active=row.is_active,
+            school=row.school,
+            conference=row.conference,
+            sport=row.sport,
+            status_reason=row.status_reason,
+        )
+        for row in body.athletes
+    ]
+    try:
+        return await apply_roster_lifecycle_sync(
+            db,
+            inputs,
+            sport_scope=body.sport_scope,
+            verified_at=body.verified_at,
+            mode=body.mode,
+            trigger_rescore=body.trigger_rescore,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/lifecycle/backfill-scores")
+async def backfill_roster_scores(
+    body: RosterScoreBackfillBody,
+    db: asyncpg.Connection = Depends(get_db),
+    _: None = Depends(_require_internal_key),
+):
+    """
+    Backfill missing athlete_gravity_scores rows for active athletes.
+    Use after major roster imports or when score coverage drifts.
+    """
+    return await backfill_active_athlete_scores(
+        db,
+        limit=body.limit,
+        sport=body.sport,
+    )

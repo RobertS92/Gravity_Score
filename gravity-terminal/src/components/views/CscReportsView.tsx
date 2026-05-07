@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { searchAthletesFilteredPaged } from '../../api/athletes'
 import { postCscReport } from '../../api/reports'
 import type { CscReportComparablesRow, CscReportJson } from '../../types/reports'
 import { formatNilMillions, formatScore } from '../../lib/formatters'
@@ -26,6 +27,10 @@ export function CscReportsView() {
   const [report, setReport] = useState<CscReportJson | null>(null)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
+  const [searchQ, setSearchQ] = useState('')
+  const [searchRows, setSearchRows] = useState<typeof watchlist>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const selectorAthletes = useMemo(() => {
     if (!athlete) return watchlist
@@ -74,6 +79,29 @@ export function CscReportsView() {
       cancelled = true
     }
   }, [athlete, reportConfig, cscLockedFromAgent])
+
+  useEffect(() => {
+    const q = searchQ.trim()
+    if (!q) {
+      setSearchRows([])
+      setSearchOpen(false)
+      return
+    }
+    const t = window.setTimeout(() => {
+      setSearchLoading(true)
+      void searchAthletesFilteredPaged({ q }, { limit: 12, offset: 0 })
+        .then((page) => {
+          setSearchRows(page.athletes)
+          setSearchOpen(true)
+        })
+        .catch(() => {
+          setSearchRows([])
+          setSearchOpen(true)
+        })
+        .finally(() => setSearchLoading(false))
+    }, 250)
+    return () => window.clearTimeout(t)
+  }, [searchQ])
 
   const comparables = useAthleteStore((s) => s.comparables)
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -169,6 +197,47 @@ export function CscReportsView() {
       </div>
       <aside className={styles.config}>
         <div className={styles.configTitle}>CONFIGURATION</div>
+        <label className={styles.field}>
+          Athlete Search
+          <input
+            autoFocus={!athlete}
+            className={styles.textIn}
+            type="text"
+            placeholder="Search athlete by name..."
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            onFocus={() => {
+              if (searchRows.length > 0 || searchQ.trim()) setSearchOpen(true)
+            }}
+          />
+        </label>
+        {searchOpen && (
+          <div className={styles.searchDrop}>
+            {searchLoading && <div className={styles.searchItemMuted}>Searching...</div>}
+            {!searchLoading && searchRows.length === 0 && (
+              <div className={styles.searchItemMuted}>No athletes found</div>
+            )}
+            {!searchLoading &&
+              searchRows.map((a) => (
+                <button
+                  key={a.athlete_id}
+                  type="button"
+                  className={styles.searchItem}
+                  onClick={() => {
+                    void setActive(a.athlete_id)
+                    setSearchQ('')
+                    setSearchRows([])
+                    setSearchOpen(false)
+                  }}
+                >
+                  <span>{a.name}</span>
+                  <span className={styles.subMuted}>
+                    {[a.school, a.position, a.conference].filter(Boolean).join(' · ')}
+                  </span>
+                </button>
+              ))}
+          </div>
+        )}
         <label className={styles.field}>
           Athlete
           <select

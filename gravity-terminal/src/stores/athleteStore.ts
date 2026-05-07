@@ -7,6 +7,8 @@ import {
 } from '../lib/supabaseRealtime'
 
 const BUNDLE_PREFIX = 'gravity_bundle_v2_'
+const BUNDLE_LRU_KEY = 'gravity_bundle_v2_lru'
+const BUNDLE_LRU_CAP = 40
 
 let _unsubscribeScore: (() => void) | null = null
 
@@ -29,9 +31,64 @@ function readBundle(id: string): Bundle | null {
 function writeBundle(id: string, b: Bundle) {
   try {
     localStorage.setItem(BUNDLE_PREFIX + id, JSON.stringify(b))
+    touchBundleLru(id)
   } catch {
-    /* ignore quota */
+    evictOldestBundles(8)
+    try {
+      localStorage.setItem(BUNDLE_PREFIX + id, JSON.stringify(b))
+      touchBundleLru(id)
+    } catch {
+      /* give up after one eviction pass */
+    }
   }
+}
+
+function readBundleLru(): string[] {
+  try {
+    const raw = localStorage.getItem(BUNDLE_LRU_KEY)
+    if (!raw) return []
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr.map(String) : []
+  } catch {
+    return []
+  }
+}
+
+function writeBundleLru(ids: string[]) {
+  try {
+    localStorage.setItem(BUNDLE_LRU_KEY, JSON.stringify(ids.slice(0, BUNDLE_LRU_CAP)))
+  } catch {
+    /* ignore */
+  }
+}
+
+function touchBundleLru(id: string) {
+  const lru = readBundleLru().filter((x) => x !== id)
+  lru.unshift(id)
+  if (lru.length > BUNDLE_LRU_CAP) {
+    const evict = lru.slice(BUNDLE_LRU_CAP)
+    for (const victim of evict) {
+      try {
+        localStorage.removeItem(BUNDLE_PREFIX + victim)
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  writeBundleLru(lru)
+}
+
+function evictOldestBundles(count: number) {
+  const lru = readBundleLru()
+  const victims = lru.slice(-count)
+  for (const id of victims) {
+    try {
+      localStorage.removeItem(BUNDLE_PREFIX + id)
+    } catch {
+      /* ignore */
+    }
+  }
+  writeBundleLru(lru.slice(0, Math.max(0, lru.length - count)))
 }
 
 export type AthleteStore = {

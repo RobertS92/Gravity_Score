@@ -16,9 +16,13 @@ const ROWS: {
 ]
 
 export function BPXVRBreakdown({ athlete }: { athlete: AthleteRecord }) {
+  const attributionUnavailable = ROWS.every((r) => !athlete.shap_drivers?.[r.driver])
   return (
     <section className={styles.box}>
       <h2 className={styles.title}>COMPONENT BREAKDOWN — SHAP ATTRIBUTION</h2>
+      {attributionUnavailable && (
+        <div className={styles.emptyState}>Attribution unavailable for this athlete.</div>
+      )}
       {ROWS.map((r) => {
         const v = athlete[r.key]
         const pct = v == null ? 0 : Math.min(100, Math.max(0, v))

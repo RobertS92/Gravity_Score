@@ -13,6 +13,28 @@ import type {
 } from '../../types/athlete'
 import type { FeedEventRecord, FeedEventType } from '../../types/feed'
 
+const VALID_FEED_TYPES = new Set<FeedEventType>([
+  'NIL_DEAL',
+  'BRAND',
+  'VELOCITY',
+  'SCORE_UPDATE',
+  'RISK',
+  'TRANSFER',
+  'INJURY',
+  'NEWS',
+  'AWARD',
+  'RECRUITING',
+  'PERFORMANCE',
+  'ANNOUNCEMENT',
+  'BUSINESS',
+  'INCIDENT',
+  'SCORE',
+  'ROSTER',
+  'SOCIAL',
+  'RANKING',
+  'OTHER',
+])
+
 function num(v: unknown): number | null {
   if (v == null) return null
   const n = typeof v === 'number' ? v : Number(v)
@@ -70,6 +92,32 @@ function shapFromScoreRow(score: Record<string, unknown> | undefined): ShapDrive
   return out
 }
 
+function gravityDeltaWindow(history: Record<string, unknown>[]): number | null {
+  if (!history.length) return null
+  const latest = history[0]
+  const latestScore = num(latest.gravity_score)
+  const latestTsRaw = str(latest.calculated_at) ?? str(latest.date)
+  if (latestScore == null || !latestTsRaw) return null
+  const latestTs = Date.parse(latestTsRaw)
+  if (!Number.isFinite(latestTs)) return null
+  const target = latestTs - 30 * 24 * 60 * 60 * 1000
+  let best: { score: number; diff: number } | null = null
+  for (let i = 1; i < history.length; i++) {
+    const row = history[i]
+    const g = num(row.gravity_score)
+    const tsRaw = str(row.calculated_at) ?? str(row.date)
+    if (g == null || !tsRaw) continue
+    const ts = Date.parse(tsRaw)
+    if (!Number.isFinite(ts)) continue
+    const diff = Math.abs(ts - target)
+    if (!best || diff < best.diff) {
+      best = { score: g, diff }
+    }
+  }
+  if (!best) return null
+  return Math.round((latestScore - best.score) * 10) / 10
+}
+
 function nilFromDeals(deals: unknown[]): {
   consensus: number | null
   low: number | null
@@ -108,10 +156,8 @@ export function mapAthleteFromBundle(b: AthleteDetailBundle): AthleteRecord {
   const a = b.athlete
   const scores = b.score_history ?? []
   const latest = scores[0] as Record<string, unknown> | undefined
-  const prev = scores.length > 1 ? (scores[1] as Record<string, unknown>) : undefined
 
   const g = num(latest?.gravity_score)
-  const gPrev = num(prev?.gravity_score)
   const nilAgg = nilFromDeals(b.nil_deals ?? [])
 
   const { height, weight } = heightWeightFromDb(a)
@@ -136,8 +182,7 @@ export function mapAthleteFromBundle(b: AthleteDetailBundle): AthleteRecord {
     brand_gravity_score: num(latest?.brand_gravity_score),
     gravity_tier: tierFromScore(g),
     gravity_percentile: num(a.gravity_percentile),
-    gravity_delta_30d:
-      g != null && gPrev != null ? Math.round((g - gPrev) * 10) / 10 : null,
+    gravity_delta_30d: gravityDeltaWindow(scores),
     brand_score: num(latest?.brand_score),
     proof_score: num(latest?.proof_score),
     proximity_score: num(latest?.proximity_score),
@@ -278,13 +323,15 @@ export function mapSearchRowToAthlete(row: Record<string, unknown>): AthleteReco
 export function mapFeedEvents(rows: Record<string, unknown>[]): FeedEventRecord[] {
   const out: FeedEventRecord[] = []
   for (const row of rows) {
-    const t = str(row.event_type) as FeedEventType | null
+    const rawType = str(row.event_type)
+    const t = rawType ? rawType.toUpperCase() : null
     if (!t) continue
+    const eventType = (VALID_FEED_TYPES.has(t as FeedEventType) ? t : 'OTHER') as FeedEventType
     out.push({
       event_id: str(row.event_id) ?? `feed-${String(row.timestamp)}-${out.length}`,
       athlete_id: str(row.athlete_id) ?? '',
       athlete_name: str(row.athlete_name),
-      event_type: t,
+      event_type: eventType,
       timestamp: str(row.timestamp) ?? '',
       body: str(row.body) ?? '',
       entity_name: str(row.entity_name),

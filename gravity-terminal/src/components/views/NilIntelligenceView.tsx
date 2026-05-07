@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAthleteStore } from '../../stores/athleteStore'
+import { useUiStore } from '../../stores/uiStore'
 import { BPXVRBreakdown } from '../panels/BPXVRBreakdown'
 import { ComparablesTable } from '../panels/ComparablesTable'
 import { MainHeader } from '../panels/MainHeader'
@@ -14,6 +15,7 @@ export function NilIntelligenceView() {
   const scoreHistory = useAthleteStore((s) => s.scoreHistory)
   const pending = useAthleteStore((s) => s.scoreAnimationPending)
   const consume = useAthleteStore((s) => s.consumeScoreAnimation)
+  const athleteCorpusEmpty = useUiStore((s) => s.athleteCorpusEmpty)
 
   useEffect(() => {
     if (!pending) return
@@ -38,14 +40,26 @@ export function NilIntelligenceView() {
         }}
       >
         <div style={{ fontSize: 14, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          NO ATHLETE SELECTED
+          {athleteCorpusEmpty ? 'DATABASE IS BEING POPULATED' : 'NO ATHLETE SELECTED'}
         </div>
         <div style={{ fontSize: 12, maxWidth: 420, lineHeight: 1.5 }}>
-          Pick an athlete from{' '}
-          <Link to="/market-scan" style={{ color: 'var(--accent-green)' }}>
-            Market Scan
-          </Link>{' '}
-          or search with the command bar to load their NIL intelligence profile.
+          {athleteCorpusEmpty ? (
+            <>
+              Athlete data is currently loading. Check the{' '}
+              <Link to="/data-pipeline" style={{ color: 'var(--accent-green)' }}>
+                Data Pipeline
+              </Link>{' '}
+              tab for scraper status.
+            </>
+          ) : (
+            <>
+              Pick an athlete from{' '}
+              <Link to="/market-scan" style={{ color: 'var(--accent-green)' }}>
+                Market Scan
+              </Link>{' '}
+              or search with the command bar to load their NIL intelligence profile.
+            </>
+          )}
         </div>
       </div>
     )

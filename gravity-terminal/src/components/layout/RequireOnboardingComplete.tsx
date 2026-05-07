@@ -17,6 +17,7 @@ export function RequireOnboardingComplete() {
   const hydratePreferences = usePreferencesStore((s) => s.hydratePreferences)
 
   useEffect(() => {
+    let cancelled = false
     const token = getSessionToken()
     const devNoToken =
       !token && (import.meta.env.VITE_USE_MOCKS === 'true' || import.meta.env.DEV)
@@ -40,7 +41,14 @@ export function RequireOnboardingComplete() {
       return
     }
     void (async () => {
-      const p = await hydratePreferences()
+      const timeoutMs = 8000
+      const p = await Promise.race([
+        hydratePreferences(),
+        new Promise<null>((resolve) => {
+          window.setTimeout(() => resolve(null), timeoutMs)
+        }),
+      ])
+      if (cancelled) return
       if (!p) {
         // Preferences call failed — most commonly because the JWT is invalid/expired.
         setRedirectTo('/login')
@@ -52,6 +60,9 @@ export function RequireOnboardingComplete() {
       }
       setReady(true)
     })()
+    return () => {
+      cancelled = true
+    }
   }, [hydratePreferences])
 
   if (redirectTo && location.pathname !== redirectTo) {

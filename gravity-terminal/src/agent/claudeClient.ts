@@ -4,6 +4,12 @@ import { runTool, TOOL_DEFINITIONS } from './tools'
 
 const MODEL = 'claude-sonnet-4-5'
 
+function enforceSafeAgentMode() {
+  if (!import.meta.env.DEV && import.meta.env.VITE_AGENT_USE_PROXY !== 'true') {
+    throw new Error('Production agent access must use proxy mode (VITE_AGENT_USE_PROXY=true).')
+  }
+}
+
 const GRAVITY_SYSTEM = `You are Gravity AI, a commercial intelligence assistant for the college NIL market.
 You have access to real-time athlete data for Power 5 CFB and NCAAB mens athletes including Gravity Scores, component scores, NIL valuations, comparables, and market signals.
 Answer every question using the data tools available to you — do not speculate or use general knowledge when the answer is in the database.
@@ -16,6 +22,7 @@ export type ConversationMessage = { role: 'user' | 'assistant'; content: string 
 
 /** Non-streaming command bar agent — returns full string */
 export async function runAgentCommand(userText: string): Promise<string> {
+  enforceSafeAgentMode()
   if (import.meta.env.VITE_AGENT_USE_PROXY === 'true') {
     try {
       const r = await apiPost<{ text: string }>('agent/complete', {
@@ -95,6 +102,7 @@ export async function runAgentCommandStream(
   onDelta: (delta: string) => void,
   signal?: AbortSignal,
 ): Promise<string> {
+  enforceSafeAgentMode()
   const key = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined
   if (!key?.trim()) {
     const msg = 'Gravity AI requires VITE_ANTHROPIC_API_KEY or VITE_AGENT_USE_PROXY=true.'

@@ -31,3 +31,8 @@
   width: 24px;
   height: 24px;
 }
+
+.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

@@ -1,10 +1,9 @@
-import { formatNilMillions, formatNilRange, formatPercent1, formatScore } from '../../lib/formatters'
+import { formatNilMillions, formatNilRange, formatScore } from '../../lib/formatters'
 import type { AthleteRecord } from '../../types/athlete'
 import styles from './NilValuation.module.css'
 
 export function NilValuation({ athlete }: { athlete: AthleteRecord }) {
   const pct = athlete.nil_valuation_percentile
-  const d30 = athlete.nil_valuation_delta_30d
   return (
     <div>
       <div className={styles.label}>NIL VALUATION</div>
@@ -32,7 +31,6 @@ export function NilValuation({ athlete }: { athlete: AthleteRecord }) {
         </div>
       )}
       <div className={styles.meta}>
-        {d30 != null ? `30D: ${formatPercent1(d30)}` : '30D: \u2014'} ·{' '}
         {pct != null ? `${pct}TH PCT (POS / SPORT)` : 'PCT: \u2014'}
       </div>
       {athlete.dollar_confidence?.dollar_confidence_label != null && (

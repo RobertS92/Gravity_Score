@@ -97,9 +97,6 @@ export function Sidebar() {
           >
             CSC REPORTS
           </button>
-          <button type="button" className={styles.navItem} onClick={() => nav('deal', 'csc')}>
-            DEAL FILES
-          </button>
 
           <div className={styles.sectionHeader}>
             <span>RESEARCH</span>
@@ -124,7 +121,14 @@ export function Sidebar() {
           >
             LIVE FEED
           </button>
-          <button type="button" className={styles.navItem} onClick={() => nav('cohort', 'research')}>
+          <button
+            type="button"
+            className={styles.navItem}
+            onClick={() => {
+              nav('cohort', 'research')
+              navigate('/market-scan')
+            }}
+          >
             COHORT COMPARE
           </button>
 

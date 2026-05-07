@@ -6,6 +6,7 @@ import { useFeedStore } from '../stores/feedStore'
 import { useLiveFeedStore } from '../stores/liveFeedStore'
 import { usePreferencesStore } from '../stores/preferencesStore'
 import { useTeamFavoritesStore } from '../stores/teamFavoritesStore'
+import { useUiStore } from '../stores/uiStore'
 import { useWatchlistStore, startWatchlistRefresh } from '../stores/watchlistStore'
 import { useAlertStore, startAlertPolling } from '../stores/alertStore'
 
@@ -54,6 +55,7 @@ export function useTerminalBootstrap() {
 
       const wl = useWatchlistStore.getState().athletes
       if (wl.length > 0) {
+        useUiStore.getState().setAthleteCorpusEmpty(false)
         void setActiveAthlete(wl[0].athlete_id)
         return
       }
@@ -66,7 +68,10 @@ export function useTerminalBootstrap() {
 
       const defaultId = await pickDefaultAthleteId()
       if (defaultId) {
+        useUiStore.getState().setAthleteCorpusEmpty(false)
         void setActiveAthlete(defaultId)
+      } else {
+        useUiStore.getState().setAthleteCorpusEmpty(true)
       }
     })()
 

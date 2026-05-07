@@ -32,3 +32,13 @@
   background: #0d2d1a;
   color: var(--accent-green);
 }
+
+.info {
+  background: #202734;
+  color: var(--text-secondary);
+}
+
+.accent {
+  background: #2b2331;
+  color: #c9a3ff;
+}

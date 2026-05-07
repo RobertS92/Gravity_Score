@@ -6,10 +6,13 @@ import {
   mockAlerts,
   mockAthletesById,
   mockBrandMatchResults,
+  mockConfidence,
   mockComparablesPrimary,
   mockCscReport,
+  mockDealAction,
   mockFeedPrimary,
   mockMarketScanAthletes,
+  mockAlternatives,
   mockSchoolIndex,
   mockScoreHistory,
   mockWatchlistAthletes,
@@ -282,6 +285,27 @@ export async function mockRequest(
     return json({ history })
   }
 
+  const mDealAction = p.match(/^athletes\/([^/]+)\/deal-action$/)
+  if (mDealAction && method === 'GET') {
+    const item = mockDealAction(mDealAction[1])
+    if (!item) return Promise.reject(new Error('404 Athlete not found'))
+    return json(item)
+  }
+
+  const mConfidence = p.match(/^athletes\/([^/]+)\/confidence$/)
+  if (mConfidence && method === 'GET') {
+    const item = mockConfidence(mConfidence[1])
+    if (!item) return Promise.reject(new Error('404 Athlete not found'))
+    return json(item)
+  }
+
+  const mAlternatives = p.match(/^athletes\/([^/]+)\/alternatives$/)
+  if (mAlternatives && method === 'GET') {
+    const item = mockAlternatives(mAlternatives[1])
+    if (!item) return Promise.reject(new Error('404 Athlete not found'))
+    return json(item)
+  }
+
   if (p.startsWith('watchlist?') && method === 'GET') {
     return json({
       athletes: mockWatchlistAthletes.map((a) => ({
@@ -363,8 +387,7 @@ export async function mockRequest(
 
   if (p === 'reports/brand-match' && method === 'POST') {
     const brief = body as BrandMatchBrief
-    void brief
-    return json(mockBrandMatchResults() as BrandMatchResult[])
+    return json(mockBrandMatchResults(brief) as BrandMatchResult[])
   }
 
   if (p === 'agent/complete' && method === 'POST') {

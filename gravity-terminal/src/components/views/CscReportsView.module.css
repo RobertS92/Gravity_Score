@@ -61,6 +61,42 @@
   gap: 8px;
 }
 
+.searchDrop {
+  border: 1px solid var(--border-default);
+  background: var(--bg-primary);
+  margin-top: -6px;
+  margin-bottom: 12px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.searchItem {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  font-family: var(--font-data);
+  font-size: 12px;
+}
+
+.searchItem:hover {
+  background: var(--bg-tertiary);
+}
+
+.searchItemMuted {
+  padding: 8px;
+  color: var(--text-muted);
+  font-family: var(--font-data);
+  font-size: 12px;
+}
+
 .section {
   margin-bottom: 14px;
   border: 1px solid var(--border-default);

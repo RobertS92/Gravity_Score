@@ -14,9 +14,10 @@ from pydantic import BaseModel, Field
 from gravity_api.auth_deps import require_user_id
 from gravity_api.config import get_settings
 from gravity_api.database import get_db
-from gravity_api.services.athlete_score_sync import athlete_to_raw_data
+from gravity_api.services.athlete_score_sync import athlete_to_raw_data, sync_athlete_score_from_ml
 from gravity_api.services.data_verification import run_stub_verification
 from gravity_api.services.org_auth import load_school_auth
+from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 from gravity_api.services.scraper_prop_shop import COLLECTOR_MAP, STATE
 
 router = APIRouter()
@@ -38,6 +39,39 @@ class SubmitBody(BaseModel):
         default=False,
         description="If true, run stub auto-verification (otherwise stays pending).",
     )
+
+
+class ImputeField(BaseModel):
+    field_name: str = Field(..., min_length=1, max_length=120)
+    field_value: Any
+    confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+    reason: Optional[str] = Field(default=None, max_length=500)
+
+
+class ImputeBody(BaseModel):
+    athlete_id: str
+    org_id: Optional[str] = None
+    scope: str = Field(default="org", pattern="^(org|global)$")
+    fields: list[ImputeField] = Field(default_factory=list, min_length=1)
+    trigger_rescore: bool = True
+
+
+async def _require_admin(db: asyncpg.Connection, user_id: uuid.UUID) -> None:
+    role = await db.fetchval("SELECT role FROM user_accounts WHERE id = $1", user_id)
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required")
+
+
+def _ensure_org_member_can_impute_athlete_sport(
+    ctx,
+    athlete_sport_slug: str,
+) -> None:
+    if ctx.is_org_admin:
+        return
+    allowed_slugs = cap_prefs_to_db_slugs(ctx.coach_sports)
+    if athlete_sport_slug in allowed_slugs:
+        return
+    raise HTTPException(status_code=403, detail="Sport not permitted for this account")
 
 
 @router.post("/submit")
@@ -80,6 +114,95 @@ async def submit_athlete_data(
         },
     )
     return {"id": str(row["id"]), "status": row["status"], "verification_results": vresults}
+
+
+@router.post("/impute")
+async def upsert_imputations(
+    body: ImputeBody,
+    db: asyncpg.Connection = Depends(get_db),
+    user_id: uuid.UUID = Depends(require_user_id),
+):
+    aid = _uuid(body.athlete_id, "athlete_id")
+    athlete = await db.fetchrow("SELECT id, sport FROM athletes WHERE id = $1", aid)
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+
+    scope = body.scope
+    source_type: str
+    org_uuid: Optional[uuid.UUID] = None
+    if scope == "global":
+        await _require_admin(db, user_id)
+        source_type = "admin_manual"
+    else:
+        if not body.org_id:
+            raise HTTPException(status_code=400, detail="org_id is required for org scope")
+        org_uuid = _uuid(body.org_id, "org_id")
+        ctx = await load_school_auth(org_uuid, user_id, db)
+        _ensure_org_member_can_impute_athlete_sport(ctx, str(athlete["sport"]))
+        source_type = "school_manual"
+
+    applied_fields: list[str] = []
+    for f in body.fields:
+        fname = f.field_name.strip()
+        if scope == "global":
+            await db.execute(
+                """INSERT INTO athlete_manual_imputations (
+                     athlete_id, scope, org_id, field_name, field_value, confidence, source_type, reason, created_by
+                   ) VALUES ($1, 'global', NULL, $2, $3::jsonb, $4, $5, $6, $7)
+                   ON CONFLICT (athlete_id, field_name)
+                   WHERE scope = 'global' AND org_id IS NULL
+                   DO UPDATE SET
+                     field_value = EXCLUDED.field_value,
+                     confidence = EXCLUDED.confidence,
+                     source_type = EXCLUDED.source_type,
+                     reason = EXCLUDED.reason,
+                     created_by = EXCLUDED.created_by,
+                     updated_at = NOW()""",
+                aid,
+                fname,
+                json.dumps(f.field_value),
+                f.confidence,
+                source_type,
+                f.reason,
+                user_id,
+            )
+        else:
+            await db.execute(
+                """INSERT INTO athlete_manual_imputations (
+                     athlete_id, scope, org_id, field_name, field_value, confidence, source_type, reason, created_by
+                   ) VALUES ($1, 'org', $2, $3, $4::jsonb, $5, $6, $7, $8)
+                   ON CONFLICT (athlete_id, org_id, field_name)
+                   WHERE scope = 'org' AND org_id IS NOT NULL
+                   DO UPDATE SET
+                     field_value = EXCLUDED.field_value,
+                     confidence = EXCLUDED.confidence,
+                     source_type = EXCLUDED.source_type,
+                     reason = EXCLUDED.reason,
+                     created_by = EXCLUDED.created_by,
+                     updated_at = NOW()""",
+                aid,
+                org_uuid,
+                fname,
+                json.dumps(f.field_value),
+                f.confidence,
+                source_type,
+                f.reason,
+                user_id,
+            )
+        applied_fields.append(fname)
+
+    score_payload: Optional[Dict[str, Any]] = None
+    if body.trigger_rescore:
+        score_payload = await sync_athlete_score_from_ml(db, str(aid))
+
+    return {
+        "athlete_id": str(aid),
+        "scope": scope,
+        "org_id": str(org_uuid) if org_uuid else None,
+        "applied_fields": applied_fields,
+        "rescored": body.trigger_rescore,
+        "score": score_payload,
+    }
 
 
 @router.get("/submissions/{org_id}")

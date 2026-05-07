@@ -62,6 +62,8 @@ export function GravityAiView() {
     activeConversationId,
     isStreaming,
     streamingText,
+    waitingMode,
+    conversationSyncStatus,
     contextAthleteId,
     contextAthleteName,
     contextAthleteGS,
@@ -125,7 +127,15 @@ export function GravityAiView() {
     <div className={styles.root}>
       {/* ── Conversation history sidebar ── */}
       <aside className={styles.historyPanel}>
-        <div className={styles.historyHeader}>CONVERSATIONS</div>
+        <div className={styles.historyHeader}>
+          CONVERSATIONS
+          {conversationSyncStatus === 'local_only' && (
+            <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 10 }}>LOCAL ONLY</span>
+          )}
+          {conversationSyncStatus === 'synced' && (
+            <span style={{ marginLeft: 8, color: 'var(--accent-green)', fontSize: 10 }}>SYNCED</span>
+          )}
+        </div>
         <button className={styles.newConvBtn} onClick={() => { newConversation(); setStreamAccum('') }}>
           + NEW
         </button>
@@ -210,7 +220,7 @@ export function GravityAiView() {
             <div className={`${styles.msg} ${styles.msgAssistant}`}>
               <span className={styles.msgLabel}>GRAVITY AI</span>
               <p className={styles.msgText}>
-                <span className={styles.cursor}>▊</span>
+                {waitingMode === 'processing' ? 'PROCESSING...' : <span className={styles.cursor}>▊</span>}
               </p>
             </div>
           )}
@@ -232,7 +242,7 @@ export function GravityAiView() {
           />
           {isStreaming ? (
             <button className={`${styles.sendBtn} ${styles.stopBtn}`} onClick={stopStreaming}>
-              ■ STOP
+              {waitingMode === 'processing' ? 'WAITING...' : '■ STOP'}
             </button>
           ) : (
             <button

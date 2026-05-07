@@ -9,6 +9,32 @@ from gravity_api.services.athlete_search import search_athletes as run_athlete_s
 from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 
 router = APIRouter()
+ROSTER_FRESHNESS_DAYS = 14
+
+
+def _score_delta_30d(scores: list[asyncpg.Record]) -> float | None:
+    if len(scores) < 2:
+        return None
+    latest = scores[0]
+    latest_score = latest.get("gravity_score")
+    latest_at = latest.get("calculated_at")
+    if latest_score is None or latest_at is None:
+        return None
+    target_ts = latest_at.timestamp() - (30 * 24 * 60 * 60)
+    best = None
+    best_diff = None
+    for row in scores[1:]:
+        score = row.get("gravity_score")
+        ts = row.get("calculated_at")
+        if score is None or ts is None:
+            continue
+        diff = abs(ts.timestamp() - target_ts)
+        if best is None or best_diff is None or diff < best_diff:
+            best = score
+            best_diff = diff
+    if best is None:
+        return None
+    return round(float(latest_score) - float(best), 1)
 
 
 @router.get("")
@@ -18,7 +44,7 @@ async def search_athletes(
     sport: Optional[str] = None,
     sports: Optional[str] = Query(
         None,
-        description="Comma-separated cap codes: CFB,NCAAB,NCAAW (overrides single sport when set)",
+        description="Comma-separated cap codes: CFB,NCAAB,NCAAW (used when sport is not set)",
     ),
     conference: Optional[str] = None,
     position_group: Optional[str] = None,
@@ -27,8 +53,6 @@ async def search_athletes(
     max_gravity: Optional[float] = None,
     min_brand: Optional[float] = None,
     max_risk: Optional[float] = None,
-    exclude_inactive: bool = True,
-    roster_verified_within_days: Optional[int] = None,
     sort_by: str = "gravity_score",
     sort_dir: str = "desc",
     limit: int = Query(default=50, le=200),
@@ -37,12 +61,12 @@ async def search_athletes(
 ):
     """Search athletes with filters — terminal search and leaderboards."""
     sports_db: Optional[List[str]] = None
-    if sports and sports.strip():
+    if not sport and sports and sports.strip():
         sports_db = cap_prefs_to_db_slugs([s.strip() for s in sports.split(",") if s.strip()])
     return await run_athlete_search(
         db,
         q=q,
-        sport=sport if not sports_db else None,
+        sport=sport,
         sports_db=sports_db,
         conference=conference,
         position_group=position_group,
@@ -51,8 +75,8 @@ async def search_athletes(
         max_gravity=max_gravity,
         min_brand=min_brand,
         max_risk=max_risk,
-        exclude_inactive=exclude_inactive,
-        roster_verified_within_days=roster_verified_within_days,
+        exclude_inactive=True,
+        roster_verified_within_days=ROSTER_FRESHNESS_DAYS,
         sort_by=sort_by,
         sort_dir=sort_dir,
         limit=limit,
@@ -119,6 +143,115 @@ async def get_athlete_feed(athlete_id: str, db: asyncpg.Connection = Depends(get
         str(athlete["name"]),
     )
     return {"events": events}
+
+
+@router.get("/{athlete_id}/deal-action")
+async def get_deal_action(athlete_id: str, db: asyncpg.Connection = Depends(get_db)):
+    athlete = await db.fetchrow("SELECT id, name FROM athletes WHERE id = $1", athlete_id)
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+    latest = await db.fetchrow(
+        """SELECT gravity_score, dollar_p50_usd, confidence
+           FROM athlete_gravity_scores
+           WHERE athlete_id = $1
+           ORDER BY calculated_at DESC
+           LIMIT 1""",
+        athlete_id,
+    )
+    nil_p50 = float(latest["dollar_p50_usd"]) if latest and latest["dollar_p50_usd"] is not None else 150000.0
+    gs = float(latest["gravity_score"]) if latest and latest["gravity_score"] is not None else 60.0
+    recommendation = "HOLD"
+    urgency = "MEDIUM"
+    if gs >= 80:
+        recommendation = "RAISE"
+        urgency = "HIGH"
+    elif gs < 55:
+        recommendation = "WALK"
+        urgency = "LOW"
+    return {
+        "recommendation": recommendation,
+        "urgency": urgency,
+        "current_range_low": round(nil_p50 * 0.85, 2),
+        "current_range_high": round(nil_p50 * 1.15, 2),
+        "walk_away_price": round(nil_p50 * 1.25, 2),
+        "structure": {
+            "type": "HYBRID" if gs >= 70 else "FIXED",
+            "guaranteed_amount": round(nil_p50 * 0.65, 2),
+            "performance_bonus": round(nil_p50 * 0.35, 2),
+            "term_months": 12,
+        },
+        "rationale": f"{athlete['name']} projects as a {gs:.1f} GS athlete with current model range centered at ${nil_p50:,.0f}.",
+    }
+
+
+@router.get("/{athlete_id}/confidence")
+async def get_confidence(athlete_id: str, db: asyncpg.Connection = Depends(get_db)):
+    athlete = await db.fetchrow("SELECT id FROM athletes WHERE id = $1", athlete_id)
+    if not athlete:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+    latest = await db.fetchrow(
+        """SELECT confidence, dollar_confidence
+           FROM athlete_gravity_scores
+           WHERE athlete_id = $1
+           ORDER BY calculated_at DESC
+           LIMIT 1""",
+        athlete_id,
+    )
+    conf = float(latest["confidence"]) if latest and latest["confidence"] is not None else 0.55
+    label = "LOW"
+    if conf >= 0.75:
+        label = "HIGH"
+    elif conf >= 0.6:
+        label = "MEDIUM"
+    return {
+        "score": round(conf, 3),
+        "level": label,
+        "factors": [
+            {"name": "Data recency", "impact": "positive" if conf >= 0.6 else "neutral"},
+            {"name": "Comparable depth", "impact": "positive" if conf >= 0.7 else "neutral"},
+            {"name": "Verified deals", "impact": "positive" if conf >= 0.75 else "mixed"},
+        ],
+        "caveats": [] if conf >= 0.6 else ["Low-confidence projection: limited recent verified deal evidence."],
+    }
+
+
+@router.get("/{athlete_id}/alternatives")
+async def get_alternatives(athlete_id: str, db: asyncpg.Connection = Depends(get_db)):
+    subject = await db.fetchrow("SELECT id, sport, position FROM athletes WHERE id = $1", athlete_id)
+    if not subject:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+    rows = await db.fetch(
+        """SELECT a.id, a.name, a.school, s.gravity_score, s.dollar_p50_usd
+           FROM athletes a
+           LEFT JOIN LATERAL (
+              SELECT gravity_score, dollar_p50_usd
+              FROM athlete_gravity_scores
+              WHERE athlete_id = a.id
+              ORDER BY calculated_at DESC
+              LIMIT 1
+           ) s ON true
+           WHERE a.id != $1 AND a.sport = $2 AND (a.position = $3 OR $3 IS NULL)
+           ORDER BY s.gravity_score DESC NULLS LAST
+           LIMIT 5""",
+        athlete_id,
+        subject["sport"],
+        subject["position"],
+    )
+    candidates = []
+    for r in rows:
+        gs = float(r["gravity_score"]) if r["gravity_score"] is not None else 55.0
+        p50 = float(r["dollar_p50_usd"]) if r["dollar_p50_usd"] is not None else 120000.0
+        candidates.append(
+            {
+                "athlete_id": str(r["id"]),
+                "name": r["name"],
+                "school": r["school"],
+                "fit_score": round(min(99.0, max(50.0, gs)), 1),
+                "nil_estimate": round(p50, 2),
+                "why_better": "Higher projected gravity profile with similar positional fit.",
+            }
+        )
+    return {"candidates": candidates}
 
 
 @router.get("/{athlete_id}")
@@ -275,6 +408,7 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     athlete_dict["nil_valuation_percentile"] = (
         int(nil_percentile_row["pct"]) if nil_percentile_row and nil_percentile_row["pct"] is not None else None
     )
+    athlete_dict["gravity_delta_30d"] = _score_delta_30d(scores)
 
     return {
         "athlete": athlete_dict,

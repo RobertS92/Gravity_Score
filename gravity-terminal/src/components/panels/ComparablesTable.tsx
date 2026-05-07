@@ -2,13 +2,11 @@ import { formatNilMillions, formatScore } from '../../lib/formatters'
 import type { AthleteRecord, ComparableRecord } from '../../types/athlete'
 import styles from './ComparablesTable.module.css'
 
-function formatDeltaDollar(n: number | null | undefined, self: boolean) {
+function formatDeltaScore(n: number | null | undefined, self: boolean) {
   if (self) return '\u2014'
   if (n == null || Number.isNaN(n)) return '\u2014'
   const sign = n > 0 ? '+' : n < 0 ? '\u2212' : ''
-  const v = Math.abs(n)
-  const m = v / 1_000_000
-  return `${sign}$${m.toFixed(1)}M`
+  return `${sign}${Math.abs(n).toFixed(1)}`
 }
 
 export function ComparablesTable({
@@ -55,7 +53,7 @@ export function ComparablesTable({
             <th className={styles.thRight}>GS</th>
             <th className={styles.thRight}>BRAND</th>
             <th className={styles.thRight}>NIL EST.</th>
-            <th className={styles.thRight}>DELTA</th>
+            <th className={styles.thRight}>GS DELTA</th>
           </tr>
         </thead>
         <tbody>
@@ -81,7 +79,7 @@ export function ComparablesTable({
                   {formatNilMillions(c.nil_valuation_consensus)}
                 </td>
                 <td className={`${styles.tdRight} ${deltaCls}`}>
-                  {formatDeltaDollar(isSelf ? null : c.nil_delta_vs_subject, isSelf)}
+                  {formatDeltaScore(isSelf ? null : c.nil_delta_vs_subject, isSelf)}
                 </td>
               </tr>
             )

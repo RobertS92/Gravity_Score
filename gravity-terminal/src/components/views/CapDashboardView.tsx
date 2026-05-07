@@ -40,7 +40,7 @@ export function CapDashboardView() {
 
   const load = useCallback(async () => {
     if (!organizationId) {
-      setErr('No organization linked to this account. Apply migration 006 and set user_accounts.organization_id.')
+      setErr('No organization is linked to this account yet. Complete onboarding with a school/collective or ask an admin to connect your profile.')
       return
     }
     setErr(null)
@@ -128,11 +128,14 @@ export function CapDashboardView() {
           <option value="NCAAW">NCAAW</option>
         </select>
         <span className={styles.muted}>Fiscal year {fy}</span>
+        <Link className={styles.linkBtn} to="/cap/roster">
+          ROSTER
+        </Link>
         <Link className={styles.linkBtn} to="/cap/scenarios">
           SCENARIOS
         </Link>
-        <Link className={styles.linkBtn} to="/cap/school-data">
-          SCHOOL DATA
+        <Link className={styles.linkBtn} to="/cap/outlook">
+          5-YEAR
         </Link>
       </div>
 

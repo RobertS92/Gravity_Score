@@ -25,6 +25,17 @@ npm install
 npm run dev
 ```
 
+## Mock mode coverage
+
+When `VITE_USE_MOCKS=true`, all API calls short-circuit through the local mock handler (`src/mocks/handlers.ts`) and never hit the network. This enables fully offline demos and frontend-first development against deterministic fixture data (`src/mocks/fixtures.ts`).
+
+NIL intelligence mock endpoints include:
+- `GET /v1/athletes/{id}/deal-action`
+- `GET /v1/athletes/{id}/confidence`
+- `GET /v1/athletes/{id}/alternatives`
+
+These endpoints are backed by the same five canonical demo athletes used across Market Scan, watchlist, comparables, alerts, CSC reports, and feed events so the product remains internally coherent in demo mode.
+
 ## Build
 
 ```bash

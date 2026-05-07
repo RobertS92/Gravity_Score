@@ -2,10 +2,19 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { RequireOnboardingComplete } from './components/layout/RequireOnboardingComplete'
 import { Shell } from './components/layout/Shell'
+import { ErrorBoundary } from './components/shared/ErrorBoundary'
 import { BrandMatchView } from './components/views/BrandMatchView'
+import { CapAdminRollupView } from './components/views/CapAdminRollupView'
+import { CapAlertsCenterView } from './components/views/CapAlertsCenterView'
+import { CapAllocationView } from './components/views/CapAllocationView'
+import { CapAuditLogView } from './components/views/CapAuditLogView'
+import { CapCashFlowView } from './components/views/CapCashFlowView'
 import { CapDashboardView } from './components/views/CapDashboardView'
+import { CapLayout } from './components/views/CapLayout'
+import { CapOutlookView } from './components/views/CapOutlookView'
+import { CapRosterView } from './components/views/CapRosterView'
 import { CapScenariosView } from './components/views/CapScenariosView'
-import { CapSchoolDataView } from './components/views/CapSchoolDataView'
+import { CapWorkflowView } from './components/views/CapWorkflowView'
 import { CscReportsView } from './components/views/CscReportsView'
 import { GravityAiView } from './components/views/GravityAiView'
 import { LiveFeedView } from './components/views/LiveFeedView'
@@ -20,6 +29,7 @@ import { SettingsView } from './components/views/SettingsView'
 export default function App() {
   return (
     <BrowserRouter>
+      <ErrorBoundary name="App">
       <Routes>
         {/* Public */}
         <Route path="/login" element={<LoginView />} />
@@ -38,10 +48,18 @@ export default function App() {
               <Route path="/monitoring" element={<MonitoringView />} />
               <Route path="/data-pipeline" element={<OperationsDashboardView />} />
               <Route path="/market-scan" element={<MarketScanView />} />
-              <Route path="/cap" element={<CapDashboardView />} />
-              <Route path="/cap/scenarios" element={<CapScenariosView />} />
-              <Route path="/cap/school-data" element={<CapSchoolDataView />} />
-              <Route path="/roster" element={<Navigate to="/cap/scenarios" replace />} />
+              <Route path="/cap" element={<CapLayout />}>
+                <Route index element={<CapDashboardView />} />
+                <Route path="roster" element={<CapRosterView />} />
+                <Route path="scenarios" element={<CapScenariosView />} />
+                <Route path="outlook" element={<CapOutlookView />} />
+                <Route path="cash-flow" element={<CapCashFlowView />} />
+                <Route path="admin-rollup" element={<CapAdminRollupView />} />
+                <Route path="allocation" element={<CapAllocationView />} />
+                <Route path="workflow" element={<CapWorkflowView />} />
+                <Route path="audit-log" element={<CapAuditLogView />} />
+                <Route path="alerts" element={<CapAlertsCenterView />} />
+              </Route>
               <Route path="/gravity-ai" element={<GravityAiView />} />
               <Route path="/feed" element={<LiveFeedView />} />
               <Route path="/settings" element={<SettingsView />} />
@@ -50,6 +68,7 @@ export default function App() {
           </Route>
         </Route>
       </Routes>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }

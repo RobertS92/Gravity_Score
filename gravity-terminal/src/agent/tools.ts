@@ -60,6 +60,22 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: 'run_brand_match_query',
+    description: 'Run brand match query with optional campaign constraints',
+    input_schema: {
+      type: 'object',
+      properties: {
+        budget: { type: 'number' },
+        category: { type: 'string' },
+        geography: { type: 'array', items: { type: 'string' } },
+        audience: { type: 'array', items: { type: 'string' } },
+        min_social_reach: { type: 'number' },
+        limit: { type: 'number' },
+      },
+      required: ['budget', 'category'],
+    },
+  },
+  {
     name: 'get_market_scan',
     description: 'Market scan table — find athletes by sport/position/conference/score',
     input_schema: {
@@ -139,6 +155,24 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
         }
         const r = await postBrandMatch(brief)
         return JSON.stringify(r)
+      }
+      case 'run_brand_match_query': {
+        const limit = Math.min(Math.max(Number(input.limit ?? 5), 1), 25)
+        const brief: BrandMatchBrief = {
+          budget: Number(input.budget ?? 0),
+          category: String(input.category ?? 'other'),
+          geography: Array.isArray(input.geography) ? input.geography.map(String) : [],
+          audience: Array.isArray(input.audience) ? input.audience.map(String) : [],
+          risk_tolerance: 0.5,
+          max_transfer_risk: false,
+          authenticity_weight: 0.5,
+          min_social_reach: input.min_social_reach != null ? Number(input.min_social_reach) : undefined,
+          prioritize_engagement: false,
+          excluded_categories: [],
+          deal_density_preference: 'any',
+        }
+        const r = await postBrandMatch(brief)
+        return JSON.stringify(r.slice(0, limit))
       }
       case 'get_market_scan': {
         const r = await getMarketScan({

@@ -10,6 +10,7 @@ import { RightPanel } from './RightPanel'
 import { Sidebar } from './Sidebar'
 import styles from './Shell.module.css'
 import { TopBar } from './TopBar'
+import { ErrorBoundary } from '../shared/ErrorBoundary'
 
 export function Shell() {
   useTerminalBootstrap()
@@ -39,14 +40,26 @@ export function Shell() {
       <TopBar />
       <AlertStrip />
       <div className={styles.body}>
-        <Sidebar />
+        <ErrorBoundary name="Sidebar">
+          <Sidebar />
+        </ErrorBoundary>
         <main className={styles.main}>
-          {!isAiTab && <AgentOutputPanel />}
+          {!isAiTab && (
+            <ErrorBoundary name="AgentOutputPanel">
+              <AgentOutputPanel />
+            </ErrorBoundary>
+          )}
           <div className={isAiTab ? styles.mainScrollAi : styles.mainScroll}>
-            <Outlet />
+            <ErrorBoundary name="MainView">
+              <Outlet />
+            </ErrorBoundary>
           </div>
         </main>
-        {!isAiTab && <RightPanel />}
+        {!isAiTab && (
+          <ErrorBoundary name="RightPanel">
+            <RightPanel />
+          </ErrorBoundary>
+        )}
       </div>
       {!isAiTab && <CommandBar />}
     </div>

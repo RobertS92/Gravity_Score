@@ -118,6 +118,46 @@ export function OperationsDashboardView() {
           <div className={styles.cardValue}>{num(d?.athletes_roster_verified_180d)}</div>
           <div className={styles.cardSub}>any: {num(d?.athletes_roster_verified)}</div>
         </div>
+        <div className={styles.card}>
+          <div className={styles.cardLabel}>ACTIVE ATHLETES</div>
+          <div className={styles.cardValue}>{num(d?.athletes_active_total)}</div>
+        </div>
+        <div className={styles.card}>
+          <div className={styles.cardLabel}>ACTIVE W/O SCORES</div>
+          <div className={styles.cardValue}>{num(d?.athletes_active_without_scores)}</div>
+        </div>
+        <div className={styles.card}>
+          <div className={styles.cardLabel}>STALE SCORES (14D)</div>
+          <div className={styles.cardValue}>{num(d?.athletes_active_scores_stale_14d)}</div>
+        </div>
+        <div className={styles.card}>
+          <div className={styles.cardLabel}>NULL SCORE COMPONENTS</div>
+          <div className={styles.cardValue}>{num(d?.athletes_active_with_null_components)}</div>
+        </div>
+        <div className={styles.card}>
+          <div className={styles.cardLabel}>MISSING COMPANY GRAVITY</div>
+          <div className={styles.cardValue}>{num(d?.athletes_active_without_company_gravity)}</div>
+        </div>
+        <div className={styles.card}>
+          <div className={styles.cardLabel}>STALE/UNVERIFIED ROSTER (14D)</div>
+          <div className={styles.cardValue}>{num(d?.athletes_active_stale_or_unverified_roster_14d)}</div>
+        </div>
+        <div className={styles.card}>
+          <div className={styles.cardLabel}>UNKNOWN LIFECYCLE STATUS</div>
+          <div className={styles.cardValue}>{num(d?.athletes_lifecycle_status_unknown)}</div>
+        </div>
+        <div className={styles.card}>
+          <div className={styles.cardLabel}>SCORE JOB FAILS (7D)</div>
+          <div className={styles.cardValue}>{num(d?.score_sync_jobs_failed_7d)}</div>
+          <div className={styles.cardSub}>rows failed: {num(d?.score_sync_rows_failed_7d)}</div>
+        </div>
+        <div className={styles.card}>
+          <div className={styles.cardLabel}>MANUAL IMPUTATIONS (30D)</div>
+          <div className={styles.cardValue}>{num(d?.manual_imputations_30d)}</div>
+          <div className={styles.cardSub}>
+            global: {num(d?.manual_imputations_global_30d)} · org: {num(d?.manual_imputations_org_30d)}
+          </div>
+        </div>
       </div>
 
       {chartRows.length > 0 && (

@@ -14,7 +14,20 @@ export type OperationsDashboard = {
   generated_at: string
   database: {
     athletes_total?: number | null
+    athletes_active_total?: number | null
     athletes_with_scores?: number | null
+    athletes_active_without_scores?: number | null
+    athletes_active_scores_stale_30d?: number | null
+    athletes_active_scores_stale_14d?: number | null
+    athletes_active_with_null_components?: number | null
+    athletes_active_without_company_gravity?: number | null
+    athletes_active_stale_or_unverified_roster_14d?: number | null
+    athletes_lifecycle_status_unknown?: number | null
+    score_sync_jobs_failed_7d?: number | null
+    score_sync_rows_failed_7d?: number | null
+    manual_imputations_30d?: number | null
+    manual_imputations_global_30d?: number | null
+    manual_imputations_org_30d?: number | null
     athletes_last_scraped_set?: number | null
     athletes_scraped_7d?: number | null
     avg_data_quality_score?: string | number | null
