@@ -7,6 +7,8 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import asyncpg
 
+from gravity_api.services.risk_utils import invert_risk_score
+
 
 CONFERENCE_REGION_MAP: dict[str, set[str]] = {
     "sec": {"southeast", "national"},
@@ -108,11 +110,11 @@ def _deal_density_score(preference: str, verified_deals_count: int) -> float:
 
 
 def _recommended_structure(risk_score: float, engagement_rate: Optional[float], verified_deals_count: int) -> str:
-    if risk_score >= 28:
+    if risk_score <= 72:
         return "PERFORMANCE_WEIGHTED"
     if (engagement_rate is not None and engagement_rate >= 6.5) and verified_deals_count <= 3:
         return "HYBRID"
-    if risk_score <= 14 and verified_deals_count >= 5:
+    if risk_score >= 86 and verified_deals_count >= 5:
         return "FIXED"
     return "HYBRID"
 
@@ -246,7 +248,8 @@ def _score_candidate(row: dict[str, Any], brief: BrandMatchBriefData, weights: d
         return None
 
     brand_score = _clamp(_safe_float(row.get("brand_score")))
-    risk_score = _clamp(_safe_float(row.get("risk_score"), 30.0))
+    raw_risk = _clamp(_safe_float(row.get("risk_score"), 30.0))
+    risk_score = _clamp(invert_risk_score(raw_risk) or 0.0)
     engagement_rate = row.get("instagram_engagement_rate")
     engagement_val = _safe_float(engagement_rate, 0.0)
     conference_regions = _conference_regions(row.get("conference"))
@@ -269,7 +272,8 @@ def _score_candidate(row: dict[str, Any], brief: BrandMatchBriefData, weights: d
     else:
         social_score = _clamp(engagement_score * 0.4 + social_reach_score * 0.6)
 
-    risk_alignment = _clamp(100.0 - abs(risk_score - (brief.risk_tolerance * 100.0)))
+    risk_target = (1.0 - float(brief.risk_tolerance)) * 100.0
+    risk_alignment = _clamp(100.0 - abs(risk_score - risk_target))
     if brief.budget < 300_000:
         geo_score = _clamp(geo_score * 0.7 + affordability * 0.3)
 

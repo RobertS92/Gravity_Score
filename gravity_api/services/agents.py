@@ -16,6 +16,8 @@ except ImportError:
 from gravity_api.config import get_settings
 from gravity_api.services.position_group_match import position_group_sql_predicate
 
+_INVERTED_RISK_SQL = "(100.0 - s.risk_score)"
+
 
 def _json_safe(obj: Any) -> Any:
     """Recursively convert non-JSON-serializable types from asyncpg results."""
@@ -147,7 +149,7 @@ _SORT_SQL = {
     "proof_score": "s.proof_score",
     "proximity_score": "s.proximity_score",
     "velocity_score": "s.velocity_score",
-    "risk_score": "s.risk_score",
+    "risk_score": _INVERTED_RISK_SQL,
     "name": "a.name",
 }
 
@@ -200,7 +202,7 @@ class GravityQueryAgent:
             "min_brand": ("s.brand_score", ">="),
             "max_brand": ("s.brand_score", "<="),
             "min_proof": ("s.proof_score", ">="),
-            "max_risk": ("s.risk_score", "<="),
+            "max_risk": (_INVERTED_RISK_SQL, "<="),
         }
 
         if params.get("position_group") is not None:
@@ -226,7 +228,7 @@ class GravityQueryAgent:
             SELECT a.id, a.name, a.sport, a.school, a.conference,
                    a.position, a.position_group,
                    s.gravity_score, s.brand_score, s.proof_score,
-                   s.proximity_score, s.velocity_score, s.risk_score,
+                   s.proximity_score, s.velocity_score, {_INVERTED_RISK_SQL} AS risk_score,
                    s.confidence
             FROM athletes a
             LEFT JOIN LATERAL (
@@ -244,8 +246,8 @@ class GravityQueryAgent:
     async def _get_athlete_score(self, params: Dict[str, Any]) -> Dict[str, Any]:
         if params.get("athlete_id"):
             row = await self.db.fetchrow(
-                """SELECT a.*, s.gravity_score, s.brand_score, s.proof_score,
-                          s.proximity_score, s.velocity_score, s.risk_score,
+                        """SELECT a.*, s.gravity_score, s.brand_score, s.proof_score,
+                          s.proximity_score, s.velocity_score, (100.0 - s.risk_score) AS risk_score,
                           s.confidence, s.shap_values, s.top_factors_up,
                           s.top_factors_down, s.calculated_at
                    FROM athletes a
@@ -259,8 +261,8 @@ class GravityQueryAgent:
             )
         else:
             row = await self.db.fetchrow(
-                """SELECT a.*, s.gravity_score, s.brand_score, s.proof_score,
-                          s.proximity_score, s.velocity_score, s.risk_score,
+                        """SELECT a.*, s.gravity_score, s.brand_score, s.proof_score,
+                          s.proximity_score, s.velocity_score, (100.0 - s.risk_score) AS risk_score,
                           s.confidence, s.shap_values, s.top_factors_up,
                           s.top_factors_down, s.calculated_at
                    FROM athletes a
@@ -282,7 +284,7 @@ class GravityQueryAgent:
         rows = await self.db.fetch(
             """SELECT a.id, a.name, a.school, a.conference, a.position,
                       s.gravity_score, s.brand_score, s.proof_score,
-                      s.proximity_score, s.velocity_score, s.risk_score,
+                      s.proximity_score, s.velocity_score, (100.0 - s.risk_score) AS risk_score,
                       cs.similarity_score, cs.matching_dimensions
                FROM comparable_sets cs
                JOIN athletes a ON a.id = cs.comparable_athlete_id
@@ -351,7 +353,7 @@ class GravityQueryAgent:
         return dict(row)
 
     async def _filter_by_brand_fit(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        conditions = ["s.risk_score <= $1", "s.brand_score IS NOT NULL"]
+        conditions = [f"{_INVERTED_RISK_SQL} <= $1", "s.brand_score IS NOT NULL"]
         values: List[Any] = [params.get("max_risk", 30)]
         idx = 2
 
@@ -370,7 +372,7 @@ class GravityQueryAgent:
         sql = f"""
             SELECT a.id, a.name, a.sport, a.school, a.conference, a.position,
                    s.gravity_score, s.brand_score, s.proximity_score,
-                   s.risk_score, s.velocity_score
+                   {_INVERTED_RISK_SQL} AS risk_score, s.velocity_score
             FROM athletes a
             LEFT JOIN LATERAL (
                 SELECT * FROM athlete_gravity_scores

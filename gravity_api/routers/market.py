@@ -78,7 +78,7 @@ async def market_schools(
             tg.brand_score          AS program_brand_score,
             tg.proof_score          AS program_proof_score,
             tg.velocity_score       AS program_velocity_score,
-            tg.risk_score           AS program_risk_score,
+            (100.0 - tg.risk_score) AS program_risk_score,
             tg.scored_at            AS program_scored_at,
             tm.id                   AS team_id
         FROM programs p
@@ -102,7 +102,7 @@ async def market_schools(
         ) sub ON sub.sch = p.school AND sub.sprt = p.sport
         LEFT JOIN LATERAL (
             SELECT tgs.gravity_score, tgs.brand_score, tgs.proof_score,
-                   tgs.velocity_score, tgs.risk_score, tgs.scored_at
+                   tgs.velocity_score, (100.0 - tgs.risk_score) AS risk_score, tgs.scored_at
             FROM team_gravity_scores tgs
             JOIN teams t ON t.id = tgs.team_id
             WHERE t.school_name = p.school AND t.sport = p.sport

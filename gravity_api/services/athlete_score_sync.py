@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 import asyncpg
 import httpx
@@ -69,15 +69,90 @@ def athlete_to_raw_data(
     return row
 
 
-def shap_values_from_ml(score_data: Dict[str, Any]) -> Dict[str, Any]:
-    out: Dict[str, float] = {}
-    for k in ("brand", "proof", "proximity", "velocity", "risk"):
-        v = score_data.get(f"shap_{k}")
-        if v is not None:
+_SHAP_KEY_ALIASES = {
+    "brand_score": "brand",
+    "proof_score": "proof",
+    "proximity_score": "proximity",
+    "velocity_score": "velocity",
+    "risk_score": "risk",
+}
+
+
+def _normalize_shap_key(raw_key: Any) -> str:
+    key = str(raw_key).strip().lower().replace("-", "_").replace(" ", "_")
+    if key.startswith("shap_"):
+        key = key[5:]
+    return _SHAP_KEY_ALIASES.get(key, key)
+
+
+def _coerce_shap_value(raw_value: Any) -> Optional[float]:
+    if raw_value is None:
+        return None
+    if isinstance(raw_value, (int, float)):
+        return float(raw_value)
+    if isinstance(raw_value, Mapping):
+        for nested_key in ("shap", "value", "contribution", "impact", "weight"):
+            nested_value = raw_value.get(nested_key)
+            if nested_value is None:
+                continue
             try:
-                out[k] = float(v)
+                return float(nested_value)
             except (TypeError, ValueError):
-                pass
+                continue
+        return None
+    try:
+        return float(raw_value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _iter_shap_containers(score_data: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    containers: list[Mapping[str, Any]] = [score_data]
+    top_level_keys = (
+        "shap_values",
+        "shap",
+        "shap_breakdown",
+        "feature_attributions",
+        "component_attributions",
+    )
+    for key in top_level_keys:
+        value = score_data.get(key)
+        if isinstance(value, Mapping):
+            containers.append(value)
+
+    nested_wrappers = ("explainability", "explanations", "attribution")
+    for wrapper_key in nested_wrappers:
+        wrapper = score_data.get(wrapper_key)
+        if not isinstance(wrapper, Mapping):
+            continue
+        for key in top_level_keys:
+            value = wrapper.get(key)
+            if isinstance(value, Mapping):
+                containers.append(value)
+    return containers
+
+
+def shap_values_from_ml(score_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Parse SHAP outputs across score revisions.
+
+    Some revisions emit legacy `shap_<component>` fields while newer revisions
+    return nested explainability payloads (e.g. `shap_values` or
+    `explainability.shap_values`). We normalize all supported shapes into a
+    stable `{component: contribution}` dictionary for persistence.
+    """
+    out: Dict[str, float] = {}
+    containers = _iter_shap_containers(score_data)
+    for index, container in enumerate(containers):
+        allow_unprefixed = index > 0
+        for raw_key, raw_value in container.items():
+            normalized_key = _normalize_shap_key(raw_key)
+            if not allow_unprefixed and not str(raw_key).startswith("shap_"):
+                continue
+            value = _coerce_shap_value(raw_value)
+            if value is None:
+                continue
+            out[normalized_key] = value
     return out
 
 

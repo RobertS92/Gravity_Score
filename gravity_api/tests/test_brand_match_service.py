@@ -76,3 +76,24 @@ def test_scored_candidate_has_extended_fields():
     assert "recommended_structure" in out
     assert "exclusion_flags" in out
     assert "gambling" in out["exclusion_flags"]
+
+
+def test_recommended_structure_uses_inverted_risk_orientation():
+    brief = _brief()
+    weights = _calc_weights(brief)
+
+    safer = _score_candidate(
+        _row(risk_score=10.0, verified_deals_count=6, instagram_engagement_rate=4.0),
+        brief,
+        weights,
+    )
+    assert safer is not None
+    assert safer["recommended_structure"] == "FIXED"
+
+    riskier = _score_candidate(
+        _row(risk_score=45.0, verified_deals_count=2, instagram_engagement_rate=4.0),
+        brief,
+        weights,
+    )
+    assert riskier is not None
+    assert riskier["recommended_structure"] == "PERFORMANCE_WEIGHTED"

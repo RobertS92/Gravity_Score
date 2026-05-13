@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Tuple
 
 import asyncpg
 
+from gravity_api.services.risk_utils import invert_risk_score
+
 
 async def latest_scores_for_athletes(
     conn: asyncpg.Connection, athlete_ids: List[str]
@@ -36,10 +38,10 @@ def weighted_aggregate_gravity(
         den += w
         if rec:
             num_g += float(rec["gravity_score"] or 0) * w
-            num_r += float(rec["risk_score"] or 0) * w
+            num_r += float(invert_risk_score(float(rec["risk_score"] or 0)) or 0) * w
         else:
             num_g += 50.0 * w
-            num_r += 30.0 * w
+            num_r += 70.0 * w
     if den == 0:
         return 0.0, 0.0
     return round(num_g / den, 4), round(num_r / den, 4)

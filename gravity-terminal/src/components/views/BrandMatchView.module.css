@@ -27,7 +27,7 @@
 
 .label {
   font-family: var(--font-data);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.10em;
   color: var(--text-muted);
   display: flex;
@@ -145,7 +145,7 @@
   flex-direction: column;
   gap: 4px;
   font-family: var(--font-data);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   color: var(--text-muted);
 }
@@ -170,7 +170,7 @@
 .rank {
   font-family: var(--font-data);
   font-size: 13px;
-  color: var(--text-dim);
+  color: var(--text-muted);
   padding-top: 2px;
 }
 
@@ -238,7 +238,7 @@
   gap: 8px;
   align-items: center;
   font-family: var(--font-data);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -289,5 +289,29 @@
 
   .toolbar {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .rank {
+    padding-top: 0;
+  }
+
+  .metrics {
+    text-align: left;
+  }
+
+  .actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .breakRow {
+    grid-template-columns: 120px 1fr 40px;
   }
 }

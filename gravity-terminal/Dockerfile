@@ -14,7 +14,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG VITE_API_URL=
+ARG VITE_AGENT_USE_PROXY=true
 ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_AGENT_USE_PROXY=${VITE_AGENT_USE_PROXY}
 RUN npm run build
 
 FROM node:22-alpine AS runtime

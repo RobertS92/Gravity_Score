@@ -414,9 +414,9 @@ export function mockConfidence(athleteId: string): ConfidenceResponse | null {
       {
         key: 'volatility_risk',
         label: 'Volatility Adjustment',
-        score: Math.max(0.4, 1 - (athlete.risk_score ?? 25) / 100),
+        score: Math.max(0.4, (athlete.risk_score ?? 75) / 100),
         weight: 0.15,
-        detail: `Risk score ${(athlete.risk_score ?? 25).toFixed(1)} reduces certainty band`,
+        detail: `Risk score ${(athlete.risk_score ?? 75).toFixed(1)} supports certainty band`,
       },
     ],
     caveats: decision.caveats,
@@ -438,7 +438,7 @@ export function mockAlternatives(athleteId: string): AlternativesResponse | null
     .map((cand) => {
       const candNil = nilBaseline(cand)
       const gravityGap = Math.abs((athlete.gravity_score ?? 0) - (cand.gravity_score ?? 0))
-      const riskBonus = Math.max(0, (athlete.risk_score ?? 0) - (cand.risk_score ?? 0))
+      const riskBonus = Math.max(0, (cand.risk_score ?? 0) - (athlete.risk_score ?? 0))
       const fitScore = Math.max(1, Math.round(100 - gravityGap * 1.2 + riskBonus * 0.6))
       const savings = Math.max(0, Math.round(subjectNil - candNil))
       return {

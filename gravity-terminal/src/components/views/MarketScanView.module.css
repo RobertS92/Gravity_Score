@@ -6,9 +6,12 @@
 
 .subBar {
   display: flex;
-  gap: 0;
+  gap: 6px;
+  flex-wrap: wrap;
   border: 1px solid var(--border-default);
-  width: fit-content;
+  width: 100%;
+  padding: 4px;
+  background: var(--bg-secondary);
 }
 
 .filterBar {
@@ -34,19 +37,19 @@
   align-items: center;
   gap: 6px;
   font-family: var(--font-data);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.04em;
   color: var(--text-muted);
 }
 
 .clearBtn {
   font-family: var(--font-data);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   background: transparent;
   border: 1px solid var(--border-subtle);
   border-radius: 3px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   cursor: pointer;
 }
 
@@ -57,11 +60,10 @@
 .subOn,
 .subOff {
   font-family: var(--font-data);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.1em;
   padding: 8px 12px;
-  border: none;
-  border-right: 1px solid var(--border-default);
+  border: 1px solid var(--border-default);
   cursor: pointer;
   background: var(--bg-secondary);
   color: var(--text-muted);
@@ -69,6 +71,7 @@
 
 .subOn {
   color: var(--accent-green);
+  border-color: var(--accent-green);
   box-shadow: inset 0 -2px 0 var(--accent-green);
 }
 
@@ -78,9 +81,12 @@
 
 .schoolFilters {
   display: flex;
-  gap: 0;
+  gap: 6px;
+  flex-wrap: wrap;
   border: 1px solid var(--border-default);
-  width: fit-content;
+  width: 100%;
+  padding: 4px;
+  background: var(--bg-secondary);
   margin-bottom: 8px;
 }
 
@@ -99,9 +105,9 @@
 
 .th {
   text-align: left;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.1em;
-  color: var(--text-dim);
+  color: var(--text-muted);
   padding: 8px 10px;
   border-bottom: 1px solid var(--border-subtle);
   white-space: nowrap;
@@ -109,9 +115,9 @@
 
 .thR {
   text-align: right;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.1em;
-  color: var(--text-dim);
+  color: var(--text-muted);
   padding: 8px 10px;
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -142,4 +148,18 @@
   font-size: 13px;
   color: var(--text-muted);
   padding: 12px;
+}
+
+@media (max-width: 1024px) {
+  .filterBar {
+    gap: 10px;
+  }
+
+  .filterSelect {
+    min-width: 160px;
+  }
+
+  .table {
+    min-width: 780px;
+  }
 }

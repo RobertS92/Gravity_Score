@@ -40,7 +40,7 @@ def compatibility_score(
     align_proof = 1.0 - abs(ap - ba) / 100.0
     align_nil = 1.0 - abs(ax - bv) / 100.0
     align_momentum = 1.0 - abs(av - bf) / 100.0
-    align_risk = 1.0 - abs((100.0 - ar) - bs) / 100.0
+    align_risk = 1.0 - abs(ar - bs) / 100.0
 
     w_brand, w_proof, w_nil, w_vel, w_risk = 0.22, 0.22, 0.22, 0.18, 0.16
     core = (

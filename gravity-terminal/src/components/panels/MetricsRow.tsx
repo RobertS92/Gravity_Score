@@ -7,7 +7,7 @@ type Dim = 'brand' | 'proof' | 'proximity' | 'velocity' | 'risk' | 'program' | '
 
 function riskColor(risk: number | null | undefined) {
   if (risk == null) return styles.cMuted
-  return risk <= 25 ? styles.cRiskLo : styles.cRiskHi
+  return risk >= 75 ? styles.cRiskLo : styles.cRiskHi
 }
 
 function dimColor(dim: Dim, athlete: AthleteRecord) {

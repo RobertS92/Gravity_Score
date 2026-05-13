@@ -6,13 +6,15 @@ import asyncpg
 
 from gravity_api.services.position_group_match import position_group_sql_predicate
 
+_INVERTED_RISK_SQL = "(100.0 - s.risk_score)"
+
 _VALID_SORTS = {
     "gravity_score": "s.gravity_score",
     "brand_score": "s.brand_score",
     "proof_score": "s.proof_score",
     "proximity_score": "s.proximity_score",
     "velocity_score": "s.velocity_score",
-    "risk_score": "s.risk_score",
+    "risk_score": _INVERTED_RISK_SQL,
     "name": "a.name",
 }
 
@@ -79,7 +81,7 @@ async def search_athletes(
         params.append(min_brand)
         idx += 1
     if max_risk is not None:
-        conditions.append(f"s.risk_score <= ${idx}")
+        conditions.append(f"{_INVERTED_RISK_SQL} <= ${idx}")
         params.append(max_risk)
         idx += 1
     if exclude_inactive:
@@ -103,7 +105,7 @@ async def search_athletes(
         SELECT
             a.*,
             s.gravity_score, s.brand_score, s.proof_score,
-            s.proximity_score, s.velocity_score, s.risk_score,
+            s.proximity_score, s.velocity_score, {_INVERTED_RISK_SQL} AS risk_score,
             s.company_gravity_score, s.brand_gravity_score,
             s.dollar_p10_usd, s.dollar_p50_usd, s.dollar_p90_usd,
             s.confidence, s.top_factors_up, s.top_factors_down,

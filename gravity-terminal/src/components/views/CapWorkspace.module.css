@@ -16,14 +16,14 @@
 
 .title {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: 0.14em;
   color: var(--text-secondary);
 }
 
 .muted {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px;
   font-family: var(--font-data);
 }
 
@@ -44,12 +44,13 @@
 
 .tab {
   font-family: var(--font-data);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.08em;
-  padding: 8px 10px;
+  padding: 9px 11px;
   border: 1px solid var(--border-default);
   color: var(--text-muted);
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .tabActive {
@@ -89,7 +90,7 @@
   color: var(--text-muted);
   font-family: var(--font-data);
   letter-spacing: 0.06em;
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
 }
 
@@ -114,7 +115,7 @@
   color: var(--accent-cyan);
   background: transparent;
   font-family: var(--font-data);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   padding: 7px 10px;
   cursor: pointer;
@@ -144,7 +145,7 @@
   padding: 3px 7px;
   border: 1px solid var(--border-default);
   font-family: var(--font-data);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.06em;
 }
 
@@ -160,7 +161,7 @@
 }
 
 .metricLabel {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-muted);
   letter-spacing: 0.08em;
 }
@@ -170,6 +171,18 @@
   font-family: var(--font-data);
   font-size: 18px;
   color: var(--text-primary);
+}
+
+@media (max-width: 1024px) {
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .table {
+    min-width: 720px;
+  }
 }
 
 .statusDraft {

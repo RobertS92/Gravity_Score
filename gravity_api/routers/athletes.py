@@ -37,6 +37,15 @@ def _score_delta_30d(scores: list[asyncpg.Record]) -> float | None:
     return round(float(latest_score) - float(best), 1)
 
 
+def _invert_risk(v: object) -> float | None:
+    if v is None:
+        return None
+    try:
+        return max(0.0, min(100.0, 100.0 - float(v)))
+    except (TypeError, ValueError):
+        return None
+
+
 @router.get("")
 @router.get("/", include_in_schema=False)
 async def search_athletes(
@@ -92,7 +101,7 @@ async def get_score_history(
 ):
     rows = await db.fetch(
         """SELECT gravity_score, brand_score, proof_score,
-                  proximity_score, velocity_score, risk_score,
+                  proximity_score, velocity_score, (100.0 - risk_score) AS risk_score,
                   confidence, calculated_at
            FROM athlete_gravity_scores
            WHERE athlete_id = $1
@@ -107,7 +116,7 @@ async def get_score_history(
 async def _fetch_comparables(db: asyncpg.Connection, athlete_id: str):
     return await db.fetch(
         """SELECT a.*, s.gravity_score, s.brand_score, s.proof_score,
-                  s.proximity_score, s.velocity_score, s.risk_score,
+                  s.proximity_score, s.velocity_score, (100.0 - s.risk_score) AS risk_score,
                   cs.similarity_score
            FROM comparable_sets cs
            JOIN athletes a ON a.id = cs.comparable_athlete_id
@@ -364,6 +373,8 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     ):
         if latest_score.get(score_field) is not None:
             athlete_dict[score_field] = latest_score[score_field]
+    if athlete_dict.get("risk_score") is not None:
+        athlete_dict["risk_score"] = _invert_risk(athlete_dict.get("risk_score"))
 
     athlete_dict["score_date"] = latest_score.get("calculated_at")
 
@@ -410,9 +421,14 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     )
     athlete_dict["gravity_delta_30d"] = _score_delta_30d(scores)
 
+    score_history = [dict(s) for s in scores]
+    for row in score_history:
+        if row.get("risk_score") is not None:
+            row["risk_score"] = _invert_risk(row.get("risk_score"))
+
     return {
         "athlete": athlete_dict,
-        "score_history": [dict(s) for s in scores],
+        "score_history": score_history,
         "nil_deals": [dict(d) for d in deals],
         "comparables": [dict(c) for c in comparables],
     }

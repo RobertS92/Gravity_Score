@@ -8,6 +8,8 @@ from typing import Any, List
 
 import asyncpg
 
+from gravity_api.services.risk_utils import invert_risk_score
+
 
 def _iso(ts: Any) -> str:
     if ts is None:
@@ -89,8 +91,8 @@ async def build_athlete_feed_events(
                         "value": g1,
                     }
                 )
-            r0 = float(prev["risk_score"] or 0)
-            r1 = float(cur["risk_score"] or 0)
+            r0 = float(invert_risk_score(float(prev["risk_score"] or 0)) or 0)
+            r1 = float(invert_risk_score(float(cur["risk_score"] or 0)) or 0)
             if abs(r1 - r0) >= 3.0:
                 ts = _iso(cur["calculated_at"])
                 eid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"risk-{athlete_id}-{ts}"))
@@ -101,7 +103,7 @@ async def build_athlete_feed_events(
                         "athlete_name": athlete_name,
                         "event_type": "RISK",
                         "timestamp": ts,
-                        "body": f"Risk component shifted from {r0:.1f} to {r1:.1f}",
+                        "body": f"Risk score shifted from {r0:.1f} to {r1:.1f}",
                         "entity_name": None,
                         "value": r1,
                     }

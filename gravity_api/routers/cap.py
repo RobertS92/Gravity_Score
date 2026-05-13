@@ -21,6 +21,7 @@ from gravity_api.services.cap_metrics import (
     latest_scores_for_athletes,
     weighted_aggregate_gravity,
 )
+from gravity_api.services.risk_utils import invert_risk_score
 from gravity_api.services.cap_sport import athlete_row_sport_to_cap, assert_cap_sport
 from gravity_api.services.org_auth import (
     SchoolAuthContext,
@@ -328,7 +329,7 @@ def _contract_row(r: asyncpg.Record) -> dict[str, Any]:
         "brand_score": _f(r["brand_score"]) if "brand_score" in keys else None,
         "proof_score": _f(r["proof_score"]) if "proof_score" in keys else None,
         "velocity_score": _f(r["velocity_score"]) if "velocity_score" in keys else None,
-        "risk_score": _f(r["risk_score"]) if "risk_score" in keys else None,
+        "risk_score": invert_risk_score(_f(r["risk_score"])) if "risk_score" in keys else None,
     }
 
 
@@ -718,7 +719,7 @@ async def _roster_state(
             {
                 **_contract_row(r),
                 "gravity_score": float(rec["gravity_score"]) if rec else None,
-                "risk_score": float(rec["risk_score"]) if rec else None,
+                "risk_score": invert_risk_score(float(rec["risk_score"])) if rec else None,
             }
         )
     agg_g, avg_r = weighted_aggregate_gravity([(p[0], max(p[1], 1)) for p in pairs])

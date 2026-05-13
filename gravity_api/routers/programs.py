@@ -8,6 +8,15 @@ from gravity_api.database import get_db
 router = APIRouter()
 
 
+def _invert_risk(v: object) -> float | None:
+    if v is None:
+        return None
+    try:
+        return max(0.0, min(100.0, 100.0 - float(v)))
+    except (TypeError, ValueError):
+        return None
+
+
 @router.get("")
 @router.get("/", include_in_schema=False)
 async def list_programs(
@@ -45,7 +54,10 @@ async def get_program_score(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="No gravity score found for this program")
-    return dict(row)
+    out = dict(row)
+    if "risk_score" in out:
+        out["risk_score"] = _invert_risk(out.get("risk_score"))
+    return out
 
 
 @router.get("/{team_id}/score/history")
@@ -60,7 +72,7 @@ async def get_program_score_history(
     rows = await db.fetch(
         """
         SELECT id, gravity_score, brand_score, proof_score,
-               platform_score, velocity_score, risk_score,
+               platform_score, velocity_score, (100.0 - risk_score) AS risk_score,
                model_version, scored_at
         FROM   team_gravity_scores
         WHERE  team_id = $1

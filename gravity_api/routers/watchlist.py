@@ -21,7 +21,7 @@ async def _fetch_watchlist(db: asyncpg.Connection, uid: uuid.UUID) -> List[dict[
     rows = await db.fetch(
         """SELECT w.athlete_id, a.name, a.school, a.sport, a.position, a.conference,
                   s.gravity_score, s.brand_score, s.proof_score,
-                  s.proximity_score, s.velocity_score, s.risk_score,
+                 s.proximity_score, s.velocity_score, (100.0 - s.risk_score) AS risk_score,
                   s.company_gravity_score, s.brand_gravity_score,
                   s.dollar_p10_usd, s.dollar_p50_usd, s.dollar_p90_usd
            FROM watchlists w

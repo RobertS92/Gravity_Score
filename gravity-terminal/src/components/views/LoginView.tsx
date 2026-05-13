@@ -42,7 +42,18 @@ export function LoginView() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <div className={styles.logo}>GRAVITY</div>
+        <div className={styles.logo}>
+          <span className={styles.logoWrap} aria-hidden>
+            <img
+              src="/brand/gravity-logo.png"
+              alt=""
+              className={styles.logoImage}
+              loading="eager"
+              decoding="async"
+            />
+          </span>
+          <span>GRAVITY</span>
+        </div>
         <p className={styles.sub}>NIL COMMERCIAL INTELLIGENCE</p>
         <form onSubmit={onSubmit} className={styles.form} noValidate>
           <div className={styles.field}>

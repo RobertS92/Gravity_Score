@@ -33,9 +33,20 @@ export async function downloadCscPdf(
     const W = 612
     const margin = 48
     const colW = W - margin * 2
+    const pageHeight = 792
+    const bottomMargin = 52
     let y = margin
 
+    const ensureSpace = (requiredHeight: number) => {
+      if (y + requiredHeight <= pageHeight - bottomMargin) return
+      doc.addPage()
+      doc.setFillColor('#0d1117')
+      doc.rect(0, 0, W, pageHeight, 'F')
+      y = margin
+    }
+
     const line = (text: string, fontSize = 10, bold = false, color = '#c9d1d9') => {
+      ensureSpace(fontSize * 1.6)
       doc.setFontSize(fontSize)
       doc.setFont('helvetica', bold ? 'bold' : 'normal')
       doc.setTextColor(color)
@@ -44,10 +55,23 @@ export async function downloadCscPdf(
     }
 
     const rule = () => {
+      ensureSpace(10)
       doc.setDrawColor('#30363d')
       doc.setLineWidth(0.5)
       doc.line(margin, y, margin + colW, y)
       y += 8
+    }
+
+    const writeWrapped = (text: string, fontSize = 9, color = '#c9d1d9', lineHeight = 13) => {
+      doc.setFontSize(fontSize)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(color)
+      const wrapped = doc.splitTextToSize(text, colW) as string[]
+      for (const segment of wrapped) {
+        ensureSpace(lineHeight)
+        doc.text(segment, margin, y)
+        y += lineHeight
+      }
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
@@ -130,27 +154,20 @@ export async function downloadCscPdf(
     if (report?.executive_summary) {
       rule()
       line('EXECUTIVE SUMMARY', 9, true, '#6e7681')
-      const wrapped = doc.splitTextToSize(report.executive_summary, colW)
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor('#c9d1d9')
-      doc.text(wrapped, margin, y)
-      y += wrapped.length * 13
+      writeWrapped(report.executive_summary, 9, '#c9d1d9', 13)
     }
 
     if (report?.risk_assessment) {
       rule()
       line('RISK ASSESSMENT', 9, true, '#6e7681')
-      const wrapped = doc.splitTextToSize(report.risk_assessment, colW)
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor('#c9d1d9')
-      doc.text(wrapped, margin, y)
-      y += wrapped.length * 13
+      writeWrapped(report.risk_assessment, 9, '#c9d1d9', 13)
     }
 
     // ── Comparables ───────────────────────────────────────────────────────────
-    if (comparables.length) {
+    const comparablesForExport = report?.comparables_analysis?.length
+      ? report.comparables_analysis
+      : comparables
+    if (comparablesForExport.length) {
       rule()
       line('COMPARABLE ATHLETES', 9, true, '#6e7681')
       y += 4
@@ -167,8 +184,8 @@ export async function downloadCscPdf(
       }
       y += 12
 
-      for (const c of comparables.slice(0, 12)) {
-        if (y > 700) { doc.addPage(); doc.setFillColor('#0d1117'); doc.rect(0, 0, W, 792, 'F'); y = margin }
+      for (const c of comparablesForExport.slice(0, 12)) {
+        ensureSpace(14)
         x = margin
         const confLabel = c.confidence != null
           ? (c.confidence >= 0.7 ? 'HIGH' : c.confidence >= 0.45 ? 'MOD' : 'LOW')
@@ -193,19 +210,14 @@ export async function downloadCscPdf(
     }
 
     // ── Methodology + disclaimer ──────────────────────────────────────────────
-    if (y > 680) { doc.addPage(); doc.setFillColor('#0d1117'); doc.rect(0, 0, W, 792, 'F'); y = margin }
     rule()
     line('METHODOLOGY', 9, true, '#6e7681')
     const methodology =
       'Gravity Scores are computed by a neural network trained on Power 5 athlete data. ' +
       'Component scores (Brand, Proof, Proximity, Velocity, Risk) are aggregated using SHAP-attributed feature weights. ' +
       'NIL valuations are estimated from verified comparable deal data and market distribution models.'
-    const mWrapped = doc.splitTextToSize(methodology, colW)
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor('#6e7681')
-    doc.text(mWrapped, margin, y)
-    y += mWrapped.length * 12 + 8
+    writeWrapped(methodology, 8, '#6e7681', 12)
+    y += 8
 
     line(
       'DISCLAIMER: This report contains commercial intelligence data, not legal or financial advice. ' +

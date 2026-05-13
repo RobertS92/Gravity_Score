@@ -26,6 +26,20 @@ def test_compatibility_score_shape():
     assert 0 <= float(out["compatibility_score"]) <= 100
 
 
+def test_compatibility_risk_alignment_prefers_high_safety_score():
+    safe = compatibility_score(
+        {"brand_score": 60, "proof_score": 55, "proximity_score": 50, "velocity_score": 50, "risk_score": 80},
+        {"stability_score": 80},
+        {},
+    )
+    risky = compatibility_score(
+        {"brand_score": 60, "proof_score": 55, "proximity_score": 50, "velocity_score": 50, "risk_score": 20},
+        {"stability_score": 80},
+        {},
+    )
+    assert safe["subscores"]["alignment_risk_stability"] > risky["subscores"]["alignment_risk_stability"]
+
+
 def test_csc_report_keys_minimal():
     sample = {
         "executive_summary": "x",

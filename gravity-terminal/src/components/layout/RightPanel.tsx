@@ -34,7 +34,7 @@ export function RightPanel() {
         <div className={styles.scroll}>
           <div className={styles.section}>
             <div className={styles.title}>NIL VALUATION</div>
-            <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-data)', fontSize: 10 }}>
+            <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-data)', fontSize: 12, lineHeight: 1.5 }}>
               Pick an athlete from the watchlist to see their valuation.
             </p>
           </div>
@@ -109,7 +109,7 @@ export function RightPanel() {
         <div className={styles.scroll}>
           <div className={styles.section}>
             <div className={styles.title}>BRIEF SUMMARY</div>
-            <p style={{ fontFamily: 'var(--font-prose)', fontSize: 10, color: 'var(--text-muted)' }}>
+            <p style={{ fontFamily: 'var(--font-prose)', fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
               {brandSummary ?? 'Configure brief and run FIND MATCHES.'}
             </p>
             <ActionButton variant="secondary" onClick={requestRefine}>
@@ -118,7 +118,7 @@ export function RightPanel() {
           </div>
           <div className={styles.section}>
             <div className={styles.title}>SHORTLIST</div>
-            <div style={{ fontFamily: 'var(--font-data)', fontSize: 10, color: 'var(--text-secondary)' }}>
+            <div style={{ fontFamily: 'var(--font-data)', fontSize: 12, color: 'var(--text-secondary)' }}>
               {shortlist.length === 0 && (
                 <div>ADD ATHLETES TO SHORTLIST USING THE ★ BUTTON</div>
               )}
@@ -151,7 +151,7 @@ export function RightPanel() {
           </div>
           <div className={styles.section}>
             <div className={styles.title}>MARKET CONTEXT</div>
-            <div style={{ fontFamily: 'var(--font-data)', fontSize: 10, color: 'var(--text-secondary)' }}>
+            <div style={{ fontFamily: 'var(--font-data)', fontSize: 12, color: 'var(--text-secondary)' }}>
               <div>Median Match: {formatScore(brandContext?.median_match_score)}</div>
               <div>Median NIL P50: {formatNilMillions(brandContext?.median_nil_p50)}</div>
               <div>Median Reach: {brandContext?.median_social_reach != null ? Math.round(brandContext.median_social_reach).toLocaleString('en-US') : '—'}</div>
@@ -170,7 +170,7 @@ export function RightPanel() {
         <div className={styles.scroll}>
           <div className={styles.section}>
             <div className={styles.title}>ALERT THRESHOLDS</div>
-            <div style={{ fontFamily: 'var(--font-data)', fontSize: 10, color: 'var(--text-muted)' }}>
+            <div style={{ fontFamily: 'var(--font-data)', fontSize: 12, color: 'var(--text-muted)' }}>
               <div>Score move: 3+ pts</div>
               <div>NIL signal: $50K+</div>
               <div>Risk: standard</div>
@@ -189,7 +189,7 @@ export function RightPanel() {
         <div className={styles.scroll}>
           <div className={styles.section}>
             <div className={styles.title}>SCAN CONTEXT</div>
-            <div style={{ fontFamily: 'var(--font-data)', fontSize: 10, color: 'var(--text-secondary)' }}>
+            <div style={{ fontFamily: 'var(--font-data)', fontSize: 12, color: 'var(--text-secondary)' }}>
               Active: {athlete.name}
               <br />
               NIL {formatNilMillions(athlete.nil_valuation_consensus)}

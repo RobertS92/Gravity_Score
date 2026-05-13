@@ -17,12 +17,36 @@
 }
 
 .logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-family: var(--font-data);
   font-size: 26px;
   font-weight: bold;
   letter-spacing: 0.28em;
   color: var(--text-primary);
   margin-bottom: 2px;
+}
+
+.logoWrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.logoImage {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  display: block;
+  filter: contrast(1.15) brightness(1.1) drop-shadow(0 0 5px rgba(63, 185, 80, 0.24));
 }
 
 .sub {
@@ -129,4 +153,27 @@
   color: var(--text-dim);
   margin: 16px 0 0;
   text-align: center;
+}
+
+@media (max-width: 768px) {
+  .card {
+    width: min(360px, calc(100vw - 32px));
+    padding: 32px 24px;
+  }
+
+  .logo {
+    font-size: 22px;
+    letter-spacing: 0.2em;
+    gap: 10px;
+  }
+
+  .logoWrap {
+    width: 34px;
+    height: 34px;
+  }
+
+  .logoImage {
+    width: 28px;
+    height: 28px;
+  }
 }

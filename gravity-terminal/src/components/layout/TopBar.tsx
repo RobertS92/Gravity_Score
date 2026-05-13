@@ -65,7 +65,18 @@ export function TopBar() {
 
   return (
     <header className={styles.bar}>
-      <NavLink to="/" className={styles.brand}>GRAVITY</NavLink>
+      <NavLink to="/" className={styles.brand} aria-label="Gravity home">
+        <span className={styles.brandLogoWrap} aria-hidden>
+          <img
+            src="/brand/gravity-logo.png"
+            alt=""
+            className={styles.brandLogo}
+            loading="eager"
+            decoding="async"
+          />
+        </span>
+        <span className={styles.brandText}>GRAVITY</span>
+      </NavLink>
       <div className={styles.sports} aria-label="Sports filter">
         {SPORT_CHIPS.map(({ id, label }) => (
           <button

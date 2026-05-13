@@ -3,6 +3,13 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { searchAthletesFilteredPaged } from '../../api/athletes'
 import { postCscReport } from '../../api/reports'
 import type { CscReportComparablesRow, CscReportJson } from '../../types/reports'
+import {
+  DEAL_STRUCTURE_GROUPS,
+  SOURCE_GROUPS,
+  formatComparableConfidence,
+  normalizeComparableRows,
+  withLegacyOption,
+} from '../../lib/cscComparables'
 import { formatNilMillions, formatScore } from '../../lib/formatters'
 import { downloadCscPdf } from '../../lib/pdfExport'
 import { useAthleteStore } from '../../stores/athleteStore'
@@ -12,6 +19,47 @@ import { ActionButton } from '../shared/ActionButton'
 import styles from './CscReportsView.module.css'
 
 const SPORTS = ['CFB', 'NCAAB', 'NCAAWB'] as const
+
+function withDefaultText(value: string | null | undefined, fallback: string) {
+  const clean = (value ?? '').trim()
+  return clean.length > 0 ? clean : fallback
+}
+
+function normalizeComparables(rows: CscReportComparablesRow[] | undefined) {
+  return normalizeComparableRows(rows)
+}
+
+function buildFallbackReport(athleteName?: string): CscReportJson {
+  const subject = athleteName ?? 'the selected athlete'
+  return {
+    executive_summary: `Commercial positioning summary pending final analyst pass for ${subject}.`,
+    gravity_score_table:
+      'Gravity and component score interpretation is pending data refresh and analyst validation.',
+    comparables_analysis: [],
+    nil_range_note:
+      'NIL range guidance is based on current market comparables and should be validated against active deal terms.',
+    shap_narrative:
+      'Primary SHAP drivers are pending narrative synthesis from the latest scoring features.',
+    risk_assessment:
+      'Risk review is pending final compliance and market-volatility checks.',
+    methodology:
+      'Methodology: Gravity score model plus verified comparable-market normalization with confidence gating.',
+  }
+}
+
+function normalizeReport(report: CscReportJson | null | undefined, athleteName?: string): CscReportJson {
+  const fallback = buildFallbackReport(athleteName)
+  if (!report) return fallback
+  return {
+    executive_summary: withDefaultText(report.executive_summary, fallback.executive_summary),
+    gravity_score_table: withDefaultText(report.gravity_score_table, fallback.gravity_score_table),
+    comparables_analysis: normalizeComparables(report.comparables_analysis),
+    nil_range_note: withDefaultText(report.nil_range_note, fallback.nil_range_note),
+    shap_narrative: withDefaultText(report.shap_narrative, fallback.shap_narrative),
+    risk_assessment: withDefaultText(report.risk_assessment, fallback.risk_assessment),
+    methodology: withDefaultText(report.methodology, fallback.methodology),
+  }
+}
 
 export function CscReportsView() {
   const athlete = useAthleteStore((s) => s.activeAthlete)
@@ -41,10 +89,10 @@ export function CscReportsView() {
   useLayoutEffect(() => {
     const st = location.state as { agentCscReport?: CscReportJson } | null
     if (st?.agentCscReport) {
-      setReport(st.agentCscReport)
+      setReport(normalizeReport(st.agentCscReport, athlete?.name))
       navigate(`${location.pathname}${location.search}`, { replace: true, state: {} })
     }
-  }, [location.state, location.pathname, location.search, navigate])
+  }, [location.state, location.pathname, location.search, navigate, athlete?.name])
 
   useEffect(
     () => () => {
@@ -62,7 +110,7 @@ export function CscReportsView() {
     postCscReport(athlete.athlete_id, reportConfig)
       .then((r) => {
         if (!cancelled) {
-          setReport(r)
+          setReport(normalizeReport(r, athlete.name))
           setReportError(null)
         }
       })
@@ -113,7 +161,7 @@ export function CscReportsView() {
     setReportError(null)
     postCscReport(athlete.athlete_id, reportConfig)
       .then((r) => {
-        setReport(r)
+        setReport(normalizeReport(r, athlete.name))
         setReportError(null)
       })
       .catch((err: unknown) =>
@@ -132,46 +180,42 @@ export function CscReportsView() {
     }
   }
 
-  if (!athlete) {
-    return (
-      <div
-        className={styles.muted}
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 12,
-          padding: '48px 24px',
-          textAlign: 'center',
-        }}
-      >
-        <div style={{ fontSize: 14, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          NO ATHLETE SELECTED
-        </div>
-        <div style={{ fontSize: 12, maxWidth: 420, lineHeight: 1.5 }}>
-          Pick an athlete from{' '}
-          <Link to="/market-scan" style={{ color: 'var(--accent-green)' }}>
-            Market Scan
-          </Link>{' '}
-          or your watchlist to generate a CSC valuation report.
-        </div>
-      </div>
-    )
-  }
-
-  const low = athlete.nil_range_low
-  const high = athlete.nil_range_high
-  const consensus = athlete.nil_valuation_consensus
+  const low = athlete?.nil_range_low
+  const high = athlete?.nil_range_high
+  const consensus = athlete?.nil_valuation_consensus
   let plotPct = 50
-  if (low != null && high != null && high > low && consensus != null) {
+  if (athlete && low != null && high != null && high > low && consensus != null) {
     plotPct = Math.min(100, Math.max(0, ((consensus - low) / (high - low)) * 100))
   }
 
   return (
     <div className={styles.grid}>
       <div className={styles.preview}>
-        {reportError ? (
+        {!athlete ? (
+          <div
+            className={styles.muted}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 12,
+              padding: '48px 24px',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 14, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              NO ATHLETE SELECTED
+            </div>
+            <div style={{ fontSize: 12, maxWidth: 420, lineHeight: 1.5 }}>
+              Pick an athlete from{' '}
+              <Link to="/market-scan" style={{ color: 'var(--accent-green)' }}>
+                Market Scan
+              </Link>{' '}
+              or your watchlist to generate a CSC valuation report.
+            </div>
+          </div>
+        ) : reportError ? (
           <div className={styles.muted} style={{ color: 'var(--accent-red)' }}>
             <div style={{ marginBottom: 8 }}>Report failed to load.</div>
             <div style={{ fontSize: 11, opacity: 0.85 }}>{reportError}</div>
@@ -188,7 +232,14 @@ export function CscReportsView() {
             <Section title="Executive Summary" value={report.executive_summary} onChange={(v) => setReport({ ...report, executive_summary: v })} />
             <Section title="Gravity Score Summary" value={report.gravity_score_table} onChange={(v) => setReport({ ...report, gravity_score_table: v })} />
             <ComparablesSection rows={report.comparables_analysis} onChange={(rows) => setReport({ ...report, comparables_analysis: rows })} />
-            <NilRangeSection note={report.nil_range_note} plotPct={plotPct} low={low} high={high} consensus={consensus} athleteName={athlete.name} />
+            <NilRangeSection
+              note={report.nil_range_note}
+              plotPct={plotPct}
+              low={low}
+              high={high}
+              consensus={consensus}
+              athleteName={athlete.name}
+            />
             <Section title="SHAP Attribution Narrative" value={report.shap_narrative} onChange={(v) => setReport({ ...report, shap_narrative: v })} />
             <Section title="Risk Assessment" value={report.risk_assessment} onChange={(v) => setReport({ ...report, risk_assessment: v })} />
             <Section title="Methodology" value={report.methodology} onChange={(v) => setReport({ ...report, methodology: v })} />
@@ -242,9 +293,12 @@ export function CscReportsView() {
           Athlete
           <select
             className={styles.select}
-            value={athlete.athlete_id}
-            onChange={(e) => void setActive(e.target.value)}
+            value={athlete?.athlete_id ?? ''}
+            onChange={(e) => {
+              if (e.target.value) void setActive(e.target.value)
+            }}
           >
+            {!athlete && <option value="">Select athlete…</option>}
             {selectorAthletes.map((a) => (
               <option key={a.athlete_id} value={a.athlete_id}>
                 {a.name}
@@ -348,10 +402,14 @@ export function CscReportsView() {
           Verified-only comparables
         </label>
         <div className={styles.actions}>
-          <ActionButton variant="primary" onClick={() => regen()}>
+          <ActionButton variant="primary" onClick={() => regen()} disabled={!athlete}>
             Generate Report
           </ActionButton>
-          <ActionButton variant="secondary" onClick={() => void handleExportPdf()} disabled={pdfLoading}>
+          <ActionButton
+            variant="secondary"
+            onClick={() => void handleExportPdf()}
+            disabled={pdfLoading || !athlete || !report}
+          >
             {pdfLoading ? 'Generating PDF…' : 'Export PDF'}
           </ActionButton>
         </div>
@@ -410,8 +468,11 @@ function ComparablesSection({
             </tr>
           </thead>
           <tbody>
-            {list.map((r) => (
-              <tr key={r.athlete_id}>
+            {list.map((r) => {
+              const dealSelection = withLegacyOption(DEAL_STRUCTURE_GROUPS, r.deal_structure)
+              const sourceSelection = withLegacyOption(SOURCE_GROUPS, r.verified_source)
+              return (
+                <tr key={r.athlete_id}>
                 <td>
                   <div>{r.name}</div>
                   <div className={styles.subMuted}>
@@ -422,32 +483,53 @@ function ComparablesSection({
                 <td>{formatScore(r.brand_score ?? null)}</td>
                 <td className={styles.amber}>{formatNilMillions(r.nil_valuation_consensus)}</td>
                 <td>
-                  <input
-                    className={styles.cellIn}
-                    value={r.deal_structure ?? ''}
+                  <select
+                    className={styles.cellSelect}
+                    value={dealSelection.value}
                     onChange={(e) => {
                       const next = list.map((x) =>
                         x.athlete_id === r.athlete_id ? { ...x, deal_structure: e.target.value } : x,
                       )
                       onChange(next)
                     }}
-                  />
+                  >
+                    {dealSelection.groups.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.options.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </td>
                 <td>
-                  <input
-                    className={styles.cellIn}
-                    value={r.verified_source ?? ''}
+                  <select
+                    className={styles.cellSelect}
+                    value={sourceSelection.value}
                     onChange={(e) => {
                       const next = list.map((x) =>
                         x.athlete_id === r.athlete_id ? { ...x, verified_source: e.target.value } : x,
                       )
                       onChange(next)
                     }}
-                  />
+                  >
+                    {sourceSelection.groups.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.options.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </td>
-                <td>{r.confidence != null ? `${Math.round(r.confidence * 100)}%` : '\u2014'}</td>
-              </tr>
-            ))}
+                <td>{formatComparableConfidence(r.confidence)}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
