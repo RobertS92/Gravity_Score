@@ -78,7 +78,12 @@ export async function getMarketSchools(): Promise<SchoolIndexRow[]> {
     conference: row.conference != null ? String(row.conference) : null,
     sport: row.sport != null ? String(row.sport) : null,
     avg_gravity_score: row.avg_gravity_score != null ? Number(row.avg_gravity_score) : null,
-    program_gravity_score: row.program_gravity_score != null ? Number(row.program_gravity_score) : null,
+    program_gravity_score:
+      row.program_gravity_score != null
+        ? Number(row.program_gravity_score)
+        : row.avg_gravity_score != null
+          ? Number(row.avg_gravity_score)
+          : null,
     program_brand_score: row.program_brand_score != null ? Number(row.program_brand_score) : null,
     program_proof_score: row.program_proof_score != null ? Number(row.program_proof_score) : null,
     program_velocity_score: row.program_velocity_score != null ? Number(row.program_velocity_score) : null,

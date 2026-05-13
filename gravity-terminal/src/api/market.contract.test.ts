@@ -54,4 +54,27 @@ describe('market api adapters', () => {
       nil_market_size_estimate: 2500000,
     })
   })
+
+  it('falls back to avg gravity when program gravity is absent', async () => {
+    vi.mocked(apiGet).mockResolvedValue({
+      schools: [
+        {
+          school: 'Fallback U',
+          sport: 'cfb',
+          avg_gravity_score: 69.4,
+          program_gravity_score: null,
+        },
+      ],
+    })
+
+    const schools = await getMarketSchools()
+
+    expect(schools).toHaveLength(1)
+    expect(schools[0]).toMatchObject({
+      school: 'Fallback U',
+      sport: 'cfb',
+      avg_gravity_score: 69.4,
+      program_gravity_score: 69.4,
+    })
+  })
 })
