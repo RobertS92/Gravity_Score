@@ -4,37 +4,82 @@ import { formatNilMillions } from '../../lib/formatters'
 import type { AlternativesResponse } from '../../types/nilIntelligence'
 import styles from './NilDecisionPanel.module.css'
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number(value.trim())
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value : null
+}
+
+type SafeAlternative = {
+  athleteId: string
+  name: string
+  school: string | null
+  nilConsensus: number | null
+  fitScore: number | null
+  whyBetter: string | null
+}
+
+export function toSafeAlternatives(data: unknown): SafeAlternative[] {
+  const root = asRecord(data)
+  const rows = Array.isArray(root?.alternatives) ? root.alternatives : []
+  return rows
+    .map((row, idx) => {
+      const item = asRecord(row)
+      const athleteId = asString(item?.athlete_id) ?? `alt-${idx}`
+      return {
+        athleteId,
+        name: asString(item?.name) ?? 'Unknown',
+        school: asString(item?.school),
+        nilConsensus: asFiniteNumber(item?.nil_valuation_consensus),
+        fitScore: asFiniteNumber(item?.fit_score),
+        whyBetter: asString(item?.why_better),
+      }
+    })
+}
+
 export function AlternativesPanel({ athleteId }: { athleteId: string }) {
   const { data, loading, error } = useNilIntelligenceResource<AlternativesResponse>(
     athleteId,
     getAlternatives,
     'Failed to load alternatives',
   )
+  const alternatives = toSafeAlternatives(data)
 
   return (
     <div>
       <div className={styles.label}>ALTERNATIVES</div>
       {loading && <div className={styles.muted}>Loading alternatives...</div>}
       {!loading && error && <div className={styles.error}>{error}</div>}
-      {!loading && !error && data && data.alternatives.length === 0 && (
+      {!loading && !error && data && alternatives.length === 0 && (
         <div className={styles.muted}>No alternatives available for this cohort.</div>
       )}
-      {!loading && !error && data && data.alternatives.length > 0 && (
+      {!loading && !error && data && alternatives.length > 0 && (
         <>
-          {data.alternatives.map((alt) => (
-            <div key={alt.athlete_id} className={styles.alt}>
+          {alternatives.map((alt) => (
+            <div key={alt.athleteId} className={styles.alt}>
               <div className={styles.altName}>
                 {alt.name} · {alt.school ?? '—'}
               </div>
               <div className={styles.row}>
                 <span className={styles.k}>NIL Est.</span>
-                <span className={styles.v}>{formatNilMillions(alt.nil_valuation_consensus)}</span>
+                <span className={styles.v}>{formatNilMillions(alt.nilConsensus)}</span>
               </div>
               <div className={styles.row}>
                 <span className={styles.k}>Fit Score</span>
-                <span className={styles.v}>{alt.fit_score}</span>
+                <span className={styles.v}>{alt.fitScore ?? '—'}</span>
               </div>
-              <div className={styles.muted}>{alt.why_better}</div>
+              <div className={styles.muted}>{alt.whyBetter ?? '—'}</div>
             </div>
           ))}
         </>

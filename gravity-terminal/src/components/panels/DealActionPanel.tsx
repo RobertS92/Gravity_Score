@@ -4,11 +4,56 @@ import { formatNilMillions } from '../../lib/formatters'
 import type { DealActionResponse } from '../../types/nilIntelligence'
 import styles from './NilDecisionPanel.module.css'
 
-function recommendationClass(v: DealActionResponse['recommendation']) {
+function recommendationClass(v: string) {
   if (v === 'OFFER_NOW') return styles.ok
   if (v === 'NEGOTIATE') return styles.warn
   if (v === 'WAIT') return styles.muted
   return styles.risk
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number(value.trim())
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value : null
+}
+
+export type SafeDealActionView = {
+  recommendation: string
+  recommendedLow: number | null
+  recommendedHigh: number | null
+  walkAway: number | null
+  structureType: string
+  termMonths: number | null
+  rationale: string[]
+}
+
+export function toSafeDealActionView(data: unknown): SafeDealActionView {
+  const root = asRecord(data)
+  const structure = asRecord(root?.structure)
+  const recommendation = asString(root?.recommendation) ?? 'PASS'
+  const structureTypeRaw = asString(structure?.structure_type)
+  return {
+    recommendation,
+    recommendedLow: asFiniteNumber(root?.recommended_range_low_usd),
+    recommendedHigh: asFiniteNumber(root?.recommended_range_high_usd),
+    walkAway: asFiniteNumber(root?.walk_away_price_usd),
+    structureType: structureTypeRaw ? structureTypeRaw.toUpperCase() : 'N/A',
+    termMonths: asFiniteNumber(structure?.term_months),
+    rationale: Array.isArray(root?.rationale)
+      ? root.rationale.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      : [],
+  }
 }
 
 export function DealActionPanel({ athleteId }: { athleteId: string }) {
@@ -17,6 +62,7 @@ export function DealActionPanel({ athleteId }: { athleteId: string }) {
     getDealAction,
     'Failed to load deal action',
   )
+  const safe = toSafeDealActionView(data)
 
   return (
     <div>
@@ -25,31 +71,34 @@ export function DealActionPanel({ athleteId }: { athleteId: string }) {
       {!loading && error && <div className={styles.error}>{error}</div>}
       {!loading && !error && data && (
         <>
-          <div className={`${styles.headline} ${recommendationClass(data.recommendation)}`}>
-            {data.recommendation.replace('_', ' ')}
+          <div className={`${styles.headline} ${recommendationClass(safe.recommendation)}`}>
+            {safe.recommendation.replaceAll('_', ' ')}
           </div>
           <div className={styles.row}>
             <span className={styles.k}>Recommended Range</span>
             <span className={styles.v}>
-              {formatNilMillions(data.recommended_range_low_usd)} -{' '}
-              {formatNilMillions(data.recommended_range_high_usd)}
+              {formatNilMillions(safe.recommendedLow)} -{' '}
+              {formatNilMillions(safe.recommendedHigh)}
             </span>
           </div>
           <div className={styles.row}>
             <span className={styles.k}>Walk-Away</span>
-            <span className={styles.v}>{formatNilMillions(data.walk_away_price_usd)}</span>
+            <span className={styles.v}>{formatNilMillions(safe.walkAway)}</span>
           </div>
           <div className={styles.row}>
             <span className={styles.k}>Structure</span>
             <span className={styles.v}>
-              {data.structure.structure_type.toUpperCase()} · {data.structure.term_months}M
+              {safe.structureType}
+              {safe.termMonths != null ? ` · ${safe.termMonths}M` : ''}
             </span>
           </div>
-          <ul className={styles.list}>
-            {data.rationale.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
+          {safe.rationale.length > 0 && (
+            <ul className={styles.list}>
+              {safe.rationale.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          )}
         </>
       )}
     </div>

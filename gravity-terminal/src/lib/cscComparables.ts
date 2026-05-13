@@ -98,6 +98,40 @@ const SOURCE_SYNONYMS: Record<string, string> = {
   'pending verification': SOURCE_FALLBACK,
 }
 
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    const parsed = Number(trimmed)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function midpoint(low: number | null, high: number | null): number | null {
+  if (low == null || high == null) return null
+  return (low + high) / 2
+}
+
+function resolveComparableNilEstimate(row: CscReportComparablesRow): number | null {
+  const raw = row as CscReportComparablesRow & Record<string, unknown>
+  const p10 = toFiniteNumber(raw.dollar_p10_usd)
+  const p50 = toFiniteNumber(raw.dollar_p50_usd)
+  const p90 = toFiniteNumber(raw.dollar_p90_usd)
+  const mid = midpoint(p10, p90)
+  return (
+    toFiniteNumber(raw.deal_value)
+    ?? toFiniteNumber(raw.nil_valuation_consensus)
+    ?? toFiniteNumber(raw.nil_estimate)
+    ?? p50
+    ?? mid
+    ?? toFiniteNumber(raw.nil_valuation_raw)
+    ?? toFiniteNumber(raw.nil_value_raw)
+    ?? toFiniteNumber(raw.nil_value_usd)
+  )
+}
+
 export function normalizeComparableConfidence(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null
   if (value <= 0) return 0
@@ -118,6 +152,7 @@ export function formatComparableConfidence(value: unknown): string {
 export function normalizeComparableRow(row: CscReportComparablesRow): CscReportComparablesRow {
   return {
     ...row,
+    nil_valuation_consensus: resolveComparableNilEstimate(row),
     deal_structure: normalizeComparisonText(
       typeof row.deal_structure === 'string' ? row.deal_structure : null,
       DEAL_STRUCTURE_FALLBACK,

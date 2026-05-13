@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   mapAthleteFromBundle,
+  mapComparableRow,
+  mapComparablesFromBundle,
   mapFeedEvents,
   mapScoreHistoryFromApi,
   mapSearchRowToAthlete,
@@ -97,5 +99,60 @@ describe('athlete adapters', () => {
       dollar_p90_usd: 300000,
     })
     expect(rec.nil_valuation_consensus).toBe(200000)
+  })
+
+  it('maps comparable NIL estimate using fallback chain', () => {
+    const fromDeal = mapComparableRow({
+      id: 'c1',
+      name: 'Comp One',
+      deal_value: 450000,
+      nil_valuation_consensus: 300000,
+      dollar_p50_usd: 250000,
+    })
+    expect(fromDeal.nil_valuation_consensus).toBe(450000)
+
+    const fromP50 = mapComparableRow({
+      id: 'c2',
+      name: 'Comp Two',
+      nil_valuation_consensus: null,
+      dollar_p50_usd: 220000,
+      dollar_p10_usd: 100000,
+      dollar_p90_usd: 300000,
+    })
+    expect(fromP50.nil_valuation_consensus).toBe(220000)
+
+    const fromMidpoint = mapComparableRow({
+      id: 'c3',
+      name: 'Comp Three',
+      nil_valuation_consensus: null,
+      dollar_p10_usd: 150000,
+      dollar_p90_usd: 250000,
+    })
+    expect(fromMidpoint.nil_valuation_consensus).toBe(200000)
+  })
+
+  it('preserves zero NIL values in comparable rows', () => {
+    const row = mapComparableRow({
+      id: 'c0',
+      name: 'Comp Zero',
+      nil_valuation_consensus: 0,
+    })
+    expect(row.nil_valuation_consensus).toBe(0)
+  })
+
+  it('maps comparable list NIL estimates from bundle rows', () => {
+    const rows = mapComparablesFromBundle(
+      [
+        {
+          id: 'c4',
+          name: 'Comp Four',
+          nil_valuation_consensus: null,
+          nil_valuation_raw: 310000,
+        },
+      ],
+      82,
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.nil_valuation_consensus).toBe(310000)
   })
 })

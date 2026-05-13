@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { CscReportComparablesRow } from '../types/reports'
 import {
   DEAL_STRUCTURE_FALLBACK,
   SOURCE_FALLBACK,
@@ -40,6 +41,35 @@ describe('normalizeComparableRow', () => {
     expect(row.deal_structure).toBe('Cash / Flat Fee')
     expect(row.verified_source).toBe('Direct Verification')
     expect(row.confidence).toBeCloseTo(0.8198)
+  })
+
+  it('fills NIL estimate via fallback chain for blank comparable rows', () => {
+    const fromDealValue = normalizeComparableRow({
+      athlete_id: 'ath-nil-1',
+      name: 'Athlete',
+      nil_valuation_consensus: null,
+      deal_value: 600000,
+      dollar_p50_usd: 450000,
+    } as unknown as CscReportComparablesRow)
+    expect(fromDealValue.nil_valuation_consensus).toBe(600000)
+
+    const fromMidpoint = normalizeComparableRow({
+      athlete_id: 'ath-nil-2',
+      name: 'Athlete',
+      nil_valuation_consensus: null,
+      dollar_p10_usd: 100000,
+      dollar_p90_usd: 300000,
+    } as unknown as CscReportComparablesRow)
+    expect(fromMidpoint.nil_valuation_consensus).toBe(200000)
+  })
+
+  it('preserves zero NIL estimate values', () => {
+    const row = normalizeComparableRow({
+      athlete_id: 'ath-zero',
+      name: 'Athlete',
+      nil_valuation_consensus: 0,
+    })
+    expect(row.nil_valuation_consensus).toBe(0)
   })
 
   it('fills missing text with fallbacks', () => {

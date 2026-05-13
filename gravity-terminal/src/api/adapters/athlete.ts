@@ -158,6 +158,23 @@ function resolveNilConsensusFromRow(row: Record<string, unknown>): number | null
   return num(row.nil_valuation_consensus) ?? num(row.nil_estimate) ?? p50 ?? mid ?? num(row.nil_valuation_raw)
 }
 
+function resolveComparableNilConsensusFromRow(row: Record<string, unknown>): number | null {
+  const p10 = num(row.dollar_p10_usd)
+  const p50 = num(row.dollar_p50_usd)
+  const p90 = num(row.dollar_p90_usd)
+  const mid = midpoint(p10, p90)
+  return (
+    num(row.deal_value)
+    ?? num(row.nil_valuation_consensus)
+    ?? num(row.nil_estimate)
+    ?? p50
+    ?? mid
+    ?? num(row.nil_valuation_raw)
+    ?? num(row.nil_value_raw)
+    ?? num(row.nil_value_usd)
+  )
+}
+
 export type AthleteDetailBundle = {
   athlete: Record<string, unknown>
   score_history: Record<string, unknown>[]
@@ -251,6 +268,10 @@ export function mapComparableRow(
 ): ComparableRecord {
   const id = str(row.id) ?? str(row.comparable_athlete_id)
   const g = num(row.gravity_score)
+  const verifiedDeals =
+    num(row.verified_deal_count)
+    ?? num(row.verified_deals_count)
+    ?? num(row.deals_verified_count)
   return {
     athlete_id: id ?? '',
     name: str(row.name) ?? '',
@@ -258,11 +279,11 @@ export function mapComparableRow(
     position: str(row.position),
     gravity_score: g,
     brand_score: num(row.brand_score),
-    nil_valuation_consensus: null,
+    nil_valuation_consensus: resolveComparableNilConsensusFromRow(row),
     nil_delta_vs_subject:
       subjectGravity != null && g != null ? Math.round((g - subjectGravity) * 10) / 10 : null,
     confidence: num(row.similarity_score),
-    verified_deal_count: null,
+    verified_deal_count: verifiedDeals,
   }
 }
 
