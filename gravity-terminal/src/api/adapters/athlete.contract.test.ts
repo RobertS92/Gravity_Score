@@ -155,4 +155,17 @@ describe('athlete adapters', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]?.nil_valuation_consensus).toBe(310000)
   })
+
+  it('parses currency-formatted NIL strings from backend payloads', () => {
+    const rec = mapSearchRowToAthlete({
+      id: 'a-money',
+      name: 'Money Athlete',
+      nil_estimate: '$275,000',
+      nil_range_low: '$200,000',
+      nil_range_high: '400K',
+    })
+    expect(rec.nil_valuation_consensus).toBe(275000)
+    expect(rec.nil_range_low).toBe(200000)
+    expect(rec.nil_range_high).toBe(400000)
+  })
 })

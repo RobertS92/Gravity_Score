@@ -63,6 +63,15 @@ describe('normalizeComparableRow', () => {
     expect(fromMidpoint.nil_valuation_consensus).toBe(200000)
   })
 
+  it('parses currency-formatted comparable NIL values', () => {
+    const row = normalizeComparableRow({
+      athlete_id: 'ath-currency',
+      name: 'Athlete',
+      nil_valuation_consensus: '$320,000',
+    } as unknown as CscReportComparablesRow)
+    expect(row.nil_valuation_consensus).toBe(320000)
+  })
+
   it('preserves zero NIL estimate values', () => {
     const row = normalizeComparableRow({
       athlete_id: 'ath-zero',

@@ -1,6 +1,7 @@
 import { getDealAction } from '../../api/athletes'
 import { useNilIntelligenceResource } from '../../hooks/useNilIntelligenceResource'
 import { formatNilMillions } from '../../lib/formatters'
+import { parseFiniteNumber } from '../../lib/numberParsing'
 import type { DealActionResponse } from '../../types/nilIntelligence'
 import styles from './NilDecisionPanel.module.css'
 
@@ -16,12 +17,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function asFiniteNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Number(value.trim())
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
+  return parseFiniteNumber(value)
 }
 
 function asString(value: unknown): string | null {
@@ -42,17 +38,20 @@ export function toSafeDealActionView(data: unknown): SafeDealActionView {
   const root = asRecord(data)
   const structure = asRecord(root?.structure)
   const recommendation = asString(root?.recommendation) ?? 'PASS'
-  const structureTypeRaw = asString(structure?.structure_type)
+  const structureTypeRaw = asString(structure?.structure_type) ?? asString(structure?.type)
+  const rationale = root?.rationale
   return {
     recommendation,
-    recommendedLow: asFiniteNumber(root?.recommended_range_low_usd),
-    recommendedHigh: asFiniteNumber(root?.recommended_range_high_usd),
-    walkAway: asFiniteNumber(root?.walk_away_price_usd),
+    recommendedLow: asFiniteNumber(root?.recommended_range_low_usd) ?? asFiniteNumber(root?.current_range_low),
+    recommendedHigh: asFiniteNumber(root?.recommended_range_high_usd) ?? asFiniteNumber(root?.current_range_high),
+    walkAway: asFiniteNumber(root?.walk_away_price_usd) ?? asFiniteNumber(root?.walk_away_price),
     structureType: structureTypeRaw ? structureTypeRaw.toUpperCase() : 'N/A',
     termMonths: asFiniteNumber(structure?.term_months),
-    rationale: Array.isArray(root?.rationale)
-      ? root.rationale.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-      : [],
+    rationale: Array.isArray(rationale)
+      ? rationale.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      : typeof rationale === 'string' && rationale.trim().length > 0
+        ? [rationale]
+        : [],
   }
 }
 

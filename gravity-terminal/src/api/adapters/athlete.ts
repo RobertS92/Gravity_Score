@@ -12,6 +12,7 @@ import type {
   Sport,
 } from '../../types/athlete'
 import type { FeedEventRecord, FeedEventType } from '../../types/feed'
+import { parseFiniteNumber } from '../../lib/numberParsing'
 
 const VALID_FEED_TYPES = new Set<FeedEventType>([
   'NIL_DEAL',
@@ -36,9 +37,7 @@ const VALID_FEED_TYPES = new Set<FeedEventType>([
 ])
 
 function num(v: unknown): number | null {
-  if (v == null) return null
-  const n = typeof v === 'number' ? v : Number(v)
-  return Number.isFinite(n) ? n : null
+  return parseFiniteNumber(v)
 }
 
 function str(v: unknown): string | null {

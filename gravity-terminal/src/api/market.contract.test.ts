@@ -77,4 +77,25 @@ describe('market api adapters', () => {
       program_gravity_score: 69.4,
     })
   })
+
+  it('parses formatted numeric fields from market schools payload', async () => {
+    vi.mocked(apiGet).mockResolvedValue({
+      schools: [
+        {
+          school: 'Format U',
+          sport: 'cfb',
+          program_gravity_score: '84.6',
+          nil_market_size_estimate: '$2.5M',
+        },
+      ],
+    })
+
+    const schools = await getMarketSchools()
+
+    expect(schools[0]).toMatchObject({
+      school: 'Format U',
+      program_gravity_score: 84.6,
+      nil_market_size_estimate: 2500000,
+    })
+  })
 })

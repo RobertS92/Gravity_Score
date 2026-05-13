@@ -1,5 +1,6 @@
 import type { AthleteRecord } from '../types/athlete'
 import type { SchoolIndexRow } from '../types/reports'
+import { parseFiniteNumber } from '../lib/numberParsing'
 import { mapSearchRowToAthlete } from './adapters/athlete'
 import { apiGet } from './client'
 
@@ -77,21 +78,16 @@ export async function getMarketSchools(): Promise<SchoolIndexRow[]> {
     school: String(row.school ?? ''),
     conference: row.conference != null ? String(row.conference) : null,
     sport: row.sport != null ? String(row.sport) : null,
-    avg_gravity_score: row.avg_gravity_score != null ? Number(row.avg_gravity_score) : null,
+    avg_gravity_score: parseFiniteNumber(row.avg_gravity_score),
     program_gravity_score:
-      row.program_gravity_score != null
-        ? Number(row.program_gravity_score)
-        : row.avg_gravity_score != null
-          ? Number(row.avg_gravity_score)
-          : null,
-    program_brand_score: row.program_brand_score != null ? Number(row.program_brand_score) : null,
-    program_proof_score: row.program_proof_score != null ? Number(row.program_proof_score) : null,
-    program_velocity_score: row.program_velocity_score != null ? Number(row.program_velocity_score) : null,
-    program_risk_score: row.program_risk_score != null ? Number(row.program_risk_score) : null,
-    athlete_count: row.athlete_count != null ? Number(row.athlete_count) : null,
-    watchlisted_count: row.watchlisted_count != null ? Number(row.watchlisted_count) : null,
+      parseFiniteNumber(row.program_gravity_score) ?? parseFiniteNumber(row.avg_gravity_score),
+    program_brand_score: parseFiniteNumber(row.program_brand_score),
+    program_proof_score: parseFiniteNumber(row.program_proof_score),
+    program_velocity_score: parseFiniteNumber(row.program_velocity_score),
+    program_risk_score: parseFiniteNumber(row.program_risk_score),
+    athlete_count: parseFiniteNumber(row.athlete_count),
+    watchlisted_count: parseFiniteNumber(row.watchlisted_count),
     top_athlete_name: row.top_athlete_name != null ? String(row.top_athlete_name) : null,
-    nil_market_size_estimate:
-      row.nil_market_size_estimate != null ? Number(row.nil_market_size_estimate) : null,
+    nil_market_size_estimate: parseFiniteNumber(row.nil_market_size_estimate),
   }))
 }

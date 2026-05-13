@@ -1,6 +1,7 @@
 import { getAlternatives } from '../../api/athletes'
 import { useNilIntelligenceResource } from '../../hooks/useNilIntelligenceResource'
 import { formatNilMillions } from '../../lib/formatters'
+import { parseFiniteNumber } from '../../lib/numberParsing'
 import type { AlternativesResponse } from '../../types/nilIntelligence'
 import styles from './NilDecisionPanel.module.css'
 
@@ -9,12 +10,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function asFiniteNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Number(value.trim())
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
+  return parseFiniteNumber(value)
 }
 
 function asString(value: unknown): string | null {
@@ -32,7 +28,11 @@ type SafeAlternative = {
 
 export function toSafeAlternatives(data: unknown): SafeAlternative[] {
   const root = asRecord(data)
-  const rows = Array.isArray(root?.alternatives) ? root.alternatives : []
+  const rows = Array.isArray(root?.alternatives)
+    ? root.alternatives
+    : Array.isArray(root?.candidates)
+      ? root.candidates
+      : []
   return rows
     .map((row, idx) => {
       const item = asRecord(row)
@@ -41,7 +41,7 @@ export function toSafeAlternatives(data: unknown): SafeAlternative[] {
         athleteId,
         name: asString(item?.name) ?? 'Unknown',
         school: asString(item?.school),
-        nilConsensus: asFiniteNumber(item?.nil_valuation_consensus),
+        nilConsensus: asFiniteNumber(item?.nil_valuation_consensus) ?? asFiniteNumber(item?.nil_estimate),
         fitScore: asFiniteNumber(item?.fit_score),
         whyBetter: asString(item?.why_better),
       }

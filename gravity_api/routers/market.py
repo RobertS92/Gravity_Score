@@ -89,45 +89,45 @@ async def market_schools(
             p.conference,
             p.sport,
             p.nil_environment_score,
-            p.collective_budget_usd,
-            sub.avg_gravity_score,
-            sub.top_athlete_name,
-            sub.athlete_count,
-            sub.athlete_nil_market_estimate
+            p.collective_budget_usd
         FROM programs p
-        LEFT JOIN (
-            SELECT
-                a.school AS sch,
-                a.sport  AS sprt,
-                AVG(s.gravity_score)                                                      AS avg_gravity_score,
-                COUNT(*)                                                                   AS athlete_count,
-                (array_agg(a.name ORDER BY s.gravity_score DESC NULLS LAST))[1]           AS top_athlete_name,
-                SUM(
-                    COALESCE(
-                        s.dollar_p50_usd,
-                        CASE
-                            WHEN s.dollar_p10_usd IS NOT NULL AND s.dollar_p90_usd IS NOT NULL
-                            THEN (s.dollar_p10_usd + s.dollar_p90_usd) / 2.0
-                            ELSE NULL
-                        END,
-                        a.nil_valuation_raw
-                    )
-                ) AS athlete_nil_market_estimate
-            FROM athletes a
-            LEFT JOIN LATERAL (
-                SELECT gravity_score, dollar_p10_usd, dollar_p50_usd, dollar_p90_usd
-                FROM athlete_gravity_scores
-                WHERE athlete_id = a.id
-                ORDER BY calculated_at DESC
-                LIMIT 1
-            ) s ON true
-            GROUP BY a.school, a.sport
-        ) sub ON sub.sch = p.school AND sub.sprt = p.sport
-        ORDER BY sub.avg_gravity_score DESC NULLS LAST
-        LIMIT $1
         """,
-        limit,
     )
+
+    athlete_agg_rows = await db.fetch(
+        """
+        SELECT
+            a.school AS school,
+            a.sport AS sport,
+            AVG(s.gravity_score) AS avg_gravity_score,
+            COUNT(*) AS athlete_count,
+            (array_agg(a.name ORDER BY s.gravity_score DESC NULLS LAST))[1] AS top_athlete_name,
+            SUM(
+                COALESCE(
+                    s.dollar_p50_usd,
+                    CASE
+                        WHEN s.dollar_p10_usd IS NOT NULL AND s.dollar_p90_usd IS NOT NULL
+                        THEN (s.dollar_p10_usd + s.dollar_p90_usd) / 2.0
+                        ELSE NULL
+                    END,
+                    a.nil_valuation_raw
+                )
+            ) AS athlete_nil_market_estimate
+        FROM athletes a
+        LEFT JOIN LATERAL (
+            SELECT gravity_score, dollar_p10_usd, dollar_p50_usd, dollar_p90_usd
+            FROM athlete_gravity_scores
+            WHERE athlete_id = a.id
+            ORDER BY calculated_at DESC
+            LIMIT 1
+        ) s ON true
+        GROUP BY a.school, a.sport
+        """
+    )
+
+    athlete_agg_by_program_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for ar in athlete_agg_rows:
+        athlete_agg_by_program_key[(_school_key(ar["school"]), _canonical_team_sport(ar["sport"]))] = dict(ar)
 
     team_score_rows = await db.fetch(
         """
@@ -156,13 +156,15 @@ async def market_schools(
 
     schools = []
     for r in program_rows:
-        avg_g = r["avg_gravity_score"]
+        athlete_agg = athlete_agg_by_program_key.get(
+            (_school_key(r["school"]), _canonical_team_sport(r["sport"]))
+        )
+        avg_g = athlete_agg.get("avg_gravity_score") if athlete_agg else None
         nil_env = r["nil_environment_score"]
         budget = r["collective_budget_usd"]
-        athlete_nil_market_estimate = (
-            r["athlete_nil_market_estimate"] if "athlete_nil_market_estimate" in r else None
-        )
+        athlete_nil_market_estimate = athlete_agg.get("athlete_nil_market_estimate") if athlete_agg else None
         team_score = latest_team_by_program_key.get((_school_key(r["school"]), _canonical_team_sport(r["sport"])))
+        team_gravity = _to_float(team_score.get("gravity_score")) if team_score else None
         schools.append(
             {
                 "team_id": str(team_score["team_id"]) if team_score and team_score.get("team_id") is not None else None,
@@ -170,14 +172,14 @@ async def market_schools(
                 "conference": r["conference"],
                 "sport": r["sport"],
                 "avg_gravity_score": float(avg_g) if avg_g is not None else None,
-                "program_gravity_score": _to_float(team_score.get("gravity_score")) if team_score else None,
+                "program_gravity_score": team_gravity if team_gravity is not None else _to_float(avg_g),
                 "program_brand_score": _to_float(team_score.get("brand_score")) if team_score else None,
                 "program_proof_score": _to_float(team_score.get("proof_score")) if team_score else None,
                 "program_velocity_score": _to_float(team_score.get("velocity_score")) if team_score else None,
                 "program_risk_score": (100.0 - float(team_score["risk_score"])) if team_score and team_score.get("risk_score") is not None else None,
-                "athlete_count": int(r["athlete_count"]) if r["athlete_count"] is not None else 0,
+                "athlete_count": int(athlete_agg["athlete_count"]) if athlete_agg and athlete_agg.get("athlete_count") is not None else 0,
                 "watchlisted_count": None,
-                "top_athlete_name": r["top_athlete_name"],
+                "top_athlete_name": athlete_agg.get("top_athlete_name") if athlete_agg else None,
                 "nil_market_size_estimate": (
                     float(budget)
                     if budget is not None

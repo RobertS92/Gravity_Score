@@ -1,5 +1,6 @@
 import { getConfidence } from '../../api/athletes'
 import { useNilIntelligenceResource } from '../../hooks/useNilIntelligenceResource'
+import { parseFiniteNumber } from '../../lib/numberParsing'
 import type { ConfidenceResponse } from '../../types/nilIntelligence'
 import styles from './NilDecisionPanel.module.css'
 
@@ -14,12 +15,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 function asFiniteNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Number(value.trim())
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
+  return parseFiniteNumber(value)
 }
 
 function asString(value: unknown): string | null {
@@ -30,6 +26,7 @@ type SafeConfidenceFactor = {
   key: string
   label: string
   score: number | null
+  impact: string | null
 }
 
 export type SafeConfidenceView = {
@@ -43,15 +40,17 @@ export function toSafeConfidenceView(data: unknown): SafeConfidenceView {
   const root = asRecord(data)
   const factorRows = Array.isArray(root?.factors) ? root.factors : []
   return {
-    overallLabel: asString(root?.overall_label) ?? 'LOW',
-    overallScore: asFiniteNumber(root?.overall_score),
+    overallLabel: (asString(root?.overall_label) ?? asString(root?.level) ?? 'LOW').toUpperCase(),
+    overallScore: asFiniteNumber(root?.overall_score) ?? asFiniteNumber(root?.score),
     factors: factorRows
       .map((entry, idx) => {
         const item = asRecord(entry)
+        const impact = asString(item?.impact)
         return {
           key: asString(item?.key) ?? `factor-${idx}`,
-          label: asString(item?.label) ?? 'Factor',
+          label: asString(item?.label) ?? asString(item?.name) ?? 'Factor',
           score: asFiniteNumber(item?.score),
+          impact: impact ? impact.toUpperCase() : null,
         }
       })
       .slice(0, 3),
@@ -82,7 +81,9 @@ export function ConfidenceCard({ athleteId }: { athleteId: string }) {
           {safe.factors.map((f) => (
             <div className={styles.row} key={f.key}>
               <span className={styles.k}>{f.label}</span>
-              <span className={styles.v}>{f.score != null ? `${(f.score * 100).toFixed(0)}%` : '—'}</span>
+              <span className={styles.v}>
+                {f.score != null ? `${(f.score * 100).toFixed(0)}%` : f.impact ?? '—'}
+              </span>
             </div>
           ))}
           {safe.caveats.length > 0 && (

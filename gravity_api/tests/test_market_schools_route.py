@@ -13,11 +13,18 @@ def test_market_schools_returns_program_gravity_scores():
                     "school": "State U",
                     "conference": "SEC",
                     "sport": "cfb",
+                    "nil_environment_score": 66.0,
+                    "collective_budget_usd": 2100000.0,
+                }
+            ],
+            [
+                {
+                    "school": "State U",
+                    "sport": "cfb",
                     "avg_gravity_score": 72.3,
                     "athlete_count": 87,
                     "top_athlete_name": "A. Player",
-                    "nil_environment_score": 66.0,
-                    "collective_budget_usd": 2100000.0,
+                    "athlete_nil_market_estimate": 1800000.0,
                 }
             ],
             [
@@ -57,11 +64,18 @@ def test_market_schools_maps_mcbb_programs_to_team_scores():
                     "school": "State U",
                     "conference": "Big 12",
                     "sport": "mcbb",
+                    "nil_environment_score": 60.0,
+                    "collective_budget_usd": None,
+                }
+            ],
+            [
+                {
+                    "school": "State U",
+                    "sport": "mcbb",
                     "avg_gravity_score": 71.0,
                     "athlete_count": 16,
                     "top_athlete_name": "B. Hooper",
-                    "nil_environment_score": 60.0,
-                    "collective_budget_usd": None,
+                    "athlete_nil_market_estimate": 900000.0,
                 }
             ],
             [
@@ -98,11 +112,17 @@ def test_market_schools_uses_athlete_nil_estimate_when_budget_missing():
                     "school": "Estimate U",
                     "conference": "ACC",
                     "sport": "cfb",
+                    "nil_environment_score": 88.0,
+                    "collective_budget_usd": None,
+                }
+            ],
+            [
+                {
+                    "school": "Estimate U",
+                    "sport": "cfb",
                     "avg_gravity_score": 68.0,
                     "athlete_count": 12,
                     "top_athlete_name": "C. Prospect",
-                    "nil_environment_score": 88.0,
-                    "collective_budget_usd": None,
                     "athlete_nil_market_estimate": 1850000.0,
                 }
             ],
@@ -115,3 +135,37 @@ def test_market_schools_uses_athlete_nil_estimate_when_budget_missing():
 
     assert len(schools) == 1
     assert schools[0]["nil_market_size_estimate"] == 1850000.0
+
+
+def test_market_schools_falls_back_to_avg_gravity_when_team_score_missing():
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(
+        side_effect=[
+            [
+                {
+                    "school": "Fallback U",
+                    "conference": "ACC",
+                    "sport": "cfb",
+                    "nil_environment_score": None,
+                    "collective_budget_usd": None,
+                }
+            ],
+            [
+                {
+                    "school": "Fallback U",
+                    "sport": "cfb",
+                    "avg_gravity_score": 69.1,
+                    "athlete_count": 10,
+                    "top_athlete_name": "D. Athlete",
+                    "athlete_nil_market_estimate": 1200000.0,
+                }
+            ],
+            [],
+        ]
+    )
+
+    out = asyncio.run(market_schools(limit=1, db=conn))
+    schools = out["schools"]
+
+    assert len(schools) == 1
+    assert schools[0]["program_gravity_score"] == 69.1
