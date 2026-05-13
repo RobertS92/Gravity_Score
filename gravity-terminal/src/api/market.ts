@@ -73,9 +73,17 @@ export async function getMarketScan(q: MarketScanQuery = {}): Promise<MarketScan
 export async function getMarketSchools(): Promise<SchoolIndexRow[]> {
   const raw = await apiGet<{ schools: Record<string, unknown>[] }>('market/schools')
   return (raw.schools ?? []).map((row) => ({
+    team_id: row.team_id != null ? String(row.team_id) : null,
     school: String(row.school ?? ''),
     conference: row.conference != null ? String(row.conference) : null,
+    sport: row.sport != null ? String(row.sport) : null,
     avg_gravity_score: row.avg_gravity_score != null ? Number(row.avg_gravity_score) : null,
+    program_gravity_score: row.program_gravity_score != null ? Number(row.program_gravity_score) : null,
+    program_brand_score: row.program_brand_score != null ? Number(row.program_brand_score) : null,
+    program_proof_score: row.program_proof_score != null ? Number(row.program_proof_score) : null,
+    program_velocity_score: row.program_velocity_score != null ? Number(row.program_velocity_score) : null,
+    program_risk_score: row.program_risk_score != null ? Number(row.program_risk_score) : null,
+    athlete_count: row.athlete_count != null ? Number(row.athlete_count) : null,
     watchlisted_count: row.watchlisted_count != null ? Number(row.watchlisted_count) : null,
     top_athlete_name: row.top_athlete_name != null ? String(row.top_athlete_name) : null,
     nil_market_size_estimate:
