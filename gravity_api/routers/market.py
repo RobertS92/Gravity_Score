@@ -93,6 +93,7 @@ async def market_schools(
             sub.avg_gravity_score,
             sub.top_athlete_name,
             sub.athlete_count,
+            sub.athlete_nil_market_estimate
         FROM programs p
         LEFT JOIN (
             SELECT
@@ -100,10 +101,21 @@ async def market_schools(
                 a.sport  AS sprt,
                 AVG(s.gravity_score)                                                      AS avg_gravity_score,
                 COUNT(*)                                                                   AS athlete_count,
-                (array_agg(a.name ORDER BY s.gravity_score DESC NULLS LAST))[1]           AS top_athlete_name
+                (array_agg(a.name ORDER BY s.gravity_score DESC NULLS LAST))[1]           AS top_athlete_name,
+                SUM(
+                    COALESCE(
+                        s.dollar_p50_usd,
+                        CASE
+                            WHEN s.dollar_p10_usd IS NOT NULL AND s.dollar_p90_usd IS NOT NULL
+                            THEN (s.dollar_p10_usd + s.dollar_p90_usd) / 2.0
+                            ELSE NULL
+                        END,
+                        a.nil_valuation_raw
+                    )
+                ) AS athlete_nil_market_estimate
             FROM athletes a
             LEFT JOIN LATERAL (
-                SELECT gravity_score
+                SELECT gravity_score, dollar_p10_usd, dollar_p50_usd, dollar_p90_usd
                 FROM athlete_gravity_scores
                 WHERE athlete_id = a.id
                 ORDER BY calculated_at DESC
@@ -147,6 +159,9 @@ async def market_schools(
         avg_g = r["avg_gravity_score"]
         nil_env = r["nil_environment_score"]
         budget = r["collective_budget_usd"]
+        athlete_nil_market_estimate = (
+            r["athlete_nil_market_estimate"] if "athlete_nil_market_estimate" in r else None
+        )
         team_score = latest_team_by_program_key.get((_school_key(r["school"]), _canonical_team_sport(r["sport"])))
         schools.append(
             {
@@ -163,7 +178,19 @@ async def market_schools(
                 "athlete_count": int(r["athlete_count"]) if r["athlete_count"] is not None else 0,
                 "watchlisted_count": None,
                 "top_athlete_name": r["top_athlete_name"],
-                "nil_market_size_estimate": float(budget) if budget is not None else (float(nil_env) if nil_env is not None else None),
+                "nil_market_size_estimate": (
+                    float(budget)
+                    if budget is not None
+                    else (
+                        float(athlete_nil_market_estimate)
+                        if athlete_nil_market_estimate is not None
+                        else (
+                            float(nil_env)
+                            if nil_env is not None and float(nil_env) >= 1000
+                            else None
+                        )
+                    )
+                ),
             }
         )
     schools.sort(

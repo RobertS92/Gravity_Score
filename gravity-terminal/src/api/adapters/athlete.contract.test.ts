@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { mapAthleteFromBundle, mapFeedEvents, mapScoreHistoryFromApi } from './athlete'
+import {
+  mapAthleteFromBundle,
+  mapFeedEvents,
+  mapScoreHistoryFromApi,
+  mapSearchRowToAthlete,
+  mapWatchlistAthleteRow,
+} from './athlete'
 
 describe('athlete adapters', () => {
   it('maps athlete detail bundle', () => {
@@ -62,5 +68,34 @@ describe('athlete adapters', () => {
     ])
     expect(ev).toHaveLength(1)
     expect(ev[0].event_type).toBe('NIL_DEAL')
+  })
+
+  it('maps NIL consensus fallback for search rows', () => {
+    const rec = mapSearchRowToAthlete({
+      id: 'a1',
+      name: 'Search Athlete',
+      school: 'State U',
+      sport: 'cfb',
+      dollar_p10_usd: 120000,
+      dollar_p50_usd: 200000,
+      dollar_p90_usd: 320000,
+      nil_valuation_consensus: null,
+    })
+    expect(rec.nil_valuation_consensus).toBe(200000)
+    expect(rec.nil_range_low).toBe(120000)
+    expect(rec.nil_range_high).toBe(320000)
+  })
+
+  it('maps NIL midpoint fallback when p50 is absent', () => {
+    const rec = mapWatchlistAthleteRow({
+      athlete_id: 'a2',
+      name: 'Watchlist Athlete',
+      school: 'State U',
+      sport: 'cfb',
+      dollar_p10_usd: 100000,
+      dollar_p50_usd: null,
+      dollar_p90_usd: 300000,
+    })
+    expect(rec.nil_valuation_consensus).toBe(200000)
   })
 })

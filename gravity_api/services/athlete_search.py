@@ -108,6 +108,15 @@ async def search_athletes(
             s.proximity_score, s.velocity_score, {_INVERTED_RISK_SQL} AS risk_score,
             s.company_gravity_score, s.brand_gravity_score,
             s.dollar_p10_usd, s.dollar_p50_usd, s.dollar_p90_usd,
+            COALESCE(
+                s.dollar_p50_usd,
+                CASE
+                    WHEN s.dollar_p10_usd IS NOT NULL AND s.dollar_p90_usd IS NOT NULL
+                    THEN (s.dollar_p10_usd + s.dollar_p90_usd) / 2.0
+                    ELSE NULL
+                END,
+                a.nil_valuation_raw
+            ) AS nil_estimate,
             s.confidence, s.top_factors_up, s.top_factors_down,
             s.calculated_at as score_date
         FROM athletes a

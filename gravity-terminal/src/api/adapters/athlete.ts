@@ -145,6 +145,19 @@ function nilFromDeals(deals: unknown[]): {
   }
 }
 
+function midpoint(low: number | null, high: number | null): number | null {
+  if (low == null || high == null) return null
+  return (low + high) / 2
+}
+
+function resolveNilConsensusFromRow(row: Record<string, unknown>): number | null {
+  const p10 = num(row.dollar_p10_usd)
+  const p50 = num(row.dollar_p50_usd)
+  const p90 = num(row.dollar_p90_usd)
+  const mid = midpoint(p10, p90)
+  return num(row.nil_valuation_consensus) ?? num(row.nil_estimate) ?? p50 ?? mid ?? num(row.nil_valuation_raw)
+}
+
 export type AthleteDetailBundle = {
   athlete: Record<string, unknown>
   score_history: Record<string, unknown>[]
@@ -159,6 +172,9 @@ export function mapAthleteFromBundle(b: AthleteDetailBundle): AthleteRecord {
 
   const g = num(latest?.gravity_score)
   const nilAgg = nilFromDeals(b.nil_deals ?? [])
+  const p10 = num(latest?.dollar_p10_usd)
+  const p50 = num(latest?.dollar_p50_usd)
+  const p90 = num(latest?.dollar_p90_usd)
 
   const { height, weight } = heightWeightFromDb(a)
 
@@ -188,14 +204,14 @@ export function mapAthleteFromBundle(b: AthleteDetailBundle): AthleteRecord {
     proximity_score: num(latest?.proximity_score),
     velocity_score: num(latest?.velocity_score),
     risk_score: num(latest?.risk_score),
-    nil_valuation_consensus: nilAgg.consensus ?? num(a.nil_valuation_raw),
-    nil_range_low: nilAgg.low,
-    nil_range_high: nilAgg.high,
+    nil_valuation_consensus: nilAgg.consensus ?? p50 ?? midpoint(p10, p90) ?? num(a.nil_valuation_raw),
+    nil_range_low: nilAgg.low ?? p10,
+    nil_range_high: nilAgg.high ?? p90,
     nil_valuation_percentile: num(a.nil_valuation_percentile),
     nil_valuation_delta_30d: null,
-    dollar_p10_usd: num(latest?.dollar_p10_usd),
-    dollar_p50_usd: num(latest?.dollar_p50_usd),
-    dollar_p90_usd: num(latest?.dollar_p90_usd),
+    dollar_p10_usd: p10,
+    dollar_p50_usd: p50,
+    dollar_p90_usd: p90,
     dollar_confidence:
       latest?.dollar_confidence != null &&
       typeof latest.dollar_confidence === 'object' &&
@@ -261,6 +277,9 @@ export function mapComparablesFromBundle(
 export function mapWatchlistAthleteRow(row: Record<string, unknown>): AthleteRecord {
   const aid = str(row.athlete_id)
   const id = str(row.id)
+  const p10 = num(row.dollar_p10_usd)
+  const p50 = num(row.dollar_p50_usd)
+  const p90 = num(row.dollar_p90_usd)
   return {
     athlete_id: aid ?? id ?? '',
     name: str(row.name) ?? '',
@@ -274,9 +293,12 @@ export function mapWatchlistAthleteRow(row: Record<string, unknown>): AthleteRec
     proximity_score: num(row.proximity_score),
     velocity_score: num(row.velocity_score),
     risk_score: num(row.risk_score),
-    dollar_p10_usd: num(row.dollar_p10_usd),
-    dollar_p50_usd: num(row.dollar_p50_usd),
-    dollar_p90_usd: num(row.dollar_p90_usd),
+    nil_valuation_consensus: resolveNilConsensusFromRow(row),
+    nil_range_low: num(row.nil_range_low) ?? p10,
+    nil_range_high: num(row.nil_range_high) ?? p90,
+    dollar_p10_usd: p10,
+    dollar_p50_usd: p50,
+    dollar_p90_usd: p90,
   }
 }
 
@@ -298,6 +320,9 @@ export function mapAlertRow(row: Record<string, unknown>, athleteName: string): 
 
 export function mapSearchRowToAthlete(row: Record<string, unknown>): AthleteRecord {
   const id = str(row.id) ?? str(row.athlete_id)
+  const p10 = num(row.dollar_p10_usd)
+  const p50 = num(row.dollar_p50_usd)
+  const p90 = num(row.dollar_p90_usd)
   return {
     athlete_id: id ?? '',
     name: str(row.name) ?? '',
@@ -313,9 +338,12 @@ export function mapSearchRowToAthlete(row: Record<string, unknown>): AthleteReco
     proximity_score: num(row.proximity_score),
     velocity_score: num(row.velocity_score),
     risk_score: num(row.risk_score),
-    dollar_p10_usd: num(row.dollar_p10_usd),
-    dollar_p50_usd: num(row.dollar_p50_usd),
-    dollar_p90_usd: num(row.dollar_p90_usd),
+    nil_valuation_consensus: resolveNilConsensusFromRow(row),
+    nil_range_low: num(row.nil_range_low) ?? p10,
+    nil_range_high: num(row.nil_range_high) ?? p90,
+    dollar_p10_usd: p10,
+    dollar_p50_usd: p50,
+    dollar_p90_usd: p90,
     updated_at: str(row.score_date),
   }
 }

@@ -87,3 +87,31 @@ def test_market_schools_maps_mcbb_programs_to_team_scores():
     assert schools[0]["team_id"] == "team-mbb"
     assert schools[0]["sport"] == "mcbb"
     assert schools[0]["program_gravity_score"] == 83.3
+
+
+def test_market_schools_uses_athlete_nil_estimate_when_budget_missing():
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(
+        side_effect=[
+            [
+                {
+                    "school": "Estimate U",
+                    "conference": "ACC",
+                    "sport": "cfb",
+                    "avg_gravity_score": 68.0,
+                    "athlete_count": 12,
+                    "top_athlete_name": "C. Prospect",
+                    "nil_environment_score": 88.0,
+                    "collective_budget_usd": None,
+                    "athlete_nil_market_estimate": 1850000.0,
+                }
+            ],
+            [],
+        ]
+    )
+
+    out = asyncio.run(market_schools(limit=1, db=conn))
+    schools = out["schools"]
+
+    assert len(schools) == 1
+    assert schools[0]["nil_market_size_estimate"] == 1850000.0
