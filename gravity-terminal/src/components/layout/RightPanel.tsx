@@ -3,6 +3,7 @@ import { exportBrandMatchShortlistCsv, exportBrandMatchShortlistPdf } from '../.
 import { useAthleteStore } from '../../stores/athleteStore'
 import { useUiStore } from '../../stores/uiStore'
 import { formatNilMillions, formatScore } from '../../lib/formatters'
+import type { BrandMatchResult } from '../../types/reports'
 import { AlternativesPanel } from '../panels/AlternativesPanel'
 import { ConfidenceCard } from '../panels/ConfidenceCard'
 import { DealActionPanel } from '../panels/DealActionPanel'
@@ -13,14 +14,34 @@ import { QuickActions } from '../panels/QuickActions'
 import { ActionButton } from '../shared/ActionButton'
 import styles from './RightPanel.module.css'
 
+function safeShortlist(raw: unknown): BrandMatchResult[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((row): row is BrandMatchResult => !!row && typeof row === 'object')
+}
+
+function rowNilP50(row: BrandMatchResult): number | null {
+  const lo = row.deal_range_low
+  const hi = row.deal_range_high
+  if (typeof lo === 'number' && Number.isFinite(lo) && typeof hi === 'number' && Number.isFinite(hi)) {
+    return (lo + hi) / 2
+  }
+  return null
+}
+
+export function getShortlistBudgetEstimate(raw: unknown): number {
+  return safeShortlist(raw).reduce((sum, row) => sum + (rowNilP50(row) ?? 0), 0)
+}
+
 export function RightPanel() {
   const { pathname } = useLocation()
   const athlete = useAthleteStore((s) => s.activeAthlete)
   const brandSummary = useUiStore((s) => s.brandMatchSummary)
   const brandContext = useUiStore((s) => s.brandMatchResultContext)
-  const shortlist = useUiStore((s) => s.brandMatchShortlist)
+  const shortlistRaw = useUiStore((s) => s.brandMatchShortlist) as unknown
+  const shortlist = safeShortlist(shortlistRaw)
   const requestRefine = useUiStore((s) => s.requestBrandMatchRefine)
   const isNilIntelligenceRoute = pathname === '/'
+  const athleteId = typeof athlete?.athlete_id === 'string' && athlete.athlete_id.length > 0 ? athlete.athlete_id : null
 
   const fallbackFeedBlock = (
     <div className={styles.section}>
@@ -58,19 +79,37 @@ export function RightPanel() {
 
   const dealActionBlock = (
     <div className={styles.section}>
-      <DealActionPanel athleteId={athlete.athlete_id} />
+      {athleteId ? (
+        <DealActionPanel athleteId={athleteId} />
+      ) : (
+        <div style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-data)', fontSize: 12 }}>
+          Deal recommendation unavailable for this athlete.
+        </div>
+      )}
     </div>
   )
 
   const confidenceBlock = (
     <div className={styles.section}>
-      <ConfidenceCard athleteId={athlete.athlete_id} />
+      {athleteId ? (
+        <ConfidenceCard athleteId={athleteId} />
+      ) : (
+        <div style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-data)', fontSize: 12 }}>
+          Confidence details unavailable for this athlete.
+        </div>
+      )}
     </div>
   )
 
   const alternativesBlock = (
     <div className={styles.section}>
-      <AlternativesPanel athleteId={athlete.athlete_id} />
+      {athleteId ? (
+        <AlternativesPanel athleteId={athleteId} />
+      ) : (
+        <div style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-data)', fontSize: 12 }}>
+          Alternatives unavailable for this athlete.
+        </div>
+      )}
     </div>
   )
 
@@ -98,12 +137,7 @@ export function RightPanel() {
   }
 
   if (pathname.startsWith('/brand-match')) {
-    const shortlistP50 = shortlist.reduce((sum, row) => {
-      const lo = row.deal_range_low
-      const hi = row.deal_range_high
-      if (typeof lo !== 'number' || typeof hi !== 'number') return sum
-      return sum + (lo + hi) / 2
-    }, 0)
+    const shortlistP50 = getShortlistBudgetEstimate(shortlistRaw)
     return (
       <aside className={styles.panel}>
         <div className={styles.scroll}>
@@ -112,7 +146,7 @@ export function RightPanel() {
             <p style={{ fontFamily: 'var(--font-prose)', fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
               {brandSummary ?? 'Configure brief and run FIND MATCHES.'}
             </p>
-            <ActionButton variant="secondary" onClick={requestRefine}>
+            <ActionButton variant="secondary" onClick={() => requestRefine?.()}>
               REFINE BRIEF
             </ActionButton>
           </div>
@@ -122,15 +156,11 @@ export function RightPanel() {
               {shortlist.length === 0 && (
                 <div>ADD ATHLETES TO SHORTLIST USING THE ★ BUTTON</div>
               )}
-              {shortlist.map((row) => (
-                <div key={row.athlete_id} style={{ marginBottom: 6 }}>
+              {shortlist.map((row, idx) => (
+                <div key={row.athlete_id ?? `${row.name ?? 'shortlist'}-${idx}`} style={{ marginBottom: 6 }}>
                   <div>{row.name}</div>
                   <div style={{ color: 'var(--text-muted)' }}>
-                    MATCH {formatScore(row.match_score)} · NIL {formatNilMillions(
-                      typeof row.deal_range_low === 'number' && typeof row.deal_range_high === 'number'
-                        ? (row.deal_range_low + row.deal_range_high) / 2
-                        : null,
-                    )}
+                    MATCH {formatScore(row.match_score)} · NIL {formatNilMillions(rowNilP50(row))}
                   </div>
                 </div>
               ))}
