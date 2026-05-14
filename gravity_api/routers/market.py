@@ -13,14 +13,28 @@ from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 router = APIRouter()
 ROSTER_FRESHNESS_DAYS = 14
 
+_TEAM_SPORT_ALIASES = {
+    "cfb": "cfb",
+    "football": "cfb",
+    "fbs": "cfb",
+    "mcbb": "ncaab_mens",
+    "ncaab": "ncaab_mens",
+    "ncaab_mens": "ncaab_mens",
+    "mens": "ncaab_mens",
+    "mens_basketball": "ncaab_mens",
+    "mbb": "ncaab_mens",
+    "wcbb": "ncaab_womens",
+    "ncaaw": "ncaab_womens",
+    "ncaab_womens": "ncaab_womens",
+    "womens": "ncaab_womens",
+    "womens_basketball": "ncaab_womens",
+    "wbb": "ncaab_womens",
+}
+
 
 def _canonical_team_sport(sport: object) -> str:
     s = str(sport or "").strip().lower()
-    if s in {"mcbb", "ncaab", "ncaab_mens", "mens"}:
-        return "ncaab_mens"
-    if s in {"wcbb", "ncaaw", "ncaab_womens", "womens"}:
-        return "ncaab_womens"
-    return s
+    return _TEAM_SPORT_ALIASES.get(s, s)
 
 
 def _school_key(name: object) -> str:
@@ -85,6 +99,7 @@ async def market_schools(
     program_rows = await db.fetch(
         """
         SELECT
+            p.id AS program_id,
             p.school,
             p.conference,
             p.sport,
@@ -100,8 +115,14 @@ async def market_schools(
             a.school AS school,
             a.sport AS sport,
             AVG(s.gravity_score) AS avg_gravity_score,
+            AVG(a.program_gravity_score) AS avg_program_gravity_score,
             COUNT(*) AS athlete_count,
-            (array_agg(a.name ORDER BY s.gravity_score DESC NULLS LAST))[1] AS top_athlete_name,
+            (
+                array_agg(
+                    a.name
+                    ORDER BY COALESCE(s.gravity_score, a.program_gravity_score) DESC NULLS LAST
+                )
+            )[1] AS top_athlete_name,
             SUM(
                 COALESCE(
                     s.dollar_p50_usd,
@@ -132,7 +153,8 @@ async def market_schools(
     team_score_rows = await db.fetch(
         """
         SELECT DISTINCT ON (tgs.team_id)
-            t.id AS team_id,
+            tgs.team_id,
+            t.id AS matched_team_id,
             t.school_name,
             t.sport,
             tgs.gravity_score,
@@ -142,37 +164,62 @@ async def market_schools(
             tgs.risk_score,
             tgs.scored_at
         FROM team_gravity_scores tgs
-        JOIN teams t ON t.id = tgs.team_id
+        LEFT JOIN teams t ON t.id = tgs.team_id
         ORDER BY tgs.team_id, tgs.scored_at DESC
         """
     )
 
     latest_team_by_program_key: dict[tuple[str, str], dict[str, Any]] = {}
+    latest_team_by_id: dict[str, dict[str, Any]] = {}
     for tr in team_score_rows:
-        key = (_school_key(tr["school_name"]), _canonical_team_sport(tr["sport"]))
+        row = dict(tr)
+        team_id = row.get("team_id")
+        if team_id is not None:
+            latest_team_by_id[str(team_id)] = row
+        school_name = row.get("school_name")
+        sport = row.get("sport")
+        if not school_name or not sport:
+            continue
+        key = (_school_key(school_name), _canonical_team_sport(sport))
         prev = latest_team_by_program_key.get(key)
-        if prev is None or (tr["scored_at"] is not None and (prev["scored_at"] is None or tr["scored_at"] > prev["scored_at"])):
-            latest_team_by_program_key[key] = dict(tr)
+        if prev is None or (row["scored_at"] is not None and (prev["scored_at"] is None or row["scored_at"] > prev["scored_at"])):
+            latest_team_by_program_key[key] = row
 
     schools = []
     for r in program_rows:
+        program = dict(r)
         athlete_agg = athlete_agg_by_program_key.get(
-            (_school_key(r["school"]), _canonical_team_sport(r["sport"]))
+            (_school_key(program["school"]), _canonical_team_sport(program["sport"]))
         )
         avg_g = athlete_agg.get("avg_gravity_score") if athlete_agg else None
-        nil_env = r["nil_environment_score"]
-        budget = r["collective_budget_usd"]
+        avg_program_g = athlete_agg.get("avg_program_gravity_score") if athlete_agg else None
+        nil_env = program["nil_environment_score"]
+        budget = program["collective_budget_usd"]
         athlete_nil_market_estimate = athlete_agg.get("athlete_nil_market_estimate") if athlete_agg else None
-        team_score = latest_team_by_program_key.get((_school_key(r["school"]), _canonical_team_sport(r["sport"])))
+        program_id = program.get("program_id")
+        team_score = (
+            latest_team_by_id.get(str(program_id))
+            if program_id is not None
+            else None
+        )
+        if team_score is None:
+            team_score = latest_team_by_program_key.get(
+                (_school_key(program["school"]), _canonical_team_sport(program["sport"]))
+            )
         team_gravity = _to_float(team_score.get("gravity_score")) if team_score else None
+        resolved_avg_g = _to_float(avg_g) if avg_g is not None else _to_float(avg_program_g)
         schools.append(
             {
-                "team_id": str(team_score["team_id"]) if team_score and team_score.get("team_id") is not None else None,
-                "school": r["school"],
-                "conference": r["conference"],
-                "sport": r["sport"],
-                "avg_gravity_score": float(avg_g) if avg_g is not None else None,
-                "program_gravity_score": team_gravity if team_gravity is not None else _to_float(avg_g),
+                "team_id": (
+                    str(team_score["matched_team_id"])
+                    if team_score and team_score.get("matched_team_id") is not None
+                    else None
+                ),
+                "school": program["school"],
+                "conference": program["conference"],
+                "sport": program["sport"],
+                "avg_gravity_score": resolved_avg_g,
+                "program_gravity_score": team_gravity if team_gravity is not None else resolved_avg_g,
                 "program_brand_score": _to_float(team_score.get("brand_score")) if team_score else None,
                 "program_proof_score": _to_float(team_score.get("proof_score")) if team_score else None,
                 "program_velocity_score": _to_float(team_score.get("velocity_score")) if team_score else None,
