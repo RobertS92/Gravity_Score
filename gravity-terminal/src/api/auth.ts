@@ -18,7 +18,7 @@ export function fetchMe() {
 }
 
 export function loginWithEmail(email: string, password?: string) {
-  const body: Record<string, string> = { email }
+  const body: Record<string, string> = { email: email.trim().toLowerCase() }
   if (password) body.password = password
   return apiPost<{ access_token: string; token_type: string; user_id: string; email?: string }>(
     'auth/login',

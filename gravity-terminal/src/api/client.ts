@@ -33,11 +33,25 @@ function authHeader(): string {
   return session || ENV_TOKEN
 }
 
-function headers(): HeadersInit {
+function headers(includeAuth = true): HeadersInit {
   const h: Record<string, string> = { Accept: 'application/json' }
-  const t = authHeader()
-  if (t) h.Authorization = `Bearer ${t}`
+  if (includeAuth) {
+    const t = authHeader()
+    if (t) h.Authorization = `Bearer ${t}`
+  }
   return h
+}
+
+async function throwForHttpError(r: Response): Promise<never> {
+  let detail = ''
+  try {
+    const body = (await r.json()) as { detail?: string }
+    if (body?.detail) detail = body.detail
+  } catch {
+    /* non-json response */
+  }
+  const suffix = detail ? `: ${detail}` : ''
+  throw new Error(`${r.status} ${r.statusText}${suffix}`)
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
@@ -48,7 +62,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   const base = getApiBaseUrl()
   if (!base) throw new Error('VITE_API_URL is not set')
   const r = await fetch(`${base}/${rel}`, { headers: headers() })
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+  if (!r.ok) await throwForHttpError(r)
   return r.json() as Promise<T>
 }
 
@@ -59,12 +73,13 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   }
   const base = getApiBaseUrl()
   if (!base) throw new Error('VITE_API_URL is not set')
+  const includeAuth = !(rel === 'auth/login' || rel === 'auth/register')
   const r = await fetch(`${base}/${rel}`, {
     method: 'POST',
-    headers: { ...headers(), 'Content-Type': 'application/json' },
+    headers: { ...headers(includeAuth), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+  if (!r.ok) await throwForHttpError(r)
   return r.json() as Promise<T>
 }
 
@@ -80,7 +95,7 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
     headers: { ...headers(), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+  if (!r.ok) await throwForHttpError(r)
   return r.json() as Promise<T>
 }
 
@@ -92,7 +107,7 @@ export async function apiDelete<T>(path: string): Promise<T> {
   const base = getApiBaseUrl()
   if (!base) throw new Error('VITE_API_URL is not set')
   const r = await fetch(`${base}/${rel}`, { method: 'DELETE', headers: headers() })
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+  if (!r.ok) await throwForHttpError(r)
   return r.json() as Promise<T>
 }
 

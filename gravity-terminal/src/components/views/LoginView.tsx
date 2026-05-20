@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { loginWithEmail } from '../../api/auth'
+import { setSessionToken } from '../../api/client'
 import { useAuthStore } from '../../stores/authStore'
 import styles from './LoginView.module.css'
 
@@ -21,6 +22,8 @@ export function LoginView() {
     setLoading(true)
     setError(null)
     try {
+      // Clear stale bearer tokens before auth/login to avoid upstream auth middleware rejections.
+      setSessionToken('')
       const res = await loginWithEmail(email, password)
       // Seed auth state immediately so the first render after navigation is
       // authenticated; /auth/me will refine role/org shortly via hydrate().
@@ -33,7 +36,12 @@ export function LoginView() {
       void useAuthStore.getState().hydrate()
       navigate('/', { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed. Check credentials.')
+      const msg = err instanceof Error ? err.message : 'Login failed. Check credentials.'
+      if (msg.includes('401')) {
+        setError('Sign-in failed. Check email/password or reset your account password.')
+      } else {
+        setError(msg)
+      }
     } finally {
       setLoading(false)
     }
