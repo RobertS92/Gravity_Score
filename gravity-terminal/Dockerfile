@@ -3,6 +3,7 @@
 # resolve at runtime even when they are empty during `docker build`.
 # Optional build-time bake: docker build --build-arg VITE_API_URL=https://api.example/v1 -t gravity-terminal .
 # Railway: set Variables → VITE_API_URL on this service (runtime). Same variable is used by the entrypoint.
+# Cache-bust marker: 2026-05-20 deployment refresh.
 
 FROM node:22-alpine AS deps
 WORKDIR /app
