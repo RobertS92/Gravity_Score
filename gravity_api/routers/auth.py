@@ -1,6 +1,7 @@
 """JWT login (email → user_accounts), register, onboarding, and /me."""
 
 import re
+import secrets
 import uuid
 
 import bcrypt
@@ -30,6 +31,10 @@ def _slugify_org_name(name: str) -> str:
     if not base:
         base = "org"
     return base[:120]
+
+
+def _is_bcrypt_hash(value: str) -> bool:
+    return value.startswith("$2a$") or value.startswith("$2b$") or value.startswith("$2y$")
 
 
 class LoginRequest(BaseModel):
@@ -110,10 +115,27 @@ async def login(body: LoginRequest, db: asyncpg.Connection = Depends(get_db)):
     if ph:
         if not body.password:
             raise HTTPException(status_code=401, detail="Password required")
-        if not bcrypt.checkpw(
-            body.password.encode("utf-8"),
-            ph.encode("utf-8") if isinstance(ph, str) else ph,
-        ):
+        ph_str = ph.decode("utf-8") if isinstance(ph, (bytes, bytearray)) else str(ph)
+        ok = False
+        if _is_bcrypt_hash(ph_str):
+            try:
+                ok = bcrypt.checkpw(body.password.encode("utf-8"), ph_str.encode("utf-8"))
+            except ValueError:
+                ok = False
+        else:
+            # Legacy compatibility: some historical rows stored plaintext in password_hash.
+            ok = secrets.compare_digest(body.password, ph_str)
+            if ok:
+                upgraded = bcrypt.hashpw(
+                    body.password.encode("utf-8"),
+                    bcrypt.gensalt(),
+                ).decode("ascii")
+                await db.execute(
+                    "UPDATE user_accounts SET password_hash = $2 WHERE id = $1",
+                    row["id"],
+                    upgraded,
+                )
+        if not ok:
             raise HTTPException(status_code=401, detail="Invalid password")
     token = jwt.encode(
         {
