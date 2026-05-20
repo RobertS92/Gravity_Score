@@ -1,4 +1,20 @@
 import { describe, expect, it } from 'vitest'
+import { formatNilRange, formatNilValue } from './formatters'
+
+describe('formatNilValue', () => {
+  it('formats sub-million values as thousands', () => {
+    expect(formatNilValue(17_900)).toBe('$18K')
+    expect(formatNilValue(999_400)).toBe('$999K')
+  })
+
+  it('formats million-plus values as M notation', () => {
+    expect(formatNilValue(1_200_000)).toBe('$1.2M')
+  })
+
+  it('formats ranges with consistent K/M policy', () => {
+    expect(formatNilRange(35_000, 1_200_000)).toBe('RANGE: $35K – $1.2M')
+  })
+})
 import { formatInteger, formatNilMillions, formatPercent1, formatScore, formatSignedMoneyDelta } from './formatters'
 
 describe('formatters numeric safety', () => {

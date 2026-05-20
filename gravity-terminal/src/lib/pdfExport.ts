@@ -4,15 +4,12 @@
  */
 import type { AthleteRecord, ComparableRecord } from '../types/athlete'
 import type { CscReportJson } from '../types/reports'
-import { formatNilMillions, formatScore } from './formatters'
-
-function fmt(v: number | null | undefined) {
-  return v != null ? String(Math.round(v)) : '—'
-}
+import { formatComparableConfidence, normalizeComparableRows } from './cscComparables'
+import { formatNilValue, formatNilRange, formatScore } from './formatters'
 
 function nilFmt(v: number | null | undefined) {
   if (v == null) return '—'
-  return formatNilMillions(v)
+  return formatNilValue(v)
 }
 
 function scoreFmt(v: number | null | undefined) {
@@ -97,76 +94,61 @@ export async function downloadCscPdf(
     line(meta, 9, false, '#8b949e')
     y += 4
 
-    // ── Gravity Score ─────────────────────────────────────────────────────────
+    // ── Value benchmark ───────────────────────────────────────────────────────
     rule()
-    line('GRAVITY SCORE', 9, true, '#6e7681')
-    line(scoreFmt(athlete.gravity_score), 24, true, '#3fb950')
-    line(`TIER: ${athlete.gravity_tier ?? '—'}  ·  PCT: ${athlete.gravity_percentile != null ? athlete.gravity_percentile + 'th' : '—'}`, 9)
-    if (athlete.updated_at) {
-      line(`Scored: ${new Date(athlete.updated_at).toLocaleDateString()}`, 8, false, '#6e7681')
+    line('TOTAL NIL VALUE BENCHMARK', 9, true, '#6e7681')
+    const value = report?.value
+    const benchmark = value?.total_benchmark ?? athlete.dollar_p50_usd ?? athlete.nil_valuation_consensus
+    const rangeLow = value?.range_low ?? athlete.dollar_p10_usd ?? athlete.nil_range_low
+    const rangeHigh = value?.range_high ?? athlete.dollar_p90_usd ?? athlete.nil_range_high
+    line(nilFmt(benchmark), 30, true, '#d29922')
+    line(formatNilRange(rangeLow, rangeHigh), 10, false, '#8b949e')
+    if (value?.tier_tag || value?.confidence_tag) {
+      line(`TAGS: ${[value?.tier_tag, value?.confidence_tag].filter(Boolean).join(' · ')}`, 8, false, '#6e7681')
     }
     y += 4
 
-    // ── Component scores ──────────────────────────────────────────────────────
+    // ── Executive summary ─────────────────────────────────────────────────────
     rule()
-    line('COMPONENT SCORES', 9, true, '#6e7681')
-    y += 4
-
-    const components: [string, number | null | undefined, string][] = [
-      ['BRAND (B)', athlete.brand_score, '#58a6ff'],
-      ['PROOF (P)', athlete.proof_score, '#c9d1d9'],
-      ['PROXIMITY (X)', athlete.proximity_score, '#a371f7'],
-      ['VELOCITY (V)', athlete.velocity_score, '#3fb950'],
-      ['RISK (R)', athlete.risk_score, '#f85149'],
-    ]
-
-    for (const [label, score, color] of components) {
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor('#6e7681')
-      doc.text(label, margin, y)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(color)
-      doc.text(fmt(score), margin + 120, y)
-      y += 14
-    }
-    y += 4
-
-    // ── NIL valuation ─────────────────────────────────────────────────────────
-    rule()
-    line('NIL VALUATION', 9, true, '#6e7681')
-    line(`P50 ESTIMATE: ${nilFmt(athlete.dollar_p50_usd ?? athlete.nil_valuation_consensus)}`, 11, true, '#d29922')
-    line(
-      `RANGE: ${nilFmt(athlete.dollar_p10_usd ?? athlete.nil_range_low)} – ${nilFmt(athlete.dollar_p90_usd ?? athlete.nil_range_high)}`,
+    line('EXECUTIVE SUMMARY', 9, true, '#6e7681')
+    writeWrapped(
+      report?.explanation?.executive_summary || report?.executive_summary || 'Summary unavailable.',
       9,
-      false,
-      '#8b949e',
+      '#c9d1d9',
+      13,
     )
-    const confScore = athlete.dollar_confidence?.dollar_confidence_score
-    if (confScore != null) {
-      const confLabel = confScore >= 0.7 ? 'HIGH' : confScore >= 0.45 ? 'MODERATE' : 'LOW'
-      line(`CONFIDENCE: ${confLabel} (${Math.round(confScore * 100)}%)`, 9)
-    }
-    line(`COMPARABLE DEALS: ${athlete.verified_deals_count ?? '—'}`, 9)
-    y += 4
 
-    // ── Report narrative (if generated) ───────────────────────────────────────
-    if (report?.executive_summary) {
+    // ── Key value drivers ─────────────────────────────────────────────────────
+    rule()
+    line('KEY VALUE DRIVERS', 9, true, '#6e7681')
+    const drivers = report?.explanation?.key_value_drivers ?? []
+    if (!drivers.length) {
+      line(`Brand Strength: ${formatScore(athlete.brand_score)} (Moderate)`, 9, false, '#c9d1d9')
+      line(`Market Proof: ${formatScore(athlete.proof_score)} (Moderate)`, 9, false, '#c9d1d9')
+      line(`Exposure: ${formatScore(athlete.proximity_score)} (Moderate)`, 9, false, '#c9d1d9')
+      line(`Risk: ${formatScore(athlete.risk_score)} (Moderate)`, 9, false, '#c9d1d9')
+    } else {
+      for (const d of drivers) {
+        line(`${d.label}: ${d.signal}`, 9, true, '#c9d1d9')
+        writeWrapped(d.explanation, 8, '#8b949e', 11)
+      }
+    }
+    if (report?.explanation?.driver_takeaway) {
+      writeWrapped(report.explanation.driver_takeaway, 8, '#8b949e', 12)
+    }
+
+    // ── Validation: market + comparables + confidence/risk ───────────────────
+    const comparablesForExport = normalizeComparableRows(report?.validation?.example_comparables?.length
+      ? report.validation.example_comparables
+      : comparables)
+    if (report?.validation?.market_context) {
       rule()
-      line('EXECUTIVE SUMMARY', 9, true, '#6e7681')
-      writeWrapped(report.executive_summary, 9, '#c9d1d9', 13)
+      line('MARKET & COMPARABLE ANALYSIS', 9, true, '#6e7681')
+      writeWrapped(report.validation.market_context, 8, '#8b949e', 12)
+      if (report.validation.comparable_tier) {
+        writeWrapped(report.validation.comparable_tier, 8, '#8b949e', 12)
+      }
     }
-
-    if (report?.risk_assessment) {
-      rule()
-      line('RISK ASSESSMENT', 9, true, '#6e7681')
-      writeWrapped(report.risk_assessment, 9, '#c9d1d9', 13)
-    }
-
-    // ── Comparables ───────────────────────────────────────────────────────────
-    const comparablesForExport = report?.comparables_analysis?.length
-      ? report.comparables_analysis
-      : comparables
     if (comparablesForExport.length) {
       rule()
       line('COMPARABLE ATHLETES', 9, true, '#6e7681')
@@ -187,14 +169,11 @@ export async function downloadCscPdf(
       for (const c of comparablesForExport.slice(0, 12)) {
         ensureSpace(14)
         x = margin
-        const confLabel = c.confidence != null
-          ? (c.confidence >= 0.7 ? 'HIGH' : c.confidence >= 0.45 ? 'MOD' : 'LOW')
-          : '—'
         const vals = [
           `${c.name} · ${c.school ?? ''}`,
           scoreFmt(c.gravity_score),
           nilFmt(c.nil_valuation_consensus),
-          confLabel,
+          formatComparableConfidence(c.confidence),
         ]
         for (let i = 0; i < vals.length; i++) {
           doc.setFontSize(8)
@@ -208,15 +187,27 @@ export async function downloadCscPdf(
       }
       y += 4
     }
+    if (report?.confidence_risk) {
+      line('CONFIDENCE & RISK', 9, true, '#6e7681')
+      line(`Confidence: ${report.confidence_risk.confidence_level}`, 8, true, '#c9d1d9')
+      writeWrapped(report.confidence_risk.confidence_note, 8, '#8b949e', 12)
+      line(`Risk: ${report.confidence_risk.risk_level}`, 8, true, '#c9d1d9')
+      writeWrapped(report.confidence_risk.risk_note, 8, '#8b949e', 12)
+    }
+    if (report?.validation?.takeaway) {
+      line('VALUE INTERPRETATION', 9, true, '#6e7681')
+      writeWrapped(report.validation.takeaway, 8, '#8b949e', 12)
+    }
 
-    // ── Methodology + disclaimer ──────────────────────────────────────────────
+    // ── Detail appendix ───────────────────────────────────────────────────────
     rule()
-    line('METHODOLOGY', 9, true, '#6e7681')
-    const methodology =
-      'Gravity Scores are computed by a neural network trained on Power 5 athlete data. ' +
-      'Component scores (Brand, Proof, Proximity, Velocity, Risk) are aggregated using SHAP-attributed feature weights. ' +
-      'NIL valuations are estimated from verified comparable deal data and market distribution models.'
-    writeWrapped(methodology, 8, '#6e7681', 12)
+    line('MODEL DETAILS (APPENDIX)', 9, true, '#6e7681')
+    const shapText = report?.detail?.shap_attribution
+    const methodology = report?.detail?.methodology
+    const inputs = report?.detail?.inputs
+    if (shapText) writeWrapped(`SHAP: ${shapText}`, 8, '#6e7681', 12)
+    if (methodology) writeWrapped(`Methodology: ${methodology}`, 8, '#6e7681', 12)
+    if (inputs) writeWrapped(`Inputs: ${inputs}`, 8, '#6e7681', 12)
     y += 8
 
     line(

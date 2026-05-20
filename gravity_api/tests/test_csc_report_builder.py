@@ -75,7 +75,7 @@ def test_comparable_nil_estimate_falls_back_to_model_value():
     )
 
     report = asyncio.run(build_csc_report_json(db, "subject-1", {"confidence_min": 0.75}))
-    row = report["comparables_analysis"][0]
+    row = report["validation"]["example_comparables"][0]
     assert row["nil_valuation_consensus"] == 265000.0
     assert row["verified_source"] == "Model Estimate"
     assert row["deal_structure"] == "Structure pending verification"
@@ -121,10 +121,12 @@ def test_executive_summary_is_fully_composed_and_not_partial():
     )
 
     report = asyncio.run(build_csc_report_json(db, "subject-2", {"confidence_min": 0.7}))
-    summary = report["executive_summary"]
-    assert len(summary) > 160
-    assert "high-confidence comparables" in summary
-    assert "within an estimated band" in summary
+    summary = report["explanation"]["executive_summary"]
+    assert len(summary) > 90
+    assert len(summary) < 360
+    assert "Total NIL Value Benchmark" in summary
+    assert "recommended range" in summary
+    assert "roster planning" in summary
     assert "None" not in summary
 
 
@@ -183,7 +185,7 @@ def test_comparable_confidence_normalizes_percent_and_bps_scale():
     )
 
     report = asyncio.run(build_csc_report_json(db, "subject-4", {"confidence_min": 0.7}))
-    pct, bps = report["comparables_analysis"]
+    pct, bps = report["validation"]["example_comparables"]
     assert round(float(pct["confidence"]), 4) == 0.8198
     assert round(float(bps["confidence"]), 4) == 0.8198
     assert pct["verified_source"] == "Direct Verification"
@@ -214,9 +216,41 @@ def test_nil_range_note_uses_model_range_when_subject_deals_missing():
     )
 
     report = asyncio.run(build_csc_report_json(db, "subject-3", {}))
-    assert "model-derived valuation range" in report["nil_range_note"]
-    assert "$120,000–$240,000" in report["nil_range_note"]
-    assert "does not expose SHAP detail" in report["shap_narrative"]
+    market_context = report["validation"]["market_context"]
+    assert "Range: $120K" in market_context
+    assert "$240K" in market_context
+    assert "Median: $165K" in market_context
+    assert "does not expose SHAP detail" in report["detail"]["shap_attribution"]
+
+
+def test_confidence_and_risk_levels_are_expected_signals():
+    db = _FakeDb(
+        athlete={
+            "id": "subject-7",
+            "name": "Jordan Signals",
+            "sport": "CFB",
+            "position": "QB",
+            "nil_valuation_raw": 240000,
+        },
+        latest_score={
+            "gravity_score": 74.2,
+            "brand_score": 68.5,
+            "proof_score": 62.0,
+            "risk_score": 31.0,
+            "confidence": 0.74,
+            "dollar_p10_usd": 180000,
+            "dollar_p50_usd": 245000,
+            "dollar_p90_usd": 320000,
+            "shap_values": {"brand": 0.23},
+        },
+        comparable_rows=[],
+        subject_deals=[],
+    )
+
+    report = asyncio.run(build_csc_report_json(db, "subject-7", {}))
+    assert report["confidence_risk"]["confidence_level"] in {"High", "Moderate", "Low"}
+    assert report["confidence_risk"]["risk_level"] in {"High", "Moderate", "Low"}
+    assert "rows" in report["confidence_risk"]["confidence_note"]
 
 
 def test_shap_narrative_uses_latest_explainable_revision_when_current_revision_lacks_shap():
@@ -250,7 +284,7 @@ def test_shap_narrative_uses_latest_explainable_revision_when_current_revision_l
     )
 
     report = asyncio.run(build_csc_report_json(db, "subject-5", {}))
-    narrative = report["shap_narrative"]
+    narrative = report["detail"]["shap_attribution"]
     assert "most recent explainable revision" in narrative
     assert "brand (+0.42)" in narrative
     assert "risk (-0.21)" in narrative
@@ -284,7 +318,7 @@ def test_shap_narrative_fallback_mentions_revision_when_no_shap_exists():
     )
 
     report = asyncio.run(build_csc_report_json(db, "subject-6", {}))
-    narrative = report["shap_narrative"]
+    narrative = report["detail"]["shap_attribution"]
     assert "v4.0-no-shap" in narrative
     assert "does not expose SHAP detail" in narrative
     assert "deterministic attribution" in narrative

@@ -112,17 +112,21 @@
   margin-bottom: 8px;
 }
 
-.ta {
-  width: 100%;
-  min-height: 72px;
-  resize: vertical;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-default);
+.subSectionTitle {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.08em;
   color: var(--text-secondary);
-  font-family: var(--font-prose);
-  font-size: 13px;
-  line-height: 1.4;
-  padding: 8px;
+  margin: 10px 0 6px;
+  text-transform: uppercase;
+}
+
+.valueHero {
+  font-family: var(--font-data);
+  font-size: 40px;
+  line-height: 1.1;
+  color: var(--accent-amber);
+  margin-bottom: 8px;
 }
 
 .muted {
@@ -174,6 +178,29 @@
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+.driverRow {
+  display: grid;
+  grid-template-columns: 160px 120px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.driverLabel {
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.driverSignal {
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--accent-green);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .amber {
@@ -246,6 +273,52 @@
   color: var(--text-muted);
 }
 
+.tagRow {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.tagChip {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+}
+
+.detailBlock {
+  margin-top: 8px;
+}
+
+.section summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.section summary::-webkit-details-marker {
+  display: none;
+}
+
+.section summary::after {
+  content: '▸';
+  float: right;
+  color: var(--text-muted);
+}
+
+.section[open] summary::after {
+  content: '▾';
+}
+
+.detailLabel {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
 @media (max-width: 1180px) {
   .grid {
     grid-template-columns: 1fr;
@@ -253,5 +326,10 @@
 
   .config {
     position: static;
+  }
+
+  .driverRow {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 }

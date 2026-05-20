@@ -2,7 +2,16 @@ import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { searchAthletesFilteredPaged } from '../../api/athletes'
 import { postCscReport } from '../../api/reports'
-import type { CscReportComparablesRow, CscReportJson } from '../../types/reports'
+import type {
+  CscConfidenceRiskSection,
+  CscDetailSection,
+  CscExplanationSection,
+  CscKeyValueDriver,
+  CscReportComparablesRow,
+  CscReportJson,
+  CscValidationSection,
+  CscValueSection,
+} from '../../types/reports'
 import {
   DEAL_STRUCTURE_GROUPS,
   SOURCE_GROUPS,
@@ -10,7 +19,7 @@ import {
   normalizeComparableRows,
   withLegacyOption,
 } from '../../lib/cscComparables'
-import { formatNilMillions, formatScore } from '../../lib/formatters'
+import { formatNilValue, formatScore } from '../../lib/formatters'
 import { downloadCscPdf } from '../../lib/pdfExport'
 import { useAthleteStore } from '../../stores/athleteStore'
 import { useUiStore } from '../../stores/uiStore'
@@ -25,39 +34,168 @@ function withDefaultText(value: string | null | undefined, fallback: string) {
   return clean.length > 0 ? clean : fallback
 }
 
-function normalizeComparables(rows: CscReportComparablesRow[] | undefined) {
-  return normalizeComparableRows(rows)
+function normalizeComparables(rows: CscReportComparablesRow[] | undefined): CscReportComparablesRow[] {
+  return normalizeComparableRows(rows).slice(0, 12)
 }
 
-function buildFallbackReport(athleteName?: string): CscReportJson {
+function levelFromScore(value: number | null | undefined, invert = false): 'High' | 'Moderate' | 'Low' {
+  if (value == null || Number.isNaN(value)) return 'Moderate'
+  const adjusted = invert ? 100 - value : value
+  if (adjusted >= 66) return 'High'
+  if (adjusted >= 40) return 'Moderate'
+  return 'Low'
+}
+
+function buildFallbackDrivers(athlete: ReturnType<typeof useAthleteStore.getState>['activeAthlete']): CscKeyValueDriver[] {
+  return [
+    {
+      label: 'Brand Strength',
+      signal: levelFromScore(athlete?.brand_score),
+      explanation: `Brand score ${formatScore(athlete?.brand_score ?? null)} relative to peers.`,
+    },
+    {
+      label: 'Market Proof',
+      signal: levelFromScore(athlete?.proof_score),
+      explanation: `Proof score ${formatScore(athlete?.proof_score ?? null)} with current verified activity.`,
+    },
+    {
+      label: 'Exposure',
+      signal: levelFromScore(athlete?.proximity_score),
+      explanation: `Exposure score ${formatScore(athlete?.proximity_score ?? null)} for program/media visibility.`,
+    },
+    {
+      label: 'Risk',
+      signal: levelFromScore(athlete?.risk_score, true),
+      explanation: `Risk score ${formatScore(athlete?.risk_score ?? null)} impacts valuation certainty.`,
+    },
+  ]
+}
+
+function buildFallbackReport(
+  athlete: ReturnType<typeof useAthleteStore.getState>['activeAthlete'],
+  rows: CscReportComparablesRow[] = [],
+): CscReportJson {
+  const athleteName = athlete?.name
   const subject = athleteName ?? 'the selected athlete'
+  const benchmark = athlete?.nil_valuation_consensus ?? athlete?.dollar_p50_usd ?? null
+  const rangeLow = athlete?.nil_range_low ?? athlete?.dollar_p10_usd ?? null
+  const rangeHigh = athlete?.nil_range_high ?? athlete?.dollar_p90_usd ?? null
+  const confidenceLevel = levelFromScore((athlete?.dollar_confidence?.dollar_confidence_score ?? null) != null
+    ? (athlete?.dollar_confidence?.dollar_confidence_score ?? 0) * 100
+    : null)
+  const confidenceTag = `${confidenceLevel} Confidence`
+  const riskLevel = levelFromScore(athlete?.risk_score ?? null, true)
+  const drivers = buildFallbackDrivers(athlete)
+  const marketValues = rows.map((r) => r.nil_valuation_consensus).filter((v): v is number => v != null)
+  const marketLow = marketValues.length ? Math.min(...marketValues) : rangeLow
+  const marketHigh = marketValues.length ? Math.max(...marketValues) : rangeHigh
+  const marketMedian = marketValues.length
+    ? [...marketValues].sort((a, b) => a - b)[Math.floor(marketValues.length / 2)]
+    : benchmark
+
   return {
-    executive_summary: `Commercial positioning summary pending final analyst pass for ${subject}.`,
-    gravity_score_table:
-      'Gravity and component score interpretation is pending data refresh and analyst validation.',
-    comparables_analysis: [],
-    nil_range_note:
-      'NIL range guidance is based on current market comparables and should be validated against active deal terms.',
-    shap_narrative:
-      'Primary SHAP drivers are pending narrative synthesis from the latest scoring features.',
-    risk_assessment:
-      'Risk review is pending final compliance and market-volatility checks.',
-    methodology:
-      'Methodology: Gravity score model plus verified comparable-market normalization with confidence gating.',
+    value: {
+      total_benchmark: benchmark,
+      range_low: rangeLow,
+      range_high: rangeHigh,
+      tier_tag: benchmark != null && benchmark >= 150000 ? 'High-tier' : benchmark != null && benchmark >= 50000 ? 'Mid-tier' : 'Developing-tier',
+      confidence_tag: confidenceTag,
+    },
+    explanation: {
+      executive_summary: `${subject} carries a Total NIL Value Benchmark of ${formatNilValue(benchmark)} with a working range of ${formatNilValue(rangeLow)} to ${formatNilValue(rangeHigh)} for roster planning context.`,
+      key_value_drivers: drivers,
+      driver_takeaway: `${subject}'s benchmark is most sensitive to brand and exposure signals, while proof depth and risk profile moderate upside confidence.`,
+    },
+    validation: {
+      market_context: `Market context (${athlete?.conference ?? 'Conference n/a'} ${athlete?.position ?? 'Position n/a'}): range ${formatNilValue(marketLow)} – ${formatNilValue(marketHigh)}; median ${formatNilValue(marketMedian)}.`,
+      comparable_tier: `Comparable athletes with similar role and signal profile.`,
+      example_comparables: rows.slice(0, 5),
+      takeaway: `${subject}'s benchmark sits within the current comparable market envelope and should be used as a planning reference, not a single-point guarantee.`,
+    },
+    confidence_risk: {
+      confidence_level: confidenceLevel,
+      confidence_note: `${confidenceLevel} confidence based on available comparables and model signal stability.`,
+      risk_level: riskLevel,
+      risk_note: `${riskLevel} risk profile from latest risk component inputs.`,
+    },
+    detail: {
+      shap_attribution: 'SHAP attribution pending latest explainable model output.',
+      methodology: 'Comparable-weighted NIL banding with Gravity score components and verified market observations.',
+      inputs: 'Inputs include sport, position, comparables set, confidence threshold, and current score components.',
+    },
+    executive_summary: '',
+    gravity_score_table: '',
+    comparables_analysis: rows,
+    nil_range_note: '',
+    shap_narrative: '',
+    risk_assessment: '',
+    methodology: '',
   }
 }
 
-function normalizeReport(report: CscReportJson | null | undefined, athleteName?: string): CscReportJson {
-  const fallback = buildFallbackReport(athleteName)
+function normalizeReport(
+  report: CscReportJson | null | undefined,
+  athlete: ReturnType<typeof useAthleteStore.getState>['activeAthlete'],
+): CscReportJson {
+  const legacyRows = normalizeComparables(report?.comparables_analysis)
+  const fallback = buildFallbackReport(athlete, legacyRows)
   if (!report) return fallback
+  const legacyExec = withDefaultText(report.executive_summary, fallback.explanation.executive_summary)
+  const legacyMethod = withDefaultText(report.methodology, fallback.detail.methodology)
+  const legacyShap = withDefaultText(report.shap_narrative, fallback.detail.shap_attribution)
+  const legacyRisk = withDefaultText(report.risk_assessment, fallback.confidence_risk.risk_note)
+  const value: CscValueSection = {
+    total_benchmark: report.value?.total_benchmark ?? fallback.value.total_benchmark,
+    range_low: report.value?.range_low ?? fallback.value.range_low,
+    range_high: report.value?.range_high ?? fallback.value.range_high,
+    tier_tag: report.value?.tier_tag ?? fallback.value.tier_tag,
+    confidence_tag: report.value?.confidence_tag ?? fallback.value.confidence_tag,
+  }
+  const explanation: CscExplanationSection = {
+    executive_summary: withDefaultText(report.explanation?.executive_summary, legacyExec),
+    key_value_drivers: report.explanation?.key_value_drivers?.length
+      ? report.explanation.key_value_drivers
+      : fallback.explanation.key_value_drivers,
+    driver_takeaway: withDefaultText(
+      report.explanation?.driver_takeaway,
+      fallback.explanation.driver_takeaway,
+    ),
+  }
+  const validationRows = report.validation?.example_comparables?.length
+    ? normalizeComparables(report.validation.example_comparables)
+    : legacyRows.length
+      ? legacyRows
+      : fallback.validation.example_comparables
+  const validation: CscValidationSection = {
+    market_context: withDefaultText(report.validation?.market_context, fallback.validation.market_context),
+    comparable_tier: withDefaultText(report.validation?.comparable_tier, fallback.validation.comparable_tier),
+    example_comparables: validationRows,
+    takeaway: withDefaultText(report.validation?.takeaway, fallback.validation.takeaway),
+  }
+  const confidenceRisk: CscConfidenceRiskSection = {
+    confidence_level: report.confidence_risk?.confidence_level ?? fallback.confidence_risk.confidence_level,
+    confidence_note: withDefaultText(report.confidence_risk?.confidence_note, fallback.confidence_risk.confidence_note),
+    risk_level: report.confidence_risk?.risk_level ?? fallback.confidence_risk.risk_level,
+    risk_note: withDefaultText(report.confidence_risk?.risk_note, legacyRisk),
+  }
+  const detail: CscDetailSection = {
+    shap_attribution: withDefaultText(report.detail?.shap_attribution, legacyShap),
+    methodology: withDefaultText(report.detail?.methodology, legacyMethod),
+    inputs: withDefaultText(report.detail?.inputs, fallback.detail.inputs),
+  }
   return {
-    executive_summary: withDefaultText(report.executive_summary, fallback.executive_summary),
-    gravity_score_table: withDefaultText(report.gravity_score_table, fallback.gravity_score_table),
-    comparables_analysis: normalizeComparables(report.comparables_analysis),
-    nil_range_note: withDefaultText(report.nil_range_note, fallback.nil_range_note),
-    shap_narrative: withDefaultText(report.shap_narrative, fallback.shap_narrative),
-    risk_assessment: withDefaultText(report.risk_assessment, fallback.risk_assessment),
-    methodology: withDefaultText(report.methodology, fallback.methodology),
+    value,
+    explanation,
+    validation,
+    confidence_risk: confidenceRisk,
+    detail,
+    executive_summary: report.executive_summary,
+    gravity_score_table: report.gravity_score_table,
+    comparables_analysis: report.comparables_analysis,
+    nil_range_note: report.nil_range_note,
+    shap_narrative: report.shap_narrative,
+    risk_assessment: report.risk_assessment,
+    methodology: report.methodology,
   }
 }
 
@@ -89,10 +227,10 @@ export function CscReportsView() {
   useLayoutEffect(() => {
     const st = location.state as { agentCscReport?: CscReportJson } | null
     if (st?.agentCscReport) {
-      setReport(normalizeReport(st.agentCscReport, athlete?.name))
+      setReport(normalizeReport(st.agentCscReport, athlete ?? null))
       navigate(`${location.pathname}${location.search}`, { replace: true, state: {} })
     }
-  }, [location.state, location.pathname, location.search, navigate, athlete?.name])
+  }, [location.state, location.pathname, location.search, navigate, athlete])
 
   useEffect(
     () => () => {
@@ -110,7 +248,7 @@ export function CscReportsView() {
     postCscReport(athlete.athlete_id, reportConfig)
       .then((r) => {
         if (!cancelled) {
-          setReport(normalizeReport(r, athlete.name))
+          setReport(normalizeReport(r, athlete))
           setReportError(null)
         }
       })
@@ -161,7 +299,7 @@ export function CscReportsView() {
     setReportError(null)
     postCscReport(athlete.athlete_id, reportConfig)
       .then((r) => {
-        setReport(normalizeReport(r, athlete.name))
+        setReport(normalizeReport(r, athlete))
         setReportError(null)
       })
       .catch((err: unknown) =>
@@ -180,9 +318,9 @@ export function CscReportsView() {
     }
   }
 
-  const low = athlete?.nil_range_low
-  const high = athlete?.nil_range_high
-  const consensus = athlete?.nil_valuation_consensus
+  const low = report?.value.range_low ?? athlete?.nil_range_low
+  const high = report?.value.range_high ?? athlete?.nil_range_high
+  const consensus = report?.value.total_benchmark ?? athlete?.nil_valuation_consensus
   let plotPct = 50
   if (athlete && low != null && high != null && high > low && consensus != null) {
     plotPct = Math.min(100, Math.max(0, ((consensus - low) / (high - low)) * 100))
@@ -229,20 +367,13 @@ export function CscReportsView() {
           <div className={styles.muted}>Loading report\u2026</div>
         ) : (
           <>
-            <Section title="Executive Summary" value={report.executive_summary} onChange={(v) => setReport({ ...report, executive_summary: v })} />
-            <Section title="Gravity Score Summary" value={report.gravity_score_table} onChange={(v) => setReport({ ...report, gravity_score_table: v })} />
-            <ComparablesSection rows={report.comparables_analysis} onChange={(rows) => setReport({ ...report, comparables_analysis: rows })} />
-            <NilRangeSection
-              note={report.nil_range_note}
-              plotPct={plotPct}
-              low={low}
-              high={high}
-              consensus={consensus}
-              athleteName={athlete.name}
-            />
-            <Section title="SHAP Attribution Narrative" value={report.shap_narrative} onChange={(v) => setReport({ ...report, shap_narrative: v })} />
-            <Section title="Risk Assessment" value={report.risk_assessment} onChange={(v) => setReport({ ...report, risk_assessment: v })} />
-            <Section title="Methodology" value={report.methodology} onChange={(v) => setReport({ ...report, methodology: v })} />
+            <ValueSection value={report.value} plotPct={plotPct} athleteName={athlete.name} />
+            <ExplanationSection explanation={report.explanation} />
+            <ValidationSection validation={report.validation} onChange={(rows) => setReport({
+              ...report,
+              validation: { ...report.validation, example_comparables: rows },
+            })} confidenceRisk={report.confidence_risk} />
+            <DetailSection detail={report.detail} />
           </>
         )}
       </div>
@@ -418,42 +549,92 @@ export function CscReportsView() {
   )
 }
 
-function Section({
-  title,
+function ValueSection({
   value,
-  onChange,
+  plotPct,
+  athleteName,
 }: {
-  title: string
-  value: string
-  onChange: (v: string) => void
+  value: CscValueSection
+  plotPct: number
+  athleteName: string
 }) {
   return (
     <div className={styles.section}>
-      <div className={styles.sectionTitle}>{title}</div>
-      <textarea className={styles.ta} value={value} onChange={(e) => onChange(e.target.value)} />
+      <div className={styles.sectionTitle}>Total NIL Value Benchmark</div>
+      <div className={styles.valueHero}>{formatNilValue(value.total_benchmark)}</div>
+      <div className={styles.bandLabels}>
+        <span>{formatNilValue(value.range_low)}</span>
+        <span>{formatNilValue(value.range_high)}</span>
+      </div>
+      <div className={styles.bandTrack}>
+        <div className={styles.bandMarker} style={{ left: `${plotPct}%` }} title={athleteName} />
+      </div>
+      <div className={styles.tagRow}>
+        {value.tier_tag && <span className={styles.tagChip}>{value.tier_tag}</span>}
+        {value.confidence_tag && <span className={styles.tagChip}>{value.confidence_tag}</span>}
+      </div>
     </div>
   )
 }
 
-function ComparablesSection({
-  rows,
+function ExplanationSection({ explanation }: { explanation: CscExplanationSection }) {
+  return (
+    <div className={styles.section}>
+      <div className={styles.sectionTitle}>Explanation</div>
+      <div className={styles.subSectionTitle}>Executive Summary</div>
+      <p className={styles.prose}>{explanation.executive_summary}</p>
+      <div className={styles.subSectionTitle}>Key Value Drivers</div>
+      {explanation.key_value_drivers.map((d, idx) => (
+        <div key={`${d.label}-${idx}`} className={styles.driverRow}>
+          <span className={styles.driverLabel}>{d.label}</span>
+          <span className={styles.driverSignal}>{d.signal}</span>
+          <span className={styles.subMuted}>{d.explanation}</span>
+        </div>
+      ))}
+      <div className={styles.subSectionTitle}>Value Interpretation</div>
+      <p className={styles.prose}>{explanation.driver_takeaway}</p>
+    </div>
+  )
+}
+
+function ValidationSection({
+  validation,
   onChange,
+  confidenceRisk,
 }: {
-  rows: CscReportComparablesRow[] | undefined
+  validation: CscValidationSection
   onChange: (rows: CscReportComparablesRow[]) => void
+  confidenceRisk: CscConfidenceRiskSection
 }) {
-  const list = rows ?? []
+  const list = validation.example_comparables ?? []
   if (list.length === 0) {
     return (
       <div className={styles.section}>
-        <div className={styles.sectionTitle}>Comparables Analysis</div>
-        <div className={styles.muted}>No comparables rows in this report.</div>
+        <div className={styles.sectionTitle}>Market & Comparable Analysis</div>
+        <p className={styles.prose}>{validation.market_context}</p>
+        <p className={styles.prose}>{validation.comparable_tier}</p>
+        <div className={styles.muted}>No direct comparables available.</div>
+        <div className={styles.subSectionTitle}>Confidence & Risk</div>
+        <div className={styles.driverRow}>
+          <span className={styles.driverLabel}>Confidence</span>
+          <span className={styles.driverSignal}>{confidenceRisk.confidence_level}</span>
+          <span className={styles.subMuted}>{confidenceRisk.confidence_note}</span>
+        </div>
+        <div className={styles.driverRow}>
+          <span className={styles.driverLabel}>Risk</span>
+          <span className={styles.driverSignal}>{confidenceRisk.risk_level}</span>
+          <span className={styles.subMuted}>{confidenceRisk.risk_note}</span>
+        </div>
+        <div className={styles.subSectionTitle}>Value Interpretation</div>
+        <p className={styles.prose}>{validation.takeaway}</p>
       </div>
     )
   }
   return (
     <div className={styles.section}>
-      <div className={styles.sectionTitle}>Comparables Analysis</div>
+      <div className={styles.sectionTitle}>Market & Comparable Analysis</div>
+      <p className={styles.prose}>{validation.market_context}</p>
+      <p className={styles.prose}>{validation.comparable_tier}</p>
       <div className={styles.tableScroll}>
         <table className={styles.dataTable}>
           <thead>
@@ -473,99 +654,95 @@ function ComparablesSection({
               const sourceSelection = withLegacyOption(SOURCE_GROUPS, r.verified_source)
               return (
                 <tr key={r.athlete_id}>
-                <td>
-                  <div>{r.name}</div>
-                  <div className={styles.subMuted}>
-                    {r.school ?? '\u2014'} · {r.position ?? '\u2014'}
-                  </div>
-                </td>
-                <td>{formatScore(r.gravity_score ?? null)}</td>
-                <td>{formatScore(r.brand_score ?? null)}</td>
-                <td className={styles.amber}>{formatNilMillions(r.nil_valuation_consensus)}</td>
-                <td>
-                  <select
-                    className={styles.cellSelect}
-                    value={dealSelection.value}
-                    onChange={(e) => {
-                      const next = list.map((x) =>
-                        x.athlete_id === r.athlete_id ? { ...x, deal_structure: e.target.value } : x,
-                      )
-                      onChange(next)
-                    }}
-                  >
-                    {dealSelection.groups.map((group) => (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.options.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    className={styles.cellSelect}
-                    value={sourceSelection.value}
-                    onChange={(e) => {
-                      const next = list.map((x) =>
-                        x.athlete_id === r.athlete_id ? { ...x, verified_source: e.target.value } : x,
-                      )
-                      onChange(next)
-                    }}
-                  >
-                    {sourceSelection.groups.map((group) => (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.options.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </td>
-                <td>{formatComparableConfidence(r.confidence)}</td>
+                  <td>
+                    <div>{r.name}</div>
+                    <div className={styles.subMuted}>
+                      {r.school ?? '\u2014'} · {r.position ?? '\u2014'}
+                    </div>
+                  </td>
+                  <td>{formatScore(r.gravity_score ?? null)}</td>
+                  <td>{formatScore(r.brand_score ?? null)}</td>
+                  <td className={styles.amber}>{formatNilValue(r.nil_valuation_consensus)}</td>
+                  <td>
+                    <select
+                      className={styles.cellSelect}
+                      value={dealSelection.value}
+                      onChange={(e) => {
+                        const next = list.map((x) =>
+                          x.athlete_id === r.athlete_id ? { ...x, deal_structure: e.target.value } : x,
+                        )
+                        onChange(next)
+                      }}
+                    >
+                      {dealSelection.groups.map((group) => (
+                        <optgroup key={group.label} label={group.label}>
+                          {group.options.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select
+                      className={styles.cellSelect}
+                      value={sourceSelection.value}
+                      onChange={(e) => {
+                        const next = list.map((x) =>
+                          x.athlete_id === r.athlete_id ? { ...x, verified_source: e.target.value } : x,
+                        )
+                        onChange(next)
+                      }}
+                    >
+                      {sourceSelection.groups.map((group) => (
+                        <optgroup key={group.label} label={group.label}>
+                          {group.options.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </td>
+                  <td>{formatComparableConfidence(r.confidence)}</td>
                 </tr>
               )
             })}
           </tbody>
         </table>
       </div>
+      <div className={styles.subSectionTitle}>Confidence & Risk</div>
+      <div className={styles.driverRow}>
+        <span className={styles.driverLabel}>Confidence</span>
+        <span className={styles.driverSignal}>{confidenceRisk.confidence_level}</span>
+        <span className={styles.subMuted}>{confidenceRisk.confidence_note}</span>
+      </div>
+      <div className={styles.driverRow}>
+        <span className={styles.driverLabel}>Risk</span>
+        <span className={styles.driverSignal}>{confidenceRisk.risk_level}</span>
+        <span className={styles.subMuted}>{confidenceRisk.risk_note}</span>
+      </div>
+      <div className={styles.subSectionTitle}>Value Interpretation</div>
+      <p className={styles.prose}>{validation.takeaway}</p>
     </div>
   )
 }
 
-function NilRangeSection({
-  note,
-  plotPct,
-  low,
-  high,
-  consensus,
-  athleteName,
-}: {
-  note: string
-  plotPct: number
-  low: number | null | undefined
-  high: number | null | undefined
-  consensus: number | null | undefined
-  athleteName: string
-}) {
+function DetailSection({ detail }: { detail: CscDetailSection }) {
   return (
-    <div className={styles.section}>
-      <div className={styles.sectionTitle}>NIL Range &amp; CSC Band</div>
-      <p className={styles.prose}>{note}</p>
-      <div className={styles.bandLabels}>
-        <span>{formatNilMillions(low)}</span>
-        <span>{formatNilMillions(high)}</span>
+    <details className={styles.section}>
+      <summary className={styles.sectionTitle}>Model Details</summary>
+      <div className={styles.detailBlock}>
+        <div className={styles.detailLabel}>SHAP Attribution</div>
+        <p className={styles.prose}>{detail.shap_attribution}</p>
+        <div className={styles.detailLabel}>Methodology</div>
+        <p className={styles.prose}>{detail.methodology}</p>
+        <div className={styles.detailLabel}>Inputs</div>
+        <p className={styles.prose}>{detail.inputs}</p>
       </div>
-      <div className={styles.bandTrack}>
-        <div className={styles.bandMarker} style={{ left: `${plotPct}%` }} title={athleteName} />
-      </div>
-      <div className={styles.bandConsensus}>
-        Consensus {formatNilMillions(consensus)} · {athleteName}
-      </div>
-    </div>
+    </details>
   )
 }

@@ -22,11 +22,20 @@ export function formatNilMillions(n: number | null | undefined): string {
   return `$${m.toFixed(1)}M`
 }
 
+export function formatNilValue(n: number | null | undefined): string {
+  const value = parseFiniteNumber(n)
+  if (value == null) return EM
+  if (Math.abs(value) < 1_000_000) {
+    return `$${Math.round(value / 1_000)}K`
+  }
+  return `$${(value / 1_000_000).toFixed(1)}M`
+}
+
 export function formatNilRange(low: number | null | undefined, high: number | null | undefined): string {
   const lowValue = parseFiniteNumber(low)
   const highValue = parseFiniteNumber(high)
-  const lowDisplay = lowValue == null ? EM : formatNilMillions(lowValue)
-  const highDisplay = highValue == null ? EM : formatNilMillions(highValue)
+  const lowDisplay = lowValue == null ? EM : formatNilValue(lowValue)
+  const highDisplay = highValue == null ? EM : formatNilValue(highValue)
   return `RANGE: ${lowDisplay} \u2013 ${highDisplay}`
 }
 

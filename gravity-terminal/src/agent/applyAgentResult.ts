@@ -6,18 +6,51 @@ import { useUiStore } from '../stores/uiStore'
 function isCscReport(o: unknown): o is CscReportJson {
   if (!o || typeof o !== 'object') return false
   const x = o as Record<string, unknown>
-  return typeof x.executive_summary === 'string' && typeof x.gravity_score_table === 'string'
+  return (
+    (typeof x.executive_summary === 'string' && typeof x.gravity_score_table === 'string') ||
+    (typeof x.value === 'object' && typeof x.explanation === 'object')
+  )
 }
 
 function normalizeCscReport(o: CscReportJson): CscReportJson {
+  const legacyComparables = Array.isArray(o.comparables_analysis) ? o.comparables_analysis : []
   return {
+    value: {
+      total_benchmark: o.value?.total_benchmark ?? null,
+      range_low: o.value?.range_low ?? null,
+      range_high: o.value?.range_high ?? null,
+      tier_tag: o.value?.tier_tag ?? null,
+      confidence_tag: o.value?.confidence_tag ?? null,
+    },
+    explanation: {
+      executive_summary: o.explanation?.executive_summary ?? o.executive_summary ?? '',
+      key_value_drivers: o.explanation?.key_value_drivers ?? [],
+      driver_takeaway: o.explanation?.driver_takeaway ?? '',
+    },
+    validation: {
+      market_context: o.validation?.market_context ?? '',
+      comparable_tier: o.validation?.comparable_tier ?? '',
+      example_comparables: o.validation?.example_comparables ?? legacyComparables,
+      takeaway: o.validation?.takeaway ?? '',
+    },
+    confidence_risk: {
+      confidence_level: o.confidence_risk?.confidence_level ?? 'Moderate',
+      confidence_note: o.confidence_risk?.confidence_note ?? '',
+      risk_level: o.confidence_risk?.risk_level ?? 'Moderate',
+      risk_note: o.confidence_risk?.risk_note ?? o.risk_assessment ?? '',
+    },
+    detail: {
+      shap_attribution: o.detail?.shap_attribution ?? o.shap_narrative ?? '',
+      methodology: o.detail?.methodology ?? o.methodology ?? '',
+      inputs: o.detail?.inputs ?? '',
+    },
     executive_summary: o.executive_summary,
     gravity_score_table: o.gravity_score_table,
-    comparables_analysis: Array.isArray(o.comparables_analysis) ? o.comparables_analysis : [],
-    nil_range_note: typeof o.nil_range_note === 'string' ? o.nil_range_note : '',
-    shap_narrative: typeof o.shap_narrative === 'string' ? o.shap_narrative : '',
-    risk_assessment: typeof o.risk_assessment === 'string' ? o.risk_assessment : '',
-    methodology: typeof o.methodology === 'string' ? o.methodology : '',
+    comparables_analysis: legacyComparables,
+    nil_range_note: o.nil_range_note,
+    shap_narrative: o.shap_narrative,
+    risk_assessment: o.risk_assessment,
+    methodology: o.methodology,
   }
 }
 

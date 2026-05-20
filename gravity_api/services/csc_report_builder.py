@@ -28,6 +28,14 @@ def _format_money(value: Optional[float]) -> str:
     return f"${value:,.0f}" if value is not None else "n/a"
 
 
+def _format_nil_value(value: Optional[float]) -> str:
+    if value is None:
+        return "n/a"
+    if abs(value) < 1_000_000:
+        return f"${round(value / 1_000)}K"
+    return f"${value / 1_000_000:.1f}M"
+
+
 def _format_score(value: Optional[float]) -> str:
     return f"{value:.1f}" if value is not None else "n/a"
 
@@ -98,6 +106,17 @@ def _format_scored_at(value: Any) -> str:
     return text[:10] if len(text) >= 10 else text
 
 
+def _signal_level(score: Optional[float], invert: bool = False) -> str:
+    if score is None:
+        return "Moderate"
+    value = 100.0 - score if invert else score
+    if value >= 66:
+        return "High"
+    if value >= 40:
+        return "Moderate"
+    return "Low"
+
+
 def _build_shap_narrative(
     latest_score: Optional[Dict[str, Any]],
     latest_explainable: Optional[Dict[str, Any]],
@@ -146,8 +165,18 @@ def _build_shap_narrative(
 
     return (
         f"Latest score revision ({latest_version}, {latest_scored_on}) does not expose SHAP detail. "
-        "Use Gravity Score Summary components (Brand, Proof, Proximity, Velocity, Risk) for deterministic attribution."
+        "Use Gravity Score components (Brand, Proof, Proximity, Velocity, Risk) for deterministic attribution."
     )
+
+
+def _tier_tag(benchmark: Optional[float]) -> str:
+    if benchmark is None:
+        return "Unranked"
+    if benchmark >= 150000:
+        return "High-tier"
+    if benchmark >= 50000:
+        return "Mid-tier"
+    return "Developing-tier"
 
 
 async def build_csc_report_json(
@@ -161,8 +190,9 @@ async def build_csc_report_json(
         raise ValueError("athlete not found")
 
     name = _text_or_fallback(athlete.get("name"), "Selected athlete")
-    sport_f = params.get("sport") or athlete.get("sport")
-    pos_f = params.get("position") or athlete.get("position")
+    sport_f = _text_or_fallback(params.get("sport") or athlete.get("sport"), "sport n/a")
+    pos_f = _text_or_fallback(params.get("position") or athlete.get("position"), "position n/a")
+    conf_f = _text_or_fallback(athlete.get("conference"), "conference n/a")
     n_comp = int(params.get("comparables_count") or 12)
     conf_min = float(params.get("confidence_min") or 0.75)
 
@@ -184,12 +214,17 @@ async def build_csc_report_json(
     )
     latest_dict = dict(latest) if latest else None
     latest_with_shap_dict = dict(latest_with_shap) if latest_with_shap else None
+
     g = _first_number(latest.get("gravity_score") if latest else None)
     brand_score = _first_number(latest.get("brand_score") if latest else None)
+    proof_score = _first_number(latest.get("proof_score") if latest else None)
+    proximity_score = _first_number(latest.get("proximity_score") if latest else None)
+    velocity_score = _first_number(latest.get("velocity_score") if latest else None)
     risk_score = _first_number(latest.get("risk_score") if latest else None)
     athlete_model_p10 = _first_number(latest.get("dollar_p10_usd") if latest else None)
     athlete_model_p50 = _first_number(latest.get("dollar_p50_usd") if latest else None)
     athlete_model_p90 = _first_number(latest.get("dollar_p90_usd") if latest else None)
+    model_confidence = _normalize_confidence(latest.get("confidence") if latest else None)
     athlete_raw_nil = _first_number(athlete.get("nil_valuation_raw"))
 
     comp_rows = await db.fetch(
@@ -259,104 +294,123 @@ async def build_csc_report_json(
     vals = [float(d["deal_value"]) for d in deals if d["deal_value"] is not None]
     low_pct = float(params.get("csc_band_low_pct") or 25) / 100.0
     high_pct = float(params.get("csc_band_high_pct") or 75) / 100.0
-    subject_nil_estimate = _first_number(athlete_model_p50, athlete_raw_nil)
+    benchmark = _first_number(athlete_model_p50, athlete_raw_nil)
     if vals:
         vals.sort()
         lo = vals[int(low_pct * (len(vals) - 1))]
         hi = vals[int(high_pct * (len(vals) - 1))]
-        subject_nil_estimate = _first_number(subject_nil_estimate, lo, hi)
-        nil_note = (
-            f"Observed deal values for {name} span roughly "
-            f"${lo:,.0f}–${hi:,.0f} based on {len(vals)} datapoints in-band."
-        )
+        benchmark = _first_number(benchmark, lo, hi)
     else:
         lo = athlete_model_p10
         hi = athlete_model_p90
-        if lo is not None and hi is not None:
-            nil_note = (
-                f"No direct deal values on file for {name}; using model-derived valuation "
-                f"range of {_format_money(lo)}–{_format_money(hi)}."
-            )
-        elif subject_nil_estimate is not None:
-            band = max(subject_nil_estimate * 0.2, 25_000.0)
-            lo = max(0.0, subject_nil_estimate - band)
-            hi = subject_nil_estimate + band
-            nil_note = (
-                f"No direct deal values on file for {name}; using a conservative fallback band "
-                f"centered on {_format_money(subject_nil_estimate)}."
-            )
-        else:
-            lo = None
-            hi = None
-            nil_note = (
-                "No verified deal values or model valuation estimates are available; "
-                "NIL range remains pending additional source data."
-            )
-
-    g_str = f"{g:.1f}" if g is not None else "n/a"
-    table = (
-        f"| Component | Score |\n|-----------|-------|\n"
-        f"| Gravity | {g_str} |\n"
-        f"| Brand | {_format_score(_first_number(latest.get('brand_score') if latest else None))} |\n"
-        f"| Proof | {_format_score(_first_number(latest.get('proof_score') if latest else None))} |\n"
-    )
-
-    shap_narrative = _build_shap_narrative(latest_dict, latest_with_shap_dict)
+        if lo is None or hi is None:
+            if benchmark is not None:
+                band = max(benchmark * 0.2, 25_000.0)
+                lo = max(0.0, benchmark - band)
+                hi = benchmark + band
+            else:
+                lo = None
+                hi = None
 
     comparable_nil_values = [
         float(r["nil_valuation_consensus"])
         for r in comparables_analysis
         if r.get("nil_valuation_consensus") is not None
     ]
-    comp_mid = None
+    comp_median = None
     if comparable_nil_values:
         comparable_nil_values.sort()
-        comp_mid = comparable_nil_values[len(comparable_nil_values) // 2]
+        comp_median = comparable_nil_values[len(comparable_nil_values) // 2]
+    market_low = min(comparable_nil_values) if comparable_nil_values else lo
+    market_high = max(comparable_nil_values) if comparable_nil_values else hi
+    market_median = _first_number(comp_median, benchmark)
 
-    exec_chunks = [
-        (
-            f"{name} ({_text_or_fallback(sport_f, 'sport n/a')}, {_text_or_fallback(pos_f, 'position n/a')}) "
-            f"carries a Gravity score of {g_str}"
-            + (
-                f" with Brand {brand_score:.1f}"
-                if brand_score is not None
-                else ""
-            )
-            + "."
-        ),
-        (
-            f"{len(comparables_analysis)} high-confidence comparables (threshold {int(conf_min * 100)}%) "
-            + (
-                f"show a midpoint NIL estimate near {_format_money(comp_mid)}."
-                if comp_mid is not None
-                else "provide directional support even where direct NIL values are sparse."
-            )
-        ),
-        (
-            f"Current NIL position is {_format_money(subject_nil_estimate)} within an estimated band of "
-            f"{_format_money(lo)}–{_format_money(hi)}"
-            + (
-                f", while latest risk is {risk_score:.1f}."
-                if risk_score is not None
-                else "."
-            )
-        ),
+    confidence_level = _signal_level((model_confidence or 0.5) * 100.0)
+    risk_level = _signal_level(risk_score, invert=True)
+
+    executive_summary = (
+        f"{name} profiles as a {_tier_tag(benchmark).lower()} NIL asset with a Total NIL Value Benchmark of "
+        f"{_format_nil_value(benchmark)} and a recommended range of {_format_nil_value(lo)} to {_format_nil_value(hi)}, "
+        f"placing this athlete in line with similarly positioned {pos_f}s in the {conf_f}. "
+        f"Value is driven by brand {_signal_level(brand_score).lower()} and exposure {_signal_level(proximity_score).lower()} signals, "
+        f"while market proof {_signal_level(proof_score).lower()} and risk {_signal_level(risk_score, invert=True).lower()} "
+        "set confidence for roster planning."
+    )
+
+    key_value_drivers = [
+        {
+            "label": "Brand Strength",
+            "signal": _signal_level(brand_score),
+            "explanation": f"Brand score {_format_score(brand_score)} is strong versus position peers.",
+        },
+        {
+            "label": "Market Proof",
+            "signal": _signal_level(proof_score),
+            "explanation": f"Proof score {_format_score(proof_score)} reflects current verified deal depth.",
+        },
+        {
+            "label": "Exposure",
+            "signal": _signal_level(proximity_score),
+            "explanation": f"Exposure score {_format_score(proximity_score)} supports market visibility.",
+        },
+        {
+            "label": "Risk",
+            "signal": _signal_level(risk_score, invert=True),
+            "explanation": f"Risk score {_format_score(risk_score)} moderates valuation certainty.",
+        },
     ]
-    executive_summary = " ".join(exec_chunks)
 
     return {
-        "executive_summary": executive_summary,
-        "gravity_score_table": table,
-        "comparables_analysis": comparables_analysis,
-        "nil_range_note": nil_note,
-        "shap_narrative": shap_narrative,
-        "risk_assessment": (
-            f"Latest risk component: {risk_score:.1f}"
-            if risk_score is not None
-            else "Risk data unavailable."
-        ),
-        "methodology": (
-            "Comparable-weighted NIL banding, Gravity score components, and deal observations "
-            "from the Gravity database. Not legal or investment advice."
-        ),
+        "value": {
+            "total_benchmark": benchmark,
+            "range_low": lo,
+            "range_high": hi,
+            "tier_tag": _tier_tag(benchmark),
+            "confidence_tag": f"{confidence_level} Confidence",
+        },
+        "explanation": {
+            "executive_summary": executive_summary,
+            "key_value_drivers": key_value_drivers,
+            "driver_takeaway": (
+                f"{name}'s benchmark is supported by "
+                f"{_signal_level(brand_score).lower()} brand positioning and "
+                f"{_signal_level(proximity_score).lower()} exposure, with "
+                f"{_signal_level(proof_score).lower()} market proof limiting upside certainty."
+            ),
+        },
+        "validation": {
+            "market_context": (
+                f"Market Context ({conf_f} {pos_f}s)\n"
+                f"Range: {_format_nil_value(market_low)} – {_format_nil_value(market_high)}\n"
+                f"Median: {_format_nil_value(market_median)}"
+            ),
+            "comparable_tier": (
+                f"{_tier_tag(benchmark)} {pos_f}s with similar brand and exposure signals."
+            ),
+            "example_comparables": comparables_analysis[:5],
+            "takeaway": (
+                f"{name}'s benchmark sits within the middle of the current conference range and aligns with similarly tiered comparables."
+            ),
+        },
+        "confidence_risk": {
+            "confidence_level": confidence_level,
+            "confidence_note": (
+                f"{confidence_level} confidence from model signal quality and {len(comparables_analysis)} comparable rows."
+            ),
+            "risk_level": risk_level,
+            "risk_note": (
+                f"{risk_level} risk based on latest risk component score {_format_score(risk_score)}."
+            ),
+        },
+        "detail": {
+            "shap_attribution": _build_shap_narrative(latest_dict, latest_with_shap_dict),
+            "methodology": (
+                "Comparable-weighted NIL banding, Gravity score components, and deal observations "
+                "from the Gravity database."
+            ),
+            "inputs": (
+                f"Inputs: sport={sport_f}, position={pos_f}, comparables_count={n_comp}, "
+                f"confidence_threshold={int(conf_min * 100)}%."
+            ),
+        },
     }

@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
@@ -124,6 +124,69 @@ class BrandMatchBriefIn(BaseModel):
     sports: List[str] = Field(default_factory=list)
 
 
+class CscValueOut(BaseModel):
+    total_benchmark: float | None = None
+    range_low: float | None = None
+    range_high: float | None = None
+    tier_tag: str | None = None
+    confidence_tag: str | None = None
+
+
+class CscKeyDriverOut(BaseModel):
+    label: str
+    signal: Literal["High", "Moderate", "Low"]
+    explanation: str
+
+
+class CscComparableOut(BaseModel):
+    athlete_id: str
+    name: str
+    school: str | None = None
+    position: str | None = None
+    gravity_score: float | None = None
+    brand_score: float | None = None
+    nil_valuation_consensus: float | None = None
+    nil_delta_vs_subject: float | None = None
+    confidence: float | None = None
+    verified_deal_count: int | None = None
+    deal_structure: str | None = None
+    verified_source: str | None = None
+
+
+class CscExplanationOut(BaseModel):
+    executive_summary: str
+    key_value_drivers: List[CscKeyDriverOut]
+    driver_takeaway: str
+
+
+class CscValidationOut(BaseModel):
+    market_context: str
+    comparable_tier: str
+    example_comparables: List[CscComparableOut]
+    takeaway: str
+
+
+class CscConfidenceRiskOut(BaseModel):
+    confidence_level: Literal["High", "Moderate", "Low"]
+    confidence_note: str
+    risk_level: Literal["High", "Moderate", "Low"]
+    risk_note: str
+
+
+class CscDetailOut(BaseModel):
+    shap_attribution: str
+    methodology: str
+    inputs: str
+
+
+class CscReportOut(BaseModel):
+    value: CscValueOut
+    explanation: CscExplanationOut
+    validation: CscValidationOut
+    confidence_risk: CscConfidenceRiskOut
+    detail: CscDetailOut
+
+
 @router.post("/brand-match")
 async def brand_match(
     body: BrandMatchBriefIn,
@@ -149,7 +212,7 @@ async def brand_match(
     return scored
 
 
-@router.post("/csc")
+@router.post("/csc", response_model=CscReportOut)
 async def post_csc_report(
     body: Dict[str, Any],
     db: asyncpg.Connection = Depends(get_db),

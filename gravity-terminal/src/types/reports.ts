@@ -6,14 +6,62 @@ export interface CscReportComparablesRow extends ComparableRecord {
   confidence?: number | null
 }
 
-export interface CscReportJson {
+export type CscSignalLevel = 'High' | 'Moderate' | 'Low'
+
+export interface CscValueSection {
+  total_benchmark: number | null
+  range_low: number | null
+  range_high: number | null
+  tier_tag?: string | null
+  confidence_tag?: string | null
+}
+
+export interface CscKeyValueDriver {
+  label: string
+  signal: CscSignalLevel
+  explanation: string
+}
+
+export interface CscExplanationSection {
   executive_summary: string
-  gravity_score_table: string
-  comparables_analysis: CscReportComparablesRow[]
-  nil_range_note: string
-  shap_narrative: string
-  risk_assessment: string
+  key_value_drivers: CscKeyValueDriver[]
+  driver_takeaway: string
+}
+
+export interface CscValidationSection {
+  market_context: string
+  comparable_tier: string
+  example_comparables: CscReportComparablesRow[]
+  takeaway: string
+}
+
+export interface CscConfidenceRiskSection {
+  confidence_level: CscSignalLevel
+  confidence_note: string
+  risk_level: CscSignalLevel
+  risk_note: string
+}
+
+export interface CscDetailSection {
+  shap_attribution: string
   methodology: string
+  inputs: string
+}
+
+export interface CscReportJson {
+  value: CscValueSection
+  explanation: CscExplanationSection
+  validation: CscValidationSection
+  confidence_risk: CscConfidenceRiskSection
+  detail: CscDetailSection
+  /** Legacy fields accepted during backend rollout; prefer sectioned fields above. */
+  executive_summary?: string
+  gravity_score_table?: string
+  comparables_analysis?: CscReportComparablesRow[]
+  nil_range_note?: string
+  shap_narrative?: string
+  risk_assessment?: string
+  methodology?: string
 }
 
 export interface CscReportParams {

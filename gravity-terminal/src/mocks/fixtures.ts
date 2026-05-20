@@ -625,17 +625,52 @@ export const mockAlerts: AlertRecord[] = [
 
 export function mockCscReport(athleteId: string): CscReportJson {
   const a = mockAthletesById[athleteId] ?? mockAthletePrimary
+  const rows = mockComparablesPrimary.map((c) => ({
+    ...c,
+    deal_structure: 'Cash + appearances',
+    verified_source: 'On3 Pro',
+    confidence: c.confidence ?? 0.85,
+  }))
   return {
-    executive_summary: `${a.name} presents a high-conviction NIL profile within ${a.sport ?? 'CFB'} with Gravity ${a.gravity_score?.toFixed(1) ?? '—'} and verified comparables supporting a tight CSC band.`,
-    gravity_score_table: `Brand ${a.brand_score?.toFixed(1) ?? '—'} · Proof ${a.proof_score?.toFixed(1) ?? '—'} · Proximity ${a.proximity_score?.toFixed(1) ?? '—'} · Velocity ${a.velocity_score?.toFixed(1) ?? '—'} · Risk ${a.risk_score?.toFixed(1) ?? '—'}`,
-    comparables_analysis: mockComparablesPrimary.map((c) => ({
-      ...c,
-      deal_structure: 'Cash + appearances',
-      verified_source: 'On3 Pro',
-      confidence: c.confidence ?? 0.85,
-    })),
+    value: {
+      total_benchmark: a.nil_valuation_consensus ?? a.dollar_p50_usd ?? null,
+      range_low: a.nil_range_low ?? a.dollar_p10_usd ?? null,
+      range_high: a.nil_range_high ?? a.dollar_p90_usd ?? null,
+      tier_tag: 'Mid-tier',
+      confidence_tag: 'Moderate Confidence',
+    },
+    explanation: {
+      executive_summary: `${a.name} presents a high-conviction NIL profile within ${a.sport ?? 'CFB'} with Gravity ${a.gravity_score?.toFixed(1) ?? '—'} and verified comparables supporting a tight CSC band.`,
+      key_value_drivers: [
+        { label: 'Brand Strength', signal: 'High', explanation: 'Strong brand score relative to peers.' },
+        { label: 'Market Proof', signal: 'Moderate', explanation: 'Limited but relevant verified deal activity.' },
+        { label: 'Exposure', signal: 'Moderate', explanation: 'Program and conference visibility supports valuation.' },
+        { label: 'Risk', signal: 'Moderate', explanation: 'No critical volatility flags in latest profile.' },
+      ],
+      driver_takeaway: `${a.name}'s valuation is primarily supported by brand positioning with stable exposure and manageable risk.`,
+    },
+    validation: {
+      market_context: `Market context (${a.conference ?? 'Conference'} ${a.position ?? 'Position'}): range aligns to verified peer set.`,
+      comparable_tier: 'Comparable athletes with similar brand/exposure mix.',
+      example_comparables: rows.slice(0, 5),
+      takeaway: `${a.name}'s benchmark aligns with similarly tiered peers in the current market.`,
+    },
+    confidence_risk: {
+      confidence_level: 'Moderate',
+      confidence_note: 'Moderate confidence due to available comparables and current model stability.',
+      risk_level: 'Moderate',
+      risk_note: 'Operational and narrative risk remain within planning tolerance.',
+    },
+    detail: {
+      shap_attribution: 'Primary lift from brand reach and proof-of-performance; no outsized negative drivers.',
+      methodology: 'Gravity CSC methodology v1 — comparables-weighted, verified-deal preferred.',
+      inputs: 'Inputs include comparables cohort, score components, and verified deal observations.',
+    },
+    executive_summary: `${a.name} presents a high-conviction NIL profile within ${a.sport ?? 'CFB'}.`,
+    gravity_score_table: `Brand ${a.brand_score?.toFixed(1) ?? '—'} · Proof ${a.proof_score?.toFixed(1) ?? '—'}`,
+    comparables_analysis: rows,
     nil_range_note: 'Consensus range anchored to verified Power 4 QB/skill-position cohort.',
-    shap_narrative: 'Primary lift from brand reach (Manning legacy amplifier) and proof-of-performance; risk remains minimal.',
+    shap_narrative: 'Primary lift from brand reach and proof-of-performance.',
     risk_assessment: 'Operational and narrative risk well within tolerance for institutional review.',
     methodology: 'Gravity CSC methodology v1 — comparables-weighted, verified-deal preferred.',
   }

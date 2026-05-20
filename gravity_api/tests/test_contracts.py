@@ -42,21 +42,43 @@ def test_compatibility_risk_alignment_prefers_high_safety_score():
 
 def test_csc_report_keys_minimal():
     sample = {
-        "executive_summary": "x",
-        "gravity_score_table": "y",
-        "comparables_analysis": [],
-        "nil_range_note": "z",
-        "shap_narrative": "s",
-        "risk_assessment": "r",
-        "methodology": "m",
+        "value": {
+            "total_benchmark": 10000,
+            "range_low": 7000,
+            "range_high": 15000,
+            "tier_tag": "Mid-tier",
+            "confidence_tag": "Moderate Confidence",
+        },
+        "explanation": {
+            "executive_summary": "x",
+            "key_value_drivers": [],
+            "driver_takeaway": "y",
+        },
+        "validation": {
+            "market_context": "z",
+            "comparable_tier": "t",
+            "example_comparables": [],
+            "takeaway": "k",
+        },
+        "confidence_risk": {
+            "confidence_level": "Moderate",
+            "confidence_note": "c",
+            "risk_level": "Moderate",
+            "risk_note": "r",
+        },
+        "detail": {
+            "shap_attribution": "s",
+            "methodology": "m",
+            "inputs": "i",
+        },
     }
     required = set(sample.keys())
     assert required == {
-        "executive_summary",
-        "gravity_score_table",
-        "comparables_analysis",
-        "nil_range_note",
-        "shap_narrative",
-        "risk_assessment",
-        "methodology",
+        "value",
+        "explanation",
+        "validation",
+        "confidence_risk",
+        "detail",
     }
+    assert sample["confidence_risk"]["confidence_level"] in {"High", "Moderate", "Low"}
+    assert sample["confidence_risk"]["risk_level"] in {"High", "Moderate", "Low"}
