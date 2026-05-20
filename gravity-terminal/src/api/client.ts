@@ -8,6 +8,12 @@ export function getApiBaseUrl(): string {
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true'
 const ENV_TOKEN = (import.meta.env.VITE_API_BEARER_TOKEN as string | undefined) ?? ''
+const PUBLIC_AUTH_POST_PATHS = new Set([
+  'auth/login',
+  'auth/register',
+  'auth/forgot-password',
+  'auth/reset-password',
+])
 
 const SESSION_KEY = 'gravity_access_token'
 
@@ -83,7 +89,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   }
   const base = getApiBaseUrl()
   if (!base) throw new Error('VITE_API_URL is not set')
-  const includeAuth = !(rel === 'auth/login' || rel === 'auth/register')
+  const includeAuth = !PUBLIC_AUTH_POST_PATHS.has(rel)
   const r = await fetch(`${base}/${rel}`, {
     method: 'POST',
     headers: { ...headers(includeAuth), 'Content-Type': 'application/json' },
