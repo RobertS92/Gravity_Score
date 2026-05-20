@@ -50,6 +50,16 @@ async function throwForHttpError(r: Response): Promise<never> {
   } catch {
     /* non-json response */
   }
+  if (r.status === 401) {
+    // Global auth recovery: clear stale session so background pollers stop retrying with bad bearer tokens.
+    setSessionToken('')
+    try {
+      const { useAuthStore } = await import('../stores/authStore')
+      useAuthStore.getState().clearSession()
+    } catch {
+      /* ignore import/runtime errors; still throw HTTP error */
+    }
+  }
   const suffix = detail ? `: ${detail}` : ''
   throw new Error(`${r.status} ${r.statusText}${suffix}`)
 }

@@ -8,7 +8,7 @@ import { usePreferencesStore } from '../stores/preferencesStore'
 import { useTeamFavoritesStore } from '../stores/teamFavoritesStore'
 import { useUiStore } from '../stores/uiStore'
 import { useWatchlistStore, startWatchlistRefresh } from '../stores/watchlistStore'
-import { useAlertStore, startAlertPolling } from '../stores/alertStore'
+import { useAlertStore, startAlertPolling, stopAlertPolling } from '../stores/alertStore'
 
 const LAST_KEY = 'gravity_last_athlete_id'
 
@@ -77,6 +77,7 @@ export function useTerminalBootstrap() {
 
     return () => {
       useFeedStore.getState().stopPoll()
+      stopAlertPolling()
     }
   }, [])
 }

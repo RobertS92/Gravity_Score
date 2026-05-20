@@ -42,8 +42,12 @@ export const useAlertStore = create<AlertStore>((set, get) => ({
       if (pulse) {
         window.setTimeout(() => set({ badgePulse: false }), 400)
       }
-    } catch {
-      /* ignore */
+    } catch (e) {
+      // If auth is invalid/expired, stop noisy retry loops until user signs in again.
+      const msg = e instanceof Error ? e.message : ''
+      if (msg.includes('401')) {
+        stopAlertPolling()
+      }
     }
   },
 
@@ -65,4 +69,11 @@ export function startAlertPolling() {
   pollTimer = setInterval(() => {
     void useAlertStore.getState().loadAlerts()
   }, 60_000)
+}
+
+export function stopAlertPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
 }
