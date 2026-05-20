@@ -26,6 +26,8 @@ class Settings:
     redis_url: Optional[str]
     stripe_webhook_secret: Optional[str]
     stripe_secret_key: Optional[str]
+    password_reset_ttl_minutes: int
+    password_reset_webhook_url: Optional[str]
 
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -33,6 +35,11 @@ class Settings:
 
 @lru_cache
 def get_settings() -> Settings:
+    ttl_raw = (os.environ.get("PASSWORD_RESET_TTL_MINUTES") or "30").strip() or "30"
+    try:
+        ttl_minutes = int(ttl_raw)
+    except ValueError:
+        ttl_minutes = 30
     return Settings(
         pg_dsn=os.environ.get("PG_DSN", "postgresql://localhost:5432/gravity"),
         environment=os.environ.get("ENVIRONMENT", "development"),
@@ -81,4 +88,8 @@ def get_settings() -> Settings:
         stripe_webhook_secret=(os.environ.get("STRIPE_WEBHOOK_SECRET") or "").strip()
         or None,
         stripe_secret_key=(os.environ.get("STRIPE_SECRET_KEY") or "").strip() or None,
+        password_reset_ttl_minutes=max(5, ttl_minutes),
+        password_reset_webhook_url=(
+            (os.environ.get("PASSWORD_RESET_WEBHOOK_URL") or "").strip() or None
+        ),
     )

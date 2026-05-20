@@ -3,8 +3,11 @@
 import re
 import secrets
 import uuid
+from datetime import UTC, datetime, timedelta
+import hashlib
 
 import bcrypt
+import httpx
 import jwt
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -37,6 +40,10 @@ def _is_bcrypt_hash(value: str) -> bool:
     return value.startswith("$2a$") or value.startswith("$2b$") or value.startswith("$2y$")
 
 
+def _hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 class LoginRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=320)
     password: str | None = Field(None, description="Required when account has a password set")
@@ -54,6 +61,15 @@ class OnboardingCompleteBody(BaseModel):
     org_name: str | None = Field(None, max_length=500)
     team_or_athlete_seed: str | None = Field(None, max_length=500)
     onboarding_goal: str | None = Field(None, max_length=150)
+
+
+class ForgotPasswordBody(BaseModel):
+    email: str = Field(..., min_length=3, max_length=320)
+
+
+class ResetPasswordBody(BaseModel):
+    token: str = Field(..., min_length=32, max_length=400)
+    password: str = Field(..., min_length=8, max_length=256)
 
 
 @router.post("/register")
@@ -152,6 +168,90 @@ async def login(body: LoginRequest, db: asyncpg.Connection = Depends(get_db)):
         "user_id": str(row["id"]),
         "email": row["email"],
     }
+
+
+@router.post("/forgot-password")
+async def forgot_password(
+    body: ForgotPasswordBody,
+    db: asyncpg.Connection = Depends(get_db),
+):
+    settings = get_settings()
+    email = body.email.strip().lower()
+    row = await db.fetchrow(
+        "SELECT id, email FROM user_accounts WHERE lower(email) = lower($1)",
+        email,
+    )
+    if row:
+        token = secrets.token_urlsafe(48)
+        token_hash = _hash_reset_token(token)
+        expires_at = datetime.now(tz=UTC) + timedelta(minutes=settings.password_reset_ttl_minutes)
+        await db.execute(
+            """INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+               VALUES ($1, $2, $3)""",
+            row["id"],
+            token_hash,
+            expires_at,
+        )
+        reset_link = f"{settings.frontend_url.rstrip('/')}/reset-password?token={token}"
+        if settings.password_reset_webhook_url:
+            try:
+                async with httpx.AsyncClient(timeout=8.0) as client:
+                    await client.post(
+                        settings.password_reset_webhook_url,
+                        json={
+                            "email": row["email"],
+                            "reset_link": reset_link,
+                            "expires_at": expires_at.isoformat(),
+                        },
+                    )
+            except Exception:
+                pass
+        elif settings.environment != "production":
+            return {
+                "ok": True,
+                "message": "If an account exists for that email, a reset link has been generated.",
+                "debug_reset_token": token,
+                "debug_reset_link": reset_link,
+            }
+    return {
+        "ok": True,
+        "message": "If an account exists for that email, a password reset link has been sent.",
+    }
+
+
+@router.post("/reset-password")
+async def reset_password(
+    body: ResetPasswordBody,
+    db: asyncpg.Connection = Depends(get_db),
+):
+    token_hash = _hash_reset_token(body.token.strip())
+    tok = await db.fetchrow(
+        """SELECT id, user_id
+           FROM password_reset_tokens
+           WHERE token_hash = $1
+             AND used_at IS NULL
+             AND expires_at > NOW()
+           ORDER BY created_at DESC
+           LIMIT 1""",
+        token_hash,
+    )
+    if not tok:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    pw_hash = bcrypt.hashpw(body.password.encode("utf-8"), bcrypt.gensalt()).decode("ascii")
+    await db.execute(
+        "UPDATE user_accounts SET password_hash = $2 WHERE id = $1",
+        tok["user_id"],
+        pw_hash,
+    )
+    await db.execute(
+        "UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1",
+        tok["id"],
+    )
+    await db.execute(
+        "DELETE FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL",
+        tok["user_id"],
+    )
+    return {"ok": True, "message": "Password updated"}
 
 
 @router.post("/onboarding")

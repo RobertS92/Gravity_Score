@@ -98,6 +98,9 @@ export function LoginView() {
         <p className={styles.signupHint}>
           No account? <Link to="/onboarding" className={styles.signupLink}>Create one</Link>
         </p>
+        <p className={styles.signupHint}>
+          Forgot password? <Link to="/forgot-password" className={styles.signupLink}>Reset here</Link>
+        </p>
         <p className={styles.footer}>POWER 5 CFB · NCAAB MENS ONLY</p>
       </div>
     </div>

@@ -55,3 +55,17 @@ export function completeOnboarding(body: {
     onboarding_goal?: string | null
   }>('auth/onboarding', body)
 }
+
+export function forgotPassword(email: string) {
+  return apiPost<{ ok: boolean; message: string; debug_reset_token?: string; debug_reset_link?: string }>(
+    'auth/forgot-password',
+    { email: email.trim().toLowerCase() },
+  )
+}
+
+export function resetPassword(token: string, password: string) {
+  return apiPost<{ ok: boolean; message: string }>('auth/reset-password', {
+    token: token.trim(),
+    password,
+  })
+}

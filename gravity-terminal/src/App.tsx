@@ -24,6 +24,8 @@ import { MonitoringView } from './components/views/MonitoringView'
 import { OperationsDashboardView } from './components/views/OperationsDashboardView'
 import { NilIntelligenceView } from './components/views/NilIntelligenceView'
 import { OnboardingView } from './components/views/OnboardingView'
+import { ForgotPasswordView } from './components/views/ForgotPasswordView'
+import { ResetPasswordView } from './components/views/ResetPasswordView'
 import { SettingsView } from './components/views/SettingsView'
 
 export default function App() {
@@ -33,6 +35,8 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/login" element={<LoginView />} />
+        <Route path="/forgot-password" element={<ForgotPasswordView />} />
+        <Route path="/reset-password" element={<ResetPasswordView />} />
         {/* Onboarding is public so new users can register here. Step 1 of
             OnboardingView creates the account and stores the JWT; step 2+
             runs under that token and calls POST /v1/auth/onboarding. */}
