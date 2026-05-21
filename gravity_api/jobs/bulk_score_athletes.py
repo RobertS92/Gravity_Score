@@ -22,6 +22,7 @@ load_dotenv()
 import asyncpg
 
 from gravity_api.services.athlete_score_sync import sync_athlete_score_from_ml
+from gravity_api.services.team_conferences import refresh_athlete_conference_backfill
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -34,6 +35,19 @@ async def run_bulk(
 ) -> None:
     dsn = os.environ["PG_DSN"]
     conn = await asyncpg.connect(dsn)
+
+    # Conference backfill runs before scoring so cohort cohorts in CSC
+    # reports built later see the freshest mapping. Failures here are
+    # logged but do not block the scoring sweep.
+    try:
+        backfill_counts = await refresh_athlete_conference_backfill(conn)
+        logger.info(
+            "Conference backfill: %d athletes updated, %d unmapped athletes logged",
+            backfill_counts["athletes_updated"],
+            backfill_counts["issues_logged"],
+        )
+    except Exception as exc:
+        logger.warning("Conference backfill failed (non-fatal): %s", exc)
 
     try:
         # Score active athletes without a score row first.

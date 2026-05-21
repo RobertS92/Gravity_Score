@@ -44,11 +44,68 @@ export interface CscConfidenceRiskSection {
   risk_note: string
 }
 
+export interface CscMethodologyBlock {
+  title: string
+  summary: string
+  components: string[]
+  tier_methodology_version?: string | null
+}
+
+export interface CscCohortBlock {
+  title: string
+  sport: string
+  position_group: string
+  conference?: string | null
+  conference_tier?: string | null
+  size: number
+  window_days: number
+  season_state?: string | null
+  fallback_step: number
+}
+
+export interface CscComparablesBlock {
+  title: string
+  state: 'sufficient' | 'sparse' | 'none'
+  computed_at?: string | null
+}
+
+export interface CscProvenanceBlock {
+  title: string
+  report_id: string
+  rollout_phase: string
+  tier_version: string
+  exposure_formula_version: string
+  model_version?: string | null
+  model_status?: 'production' | 'fallback' | null
+}
+
+export interface CscShapRow {
+  feature: string
+  contribution: number
+}
+
+export interface CscShapTable {
+  title: string
+  rows: CscShapRow[]
+  narrative?: string | null
+}
+
+export interface CscDetailBlocks {
+  methodology: CscMethodologyBlock
+  cohort: CscCohortBlock
+  comparables: CscComparablesBlock
+  provenance: CscProvenanceBlock
+  shap_attribution: CscShapTable
+}
+
 export interface CscDetailSection {
   shap_attribution: string
   methodology: string
   inputs: string
+  blocks?: CscDetailBlocks | null
 }
+
+export type CscConferenceTier = 'power_5' | 'group_of_5' | 'fcs' | 'mid_major' | 'other'
 
 export interface CscReportMetadata {
   tier_version: 'tier_v1' | 'tier_v2'
@@ -57,7 +114,7 @@ export interface CscReportMetadata {
   cohort_window_days_used: number
   season_state: string
   cohort_size: number
-  cohort_fallback_step: 0 | 1 | 2 | 3
+  cohort_fallback_step: 0 | 1 | 2 | 3 | 4
   comparable_state: 'sufficient' | 'sparse' | 'none'
   comparable_sets_computed_at?: string | null
   exposure_formula_version: string
@@ -68,6 +125,15 @@ export interface CscReportMetadata {
   rollout_phase: string
   low_cohort_data: boolean
   athlete_benchmark_percentile_in_cohort?: number | null
+  conference?: string | null
+  conference_tier?: CscConferenceTier | null
+  model_status?: 'production' | 'fallback' | null
+  model_version?: string | null
+  cohort_fit?: 'good' | 'edge' | 'poor' | null
+  range_quality?: 'normal' | 'wide' | null
+  report_id?: string | null
+  report_version?: 'v2' | 'v3' | null
+  report_rollout_phase?: string | null
 }
 
 export interface CscReportJson {

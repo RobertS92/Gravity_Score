@@ -12,6 +12,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from gravity_api.config import get_settings
 from gravity_api.database import close_db, init_db
+from gravity_api.services.model_health import (
+    get_model_health,
+    probe_model_health,
+    should_fail_on_fallback,
+)
 from gravity_api.routers import (
     agent,
     alerts,
@@ -44,6 +49,29 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    # Probe the ML scorer once so /health and CSC reporting know whether the
+    # production model is live. The probe is best-effort and never blocks
+    # startup unless MODEL_FAIL_ON_FALLBACK=1 and the probe reports fallback.
+    health = await probe_model_health()
+    if health.is_fallback:
+        if should_fail_on_fallback():
+            logger.error(
+                "ML scorer is on fallback (%s); MODEL_FAIL_ON_FALLBACK is set — aborting startup",
+                health.model_version,
+            )
+            raise RuntimeError(
+                f"Refusing to start: ML scorer is on fallback ({health.model_version})"
+            )
+        logger.warning(
+            "ML scorer reported fallback model_version=%s — CSC reports will return 503 unless overridden",
+            health.model_version,
+        )
+    else:
+        logger.info(
+            "ML scorer health: status=%s model_version=%s",
+            health.status,
+            health.model_version,
+        )
     logger.info("Gravity API started")
     yield
     await close_db()
@@ -98,4 +126,14 @@ app.include_router(ingest.router, prefix="/v1/ingest", tags=["ingest"])
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "gravity-nil-intelligence"}
+    return {
+        "status": "ok",
+        "service": "gravity-nil-intelligence",
+        "ml_model": get_model_health().to_dict(),
+    }
+
+
+@app.get("/v1/health")
+async def health_v1():
+    """Versioned health endpoint mirroring `/health` for terminal clients."""
+    return await health()

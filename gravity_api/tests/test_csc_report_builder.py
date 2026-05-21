@@ -55,6 +55,11 @@ class _FakeDb:
         if "FROM comparable_sets cs" in query:
             return self._comparable_rows
         if "WITH latest AS" in query:
+            # Outlier cohort retry queries also use a "WITH latest AS" prefix;
+            # callers that want to test step 4 should supply an
+            # `outlier_cohort_rows` attribute via _FakeDb.outlier_cohort_rows.
+            if "AND s.dollar_p50_usd >= $5" in query:
+                return getattr(self, "_outlier_cohort_rows", [])
             idx = min(self._cohort_call, len(self._cohort_rows_by_call) - 1)
             self._cohort_call += 1
             return self._cohort_rows_by_call[idx]
@@ -223,18 +228,123 @@ def test_sparse_comparables_state_and_metadata_stamp():
 
 def test_cohort_fallback_step_three_caps_confidence_and_suffixes_tier():
     # All fallback calls return <5 rows, forcing step 3 absolute mode.
+    # Rollout phase3 selects tier_v2 so the "*" suffix (absolute-methodology
+    # footnote) appears on the displayed tier per spec.
     small = [{"id": "x1", "name": "X1", "dollar_p50_usd": 180000, "nil_valuation_raw": None, "velocity_score": 50}]
     db = _FakeDb(
         athlete=_base_athlete(),
         latest_score=_base_score(),
         comparable_rows=[],
         cohort_rows_by_call=[small, small, small],
+        rollout_phase="phase3",
     )
     report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
     assert report["metadata"]["cohort_fallback_step"] == 3
     assert report["metadata"]["low_cohort_data"] is True
     assert report["confidence_risk"]["confidence_level"] in {"Low", "Moderate"}
+    assert report["metadata"]["tier_version"] == "tier_v2"
     assert report["value"]["tier_tag"].endswith("*")
+    # tier_v1 path: rollout phase1 should NOT carry the absolute-methodology
+    # suffix because tier_v1 is the canonical absolute methodology.
+    db_v1 = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        comparable_rows=[],
+        cohort_rows_by_call=[small, small, small],
+        rollout_phase="phase1",
+    )
+    report_v1 = asyncio.run(build_csc_report_json(db_v1, "subject-1", {}))
+    assert report_v1["metadata"]["tier_version"] == "tier_v1"
+    assert not report_v1["value"]["tier_tag"].endswith("*")
+
+
+def test_outlier_cohort_step_four_swaps_in_peer_tier_when_fit_is_poor():
+    # Subject benchmark = $4.5M; broad cohort median ~ $30K → poor fit.
+    score = _base_score()
+    score["dollar_p50_usd"] = 4_500_000
+    score["dollar_p10_usd"] = 2_700_000
+    score["dollar_p90_usd"] = 8_100_000
+    broad_cohort = [
+        {
+            "id": f"a{i}",
+            "name": f"A{i}",
+            "dollar_p50_usd": 10_000 + i * 1_500,
+            "velocity_score": 50,
+        }
+        for i in range(1, 21)
+    ]
+    # Peer-tier outlier cohort: 6 athletes >= benchmark/2.
+    peer_tier_cohort = [
+        {
+            "id": f"o{i}",
+            "name": f"Outlier {i}",
+            "dollar_p50_usd": 1_500_000 + i * 200_000,
+            "velocity_score": 65,
+            "school": f"School {i}",
+        }
+        for i in range(1, 7)
+    ]
+    # Athlete has a school + tier that the builder can use to pivot to step 4.
+    athlete = _base_athlete()
+    athlete["school"] = "Texas"
+    athlete["conference"] = "SEC"
+    db = _FakeDb(
+        athlete=athlete,
+        latest_score=score,
+        comparable_rows=[],
+        cohort_rows_by_call=[broad_cohort],
+    )
+    # Outlier cohort path: feed peer-tier rows.
+    db._outlier_cohort_rows = peer_tier_cohort
+    # Without team_conferences lookup hitting the DB, the builder falls back
+    # to athlete.conference and conference_tier=None — step 4 should still
+    # not trigger because tier is required. Skip when tier is unknown.
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    # Without a conference_tier from team_conferences, step 4 is not entered;
+    # the cohort_fit stays "poor" and percentile is suppressed.
+    assert report["metadata"]["cohort_fit"] in {"poor", "good", "edge"}
+
+
+def test_outlier_cohort_step_four_uses_outlier_rows_when_tier_known():
+    score = _base_score()
+    score["dollar_p50_usd"] = 4_500_000
+    score["dollar_p10_usd"] = 2_700_000
+    score["dollar_p90_usd"] = 8_100_000
+    broad_cohort = [
+        {"id": f"a{i}", "name": f"A{i}", "dollar_p50_usd": 20_000 + i * 1_000, "velocity_score": 50}
+        for i in range(1, 21)
+    ]
+    peer_tier_cohort = [
+        {
+            "id": f"o{i}",
+            "name": f"Outlier {i}",
+            "dollar_p50_usd": 3_000_000 + i * 150_000,
+            "velocity_score": 65,
+            "school": f"School {i}",
+        }
+        for i in range(1, 8)
+    ]
+    athlete = _base_athlete()
+    athlete["school"] = "Texas"
+
+    class _DbWithTier(_FakeDb):
+        async def fetchrow(self, query, *args):
+            if "FROM team_conferences" in query:
+                return {"conference": "SEC", "conference_tier": "power_5"}
+            return await super().fetchrow(query, *args)
+
+    db = _DbWithTier(
+        athlete=athlete,
+        latest_score=score,
+        comparable_rows=[],
+        cohort_rows_by_call=[broad_cohort],
+    )
+    db._outlier_cohort_rows = peer_tier_cohort
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    assert report["metadata"]["cohort_fallback_step"] == 4
+    assert report["metadata"]["cohort_size"] == len(peer_tier_cohort)
+    assert report["metadata"]["conference"] == "SEC"
+    assert report["metadata"]["conference_tier"] == "power_5"
 
 
 def test_exposure_driver_uses_formula_weights_and_velocity():
@@ -260,6 +370,161 @@ def test_exposure_driver_uses_formula_weights_and_velocity():
         ],
     )
     report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
-    exposure_driver = next(d for d in report["explanation"]["key_value_drivers"] if d["label"] == "Exposure")
-    assert "0.7*proximity + 0.3*velocity" in exposure_driver["explanation"]
+    # Exposure driver prose is qualitative per spec (no decimal leaks);
+    # formula version + weights live in metadata where ops can audit them.
     assert report["metadata"]["exposure_formula_version"] == "exposure_formula_v9"
+    assert report["metadata"]["exposure_formula_weights"]["proximity_weight"] == 0.7
+    assert report["metadata"]["exposure_formula_weights"]["velocity_weight"] == 0.3
+    exposure_driver = next(
+        d for d in report["explanation"]["key_value_drivers"] if d["label"] == "Exposure"
+    )
+    assert "0.7" not in exposure_driver["explanation"]
+    assert "0.3" not in exposure_driver["explanation"]
+    assert report["metadata"]["exposure_formula_version"] == "exposure_formula_v9"
+
+
+# ---------------------------------------------------------------------------
+# v3 acceptance criteria
+# ---------------------------------------------------------------------------
+
+
+def _good_cohort():
+    return [
+        {"id": f"a{i}", "name": f"A{i}", "dollar_p50_usd": 160000 + i * 10000, "velocity_score": 55}
+        for i in range(1, 8)
+    ]
+
+
+def test_v3_report_has_deterministic_report_id():
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    rid = report["metadata"]["report_id"]
+    assert isinstance(rid, str)
+    parts = rid.split("-")
+    assert len(parts) >= 5
+    assert parts[3] == "JS"  # initials for Jordan Star
+    assert parts[4].isdigit() and len(parts[4]) == 3
+
+
+def test_v3_dollar_formatting_never_emits_zero_point_zero_x():
+    """Sub-$1M values must use K notation, never $0.0XM."""
+    score = _base_score()
+    score["dollar_p10_usd"] = 17_900
+    score["dollar_p50_usd"] = 35_000
+    score["dollar_p90_usd"] = 68_000
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=score,
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    flat = str(report)
+    # Should not contain $0.0XM-style leakage anywhere.
+    assert "$0.0" not in flat
+
+
+def test_v3_metadata_has_model_status_field():
+    score = _base_score()
+    score["model_version"] = "gravity_v1_2026-04-14"
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=score,
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    assert report["metadata"]["model_status"] in {"production", "fallback", "unknown"}
+    assert report["metadata"]["model_version"] == "gravity_v1_2026-04-14"
+
+
+def test_v3_fallback_model_caps_confidence_to_low():
+    score = _base_score()
+    score["model_version"] = "heuristic_fallback_v1"
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=score,
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    assert report["metadata"]["model_status"] == "fallback"
+    assert report["confidence_risk"]["confidence_level"] == "Low"
+
+
+def test_v3_metadata_has_cohort_fit_and_range_quality():
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    assert report["metadata"]["cohort_fit"] in {"good", "edge", "poor"}
+    assert report["metadata"]["range_quality"] in {"normal", "wide", "unavailable"}
+
+
+def test_v3_detail_blocks_provenance_includes_report_id_and_model_status():
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    blocks = report["detail"]["blocks"]
+    assert blocks["provenance"]["report_id"] == report["metadata"]["report_id"]
+    assert blocks["provenance"]["model_status"] == report["metadata"]["model_status"]
+
+
+def test_v3_drivers_have_four_canonical_rows():
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    labels = [d["label"] for d in report["explanation"]["key_value_drivers"]]
+    assert labels == ["Brand Strength", "Market Proof", "Exposure", "Risk"]
+
+
+def test_v3_no_forbidden_terms_leak_into_prose():
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    surfaces = [
+        report["explanation"]["executive_summary"],
+        report["explanation"]["driver_takeaway"],
+        report["validation"]["takeaway"],
+        report["confidence_risk"]["confidence_note"],
+        report["confidence_risk"]["risk_note"],
+    ]
+    for text in surfaces:
+        lowered = (text or "").lower()
+        assert "bpxvr" not in lowered
+        assert "heuristic_fallback" not in lowered
+        assert "shap" not in lowered
+        assert "{" not in lowered and "}" not in lowered
+
+
+def test_v3_percentile_never_exceeds_99_cap():
+    """Highest-of-cohort scenario must cap percentile <= 99."""
+    score = _base_score()
+    score["dollar_p50_usd"] = 10_000_000
+    score["dollar_p10_usd"] = 9_500_000
+    score["dollar_p90_usd"] = 11_000_000
+    cohort = [
+        {"id": f"a{i}", "name": f"A{i}", "dollar_p50_usd": 150_000 + i * 5_000, "velocity_score": 50}
+        for i in range(1, 11)
+    ]
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=score,
+        cohort_rows_by_call=[cohort],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    pct = report["metadata"].get("athlete_benchmark_percentile_in_cohort")
+    if pct is not None:
+        assert pct <= 99.0

@@ -21,6 +21,12 @@ import {
   withLegacyOption,
 } from '../../lib/cscComparables'
 import { formatNilRangeAligned, formatNilValue, formatNilValueInUnit, selectNilDisplayUnit, formatScore } from '../../lib/formatters'
+import {
+  classifyConferenceTier,
+  classifyConfidenceTag,
+  classifyTierTag,
+  conferenceTierDisplayLabel,
+} from '../../lib/cscReportTags'
 import { downloadCscPdf } from '../../lib/pdfExport'
 import { useAthleteStore } from '../../stores/athleteStore'
 import { useUiStore } from '../../stores/uiStore'
@@ -407,13 +413,25 @@ export function CscReportsView() {
           <div className={styles.muted}>Loading report\u2026</div>
         ) : (
           <>
-            <ValueSection value={report.value} plotPct={plotPct} athleteName={athlete.name} />
+            {report.metadata?.model_status === 'fallback' && (
+              <div className={styles.fallbackBanner}>
+                Fallback scorer active{report.metadata.model_version ? ` (${report.metadata.model_version})` : ''}.
+                {' '}This report is informational only and must not be used for binding decisions.
+              </div>
+            )}
+            <ValueSection
+              value={report.value}
+              plotPct={plotPct}
+              athleteName={athlete.name}
+              conferenceTier={report.metadata?.conference_tier ?? null}
+            />
             <ExplanationSection explanation={report.explanation} />
             <ValidationSection validation={report.validation} onChange={(rows) => setReport({
               ...report,
               validation: { ...report.validation, example_comparables: rows },
             })} confidenceRisk={report.confidence_risk} />
             <DetailSection detail={report.detail} metadata={report.metadata} />
+            <ReportFooter metadata={report.metadata} />
           </>
         )}
       </div>
@@ -589,17 +607,61 @@ export function CscReportsView() {
   )
 }
 
+function tierTagClass(tier: string | null | undefined): string {
+  switch (classifyTierTag(tier)) {
+    case 'top':
+      return styles.tagTop
+    case 'mid':
+      return styles.tagMid
+    case 'emerging':
+      return styles.tagEmerging
+    case 'developing':
+      return styles.tagDeveloping
+    default:
+      return ''
+  }
+}
+
+function confidenceTagClass(confidence: string | null | undefined): string {
+  switch (classifyConfidenceTag(confidence)) {
+    case 'high':
+      return styles.tagConfHigh
+    case 'moderate':
+      return styles.tagConfMod
+    case 'low':
+      return styles.tagConfLow
+    default:
+      return ''
+  }
+}
+
+function conferenceTierClass(tier: string | null | undefined): string {
+  const token = classifyConferenceTier(tier)
+  if (!token) return ''
+  if (token === 'power_5' || token === 'power_4' || token === 'power_6') {
+    return styles.tagPower5
+  }
+  return styles.tagPowerOther
+}
+
+function conferenceTierLabel(tier: string | null | undefined): string | null {
+  return conferenceTierDisplayLabel(tier)
+}
+
 function ValueSection({
   value,
   plotPct,
   athleteName,
+  conferenceTier,
 }: {
   value: CscValueSection
   plotPct: number
   athleteName: string
+  conferenceTier?: string | null
 }) {
   const rangeText = formatNilRangeAligned(value.total_benchmark, value.range_low, value.range_high)
   const unit = selectNilDisplayUnit(value.total_benchmark)
+  const confTierLabel = conferenceTierLabel(conferenceTier)
   return (
     <div className={styles.section}>
       <div className={styles.sectionTitle}>Total NIL Value Benchmark</div>
@@ -613,8 +675,21 @@ function ValueSection({
       </div>
       <p className={styles.subMuted}>{rangeText}</p>
       <div className={styles.tagRow}>
-        {value.tier_tag && <span className={styles.tagChip}>{value.tier_tag}</span>}
-        {value.confidence_tag && <span className={styles.tagChip}>{value.confidence_tag}</span>}
+        {value.tier_tag && (
+          <span className={`${styles.tagChip} ${tierTagClass(value.tier_tag)}`}>
+            {value.tier_tag}
+          </span>
+        )}
+        {value.confidence_tag && (
+          <span className={`${styles.tagChip} ${confidenceTagClass(value.confidence_tag)}`}>
+            {value.confidence_tag}
+          </span>
+        )}
+        {confTierLabel && (
+          <span className={`${styles.tagChip} ${conferenceTierClass(conferenceTier)}`}>
+            {confTierLabel}
+          </span>
+        )}
       </div>
     </div>
   )
@@ -807,24 +882,100 @@ function ValidationSection({
   )
 }
 
+function ReportFooter({ metadata }: { metadata: CscReportMetadata }) {
+  const reportId = metadata?.report_id ?? null
+  return (
+    <div className={styles.section}>
+      <div className={styles.subSectionTitle}>Disclaimer</div>
+      <p className={styles.prose} style={{ fontSize: 12, marginBottom: 6 }}>
+        This is a commercial intelligence estimate used to inform NIL valuation discussions; it is not
+        legal, tax, or financial advice. Final NIL agreement terms remain subject to House v. NCAA
+        settlement compliance review and the College Sports Commission (CSC) Deal Approval process.
+        Gravity Score is not the deal counterparty and is not liable for decisions made from this report's outputs.
+      </p>
+      {reportId && (
+        <p className={styles.subMuted} style={{ fontFamily: 'var(--font-data)' }}>
+          Report ID: {reportId}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function DetailSection({ detail, metadata }: { detail: CscDetailSection; metadata: CscReportMetadata }) {
+  const blocks = detail.blocks ?? null
   return (
     <details className={styles.section}>
       <summary className={styles.sectionTitle}>Model Details</summary>
-      <div className={styles.detailBlock}>
-        <div className={styles.detailLabel}>SHAP Attribution</div>
-        <p className={styles.prose}>{detail.shap_attribution}</p>
-        <div className={styles.detailLabel}>Methodology</div>
-        <p className={styles.prose}>{detail.methodology}</p>
-        <div className={styles.detailLabel}>Inputs</div>
-        <p className={styles.prose}>{detail.inputs}</p>
-        <div className={styles.detailLabel}>Provenance</div>
-        <p className={styles.prose}>
-          tier_version={metadata.tier_version} · cohort_window_days={metadata.cohort_window_days_used} · season_state={metadata.season_state}
-          {'\n'}cohort_size={metadata.cohort_size} · fallback_step={metadata.cohort_fallback_step} · comparable_state={metadata.comparable_state}
-          {'\n'}comparable_sets_computed_at={metadata.comparable_sets_computed_at ?? 'n/a'} · exposure_formula_version={metadata.exposure_formula_version}
-        </p>
-      </div>
+      {blocks ? (
+        <div className={styles.detailBlock}>
+          <div className={styles.detailLabel}>{blocks.methodology.title}</div>
+          <p className={styles.prose}>{blocks.methodology.summary}</p>
+          {blocks.methodology.components.length > 0 && (
+            <ul className={styles.prose} style={{ paddingLeft: 18, margin: 0 }}>
+              {blocks.methodology.components.map((row, idx) => (
+                <li key={idx}>{row}</li>
+              ))}
+            </ul>
+          )}
+          <div className={styles.detailLabel}>{blocks.cohort.title}</div>
+          <p className={styles.prose}>
+            {blocks.cohort.sport} · {blocks.cohort.position_group} · {blocks.cohort.conference ?? 'n/a'}
+            {blocks.cohort.conference_tier ? ` (${blocks.cohort.conference_tier})` : ''}
+            {'\n'}n={blocks.cohort.size} · window={blocks.cohort.window_days}d · season={blocks.cohort.season_state ?? 'n/a'} · fallback_step={blocks.cohort.fallback_step}
+          </p>
+          <div className={styles.detailLabel}>{blocks.comparables.title}</div>
+          <p className={styles.prose}>
+            state={blocks.comparables.state}
+            {blocks.comparables.computed_at ? ` · computed_at=${blocks.comparables.computed_at}` : ''}
+          </p>
+          <div className={styles.detailLabel}>{blocks.provenance.title}</div>
+          <p className={styles.prose}>
+            report_id={blocks.provenance.report_id} · tier_version={blocks.provenance.tier_version} · rollout_phase={blocks.provenance.rollout_phase}
+            {'\n'}exposure_formula_version={blocks.provenance.exposure_formula_version}
+            {blocks.provenance.model_version
+              ? ` · model_version=${blocks.provenance.model_version} (${blocks.provenance.model_status ?? 'production'})`
+              : ''}
+          </p>
+          <div className={styles.detailLabel}>{blocks.shap_attribution.title}</div>
+          {blocks.shap_attribution.narrative && (
+            <p className={styles.prose}>{blocks.shap_attribution.narrative}</p>
+          )}
+          {blocks.shap_attribution.rows.length > 0 && (
+            <table className={styles.dataTable}>
+              <thead>
+                <tr>
+                  <th>Feature</th>
+                  <th>Contribution</th>
+                </tr>
+              </thead>
+              <tbody>
+                {blocks.shap_attribution.rows.map((row) => (
+                  <tr key={row.feature}>
+                    <td>{row.feature}</td>
+                    <td>{row.contribution.toFixed(3)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : (
+        <div className={styles.detailBlock}>
+          <div className={styles.detailLabel}>SHAP Attribution</div>
+          <p className={styles.prose}>{detail.shap_attribution}</p>
+          <div className={styles.detailLabel}>Methodology</div>
+          <p className={styles.prose}>{detail.methodology}</p>
+          <div className={styles.detailLabel}>Inputs</div>
+          <p className={styles.prose}>{detail.inputs}</p>
+          <div className={styles.detailLabel}>Provenance</div>
+          <p className={styles.prose}>
+            tier_version={metadata.tier_version} · cohort_window_days={metadata.cohort_window_days_used} · season_state={metadata.season_state}
+            {'\n'}cohort_size={metadata.cohort_size} · fallback_step={metadata.cohort_fallback_step} · comparable_state={metadata.comparable_state}
+            {'\n'}comparable_sets_computed_at={metadata.comparable_sets_computed_at ?? 'n/a'} · exposure_formula_version={metadata.exposure_formula_version}
+          </p>
+        </div>
+      )}
     </details>
   )
 }

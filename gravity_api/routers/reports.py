@@ -1,17 +1,34 @@
 """Deal valuation reports, CSC JSON, brand match."""
 
 import json
+import logging
 import uuid
 from typing import Any, Dict, List, Literal, Optional
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from gravity_api.auth_deps import optional_user_id, require_user_id
+from gravity_api.config import get_settings
 from gravity_api.database import get_db
 from gravity_api.services.brand_match import BrandMatchBriefData, run_brand_match
 from gravity_api.services.csc_report_builder import build_csc_report_json
+from gravity_api.services.csc_report_validator import validate_report
+from gravity_api.services.team_conferences import ConferenceNotMappedError
+
+logger = logging.getLogger(__name__)
+
+
+def _admin_override_active(
+    admin_key: str | None,
+) -> bool:
+    """Whether the caller presented the internal admin key for fallback override."""
+    settings = get_settings()
+    expected = (settings.internal_api_key or "").strip()
+    if not expected:
+        return False
+    return bool(admin_key and admin_key.strip() == expected)
 
 router = APIRouter()
 
@@ -45,6 +62,8 @@ async def create_report(
     body: CreateReportBody,
     db: asyncpg.Connection = Depends(get_db),
     user_id: uuid.UUID = Depends(require_user_id),
+    allow_fallback: bool = Query(False),
+    x_gravity_admin_key: str | None = Header(default=None, alias="X-Gravity-Admin-Key"),
 ):
     """Create a deal valuation report row tied to the authenticated user.
 
@@ -70,8 +89,24 @@ async def create_report(
             body.parameters,
             user_id=str(user_id),
         )
+    except ConferenceNotMappedError as e:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Athlete's team is missing conference mapping; cannot generate report ({e.team_id})",
+        ) from e
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+
+    metadata = report_json.get("metadata") if isinstance(report_json, dict) else None
+    if isinstance(metadata, dict) and metadata.get("model_status") == "fallback":
+        if not (allow_fallback and _admin_override_active(x_gravity_admin_key)):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Fallback scorer active; refusing to persist binding report. "
+                    "Contact admin to override."
+                ),
+            )
 
     report_uuid = str(uuid.uuid4())
     row = await db.fetchrow(
@@ -180,10 +215,65 @@ class CscConfidenceRiskOut(BaseModel):
     risk_note: str
 
 
+class CscMethodologyBlock(BaseModel):
+    title: str = "Methodology"
+    summary: str
+    components: List[str] = Field(default_factory=list)
+    tier_methodology_version: str | None = None
+
+
+class CscCohortBlock(BaseModel):
+    title: str = "Cohort"
+    sport: str
+    position_group: str
+    conference: str | None = None
+    conference_tier: str | None = None
+    size: int = 0
+    window_days: int = 0
+    season_state: str | None = None
+    fallback_step: int = 0
+
+
+class CscComparablesBlock(BaseModel):
+    title: str = "Comparables"
+    state: Literal["sufficient", "sparse", "none"]
+    computed_at: str | None = None
+
+
+class CscProvenanceBlock(BaseModel):
+    title: str = "Provenance"
+    report_id: str
+    rollout_phase: str
+    tier_version: str
+    exposure_formula_version: str
+    model_version: str | None = None
+    model_status: Literal["production", "fallback"] | None = None
+
+
+class CscShapRow(BaseModel):
+    feature: str
+    contribution: float
+
+
+class CscShapTable(BaseModel):
+    title: str = "SHAP Attribution"
+    rows: List[CscShapRow] = Field(default_factory=list)
+    narrative: str | None = None
+
+
+class CscDetailBlocks(BaseModel):
+    methodology: CscMethodologyBlock
+    cohort: CscCohortBlock
+    comparables: CscComparablesBlock
+    provenance: CscProvenanceBlock
+    shap_attribution: CscShapTable
+
+
 class CscDetailOut(BaseModel):
     shap_attribution: str
     methodology: str
     inputs: str
+    blocks: CscDetailBlocks | None = None
 
 
 class CscReportOut(BaseModel):
@@ -200,7 +290,7 @@ class CscReportOut(BaseModel):
         cohort_window_days_used: int
         season_state: str
         cohort_size: int
-        cohort_fallback_step: Literal[0, 1, 2, 3]
+        cohort_fallback_step: Literal[0, 1, 2, 3, 4]
         comparable_state: Literal["sufficient", "sparse", "none"]
         comparable_sets_computed_at: str | None = None
         exposure_formula_version: str
@@ -208,6 +298,16 @@ class CscReportOut(BaseModel):
         rollout_phase: str
         low_cohort_data: bool
         athlete_benchmark_percentile_in_cohort: float | None = None
+        conference: str | None = None
+        conference_tier: Literal["power_5", "group_of_5", "fcs", "mid_major", "other"] | None = None
+        # CSC v3 fields (populated incrementally during rollout).
+        model_status: Literal["production", "fallback"] | None = None
+        model_version: str | None = None
+        cohort_fit: Literal["good", "edge", "poor"] | None = None
+        range_quality: Literal["normal", "wide"] | None = None
+        report_id: str | None = None
+        report_version: Literal["v2", "v3"] | None = None
+        report_rollout_phase: str | None = None
 
     metadata: CscMetadataOut
 
@@ -242,6 +342,14 @@ async def post_csc_report(
     body: Dict[str, Any],
     db: asyncpg.Connection = Depends(get_db),
     user_id: uuid.UUID | None = Depends(optional_user_id),
+    allow_fallback: bool = Query(
+        False,
+        description=(
+            "Admin override: when true and the caller presents the internal admin key, "
+            "the report will be returned even if the scorer is on a fallback model."
+        ),
+    ),
+    x_gravity_admin_key: str | None = Header(default=None, alias="X-Gravity-Admin-Key"),
 ):
     athlete_id = body.get("athlete_id")
     if not athlete_id:
@@ -254,6 +362,48 @@ async def post_csc_report(
             params,
             user_id=str(user_id) if user_id else None,
         )
+    except ConferenceNotMappedError as e:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Athlete's team is missing conference mapping; cannot generate report "
+                f"({e.team_id})"
+            ),
+        ) from e
     except ValueError:
         raise HTTPException(status_code=404, detail="Athlete not found") from None
+
+    # Per-report fallback enforcement. A fallback model means the report
+    # cannot be used for binding deal decisions; default behavior is 503
+    # unless an admin override is presented.
+    metadata = report.get("metadata") if isinstance(report, dict) else None
+    if isinstance(metadata, dict) and metadata.get("model_status") == "fallback":
+        if not (allow_fallback and _admin_override_active(x_gravity_admin_key)):
+            logger.warning(
+                "CSC report blocked: athlete=%s model_version=%s",
+                athlete_id,
+                metadata.get("model_version"),
+            )
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Fallback scorer active; refusing to issue binding report. "
+                    "Contact admin to override."
+                ),
+            )
+
+    # Final acceptance-criteria sweep. Any structural violation surfaces a
+    # 500 to the caller with a generic message; the full error list is
+    # logged so ops can diagnose.
+    validation_errors = validate_report(report)
+    if validation_errors:
+        logger.error(
+            "CSC report failed output validation: athlete=%s errors=%s",
+            athlete_id,
+            [(e.code, e.message) for e in validation_errors],
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Report failed internal validation; please retry or contact support.",
+        )
     return report

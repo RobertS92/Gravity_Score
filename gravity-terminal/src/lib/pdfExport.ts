@@ -5,6 +5,7 @@
 import type { AthleteRecord, ComparableRecord } from '../types/athlete'
 import type { CscReportJson } from '../types/reports'
 import { formatComparableConfidence, normalizeComparableRows } from './cscComparables'
+import { conferenceTierDisplayLabel, shouldSuppressPercentile } from './cscReportTags'
 import { formatNilValue, formatNilRangeAligned, formatScore } from './formatters'
 
 function nilFmt(v: number | null | undefined) {
@@ -79,17 +80,36 @@ export async function downloadCscPdf(
     y += 2
     line('NIL COMMERCIAL INTELLIGENCE — CSC REPORT', 8, false, '#6e7681')
     line(`Generated: ${new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })} ET`, 8, false, '#6e7681')
+    const reportIdHeader = report?.metadata?.report_id
+    if (reportIdHeader) {
+      line(`Report ID: ${reportIdHeader}`, 8, false, '#8b949e')
+    }
     y += 8
     rule()
+
+    // ── Fallback model banner (if applicable) ────────────────────────────────
+    if (report?.metadata?.model_status === 'fallback') {
+      const versionSuffix = report.metadata.model_version ? ` (${report.metadata.model_version})` : ''
+      writeWrapped(
+        `FALLBACK SCORER ACTIVE${versionSuffix}. This report is informational only and must not be used for binding decisions.`,
+        9,
+        '#f85149',
+        13,
+      )
+      y += 4
+      rule()
+    }
 
     // ── Athlete identity ──────────────────────────────────────────────────────
     line(athlete.name.toUpperCase(), 16, true, '#e6edf3')
     y += 2
+    const conferenceTierLabelText = conferenceTierDisplayLabel(report?.metadata?.conference_tier)
     const meta = [
       athlete.position,
       athlete.school,
       athlete.class_year,
       athlete.conference,
+      conferenceTierLabelText,
     ].filter(Boolean).join(' · ')
     line(meta, 9, false, '#8b949e')
     y += 4
@@ -103,8 +123,12 @@ export async function downloadCscPdf(
     const rangeHigh = value?.range_high ?? athlete.dollar_p90_usd ?? athlete.nil_range_high
     line(nilFmt(benchmark), 30, true, '#d29922')
     line(formatNilRangeAligned(benchmark, rangeLow, rangeHigh), 10, false, '#8b949e')
-    if (value?.tier_tag || value?.confidence_tag) {
-      line(`TAGS: ${[value?.tier_tag, value?.confidence_tag].filter(Boolean).join(' · ')}`, 8, false, '#6e7681')
+    const tagBits: string[] = []
+    if (value?.tier_tag) tagBits.push(value.tier_tag)
+    if (value?.confidence_tag) tagBits.push(value.confidence_tag)
+    if (conferenceTierLabelText) tagBits.push(conferenceTierLabelText)
+    if (tagBits.length) {
+      line(`TAGS: ${tagBits.join(' · ')}`, 8, false, '#6e7681')
     }
     y += 4
 
@@ -146,7 +170,16 @@ export async function downloadCscPdf(
     if (report?.validation?.market_context) {
       rule()
       line('MARKET & COMPARABLE ANALYSIS', 9, true, '#6e7681')
-      writeWrapped(report.validation.market_context, 8, '#8b949e', 12)
+      if (shouldSuppressPercentile(report.metadata?.cohort_fit)) {
+        writeWrapped(
+          `${athlete.name}'s benchmark exceeds the peer cohort distribution; reference the positional peer range below in lieu of percentile.`,
+          8,
+          '#8b949e',
+          12,
+        )
+      } else {
+        writeWrapped(report.validation.market_context, 8, '#8b949e', 12)
+      }
       if (report.validation.comparable_tier) {
         writeWrapped(report.validation.comparable_tier, 8, '#8b949e', 12)
       }
@@ -212,29 +245,124 @@ export async function downloadCscPdf(
     // ── Detail appendix ───────────────────────────────────────────────────────
     rule()
     line('MODEL DETAILS (APPENDIX)', 9, true, '#6e7681')
-    const shapText = report?.detail?.shap_attribution
-    const methodology = report?.detail?.methodology
-    const inputs = report?.detail?.inputs
-    if (shapText) writeWrapped(`SHAP: ${shapText}`, 8, '#6e7681', 12)
-    if (methodology) writeWrapped(`Methodology: ${methodology}`, 8, '#6e7681', 12)
-    if (inputs) writeWrapped(`Inputs: ${inputs}`, 8, '#6e7681', 12)
-    if (report?.metadata) {
-      writeWrapped(
-        `Provenance: tier_version=${report.metadata.tier_version}, cohort_window_days=${report.metadata.cohort_window_days_used}, ` +
-          `season_state=${report.metadata.season_state}, cohort_size=${report.metadata.cohort_size}, ` +
-          `cohort_fallback_step=${report.metadata.cohort_fallback_step}, comparable_state=${report.metadata.comparable_state}, ` +
-          `comparable_sets_computed_at=${report.metadata.comparable_sets_computed_at ?? 'n/a'}, ` +
-          `exposure_formula_version=${report.metadata.exposure_formula_version}.`,
-        8,
-        '#6e7681',
-        12,
-      )
+    const blocks = report?.detail?.blocks
+    if (blocks) {
+      // Methodology
+      if (blocks.methodology) {
+        line(blocks.methodology.title || 'Methodology', 9, true, '#c9d1d9')
+        if (blocks.methodology.summary) {
+          writeWrapped(blocks.methodology.summary, 8, '#8b949e', 12)
+        }
+        for (const c of blocks.methodology.components ?? []) {
+          writeWrapped(`• ${c}`, 8, '#8b949e', 12)
+        }
+        if (blocks.methodology.tier_methodology_version) {
+          writeWrapped(
+            `Tier methodology: ${blocks.methodology.tier_methodology_version}`,
+            8,
+            '#6e7681',
+            12,
+          )
+        }
+        y += 4
+      }
+      // Cohort
+      if (blocks.cohort) {
+        line(blocks.cohort.title || 'Cohort', 9, true, '#c9d1d9')
+        const cohortBits = [
+          blocks.cohort.sport,
+          blocks.cohort.position_group,
+          blocks.cohort.conference,
+          blocks.cohort.conference_tier ? conferenceTierDisplayLabel(blocks.cohort.conference_tier) : null,
+        ].filter(Boolean) as string[]
+        if (cohortBits.length) {
+          writeWrapped(cohortBits.join(' · '), 8, '#8b949e', 12)
+        }
+        const cohortStats = [
+          blocks.cohort.size != null ? `n=${blocks.cohort.size}` : null,
+          blocks.cohort.window_days != null ? `window=${blocks.cohort.window_days}d` : null,
+          blocks.cohort.season_state ? `season=${blocks.cohort.season_state}` : null,
+          blocks.cohort.fallback_step != null ? `fallback_step=${blocks.cohort.fallback_step}` : null,
+        ].filter(Boolean) as string[]
+        if (cohortStats.length) {
+          writeWrapped(cohortStats.join(' · '), 8, '#6e7681', 12)
+        }
+        y += 4
+      }
+      // Comparables
+      if (blocks.comparables) {
+        line(blocks.comparables.title || 'Comparables', 9, true, '#c9d1d9')
+        const compBits = [
+          blocks.comparables.state ? `state=${blocks.comparables.state}` : null,
+          blocks.comparables.computed_at ? `computed_at=${blocks.comparables.computed_at}` : null,
+        ].filter(Boolean) as string[]
+        if (compBits.length) writeWrapped(compBits.join(' · '), 8, '#8b949e', 12)
+        y += 4
+      }
+      // Provenance
+      if (blocks.provenance) {
+        line(blocks.provenance.title || 'Provenance', 9, true, '#c9d1d9')
+        const provBits = [
+          blocks.provenance.report_id ? `report_id=${blocks.provenance.report_id}` : null,
+          blocks.provenance.rollout_phase ? `rollout_phase=${blocks.provenance.rollout_phase}` : null,
+          blocks.provenance.tier_version ? `tier_version=${blocks.provenance.tier_version}` : null,
+          blocks.provenance.exposure_formula_version
+            ? `exposure_formula=${blocks.provenance.exposure_formula_version}`
+            : null,
+          blocks.provenance.model_version ? `model=${blocks.provenance.model_version}` : null,
+          blocks.provenance.model_status ? `model_status=${blocks.provenance.model_status}` : null,
+        ].filter(Boolean) as string[]
+        if (provBits.length) writeWrapped(provBits.join(' · '), 8, '#6e7681', 12)
+        y += 4
+      }
+      // SHAP attribution
+      const shap = blocks.shap_attribution
+      if (shap) {
+        if (typeof shap === 'string') {
+          line('SHAP Attribution', 9, true, '#c9d1d9')
+          writeWrapped(shap, 8, '#8b949e', 12)
+        } else {
+          line(shap.title || 'SHAP Attribution', 9, true, '#c9d1d9')
+          if (shap.narrative) {
+            writeWrapped(shap.narrative, 8, '#8b949e', 12)
+          }
+          for (const row of shap.rows ?? []) {
+            writeWrapped(
+              `${row.feature}: ${row.contribution.toFixed(2)}`,
+              8,
+              '#6e7681',
+              12,
+            )
+          }
+        }
+      }
+    } else {
+      const shapText = report?.detail?.shap_attribution
+      const methodology = report?.detail?.methodology
+      const inputs = report?.detail?.inputs
+      if (shapText) writeWrapped(`SHAP: ${shapText}`, 8, '#6e7681', 12)
+      if (methodology) writeWrapped(`Methodology: ${methodology}`, 8, '#6e7681', 12)
+      if (inputs) writeWrapped(`Inputs: ${inputs}`, 8, '#6e7681', 12)
+      if (report?.metadata) {
+        writeWrapped(
+          `Provenance: tier_version=${report.metadata.tier_version}, cohort_window_days=${report.metadata.cohort_window_days_used}, ` +
+            `season_state=${report.metadata.season_state}, cohort_size=${report.metadata.cohort_size}, ` +
+            `cohort_fallback_step=${report.metadata.cohort_fallback_step}, comparable_state=${report.metadata.comparable_state}, ` +
+            `comparable_sets_computed_at=${report.metadata.comparable_sets_computed_at ?? 'n/a'}, ` +
+            `exposure_formula_version=${report.metadata.exposure_formula_version}.`,
+          8,
+          '#6e7681',
+          12,
+        )
+      }
     }
     y += 8
 
     line(
-      'DISCLAIMER: This report contains commercial intelligence data, not legal or financial advice. ' +
-        'Gravity is not liable for decisions made based on this data.',
+      'DISCLAIMER: This is a commercial intelligence estimate used to inform NIL valuation discussions; it ' +
+        'is not legal, tax, or financial advice. Final NIL agreement terms remain subject to House v. NCAA ' +
+        'settlement compliance review and the College Sports Commission (CSC) Deal Approval process. ' +
+        "Gravity Score is not the deal counterparty and is not liable for decisions made from this report's outputs.",
       8,
       false,
       '#484f58',

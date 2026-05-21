@@ -289,6 +289,67 @@
   background: var(--bg-primary);
 }
 
+/* CSC v3 tier / confidence / Power-tier chip color tokens. */
+
+.tagTop {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+
+.tagMid {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+.tagDeveloping {
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+}
+
+.tagEmerging {
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+}
+
+.tagConfHigh {
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+}
+
+.tagConfMod {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+
+.tagConfLow {
+  color: var(--accent-red, #ef5b5b);
+  border-color: var(--accent-red, #ef5b5b);
+}
+
+.tagPower4,
+.tagPower5 {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+
+.tagPowerOther {
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+}
+
+/* Fallback banner displayed when metadata.model_status === 'fallback'. */
+.fallbackBanner {
+  border: 1px solid var(--accent-red, #ef5b5b);
+  background: rgba(239, 91, 91, 0.08);
+  color: var(--accent-red, #ef5b5b);
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 2px;
+}
+
 .detailBlock {
   margin-top: 8px;
 }
