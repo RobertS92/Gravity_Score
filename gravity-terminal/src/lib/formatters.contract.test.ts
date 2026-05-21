@@ -3,8 +3,8 @@ import { formatNilRange, formatNilValue } from './formatters'
 
 describe('formatNilValue', () => {
   it('formats sub-million values as thousands', () => {
-    expect(formatNilValue(17_900)).toBe('$18K')
-    expect(formatNilValue(999_400)).toBe('$999K')
+    expect(formatNilValue(17_900)).toBe('$17.9K')
+    expect(formatNilValue(999_400)).toBe('$999.4K')
   })
 
   it('formats million-plus values as M notation', () => {
@@ -12,7 +12,7 @@ describe('formatNilValue', () => {
   })
 
   it('formats ranges with consistent K/M policy', () => {
-    expect(formatNilRange(35_000, 1_200_000)).toBe('RANGE: $35K – $1.2M')
+    expect(formatNilRange(35_000, 1_200_000)).toBe('RANGE: $35.0K – $1.2M')
   })
 })
 import { formatInteger, formatNilMillions, formatPercent1, formatScore, formatSignedMoneyDelta } from './formatters'

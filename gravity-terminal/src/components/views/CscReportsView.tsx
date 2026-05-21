@@ -7,6 +7,7 @@ import type {
   CscDetailSection,
   CscExplanationSection,
   CscKeyValueDriver,
+  CscReportMetadata,
   CscReportComparablesRow,
   CscReportJson,
   CscValidationSection,
@@ -19,7 +20,7 @@ import {
   normalizeComparableRows,
   withLegacyOption,
 } from '../../lib/cscComparables'
-import { formatNilValue, formatScore } from '../../lib/formatters'
+import { formatNilRangeAligned, formatNilValue, formatNilValueInUnit, selectNilDisplayUnit, formatScore } from '../../lib/formatters'
 import { downloadCscPdf } from '../../lib/pdfExport'
 import { useAthleteStore } from '../../stores/athleteStore'
 import { useUiStore } from '../../stores/uiStore'
@@ -111,6 +112,8 @@ function buildFallbackReport(
       comparable_tier: `Comparable athletes with similar role and signal profile.`,
       example_comparables: rows.slice(0, 5),
       takeaway: `${subject}'s benchmark sits within the current comparable market envelope and should be used as a planning reference, not a single-point guarantee.`,
+      comparable_state: rows.length >= 3 ? 'sufficient' : rows.length >= 1 ? 'sparse' : 'none',
+      positional_reference_athletes: rows.length === 0 ? [] : [],
     },
     confidence_risk: {
       confidence_level: confidenceLevel,
@@ -122,6 +125,22 @@ function buildFallbackReport(
       shap_attribution: 'SHAP attribution pending latest explainable model output.',
       methodology: 'Comparable-weighted NIL banding with Gravity score components and verified market observations.',
       inputs: 'Inputs include sport, position, comparables set, confidence threshold, and current score components.',
+    },
+    metadata: {
+      tier_version: 'tier_v1',
+      tier_v1: 'Developing',
+      tier_v2: 'Developing',
+      cohort_window_days_used: 21,
+      season_state: 'unknown',
+      cohort_size: rows.length,
+      cohort_fallback_step: 3,
+      comparable_state: rows.length >= 3 ? 'sufficient' : rows.length >= 1 ? 'sparse' : 'none',
+      comparable_sets_computed_at: null,
+      exposure_formula_version: 'exposure_formula_v1',
+      exposure_formula_weights: { proximity_weight: 0.6, velocity_weight: 0.4 },
+      rollout_phase: 'phase1',
+      low_cohort_data: true,
+      athlete_benchmark_percentile_in_cohort: null,
     },
     executive_summary: '',
     gravity_score_table: '',
@@ -171,6 +190,9 @@ function normalizeReport(
     comparable_tier: withDefaultText(report.validation?.comparable_tier, fallback.validation.comparable_tier),
     example_comparables: validationRows,
     takeaway: withDefaultText(report.validation?.takeaway, fallback.validation.takeaway),
+    comparable_state: report.validation?.comparable_state ?? fallback.validation.comparable_state,
+    positional_reference_athletes:
+      report.validation?.positional_reference_athletes ?? fallback.validation.positional_reference_athletes,
   }
   const confidenceRisk: CscConfidenceRiskSection = {
     confidence_level: report.confidence_risk?.confidence_level ?? fallback.confidence_risk.confidence_level,
@@ -183,12 +205,30 @@ function normalizeReport(
     methodology: withDefaultText(report.detail?.methodology, legacyMethod),
     inputs: withDefaultText(report.detail?.inputs, fallback.detail.inputs),
   }
+  const metadata: CscReportMetadata = {
+    tier_version: report.metadata?.tier_version ?? fallback.metadata.tier_version,
+    tier_v1: report.metadata?.tier_v1 ?? fallback.metadata.tier_v1,
+    tier_v2: report.metadata?.tier_v2 ?? fallback.metadata.tier_v2,
+    cohort_window_days_used: report.metadata?.cohort_window_days_used ?? fallback.metadata.cohort_window_days_used,
+    season_state: report.metadata?.season_state ?? fallback.metadata.season_state,
+    cohort_size: report.metadata?.cohort_size ?? fallback.metadata.cohort_size,
+    cohort_fallback_step: report.metadata?.cohort_fallback_step ?? fallback.metadata.cohort_fallback_step,
+    comparable_state: report.metadata?.comparable_state ?? fallback.metadata.comparable_state,
+    comparable_sets_computed_at: report.metadata?.comparable_sets_computed_at ?? null,
+    exposure_formula_version: report.metadata?.exposure_formula_version ?? fallback.metadata.exposure_formula_version,
+    exposure_formula_weights: report.metadata?.exposure_formula_weights ?? fallback.metadata.exposure_formula_weights,
+    rollout_phase: report.metadata?.rollout_phase ?? fallback.metadata.rollout_phase,
+    low_cohort_data: report.metadata?.low_cohort_data ?? fallback.metadata.low_cohort_data,
+    athlete_benchmark_percentile_in_cohort:
+      report.metadata?.athlete_benchmark_percentile_in_cohort ?? fallback.metadata.athlete_benchmark_percentile_in_cohort,
+  }
   return {
     value,
     explanation,
     validation,
     confidence_risk: confidenceRisk,
     detail,
+    metadata,
     executive_summary: report.executive_summary,
     gravity_score_table: report.gravity_score_table,
     comparables_analysis: report.comparables_analysis,
@@ -373,7 +413,7 @@ export function CscReportsView() {
               ...report,
               validation: { ...report.validation, example_comparables: rows },
             })} confidenceRisk={report.confidence_risk} />
-            <DetailSection detail={report.detail} />
+            <DetailSection detail={report.detail} metadata={report.metadata} />
           </>
         )}
       </div>
@@ -558,17 +598,20 @@ function ValueSection({
   plotPct: number
   athleteName: string
 }) {
+  const rangeText = formatNilRangeAligned(value.total_benchmark, value.range_low, value.range_high)
+  const unit = selectNilDisplayUnit(value.total_benchmark)
   return (
     <div className={styles.section}>
       <div className={styles.sectionTitle}>Total NIL Value Benchmark</div>
       <div className={styles.valueHero}>{formatNilValue(value.total_benchmark)}</div>
       <div className={styles.bandLabels}>
-        <span>{formatNilValue(value.range_low)}</span>
-        <span>{formatNilValue(value.range_high)}</span>
+        <span>{formatNilValueInUnit(value.range_low, unit)}</span>
+        <span>{formatNilValueInUnit(value.range_high, unit)}</span>
       </div>
       <div className={styles.bandTrack}>
         <div className={styles.bandMarker} style={{ left: `${plotPct}%` }} title={athleteName} />
       </div>
+      <p className={styles.subMuted}>{rangeText}</p>
       <div className={styles.tagRow}>
         {value.tier_tag && <span className={styles.tagChip}>{value.tier_tag}</span>}
         {value.confidence_tag && <span className={styles.tagChip}>{value.confidence_tag}</span>}
@@ -607,13 +650,43 @@ function ValidationSection({
   confidenceRisk: CscConfidenceRiskSection
 }) {
   const list = validation.example_comparables ?? []
+  const positionalReferences = validation.positional_reference_athletes ?? []
   if (list.length === 0) {
     return (
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Market & Comparable Analysis</div>
         <p className={styles.prose}>{validation.market_context}</p>
         <p className={styles.prose}>{validation.comparable_tier}</p>
-        <div className={styles.muted}>No direct comparables available.</div>
+        <div className={styles.muted}>
+          {validation.comparable_state === 'none'
+            ? 'Direct comparables unavailable.'
+            : 'No direct comparables available.'}
+        </div>
+        {positionalReferences.length > 0 && (
+          <div className={styles.tableScroll}>
+            <table className={styles.dataTable}>
+              <thead>
+                <tr>
+                  <th>Positional Reference Athletes</th>
+                  <th>GS</th>
+                  <th>NIL est.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {positionalReferences.map((r) => (
+                  <tr key={r.athlete_id}>
+                    <td>
+                      <div>{r.name}</div>
+                      <div className={styles.subMuted}>{r.school ?? '\u2014'}</div>
+                    </td>
+                    <td>{formatScore(r.gravity_score ?? null)}</td>
+                    <td className={styles.amber}>{formatNilValue(r.nil_valuation_consensus)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         <div className={styles.subSectionTitle}>Confidence & Risk</div>
         <div className={styles.driverRow}>
           <span className={styles.driverLabel}>Confidence</span>
@@ -635,6 +708,9 @@ function ValidationSection({
       <div className={styles.sectionTitle}>Market & Comparable Analysis</div>
       <p className={styles.prose}>{validation.market_context}</p>
       <p className={styles.prose}>{validation.comparable_tier}</p>
+      {validation.comparable_state === 'sparse' && (
+        <div className={styles.subSectionTitle}>Sparse Comparables</div>
+      )}
       <div className={styles.tableScroll}>
         <table className={styles.dataTable}>
           <thead>
@@ -731,7 +807,7 @@ function ValidationSection({
   )
 }
 
-function DetailSection({ detail }: { detail: CscDetailSection }) {
+function DetailSection({ detail, metadata }: { detail: CscDetailSection; metadata: CscReportMetadata }) {
   return (
     <details className={styles.section}>
       <summary className={styles.sectionTitle}>Model Details</summary>
@@ -742,6 +818,12 @@ function DetailSection({ detail }: { detail: CscDetailSection }) {
         <p className={styles.prose}>{detail.methodology}</p>
         <div className={styles.detailLabel}>Inputs</div>
         <p className={styles.prose}>{detail.inputs}</p>
+        <div className={styles.detailLabel}>Provenance</div>
+        <p className={styles.prose}>
+          tier_version={metadata.tier_version} · cohort_window_days={metadata.cohort_window_days_used} · season_state={metadata.season_state}
+          {'\n'}cohort_size={metadata.cohort_size} · fallback_step={metadata.cohort_fallback_step} · comparable_state={metadata.comparable_state}
+          {'\n'}comparable_sets_computed_at={metadata.comparable_sets_computed_at ?? 'n/a'} · exposure_formula_version={metadata.exposure_formula_version}
+        </p>
       </div>
     </details>
   )

@@ -59,6 +59,8 @@ def test_csc_report_keys_minimal():
             "comparable_tier": "t",
             "example_comparables": [],
             "takeaway": "k",
+            "comparable_state": "sufficient",
+            "positional_reference_athletes": [],
         },
         "confidence_risk": {
             "confidence_level": "Moderate",
@@ -71,6 +73,22 @@ def test_csc_report_keys_minimal():
             "methodology": "m",
             "inputs": "i",
         },
+        "metadata": {
+            "tier_version": "tier_v1",
+            "tier_v1": "Mid-tier",
+            "tier_v2": "Mid-tier",
+            "cohort_window_days_used": 21,
+            "season_state": "in_season",
+            "cohort_size": 24,
+            "cohort_fallback_step": 0,
+            "comparable_state": "sufficient",
+            "comparable_sets_computed_at": "2026-05-20T00:00:00Z",
+            "exposure_formula_version": "exposure_formula_v1",
+            "exposure_formula_weights": {"proximity_weight": 0.6, "velocity_weight": 0.4},
+            "rollout_phase": "phase1",
+            "low_cohort_data": False,
+            "athlete_benchmark_percentile_in_cohort": 55.0,
+        },
     }
     required = set(sample.keys())
     assert required == {
@@ -79,6 +97,7 @@ def test_csc_report_keys_minimal():
         "validation",
         "confidence_risk",
         "detail",
+        "metadata",
     }
     assert sample["confidence_risk"]["confidence_level"] in {"High", "Moderate", "Low"}
     assert sample["confidence_risk"]["risk_level"] in {"High", "Moderate", "Low"}

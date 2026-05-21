@@ -52,6 +52,22 @@ def position_aliases_for_group(position_group: str) -> list[str]:
     return _POSITION_GROUP_ABBREVS.get(key, [key])
 
 
+def derive_position_group(position: str | None) -> str | None:
+    """Best-effort canonical group from raw position token(s)."""
+    if not position:
+        return None
+    token = position.strip().upper()
+    if not token:
+        return None
+    candidates = {part.strip() for part in token.split("/") if part.strip()}
+    candidates.add(token)
+    for group, aliases in _POSITION_GROUP_ABBREVS.items():
+        alias_set = set(aliases)
+        if candidates.intersection(alias_set):
+            return group
+    return token
+
+
 def position_group_sql_predicate(
     position_group: str,
     idx: int,

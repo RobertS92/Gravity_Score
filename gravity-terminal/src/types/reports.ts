@@ -33,6 +33,8 @@ export interface CscValidationSection {
   comparable_tier: string
   example_comparables: CscReportComparablesRow[]
   takeaway: string
+  comparable_state: 'sufficient' | 'sparse' | 'none'
+  positional_reference_athletes: CscReportComparablesRow[]
 }
 
 export interface CscConfidenceRiskSection {
@@ -48,12 +50,33 @@ export interface CscDetailSection {
   inputs: string
 }
 
+export interface CscReportMetadata {
+  tier_version: 'tier_v1' | 'tier_v2'
+  tier_v1: string
+  tier_v2: string
+  cohort_window_days_used: number
+  season_state: string
+  cohort_size: number
+  cohort_fallback_step: 0 | 1 | 2 | 3
+  comparable_state: 'sufficient' | 'sparse' | 'none'
+  comparable_sets_computed_at?: string | null
+  exposure_formula_version: string
+  exposure_formula_weights: {
+    proximity_weight: number
+    velocity_weight: number
+  }
+  rollout_phase: string
+  low_cohort_data: boolean
+  athlete_benchmark_percentile_in_cohort?: number | null
+}
+
 export interface CscReportJson {
   value: CscValueSection
   explanation: CscExplanationSection
   validation: CscValidationSection
   confidence_risk: CscConfidenceRiskSection
   detail: CscDetailSection
+  metadata: CscReportMetadata
   /** Legacy fields accepted during backend rollout; prefer sectioned fields above. */
   executive_summary?: string
   gravity_score_table?: string

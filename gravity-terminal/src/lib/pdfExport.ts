@@ -5,7 +5,7 @@
 import type { AthleteRecord, ComparableRecord } from '../types/athlete'
 import type { CscReportJson } from '../types/reports'
 import { formatComparableConfidence, normalizeComparableRows } from './cscComparables'
-import { formatNilValue, formatNilRange, formatScore } from './formatters'
+import { formatNilValue, formatNilRangeAligned, formatScore } from './formatters'
 
 function nilFmt(v: number | null | undefined) {
   if (v == null) return '—'
@@ -102,7 +102,7 @@ export async function downloadCscPdf(
     const rangeLow = value?.range_low ?? athlete.dollar_p10_usd ?? athlete.nil_range_low
     const rangeHigh = value?.range_high ?? athlete.dollar_p90_usd ?? athlete.nil_range_high
     line(nilFmt(benchmark), 30, true, '#d29922')
-    line(formatNilRange(rangeLow, rangeHigh), 10, false, '#8b949e')
+    line(formatNilRangeAligned(benchmark, rangeLow, rangeHigh), 10, false, '#8b949e')
     if (value?.tier_tag || value?.confidence_tag) {
       line(`TAGS: ${[value?.tier_tag, value?.confidence_tag].filter(Boolean).join(' · ')}`, 8, false, '#6e7681')
     }
@@ -138,9 +138,11 @@ export async function downloadCscPdf(
     }
 
     // ── Validation: market + comparables + confidence/risk ───────────────────
-    const comparablesForExport = normalizeComparableRows(report?.validation?.example_comparables?.length
-      ? report.validation.example_comparables
-      : comparables)
+    const comparablesForExport = normalizeComparableRows(
+      report?.validation?.example_comparables?.length
+        ? report.validation.example_comparables
+        : comparables,
+    )
     if (report?.validation?.market_context) {
       rule()
       line('MARKET & COMPARABLE ANALYSIS', 9, true, '#6e7681')
@@ -149,7 +151,15 @@ export async function downloadCscPdf(
         writeWrapped(report.validation.comparable_tier, 8, '#8b949e', 12)
       }
     }
-    if (comparablesForExport.length) {
+    if (report?.validation?.comparable_state === 'none' && report.validation.positional_reference_athletes.length) {
+      rule()
+      line('POSITIONAL REFERENCE ATHLETES', 9, true, '#6e7681')
+      const refs = normalizeComparableRows(report.validation.positional_reference_athletes).slice(0, 3)
+      for (const c of refs) {
+        line(`${c.name} · ${c.school ?? ''} · ${scoreFmt(c.gravity_score)} · ${nilFmt(c.nil_valuation_consensus)}`, 8, false, '#c9d1d9')
+      }
+      y += 4
+    } else if (comparablesForExport.length) {
       rule()
       line('COMPARABLE ATHLETES', 9, true, '#6e7681')
       y += 4
@@ -208,6 +218,18 @@ export async function downloadCscPdf(
     if (shapText) writeWrapped(`SHAP: ${shapText}`, 8, '#6e7681', 12)
     if (methodology) writeWrapped(`Methodology: ${methodology}`, 8, '#6e7681', 12)
     if (inputs) writeWrapped(`Inputs: ${inputs}`, 8, '#6e7681', 12)
+    if (report?.metadata) {
+      writeWrapped(
+        `Provenance: tier_version=${report.metadata.tier_version}, cohort_window_days=${report.metadata.cohort_window_days_used}, ` +
+          `season_state=${report.metadata.season_state}, cohort_size=${report.metadata.cohort_size}, ` +
+          `cohort_fallback_step=${report.metadata.cohort_fallback_step}, comparable_state=${report.metadata.comparable_state}, ` +
+          `comparable_sets_computed_at=${report.metadata.comparable_sets_computed_at ?? 'n/a'}, ` +
+          `exposure_formula_version=${report.metadata.exposure_formula_version}.`,
+        8,
+        '#6e7681',
+        12,
+      )
+    }
     y += 8
 
     line(

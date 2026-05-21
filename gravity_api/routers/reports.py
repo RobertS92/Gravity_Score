@@ -8,7 +8,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from gravity_api.auth_deps import require_user_id
+from gravity_api.auth_deps import optional_user_id, require_user_id
 from gravity_api.database import get_db
 from gravity_api.services.brand_match import BrandMatchBriefData, run_brand_match
 from gravity_api.services.csc_report_builder import build_csc_report_json
@@ -64,7 +64,12 @@ async def create_report(
         raise HTTPException(status_code=404, detail="Athlete not found")
 
     try:
-        report_json = await build_csc_report_json(db, str(athlete_uuid), body.parameters)
+        report_json = await build_csc_report_json(
+            db,
+            str(athlete_uuid),
+            body.parameters,
+            user_id=str(user_id),
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
@@ -164,6 +169,8 @@ class CscValidationOut(BaseModel):
     comparable_tier: str
     example_comparables: List[CscComparableOut]
     takeaway: str
+    comparable_state: Literal["sufficient", "sparse", "none"]
+    positional_reference_athletes: List[CscComparableOut]
 
 
 class CscConfidenceRiskOut(BaseModel):
@@ -185,6 +192,24 @@ class CscReportOut(BaseModel):
     validation: CscValidationOut
     confidence_risk: CscConfidenceRiskOut
     detail: CscDetailOut
+
+    class CscMetadataOut(BaseModel):
+        tier_version: Literal["tier_v1", "tier_v2"]
+        tier_v1: str
+        tier_v2: str
+        cohort_window_days_used: int
+        season_state: str
+        cohort_size: int
+        cohort_fallback_step: Literal[0, 1, 2, 3]
+        comparable_state: Literal["sufficient", "sparse", "none"]
+        comparable_sets_computed_at: str | None = None
+        exposure_formula_version: str
+        exposure_formula_weights: Dict[str, float]
+        rollout_phase: str
+        low_cohort_data: bool
+        athlete_benchmark_percentile_in_cohort: float | None = None
+
+    metadata: CscMetadataOut
 
 
 @router.post("/brand-match")
@@ -216,13 +241,19 @@ async def brand_match(
 async def post_csc_report(
     body: Dict[str, Any],
     db: asyncpg.Connection = Depends(get_db),
+    user_id: uuid.UUID | None = Depends(optional_user_id),
 ):
     athlete_id = body.get("athlete_id")
     if not athlete_id:
         raise HTTPException(status_code=400, detail="athlete_id required")
     params = {k: v for k, v in body.items() if k != "athlete_id"}
     try:
-        report = await build_csc_report_json(db, str(athlete_id), params)
+        report = await build_csc_report_json(
+            db,
+            str(athlete_id),
+            params,
+            user_id=str(user_id) if user_id else None,
+        )
     except ValueError:
         raise HTTPException(status_code=404, detail="Athlete not found") from None
     return report
