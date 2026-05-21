@@ -1365,6 +1365,18 @@ async def build_csc_report_json(
             "cohort_window_days_used": (90 if cohort_fallback_step >= 2 else cohort_window_days),
             "season_state": season_state,
             "cohort_size": cohort_stats["size"],
+            "cohort_dollar_spread": (
+                (_first_number(cohort_stats.get("p90")) - _first_number(cohort_stats.get("p10")))
+                if cohort_stats.get("p10") is not None and cohort_stats.get("p90") is not None
+                else None
+            ),
+            "cohort_dollar_dispersion_low": (
+                cohort_stats.get("p50") is not None
+                and cohort_stats.get("p10") is not None
+                and cohort_stats.get("p90") is not None
+                and (_first_number(cohort_stats.get("p90")) - _first_number(cohort_stats.get("p10")))
+                < 0.05 * max(_first_number(cohort_stats.get("p50"), 1.0), 1.0)
+            ),
             "cohort_fallback_step": cohort_fallback_step,
             "comparable_state": comparable_state,
             "comparable_sets_computed_at": (

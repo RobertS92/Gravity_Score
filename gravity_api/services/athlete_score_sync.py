@@ -41,22 +41,47 @@ def program_row_to_team_raw(program: asyncpg.Record) -> Dict[str, Any]:
 def athlete_to_raw_data(
     athlete: asyncpg.Record,
     snap: Optional[asyncpg.Record],
+    *,
+    scraped_raw: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
-    row: Dict[str, Any] = {
+    """
+    Build ML raw_data for scoring.
+
+    Priority: latest scraper ``raw_athlete_data`` (richest), athlete-row NIL/recruiting,
+    then social snapshot overlay for follower counts.
+    """
+    row: Dict[str, Any] = dict(scraped_raw) if scraped_raw else {}
+
+    identity = {
         "sport": athlete["sport"],
         "player_name": athlete["name"],
-        "team": athlete["school"],
+        "team": athlete.get("team") or athlete["school"],
         "college": athlete["school"],
-        "conference": athlete["conference"],
-        "position": athlete["position"],
-        "data_quality_score": 0.72,
+        "conference": athlete.get("conference"),
+        "position": athlete.get("position"),
+        "class_year": athlete.get("class_year"),
+        "recruiting_rank_national": athlete.get("recruiting_rank_national"),
+        "recruiting_stars": athlete.get("recruiting_stars"),
+        "recruiting_rank_position": athlete.get("recruiting_rank_position"),
     }
+    for key, val in identity.items():
+        if val is not None and val != "":
+            row[key] = val
+
+    nil_v = athlete.get("nil_valuation_raw") or athlete.get("nil_valuation")
+    if nil_v is not None and nil_v != "":
+        row["nil_valuation"] = nil_v
+
+    if row.get("data_quality_score") in (None, "", 0):
+        row["data_quality_score"] = float(athlete.get("data_quality_score") or 0.72)
+
     jn = athlete.get("jersey_number")
     if jn is not None and str(jn).strip():
         try:
             row["jersey_number"] = int(str(jn).strip()[:3])
         except ValueError:
             pass
+
     if snap:
         if snap.get("instagram_followers") is not None:
             row["instagram_followers"] = snap["instagram_followers"]
@@ -67,6 +92,30 @@ def athlete_to_raw_data(
         if snap.get("news_mentions_30d") is not None:
             row["news_count_30d"] = snap["news_mentions_30d"]
     return row
+
+
+async def fetch_latest_scraped_raw(
+    conn: asyncpg.Connection, athlete_id: str
+) -> Dict[str, Any]:
+    """Latest raw_athlete_data.raw_data dict for an athlete (empty if none)."""
+    import json as _json
+
+    try:
+        row = await conn.fetchrow(
+            """SELECT raw_data FROM raw_athlete_data
+               WHERE athlete_id = $1::uuid
+               ORDER BY scraped_at DESC NULLS LAST
+               LIMIT 1""",
+            athlete_id,
+        )
+    except Exception:
+        return {}
+    if not row or not row["raw_data"]:
+        return {}
+    rd = row["raw_data"]
+    if isinstance(rd, str):
+        return dict(_json.loads(rd))
+    return dict(rd)
 
 
 _SHAP_KEY_ALIASES = {
@@ -225,8 +274,8 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
            LIMIT 1""",
         athlete_id,
     )
-    # Inject pre-computed program and brand context from athletes table (populated by scrapers pipeline)
-    raw = athlete_to_raw_data(athlete, snap)
+    scraped = await fetch_latest_scraped_raw(conn, athlete_id)
+    raw = athlete_to_raw_data(athlete, snap, scraped_raw=scraped)
     pg_score = athlete.get("program_gravity_score")
     deal_brand_gravity = athlete.get("active_deal_brand_gravity")
     if pg_score is not None:
@@ -325,17 +374,7 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
 
     new_score = float(score_data["gravity_score"])
 
-    await conn.execute(
-        """INSERT INTO athlete_gravity_scores (
-            athlete_id, gravity_score, brand_score, proof_score, proximity_score,
-            velocity_score, risk_score, confidence, model_version,
-            dollar_p10_usd, dollar_p50_usd, dollar_p90_usd, dollar_confidence,
-            company_gravity_score, brand_gravity_score,
-            shap_values
-        ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9,
-            $10, $11, $12, $13::jsonb, $14, $15, $16::jsonb
-        )""",
+    score_params = (
         athlete["id"],
         new_score,
         float(score_data.get("brand_score") or 0),
@@ -353,6 +392,44 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
         brand_g,
         _to_jsonb(shap if shap else {}),
     )
+
+    # Production enforces one row per athlete (`uq_athlete_gravity_scores_athlete_id`).
+    # Re-scoring must UPDATE the existing row, not INSERT a second one.
+    updated = await conn.execute(
+        """UPDATE athlete_gravity_scores SET
+            gravity_score = $2,
+            brand_score = $3,
+            proof_score = $4,
+            proximity_score = $5,
+            velocity_score = $6,
+            risk_score = $7,
+            confidence = $8,
+            model_version = $9,
+            dollar_p10_usd = $10,
+            dollar_p50_usd = $11,
+            dollar_p90_usd = $12,
+            dollar_confidence = $13::jsonb,
+            company_gravity_score = $14,
+            brand_gravity_score = $15,
+            shap_values = $16::jsonb,
+            calculated_at = NOW()
+           WHERE athlete_id = $1""",
+        *score_params,
+    )
+    if updated.split()[-1] == "0":
+        await conn.execute(
+            """INSERT INTO athlete_gravity_scores (
+                athlete_id, gravity_score, brand_score, proof_score, proximity_score,
+                velocity_score, risk_score, confidence, model_version,
+                dollar_p10_usd, dollar_p50_usd, dollar_p90_usd, dollar_confidence,
+                company_gravity_score, brand_gravity_score,
+                shap_values
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9,
+                $10, $11, $12, $13::jsonb, $14, $15, $16::jsonb
+            )""",
+            *score_params,
+        )
 
     if prev_score is not None:
         try:
