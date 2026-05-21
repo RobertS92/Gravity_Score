@@ -894,15 +894,20 @@ async def build_csc_report_json(
             and benchmark is not None
             and cohort_stats.get("p50") is not None
         ):
-            outlier_rows = await _fetch_outlier_cohort_rows(
-                db,
-                sport=sport_f,
-                position_group=pos_group,
-                conference_tier=conference_tier,
-                window_days=90,
-                as_of=report_dt,
-                benchmark_floor=float(cohort_stats["p50"]) * 0.5,
-            )
+            try:
+                outlier_rows = await _fetch_outlier_cohort_rows(
+                    db,
+                    sport=sport_f,
+                    position_group=pos_group,
+                    conference_tier=conference_tier,
+                    window_days=90,
+                    as_of=report_dt,
+                    benchmark_floor=float(cohort_stats["p50"]) * 0.5,
+                )
+            except asyncpg.PostgresError:
+                # team_conferences referenced by the outlier query may not
+                # exist in this env; skip the step instead of failing.
+                outlier_rows = []
             if len(outlier_rows) >= 5:
                 cohort_fallback_step = 4
                 cohort_rows = outlier_rows

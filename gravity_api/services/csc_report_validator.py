@@ -189,6 +189,21 @@ def _check_tier_methodology_consistency(
         )
 
 
+#: Error codes that hard-block report delivery (router returns 500).
+#: All other codes are logged as warnings for ops review but do not
+#: block the response. Keep this list tight to avoid taking the report
+#: offline for cosmetic regressions.
+BLOCKING_ERROR_CODES: frozenset[str] = frozenset(
+    {
+        "invalid_payload",
+        "conference_placeholder",
+        "percentile_uncapped",
+        "fallback_high_confidence",
+        "tier_version_mismatch",
+    }
+)
+
+
 def validate_report(payload: dict) -> list[ValidationError]:
     """Return a list of structured validation errors for the given report."""
     errors: list[ValidationError] = []
@@ -203,3 +218,8 @@ def validate_report(payload: dict) -> list[ValidationError]:
     _check_report_id_present(payload, errors)
     _check_tier_methodology_consistency(payload, errors)
     return errors
+
+
+def blocking_errors(errors: list[ValidationError]) -> list[ValidationError]:
+    """Filter to errors that should hard-block report delivery."""
+    return [e for e in errors if e.code in BLOCKING_ERROR_CODES]

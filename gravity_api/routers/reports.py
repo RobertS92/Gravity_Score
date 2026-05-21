@@ -14,7 +14,7 @@ from gravity_api.config import get_settings
 from gravity_api.database import get_db
 from gravity_api.services.brand_match import BrandMatchBriefData, run_brand_match
 from gravity_api.services.csc_report_builder import build_csc_report_json
-from gravity_api.services.csc_report_validator import validate_report
+from gravity_api.services.csc_report_validator import blocking_errors, validate_report
 from gravity_api.services.team_conferences import ConferenceNotMappedError
 
 logger = logging.getLogger(__name__)
@@ -392,18 +392,30 @@ async def post_csc_report(
                 ),
             )
 
-    # Final acceptance-criteria sweep. Any structural violation surfaces a
-    # 500 to the caller with a generic message; the full error list is
-    # logged so ops can diagnose.
+    # Final acceptance-criteria sweep. Cosmetic/copy violations are logged
+    # as warnings for ops review; only structural violations in
+    # `BLOCKING_ERROR_CODES` (placeholder conference, uncapped percentile,
+    # fallback model with high confidence, tier-version mismatch) take the
+    # report offline. Everything else still ships so a single drift in
+    # prose never 500s the endpoint.
     validation_errors = validate_report(report)
     if validation_errors:
-        logger.error(
-            "CSC report failed output validation: athlete=%s errors=%s",
+        logger.warning(
+            "CSC report validator findings: athlete=%s errors=%s",
             athlete_id,
             [(e.code, e.message) for e in validation_errors],
         )
-        raise HTTPException(
-            status_code=500,
-            detail="Report failed internal validation; please retry or contact support.",
-        )
+        critical = blocking_errors(validation_errors)
+        if critical:
+            logger.error(
+                "CSC report blocked on validator: athlete=%s blocking_errors=%s",
+                athlete_id,
+                [(e.code, e.message) for e in critical],
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    "Report failed internal validation; please retry or contact support."
+                ),
+            )
     return report

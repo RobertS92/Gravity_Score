@@ -12,11 +12,14 @@ name (e.g. "Texas") as `team_id`.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date
 from typing import Literal, Optional
 
 import asyncpg
+
+logger = logging.getLogger(__name__)
 
 
 ConferenceTier = Literal["power_5", "group_of_5", "fcs", "mid_major", "other"]
@@ -103,10 +106,30 @@ async def try_get_conference(
     as_of: Optional[date] = None,
 ) -> Optional[ConferenceLookup]:
     """Non-throwing variant for surfaces where a missing mapping is non-fatal
-    (search, backfill jobs). Returns None on miss."""
+    (search, backfill jobs). Returns None on miss or on any DB-level error
+    (e.g. the migration has not yet been applied in this environment)."""
     try:
         return await get_conference(db, team_id, sport, as_of=as_of)
     except ConferenceNotMappedError:
+        return None
+    except asyncpg.PostgresError as exc:
+        # team_conferences table may not exist yet in a given env (migration
+        # 021 not yet applied). Surface as a soft miss; callers will fall
+        # back to the athlete row's stored conference where present.
+        logger.warning(
+            "team_conferences lookup failed (team_id=%s sport=%s): %s",
+            team_id,
+            sport,
+            exc,
+        )
+        return None
+    except Exception as exc:  # noqa: BLE001 — never crash a report on lookup
+        logger.exception(
+            "Unexpected error in team_conferences lookup (team_id=%s sport=%s): %s",
+            team_id,
+            sport,
+            exc,
+        )
         return None
 
 
