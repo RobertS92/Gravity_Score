@@ -127,3 +127,79 @@ def test_set_model_health_replaces_cache(monkeypatch):
     assert get_model_health().status == "fallback"
     set_model_health(ModelHealth(status="production", reason="manual"))
     assert get_model_health().status == "production"
+
+
+def test_probe_detects_fallback_when_ml_reports_no_bundle(monkeypatch):
+    """gravity-ml /health/ready: ``{"model_bundle": false, ...}`` must be
+    surfaced as fallback even when no version string is exposed."""
+    monkeypatch.setenv("ML_SERVICE_URL", "http://ml.test")
+    from gravity_api.config import get_settings
+
+    get_settings.cache_clear()  # type: ignore[attr-defined]
+    transport = _FakeTransport(
+        {
+            "/health/ready": {
+                "status": "ready",
+                "model_bundle": False,
+                "path": "models",
+                "event_processor": True,
+                "note": "Serving composite fallback until bundle present",
+            },
+            "/health": {"status": "healthy", "service": "gravity-ml"},
+            "/model/info": 404,
+            "/models/status": 404,
+        }
+    )
+    client = httpx.AsyncClient(transport=transport, base_url="http://ml.test")
+    try:
+        health = _run(probe_model_health(client=client))
+    finally:
+        _run(client.aclose())
+    assert health.status == "fallback"
+    assert health.model_version == "composite_fallback"
+    assert health.reason == "ml_service_reports_no_bundle"
+    assert health.is_fallback is True
+
+
+def test_probe_detects_wrong_service_pointed_at_scrapers(monkeypatch):
+    """If ML_SERVICE_URL is mis-pointed at gravity-scrapers, surface that
+    explicitly so ops can read the right diagnostic on /v1/health."""
+    monkeypatch.setenv("ML_SERVICE_URL", "http://ml.test")
+    from gravity_api.config import get_settings
+
+    get_settings.cache_clear()  # type: ignore[attr-defined]
+    transport = _FakeTransport(
+        {
+            "/health/ready": 404,
+            "/health": {"status": "healthy", "service": "gravity-scrapers"},
+            "/model/info": 404,
+            "/models/status": 404,
+        }
+    )
+    client = httpx.AsyncClient(transport=transport, base_url="http://ml.test")
+    try:
+        health = _run(probe_model_health(client=client))
+    finally:
+        _run(client.aclose())
+    assert health.status == "unknown"
+    assert health.reason == "wrong_service:gravity-scrapers"
+
+
+def test_probe_accepts_bundle_version_field(monkeypatch):
+    """Some ML deploys expose ``bundle_version`` instead of ``model_version``."""
+    monkeypatch.setenv("ML_SERVICE_URL", "http://ml.test")
+    from gravity_api.config import get_settings
+
+    get_settings.cache_clear()  # type: ignore[attr-defined]
+    transport = _FakeTransport(
+        {
+            "/health/ready": {"model_bundle": True, "bundle_version": "gravity_v2"},
+        }
+    )
+    client = httpx.AsyncClient(transport=transport, base_url="http://ml.test")
+    try:
+        health = _run(probe_model_health(client=client))
+    finally:
+        _run(client.aclose())
+    assert health.status == "production"
+    assert health.model_version == "gravity_v2"

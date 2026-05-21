@@ -128,7 +128,12 @@ async def probe_model_health(
 
     try:
         version: str | None = None
-        for path in ("/health", "/model/info"):
+        bundle_loaded: bool | None = None
+        wrong_service: str | None = None
+        # `/health/ready` exposes ``model_bundle`` (true/false) on the real
+        # gravity-ml service; `/health` and `/model/info` may carry an
+        # explicit version. Probe in order — first hit with usable info wins.
+        for path in ("/health/ready", "/health", "/model/info", "/models/status"):
             try:
                 resp = await client.get(f"{ml_url}{path}", headers=headers)
             except httpx.HTTPError as exc:
@@ -137,32 +142,64 @@ async def probe_model_health(
             if resp.status_code >= 500:
                 health.reason = f"probe_status_{resp.status_code}"
                 continue
+            if resp.status_code == 404:
+                continue
             try:
                 data = resp.json()
             except Exception:
                 continue
-            if isinstance(data, dict):
-                candidate = (
-                    data.get("model_version")
-                    or data.get("modelVersion")
-                    or (
-                        data.get("active_bundle")
-                        if isinstance(data.get("active_bundle"), str)
-                        else None
-                    )
+            if not isinstance(data, dict):
+                continue
+
+            # Detect when ML_SERVICE_URL is mistakenly pointing at a
+            # *different* Railway service (e.g. gravity-scrapers). The
+            # ``service`` discriminator is the cheapest signal.
+            service = data.get("service")
+            if isinstance(service, str) and service.strip():
+                lowered = service.strip().lower()
+                if (
+                    "ml" not in lowered
+                    and "score" not in lowered
+                    and "gravity-ml" not in lowered
+                ):
+                    wrong_service = service.strip()
+
+            # Bundle presence (gravity-ml `/health/ready` shape).
+            if "model_bundle" in data and isinstance(data["model_bundle"], bool):
+                bundle_loaded = data["model_bundle"]
+
+            candidate = (
+                data.get("model_version")
+                or data.get("modelVersion")
+                or data.get("bundle_version")
+                or (
+                    data.get("active_bundle")
+                    if isinstance(data.get("active_bundle"), str)
+                    else None
                 )
-                if candidate:
-                    version = str(candidate).strip()
-                    break
+            )
+            if candidate:
+                version = str(candidate).strip()
+                break
 
         health.model_version = version
-        health.status = classify_model_version(version)
-        if health.status == "production":
-            health.reason = "ok"
-        elif health.status == "fallback":
-            health.reason = "fallback_version_detected"
-        elif not health.reason:
-            health.reason = "model_version_missing_from_probe"
+        # Explicit `model_bundle: false` from gravity-ml beats any heuristic
+        # — the service is telling us directly that it's serving fallback.
+        if version is None and bundle_loaded is False:
+            health.status = "fallback"
+            health.model_version = "composite_fallback"
+            health.reason = "ml_service_reports_no_bundle"
+        elif wrong_service:
+            health.status = "unknown"
+            health.reason = f"wrong_service:{wrong_service}"
+        else:
+            health.status = classify_model_version(version)
+            if health.status == "production":
+                health.reason = "ok"
+            elif health.status == "fallback":
+                health.reason = "fallback_version_detected"
+            elif not health.reason:
+                health.reason = "model_version_missing_from_probe"
     finally:
         if owns_client:
             await client.aclose()
