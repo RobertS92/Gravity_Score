@@ -60,24 +60,128 @@ def _canonical_sport(sport: str) -> str:
     return _SPORT_ALIASES.get(key, key)
 
 
-async def get_conference(
-    db: asyncpg.Connection,
-    team_id: str,
-    sport: str,
-    *,
-    as_of: Optional[date] = None,
-) -> ConferenceLookup:
-    """Return canonical (conference, conference_tier) for a team at a point in time.
+# Common mascot/nickname suffixes that appear in athlete.school values
+# but are absent from the canonical team_conferences.team_id seed. When
+# the exact match misses, we strip a trailing token from this set and
+# retry. This is intentionally a closed list rather than "strip last
+# word" to avoid collapsing legitimate multi-word names like
+# "Texas A&M" or "Penn State".
+_MASCOT_SUFFIXES: frozenset[str] = frozenset(
+    {
+        # CFB / NCAAB power conferences
+        "longhorns",
+        "sooners",
+        "aggies",
+        "razorbacks",
+        "bulldogs",
+        "tigers",
+        "wildcats",
+        "gators",
+        "volunteers",
+        "vols",
+        "commodores",
+        "rebels",
+        "gamecocks",
+        "crimson tide",
+        "buckeyes",
+        "wolverines",
+        "spartans",
+        "hawkeyes",
+        "hoosiers",
+        "badgers",
+        "boilermakers",
+        "cornhuskers",
+        "huskers",
+        "scarlet knights",
+        "terrapins",
+        "terps",
+        "nittany lions",
+        "golden gophers",
+        "gophers",
+        "fighting illini",
+        "illini",
+        "ducks",
+        "trojans",
+        "bruins",
+        "huskies",
+        "cougars",
+        "sun devils",
+        "wildcats",
+        "utes",
+        "buffaloes",
+        "buffs",
+        "cardinal",
+        "golden bears",
+        "bears",
+        "frogs",
+        "horned frogs",
+        "cyclones",
+        "jayhawks",
+        "cowboys",
+        "red raiders",
+        "mountaineers",
+        "knights",
+        "bearcats",
+        "tar heels",
+        "wolfpack",
+        "cavaliers",
+        "hokies",
+        "blue devils",
+        "demon deacons",
+        "yellow jackets",
+        "hurricanes",
+        "seminoles",
+        "orange",
+        "cardinals",
+        "panthers",
+        "fighting irish",
+        "boston college eagles",
+        "eagles",
+        # NCAAB Big East distinctives
+        "hoyas",
+        "wildcats",
+        "red storm",
+        "pirates",
+        "musketeers",
+        "demon deacons",
+        "blue demons",
+        "friars",
+        "golden eagles",
+        "bluejays",
+    }
+)
 
-    Raises ConferenceNotMappedError when no row covers `as_of`.
+
+def _strip_mascot(school: str) -> Optional[str]:
+    """Return the school stripped of a trailing mascot suffix, if applicable.
+
+    "Texas Longhorns" -> "Texas".
+    "Penn State" -> None (not a mascot suffix in our set).
+    "Alabama Crimson Tide" -> "Alabama".
     """
-    if not team_id or not str(team_id).strip():
-        raise ConferenceNotMappedError(str(team_id), sport, as_of or date.today())
-    canonical = _canonical_sport(sport)
-    if canonical not in ("cfb", "ncaab"):
-        raise ConferenceNotMappedError(team_id, sport, as_of or date.today())
-    effective = as_of or date.today()
-    row = await db.fetchrow(
+    if not school:
+        return None
+    cleaned = " ".join(school.split())
+    lower = cleaned.lower()
+    # Two-word mascot suffixes (e.g. "Crimson Tide", "Tar Heels").
+    for suffix in _MASCOT_SUFFIXES:
+        if " " in suffix and lower.endswith(" " + suffix):
+            stripped = cleaned[: -(len(suffix) + 1)].strip()
+            if stripped and stripped.lower() != lower:
+                return stripped
+    # Single-word mascot suffix.
+    parts = cleaned.split(" ")
+    if len(parts) >= 2 and parts[-1].lower() in _MASCOT_SUFFIXES:
+        stripped = " ".join(parts[:-1]).strip()
+        if stripped:
+            return stripped
+    return None
+
+
+async def _lookup_row(
+    db: asyncpg.Connection, team_id: str, canonical_sport: str, effective: date
+):
+    return await db.fetchrow(
         """SELECT conference, conference_tier
            FROM team_conferences
            WHERE UPPER(TRIM(team_id)) = UPPER(TRIM($1))
@@ -87,9 +191,36 @@ async def get_conference(
            ORDER BY effective_from DESC
            LIMIT 1""",
         team_id,
-        canonical,
+        canonical_sport,
         effective,
     )
+
+
+async def get_conference(
+    db: asyncpg.Connection,
+    team_id: str,
+    sport: str,
+    *,
+    as_of: Optional[date] = None,
+) -> ConferenceLookup:
+    """Return canonical (conference, conference_tier) for a team at a point in time.
+
+    Tries (1) the exact ``team_id`` and (2) a mascot-stripped variant
+    ("Texas Longhorns" -> "Texas") before raising. Raises
+    ``ConferenceNotMappedError`` when no row covers ``as_of``.
+    """
+    if not team_id or not str(team_id).strip():
+        raise ConferenceNotMappedError(str(team_id), sport, as_of or date.today())
+    canonical = _canonical_sport(sport)
+    if canonical not in ("cfb", "ncaab"):
+        raise ConferenceNotMappedError(team_id, sport, as_of or date.today())
+    effective = as_of or date.today()
+
+    row = await _lookup_row(db, team_id, canonical, effective)
+    if not row:
+        stripped = _strip_mascot(team_id)
+        if stripped:
+            row = await _lookup_row(db, stripped, canonical, effective)
     if not row:
         raise ConferenceNotMappedError(team_id, canonical, effective)
     return ConferenceLookup(

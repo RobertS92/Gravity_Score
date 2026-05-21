@@ -751,13 +751,26 @@ async def build_csc_report_json(
         if school_text
         else None
     )
+    conference_mapping_status = "mapped"
     if conference_lookup is None:
-        # Fall back to the athlete row's stored conference only when no mapping
-        # exists yet. The explicit guard below rejects the placeholder string.
+        # Fallback chain when team_conferences has no entry for this school:
+        #   1. Use the athlete row's stored conference (e.g. "Big 12").
+        #   2. Use the school name itself as a display label.
+        #   3. Use "Independent" as a last resort.
+        # In all cases we stamp metadata.conference_mapping_status so ops
+        # can backfill team_conferences for this school. We never 422 a
+        # report on missing mapping alone — the cohort fallback chain
+        # already handles the broader cohort definition.
         stored_conf = (athlete_d.get("conference") or "").strip()
-        if not stored_conf or stored_conf.lower() == "conference":
-            raise ConferenceNotMappedError(school_text, sport_f, report_dt.date())
-        conference_f = stored_conf
+        if stored_conf and stored_conf.lower() != "conference":
+            conference_f = stored_conf
+            conference_mapping_status = "stored_fallback"
+        elif school_text:
+            conference_f = school_text
+            conference_mapping_status = "school_fallback"
+        else:
+            conference_f = "Independent"
+            conference_mapping_status = "unmapped"
         conference_tier: str | None = None
     else:
         conference_f = conference_lookup.conference
@@ -1369,6 +1382,7 @@ async def build_csc_report_json(
             "athlete_benchmark_percentile_in_cohort": percentile_rank,
             "conference": conference_f,
             "conference_tier": conference_tier,
+            "conference_mapping_status": conference_mapping_status,
             "model_status": model_status,
             "model_version": (
                 str(latest_model_version) if latest_model_version is not None else None

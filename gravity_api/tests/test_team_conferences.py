@@ -126,3 +126,30 @@ def test_get_conference_raises_on_unknown_sport():
     db = _FakeDb(SEED)
     with pytest.raises(ConferenceNotMappedError):
         asyncio.run(get_conference(db, "Texas", "lacrosse", as_of=date(2026, 5, 1)))
+
+
+def test_get_conference_strips_mascot_suffix():
+    """`Texas Longhorns` should resolve to `Texas` via mascot suffix strip."""
+    db = _FakeDb(SEED)
+    result = asyncio.run(
+        get_conference(db, "Texas Longhorns", "cfb", as_of=date(2026, 5, 1))
+    )
+    assert result.conference == "SEC"
+    assert result.conference_tier == "power_5"
+
+
+def test_get_conference_strips_two_word_mascot_suffix():
+    """`Alabama Crimson Tide` resolves to `Alabama`."""
+    db = _FakeDb(SEED)
+    result = asyncio.run(
+        get_conference(db, "Alabama Crimson Tide", "cfb", as_of=date(2026, 5, 1))
+    )
+    assert result.conference == "SEC"
+
+
+def test_get_conference_does_not_strip_legitimate_multi_word_name():
+    """`Texas A&M` is a real team_id; the trailing 'A&M' is not a mascot."""
+    db = _FakeDb(SEED)
+    # No seed for Texas A&M; should raise (no spurious strip to "Texas").
+    with pytest.raises(ConferenceNotMappedError):
+        asyncio.run(get_conference(db, "Texas A&M", "cfb", as_of=date(2026, 5, 1)))

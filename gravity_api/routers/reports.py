@@ -300,6 +300,9 @@ class CscReportOut(BaseModel):
         athlete_benchmark_percentile_in_cohort: float | None = None
         conference: str | None = None
         conference_tier: Literal["power_5", "group_of_5", "fcs", "mid_major", "other"] | None = None
+        conference_mapping_status: Literal[
+            "mapped", "stored_fallback", "school_fallback", "unmapped"
+        ] | None = None
         # CSC v3 fields (populated incrementally during rollout).
         model_status: Literal["production", "fallback"] | None = None
         model_version: str | None = None

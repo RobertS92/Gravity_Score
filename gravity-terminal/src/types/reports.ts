@@ -134,6 +134,7 @@ export interface CscReportMetadata {
   report_id?: string | null
   report_version?: 'v2' | 'v3' | null
   report_rollout_phase?: string | null
+  conference_mapping_status?: 'mapped' | 'stored_fallback' | 'school_fallback' | 'unmapped' | null
 }
 
 export interface CscReportJson {
