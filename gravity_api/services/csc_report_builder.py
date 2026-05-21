@@ -657,6 +657,39 @@ def validate_range(
     return max(0.0, benchmark - band), benchmark + band, "wide"
 
 
+def range_incoherent_with_benchmark(
+    benchmark: Optional[float],
+    lo: Optional[float],
+    hi: Optional[float],
+) -> bool:
+    """True when the displayed range cannot be reconciled with the benchmark.
+
+    Catches the Arch-Manning-style failure mode where the headline benchmark
+    is anchored to the sanitized raw NIL (e.g. $21.9M) while the v2 model
+    emits a collapsed P10/P90 band that sits far below it (e.g. $4.5M-$4.6M).
+    The mismatch confuses users because the range looks "actionable" but
+    contradicts the number above it.
+
+    Three failure modes are flagged:
+
+    1. ``hi < benchmark * 0.5`` — range entirely below the benchmark.
+    2. ``lo > benchmark * 2.0`` — range entirely above the benchmark.
+    3. ``(hi - lo) < benchmark * 0.05`` — collapsed model band whose width
+       is <5% of the benchmark, regardless of where the band sits.
+    """
+    if benchmark is None or lo is None or hi is None:
+        return False
+    if benchmark <= 0:
+        return False
+    if float(hi) < benchmark * 0.5:
+        return True
+    if float(lo) > benchmark * 2.0:
+        return True
+    if (float(hi) - float(lo)) < benchmark * 0.05:
+        return True
+    return False
+
+
 def cap_displayed_percentile(
     raw_percentile: Optional[float],
     *,
@@ -915,6 +948,18 @@ async def build_csc_report_json(
             )
         )
     )
+    # Final safety net: if the headline benchmark was lifted to the sanitized
+    # raw NIL but the model P10/P90 band still sits far below it (collapsed
+    # or completely off-center), the report would show e.g. "$21.9M / RANGE:
+    # $4.5M – $4.6M". Force the NIL-anchored band in that case so the range
+    # is always reconcilable with the benchmark above it.
+    if (
+        not use_nil_band
+        and athlete_raw_nil is not None
+        and athlete_raw_nil > 10_000
+        and range_incoherent_with_benchmark(benchmark, raw_lo, raw_hi)
+    ):
+        use_nil_band = True
     if use_nil_band:
         spread = 0.4
         raw_lo = athlete_raw_nil * (1.0 - spread)

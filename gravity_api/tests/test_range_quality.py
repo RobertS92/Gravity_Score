@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from gravity_api.services.csc_report_builder import validate_range
+from gravity_api.services.csc_report_builder import (
+    range_incoherent_with_benchmark,
+    validate_range,
+)
 
 
 def test_validate_range_passthrough_when_spread_within_benchmark():
@@ -51,3 +54,48 @@ def test_validate_range_returns_normal_when_endpoints_missing():
 def test_validate_range_negative_benchmark_treated_as_normal():
     lo, hi, quality = validate_range(-1_000, 100, 200)
     assert quality == "normal"
+
+
+# ---------------------------------------------------------------------------
+# range_incoherent_with_benchmark — catches benchmark/range mismatch like
+# the Arch Manning $21.9M headline with a $4.5M-$4.6M model band.
+# ---------------------------------------------------------------------------
+
+
+def test_incoherent_when_range_entirely_below_benchmark():
+    """$21.9M benchmark with $4.5M-$4.6M model band → incoherent."""
+    assert (
+        range_incoherent_with_benchmark(21_900_000, 4_500_000, 4_600_000)
+        is True
+    )
+
+
+def test_incoherent_when_range_entirely_above_benchmark():
+    """Defensive — never seen in production but should still flag."""
+    assert (
+        range_incoherent_with_benchmark(100_000, 500_000, 600_000) is True
+    )
+
+
+def test_incoherent_when_band_collapsed_around_benchmark():
+    """Model P10/P90 within 5% of each other → collapsed band, useless range."""
+    # Benchmark $1M, range $999K-$1.001K (width 0.2% of benchmark).
+    assert (
+        range_incoherent_with_benchmark(1_000_000, 999_000, 1_001_000)
+        is True
+    )
+
+
+def test_coherent_when_band_brackets_benchmark_normally():
+    """$1M benchmark with $700K-$1.4M band — normal, do not re-snap."""
+    assert (
+        range_incoherent_with_benchmark(1_000_000, 700_000, 1_400_000)
+        is False
+    )
+
+
+def test_coherent_when_benchmark_or_endpoints_missing():
+    assert range_incoherent_with_benchmark(None, 1, 2) is False
+    assert range_incoherent_with_benchmark(100_000, None, 200_000) is False
+    assert range_incoherent_with_benchmark(100_000, 50_000, None) is False
+    assert range_incoherent_with_benchmark(0, 50_000, 100_000) is False
