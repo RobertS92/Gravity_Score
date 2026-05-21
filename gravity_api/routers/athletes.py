@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from gravity_api.database import get_db
 from gravity_api.services.athlete_feed import build_athlete_feed_events
 from gravity_api.services.athlete_search import search_athletes as run_athlete_search
+from gravity_api.services.nil_valuation import nil_from_row, sanitize_nil_valuation_usd
 from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 
 router = APIRouter()
@@ -406,6 +407,41 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     athlete_dict["wikipedia_page_views_30d"]   = raw_signals.get("wikipedia_page_views_30d")
     athlete_dict["nil_valuation_raw"]          = raw_signals.get("nil_valuation")
     athlete_dict["data_quality_score"]         = raw_signals.get("data_quality_score") or athlete_dict.get("data_quality_score")
+
+    # Unified NIL valuation: merge raw_data + athlete row signals so the
+    # sanitizer can rescale Arch-Manning-style compact integers using the
+    # most complete context available. nil_valuation_display_usd is the
+    # value the terminal must show; nil_valuation_source explains where it
+    # came from.
+    merged_for_nil = {
+        **(raw_signals or {}),
+        "recruiting_stars": athlete_dict.get("recruiting_stars") or raw_signals.get("recruiting_stars"),
+        "recruiting_rank_national": (
+            athlete_dict.get("recruiting_rank_national")
+            or raw_signals.get("recruiting_rank_national")
+        ),
+        "instagram_followers": ig_followers,
+        "twitter_followers": tw_followers,
+        "tiktok_followers": tt_followers,
+        "google_trends_score": raw_signals.get("google_trends_score"),
+        "verified_nil_amount_usd": athlete_dict.get("verified_nil_amount_usd"),
+    }
+    nil_display = nil_from_row(merged_for_nil)
+    nil_raw_val = raw_signals.get("nil_valuation")
+    athlete_dict["nil_valuation_display_usd"] = nil_display
+    athlete_dict["nil_valuation_source"] = (
+        raw_signals.get("nil_valuation_source")
+        or ("rescaled" if nil_display and nil_raw_val and nil_display != nil_raw_val else "raw")
+    )
+    athlete_dict["nil_valuation_sanitized"] = bool(
+        nil_display and nil_raw_val and nil_display != nil_raw_val
+    )
+
+    # Roster lifecycle banner — surface inactive state so the FE can dim
+    # the profile and gate CSC generation.
+    is_active = athlete_dict.get("is_active")
+    athlete_dict["roster_inactive"] = bool(is_active is False)
+    athlete_dict["roster_status"] = athlete_dict.get("roster_status")
 
     # Only surface engagement rate when it was actually scraped — never fabricate it.
     ig_eng = raw_signals.get("instagram_engagement_rate")

@@ -18,8 +18,16 @@ class WatchlistAddBody(BaseModel):
 
 
 async def _fetch_watchlist(db: asyncpg.Connection, uid: uuid.UUID) -> List[dict[str, Any]]:
+    """Return all watchlisted athletes for ``uid`` with their lifecycle state.
+
+    Inactive athletes (transferred / departed / pro) stay on the watchlist so
+    users can see the change, but the row is flagged so the UI can mark them
+    accordingly and the FE can stop offering CSC generation against stale
+    college rosters.
+    """
     rows = await db.fetch(
         """SELECT w.athlete_id, a.name, a.school, a.sport, a.position, a.conference,
+                  a.is_active, a.roster_status, a.roster_status_changed_at,
                   s.gravity_score, s.brand_score, s.proof_score,
                  s.proximity_score, s.velocity_score, (100.0 - s.risk_score) AS risk_score,
                   s.company_gravity_score, s.brand_gravity_score,
@@ -35,7 +43,12 @@ async def _fetch_watchlist(db: asyncpg.Connection, uid: uuid.UUID) -> List[dict[
            ORDER BY w.created_at DESC""",
         uid,
     )
-    return [dict(r) for r in rows]
+    results: List[dict[str, Any]] = []
+    for r in rows:
+        row = dict(r)
+        row["roster_inactive"] = row.get("is_active") is False
+        results.append(row)
+    return results
 
 
 @router.get("")

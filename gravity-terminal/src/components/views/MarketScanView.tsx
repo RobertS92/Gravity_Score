@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { getMarketScan, getMarketSchools, MARKET_SCAN_ROW_CAP } from '../../api/market'
 import type { AthleteRecord } from '../../types/athlete'
 import type { SchoolIndexRow } from '../../types/reports'
-import { formatNilMillions, formatScore } from '../../lib/formatters'
+import { formatNilValue, formatScore } from '../../lib/formatters'
 import { usePreferencesStore } from '../../stores/preferencesStore'
 import { useUiStore } from '../../stores/uiStore'
 import { TeamFavoriteStar } from '../shared/TeamFavoriteStar'
@@ -171,7 +171,7 @@ export function MarketScanView() {
                   <td className={styles.td}>{a.school ?? '\u2014'}</td>
                   <td className={styles.td}>{a.conference ?? '\u2014'}</td>
                   <td className={styles.tdR}>{formatScore(a.gravity_score)}</td>
-                  <td className={styles.tdR}>{formatNilMillions(a.nil_valuation_consensus)}</td>
+                  <td className={styles.tdR}>{formatNilValue(a.nil_valuation_consensus)}</td>
                   <td className={styles.tdR}>{formatScore(a.brand_score)}</td>
                   <td className={styles.tdR}>{formatScore(a.proof_score)}</td>
                   <td className={styles.tdR}>{formatScore(a.proximity_score)}</td>
@@ -251,7 +251,7 @@ export function MarketScanView() {
                   <td className={styles.tdR}>{formatScore(s.avg_gravity_score)}</td>
                   <td className={styles.tdR}>{s.athlete_count ?? '\u2014'}</td>
                   <td className={styles.td}>{s.top_athlete_name ?? '\u2014'}</td>
-                  <td className={styles.tdR}>{formatNilMillions(s.nil_market_size_estimate)}</td>
+                  <td className={styles.tdR}>{formatNilValue(s.nil_market_size_estimate)}</td>
                 </tr>
               ))}
             </tbody>

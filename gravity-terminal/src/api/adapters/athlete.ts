@@ -150,6 +150,8 @@ function midpoint(low: number | null, high: number | null): number | null {
 }
 
 function resolveNilConsensusFromRow(row: Record<string, unknown>): number | null {
+  const display = num(row.nil_valuation_display_usd)
+  if (display != null) return display
   const p10 = num(row.dollar_p10_usd)
   const p50 = num(row.dollar_p50_usd)
   const p90 = num(row.dollar_p90_usd)
@@ -158,6 +160,8 @@ function resolveNilConsensusFromRow(row: Record<string, unknown>): number | null
 }
 
 function resolveComparableNilConsensusFromRow(row: Record<string, unknown>): number | null {
+  const display = num(row.nil_valuation_display_usd)
+  if (display != null) return display
   const p10 = num(row.dollar_p10_usd)
   const p50 = num(row.dollar_p50_usd)
   const p90 = num(row.dollar_p90_usd)
@@ -220,11 +224,21 @@ export function mapAthleteFromBundle(b: AthleteDetailBundle): AthleteRecord {
     proximity_score: num(latest?.proximity_score),
     velocity_score: num(latest?.velocity_score),
     risk_score: num(latest?.risk_score),
-    nil_valuation_consensus: nilAgg.consensus ?? p50 ?? midpoint(p10, p90) ?? num(a.nil_valuation_raw),
+    nil_valuation_consensus:
+      num(a.nil_valuation_display_usd)
+      ?? nilAgg.consensus
+      ?? p50
+      ?? midpoint(p10, p90)
+      ?? num(a.nil_valuation_raw),
+    nil_valuation_display_usd: num(a.nil_valuation_display_usd),
+    nil_valuation_source: str(a.nil_valuation_source),
+    nil_valuation_sanitized: a.nil_valuation_sanitized === true,
     nil_range_low: nilAgg.low ?? p10,
     nil_range_high: nilAgg.high ?? p90,
     nil_valuation_percentile: num(a.nil_valuation_percentile),
     nil_valuation_delta_30d: null,
+    roster_inactive: a.roster_inactive === true,
+    roster_status: str(a.roster_status),
     dollar_p10_usd: p10,
     dollar_p50_usd: p50,
     dollar_p90_usd: p90,
@@ -319,6 +333,8 @@ export function mapWatchlistAthleteRow(row: Record<string, unknown>): AthleteRec
     dollar_p10_usd: p10,
     dollar_p50_usd: p50,
     dollar_p90_usd: p90,
+    roster_inactive: row.roster_inactive === true || row.is_active === false,
+    roster_status: str(row.roster_status),
   }
 }
 

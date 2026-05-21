@@ -46,10 +46,18 @@ export interface AthleteRecord {
   risk_score?: number | null
   component_deltas?: ComponentDeltas | null
   nil_valuation_consensus?: number | null
+  /** Sanitized USD from the API (`nil_valuation_display_usd`). Prefer when present. */
+  nil_valuation_display_usd?: number | null
+  /** Where the NIL display value came from: 'on3_search' | 'synthesized' | 'rescaled' | 'raw'. */
+  nil_valuation_source?: string | null
+  nil_valuation_sanitized?: boolean | null
   nil_range_low?: number | null
   nil_range_high?: number | null
   nil_valuation_percentile?: number | null
   nil_valuation_delta_30d?: number | null
+  /** Athlete is no longer on a current college roster (transferred / pro / departed). */
+  roster_inactive?: boolean | null
+  roster_status?: string | null
   /** Model dollar quantiles (gravity_athlete_v2) */
   dollar_p10_usd?: number | null
   dollar_p50_usd?: number | null

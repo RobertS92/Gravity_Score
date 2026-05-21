@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import asyncpg
 
@@ -19,6 +19,7 @@ from gravity_api.services.csc_report_rollout import (
     load_report_rollout_state,
 )
 from gravity_api.services.model_health import classify_model_version
+from gravity_api.services.nil_valuation import elite_signal_strength, nil_from_row
 from gravity_api.services.position_group_match import derive_position_group, position_aliases_for_group
 from gravity_api.services.team_conferences import (
     ConferenceNotMappedError,
@@ -809,7 +810,23 @@ async def build_csc_report_json(
     athlete_model_p10 = _first_number(latest_dict.get("dollar_p10_usd"))
     athlete_model_p50 = _first_number(latest_dict.get("dollar_p50_usd"))
     athlete_model_p90 = _first_number(latest_dict.get("dollar_p90_usd"))
-    athlete_raw_nil = _first_number(athlete_d.get("nil_valuation_raw"))
+    scraped_nil_row: dict[str, Any] = {}
+    try:
+        raw_row = await db.fetchrow(
+            """SELECT raw_data FROM raw_athlete_data
+               WHERE athlete_id = $1 ORDER BY scraped_at DESC NULLS LAST LIMIT 1""",
+            athlete_id,
+        )
+        if raw_row and raw_row["raw_data"]:
+            import json as _json
+
+            rd = raw_row["raw_data"]
+            scraped_nil_row = _json.loads(rd) if isinstance(rd, str) else dict(rd)
+    except Exception:
+        scraped_nil_row = {}
+
+    nil_ctx = {**scraped_nil_row, **athlete_d}
+    athlete_raw_nil = nil_from_row(nil_ctx)
 
     # Model status: classify the version of the latest score row. A
     # `fallback` value flips the per-report 503 gate in the router and
@@ -866,9 +883,47 @@ async def build_csc_report_json(
     cohort_stats = _cohort_stats(cohort_rows)
 
     # ---------------- PHASE 3: DERIVED FIELDS ----------------
-    benchmark = _first_number(athlete_model_p50, athlete_raw_nil, cohort_stats["p50"])
+    def _dollar_suspect(p50: Optional[float], anchor_nil: Optional[float]) -> bool:
+        if p50 is None or p50 <= 0:
+            return False
+        if anchor_nil is not None and anchor_nil > 100_000 and p50 < anchor_nil * 0.05:
+            return True
+        return p50 < 75_000 and elite_signal_strength(nil_ctx) >= 0.55
+
+    model_p50 = _first_number(athlete_model_p50)
+    if athlete_raw_nil is not None and (
+        model_p50 is None
+        or _dollar_suspect(model_p50, athlete_raw_nil)
+        or athlete_raw_nil > model_p50 * 2
+    ):
+        benchmark = athlete_raw_nil
+    else:
+        benchmark = _first_number(model_p50, athlete_raw_nil, cohort_stats["p50"])
+
     raw_lo = _first_number(athlete_model_p10, cohort_stats["p10"])
     raw_hi = _first_number(athlete_model_p90, cohort_stats["p90"])
+    use_nil_band = (
+        athlete_raw_nil is not None
+        and athlete_raw_nil > 10_000
+        and (
+            _dollar_suspect(model_p50, athlete_raw_nil)
+            or (
+                benchmark is not None
+                and athlete_raw_nil >= benchmark * 0.99
+                and model_p50 is not None
+                and model_p50 < benchmark * 0.5
+            )
+        )
+    )
+    if use_nil_band:
+        spread = 0.4
+        raw_lo = athlete_raw_nil * (1.0 - spread)
+        raw_hi = athlete_raw_nil * (1.0 + spread * 2.0)
+    elif athlete_raw_nil is not None and athlete_raw_nil > 10_000:
+        if raw_lo is None or raw_hi is None or raw_lo == raw_hi:
+            spread = 0.35
+            raw_lo = athlete_raw_nil * (1.0 - spread)
+            raw_hi = athlete_raw_nil * (1.0 + spread * 2.0)
     if raw_lo is None or raw_hi is None:
         if benchmark is not None:
             band = max(benchmark * 0.2, 25_000.0)
@@ -885,6 +940,12 @@ async def build_csc_report_json(
         p25=_first_number(cohort_stats.get("p25")),
         p75=_first_number(cohort_stats.get("p75")),
     )
+    if use_nil_band and benchmark is not None:
+        if lo is None or hi is None or float(hi) < benchmark * 0.25:
+            spread = 0.4
+            lo = benchmark * (1.0 - spread)
+            hi = benchmark * (1.0 + spread * 2.0)
+            range_quality = "normal"
 
     raw_percentile_rank = (
         None

@@ -2,7 +2,7 @@ import { useLocation } from 'react-router-dom'
 import { exportBrandMatchShortlistCsv, exportBrandMatchShortlistPdf } from '../../lib/brandMatchExport'
 import { useAthleteStore } from '../../stores/athleteStore'
 import { useUiStore } from '../../stores/uiStore'
-import { formatNilMillions, formatScore } from '../../lib/formatters'
+import { formatNilValue, formatScore } from '../../lib/formatters'
 import type { BrandMatchResult } from '../../types/reports'
 import { AlternativesPanel } from '../panels/AlternativesPanel'
 import { ConfidenceCard } from '../panels/ConfidenceCard'
@@ -160,13 +160,13 @@ export function RightPanel() {
                 <div key={row.athlete_id ?? `${row.name ?? 'shortlist'}-${idx}`} style={{ marginBottom: 6 }}>
                   <div>{row.name}</div>
                   <div style={{ color: 'var(--text-muted)' }}>
-                    MATCH {formatScore(row.match_score)} · NIL {formatNilMillions(rowNilP50(row))}
+                    MATCH {formatScore(row.match_score)} · NIL {formatNilValue(rowNilP50(row))}
                   </div>
                 </div>
               ))}
               {shortlist.length > 0 && (
                 <>
-                  <div style={{ marginTop: 8 }}>Total budget est: {formatNilMillions(shortlistP50)}</div>
+                  <div style={{ marginTop: 8 }}>Total budget est: {formatNilValue(shortlistP50)}</div>
                   <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                     <ActionButton variant="secondary" onClick={() => exportBrandMatchShortlistCsv(shortlist)}>
                       EXPORT CSV
@@ -183,7 +183,7 @@ export function RightPanel() {
             <div className={styles.title}>MARKET CONTEXT</div>
             <div style={{ fontFamily: 'var(--font-data)', fontSize: 12, color: 'var(--text-secondary)' }}>
               <div>Median Match: {formatScore(brandContext?.median_match_score)}</div>
-              <div>Median NIL P50: {formatNilMillions(brandContext?.median_nil_p50)}</div>
+              <div>Median NIL P50: {formatNilValue(brandContext?.median_nil_p50)}</div>
               <div>Median Reach: {brandContext?.median_social_reach != null ? Math.round(brandContext.median_social_reach).toLocaleString('en-US') : '—'}</div>
               <div>Median Engagement: {brandContext?.median_engagement_rate != null ? `${formatScore(brandContext.median_engagement_rate)}%` : '—'}</div>
               <div>Total matches: {brandContext?.total_matches ?? 0}</div>
@@ -222,7 +222,7 @@ export function RightPanel() {
             <div style={{ fontFamily: 'var(--font-data)', fontSize: 12, color: 'var(--text-secondary)' }}>
               Active: {athlete.name}
               <br />
-              NIL {formatNilMillions(athlete.nil_valuation_consensus)}
+              NIL {formatNilValue(athlete.nil_valuation_consensus)}
             </div>
           </div>
           {signalsBlock}

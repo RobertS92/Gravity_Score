@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { formatNilMillions, formatScore } from '../../lib/formatters'
+import { formatNilValue, formatScore } from '../../lib/formatters'
 import { formatFeedTime } from '../../lib/time'
 import type { AlertRecord, AlertType } from '../../types/alerts'
 import { useAlertStore } from '../../stores/alertStore'
@@ -74,7 +74,7 @@ export function MonitoringView() {
               <tr key={x.athlete_id}>
                 <td className={styles.td}>{x.name}</td>
                 <td className={styles.tdR}>{formatScore(x.gravity_score)}</td>
-                <td className={styles.tdR}>{formatNilMillions(x.nil_valuation_consensus)}</td>
+                <td className={styles.tdR}>{formatNilValue(x.nil_valuation_consensus)}</td>
                 <td className={styles.tdR}>{formatScore(x.velocity_score)}</td>
                 <td className={styles.tdR}>{formatScore(x.risk_score)}</td>
               </tr>

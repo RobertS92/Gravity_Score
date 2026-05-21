@@ -9,6 +9,7 @@ import asyncpg
 import httpx
 
 from gravity_api.config import get_settings
+from gravity_api.services.nil_valuation import nil_from_row, sanitize_nil_valuation_usd
 from gravity_api.services.score_imputation import (
     apply_heuristic_imputations,
     apply_manual_imputations,
@@ -68,9 +69,9 @@ def athlete_to_raw_data(
         if val is not None and val != "":
             row[key] = val
 
-    nil_v = athlete.get("nil_valuation_raw") or athlete.get("nil_valuation")
-    if nil_v is not None and nil_v != "":
-        row["nil_valuation"] = nil_v
+    nil_usd = nil_from_row(row) or nil_from_row(dict(athlete))
+    if nil_usd is not None:
+        row["nil_valuation"] = nil_usd
 
     if row.get("data_quality_score") in (None, "", 0):
         row["data_quality_score"] = float(athlete.get("data_quality_score") or 0.72)

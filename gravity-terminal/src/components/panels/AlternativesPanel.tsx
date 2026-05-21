@@ -1,6 +1,6 @@
 import { getAlternatives } from '../../api/athletes'
 import { useNilIntelligenceResource } from '../../hooks/useNilIntelligenceResource'
-import { formatNilMillions } from '../../lib/formatters'
+import { formatNilValue } from '../../lib/formatters'
 import { parseFiniteNumber } from '../../lib/numberParsing'
 import type { AlternativesResponse } from '../../types/nilIntelligence'
 import styles from './NilDecisionPanel.module.css'
@@ -73,7 +73,7 @@ export function AlternativesPanel({ athleteId }: { athleteId: string }) {
               </div>
               <div className={styles.row}>
                 <span className={styles.k}>NIL Est.</span>
-                <span className={styles.v}>{formatNilMillions(alt.nilConsensus)}</span>
+                <span className={styles.v}>{formatNilValue(alt.nilConsensus)}</span>
               </div>
               <div className={styles.row}>
                 <span className={styles.k}>Fit Score</span>

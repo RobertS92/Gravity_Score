@@ -45,8 +45,9 @@ async def run_bulk(
     ml_url = settings.ml_service_url
     if not ml_url or not settings.ml_api_key:
         logger.error(
-            "Set ML_SERVICE_URL and ML_API_KEY in .env (e.g. "
-            "https://gravity-ml-production.up.railway.app)"
+            "Set ML_SERVICE_URL and ML_SERVICE_API_KEY in .env (e.g. "
+            "https://gravity-ml-production.up.railway.app). "
+            "If you exported ML_API_KEY from gravity-scrapers, unset it — that key is different."
         )
         raise SystemExit(1)
     headers = {"Authorization": f"Bearer {settings.ml_api_key}"}
@@ -168,6 +169,76 @@ async def run_bulk(
 
     await pool.close()
     logger.info("Done: %d ok, %d errors out of %d athletes", ok, err, len(ids))
+
+    # Post-run dispersion check: report the dollar/gravity spread on the
+    # rows we just produced so operators can confirm the A-grade gates
+    # (stddev dollar_p50_usd > 200K on SEC QBs, fallback share <40%).
+    if ok:
+        report_conn = await asyncpg.connect(dsn)
+        try:
+            await _log_dispersion_report(report_conn, sport=sport)
+        finally:
+            await report_conn.close()
+
+
+async def _log_dispersion_report(
+    conn: asyncpg.Connection,
+    *,
+    sport: str | None,
+) -> None:
+    """Log model-version mix + dollar/gravity dispersion for the last hour."""
+    sport_clause = "AND a.sport = $1" if sport else ""
+    params: list = [sport] if sport else []
+    mix = await conn.fetch(
+        f"""SELECT s.model_version, COUNT(*)::int AS n
+              FROM athlete_gravity_scores s
+              JOIN athletes a ON a.id = s.athlete_id
+             WHERE s.calculated_at > NOW() - INTERVAL '1 hour'
+               {sport_clause}
+             GROUP BY 1
+             ORDER BY n DESC""",
+        *params,
+    )
+    if not mix:
+        logger.warning("dispersion: no scores recorded in last hour")
+        return
+    total = sum(int(r["n"]) for r in mix)
+    for r in mix:
+        logger.info(
+            "dispersion model_version=%s n=%d (%.1f%%)",
+            r["model_version"],
+            r["n"],
+            100.0 * int(r["n"]) / max(total, 1),
+        )
+    fallback_share = (
+        sum(int(r["n"]) for r in mix if "fallback" in (r["model_version"] or "").lower())
+        / max(total, 1)
+    )
+    logger.info("dispersion fallback_share=%.1f%%", 100.0 * fallback_share)
+
+    spread = await conn.fetchrow(
+        f"""SELECT
+              STDDEV_POP(s.dollar_p50_usd)::float AS stddev_p50,
+              MAX(s.dollar_p50_usd) - MIN(s.dollar_p50_usd) AS spread_p50,
+              STDDEV_POP(s.gravity_score)::float AS stddev_gravity
+            FROM athlete_gravity_scores s
+            JOIN athletes a ON a.id = s.athlete_id
+           WHERE s.calculated_at > NOW() - INTERVAL '1 hour'
+             AND s.dollar_p50_usd IS NOT NULL
+             {sport_clause}""",
+        *params,
+    )
+    if spread:
+        logger.info(
+            "dispersion stddev_p50=%.0f spread_p50=%.0f stddev_gravity=%.2f",
+            spread["stddev_p50"] or 0.0,
+            spread["spread_p50"] or 0.0,
+            spread["stddev_gravity"] or 0.0,
+        )
+        if (spread["stddev_p50"] or 0.0) < 50_000:
+            logger.warning(
+                "dollar_p50 stddev < $50K — model may be collapsing or fallback-only"
+            )
 
 
 def main() -> None:

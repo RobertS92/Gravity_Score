@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { postBrandMatch } from '../../api/reports'
 import type { BrandMatchBrief, BrandMatchResult } from '../../types/reports'
-import { formatNilMillions, formatScore } from '../../lib/formatters'
+import { formatNilValue, formatScore } from '../../lib/formatters'
 import { usePreferencesStore } from '../../stores/preferencesStore'
 import { useUiStore } from '../../stores/uiStore'
 import { useAthleteStore } from '../../stores/athleteStore'
@@ -334,7 +334,7 @@ export function BrandMatchView() {
                 <div>REACH {fmtReach(r.social_combined_reach)}</div>
                 <div>ER {r.instagram_engagement_rate != null ? `${formatScore(r.instagram_engagement_rate)}%` : '—'}</div>
                 <div className={styles.deal}>
-                  {formatNilMillions(r.deal_range_low)} {'\u2013'} {formatNilMillions(r.deal_range_high)}
+                  {formatNilValue(r.deal_range_low)} {'\u2013'} {formatNilValue(r.deal_range_high)}
                 </div>
                 <div className={styles.dealDots}>
                   {Array.from({ length: dotsForDeals(r.verified_deals_count) }, (_, i) => (

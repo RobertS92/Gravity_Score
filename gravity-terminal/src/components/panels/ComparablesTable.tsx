@@ -1,4 +1,4 @@
-import { formatNilMillions, formatScore } from '../../lib/formatters'
+import { formatNilValue, formatScore } from '../../lib/formatters'
 import type { AthleteRecord, ComparableRecord } from '../../types/athlete'
 import styles from './ComparablesTable.module.css'
 
@@ -76,7 +76,7 @@ export function ComparablesTable({
                 <td className={styles.tdRight}>{formatScore(c.gravity_score)}</td>
                 <td className={styles.tdRight}>{formatScore(c.brand_score)}</td>
                 <td className={`${styles.tdRight} ${styles.nil}`}>
-                  {formatNilMillions(c.nil_valuation_consensus)}
+                  {formatNilValue(c.nil_valuation_consensus)}
                 </td>
                 <td className={`${styles.tdRight} ${deltaCls}`}>
                   {formatDeltaScore(isSelf ? null : c.nil_delta_vs_subject, isSelf)}

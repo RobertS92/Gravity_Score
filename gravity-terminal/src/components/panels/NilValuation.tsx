@@ -1,4 +1,4 @@
-import { formatNilMillions, formatNilRange, formatScore } from '../../lib/formatters'
+import { formatNilValue, formatNilRange, formatScore } from '../../lib/formatters'
 import type { AthleteRecord } from '../../types/athlete'
 import styles from './NilValuation.module.css'
 
@@ -7,7 +7,7 @@ export function NilValuation({ athlete }: { athlete: AthleteRecord }) {
   return (
     <div>
       <div className={styles.label}>NIL VALUATION</div>
-      <div className={styles.value}>{formatNilMillions(athlete.nil_valuation_consensus)}</div>
+      <div className={styles.value}>{formatNilValue(athlete.nil_valuation_consensus)}</div>
       <div className={styles.range}>
         {formatNilRange(athlete.nil_range_low, athlete.nil_range_high)}
       </div>
@@ -15,7 +15,7 @@ export function NilValuation({ athlete }: { athlete: AthleteRecord }) {
         <div className={styles.range}>
           Gravity money P10–P90: {formatNilRange(athlete.dollar_p10_usd, athlete.dollar_p90_usd)}
           {athlete.dollar_p50_usd != null && (
-            <span> · P50 {formatNilMillions(athlete.dollar_p50_usd)}</span>
+            <span> · P50 {formatNilValue(athlete.dollar_p50_usd)}</span>
           )}
         </div>
       )}

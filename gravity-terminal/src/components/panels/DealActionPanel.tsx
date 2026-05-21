@@ -1,6 +1,6 @@
 import { getDealAction } from '../../api/athletes'
 import { useNilIntelligenceResource } from '../../hooks/useNilIntelligenceResource'
-import { formatNilMillions } from '../../lib/formatters'
+import { formatNilValue } from '../../lib/formatters'
 import { parseFiniteNumber } from '../../lib/numberParsing'
 import type { DealActionResponse } from '../../types/nilIntelligence'
 import styles from './NilDecisionPanel.module.css'
@@ -76,13 +76,13 @@ export function DealActionPanel({ athleteId }: { athleteId: string }) {
           <div className={styles.row}>
             <span className={styles.k}>Recommended Range</span>
             <span className={styles.v}>
-              {formatNilMillions(safe.recommendedLow)} -{' '}
-              {formatNilMillions(safe.recommendedHigh)}
+              {formatNilValue(safe.recommendedLow)} -{' '}
+              {formatNilValue(safe.recommendedHigh)}
             </span>
           </div>
           <div className={styles.row}>
             <span className={styles.k}>Walk-Away</span>
-            <span className={styles.v}>{formatNilMillions(safe.walkAway)}</span>
+            <span className={styles.v}>{formatNilValue(safe.walkAway)}</span>
           </div>
           <div className={styles.row}>
             <span className={styles.k}>Structure</span>

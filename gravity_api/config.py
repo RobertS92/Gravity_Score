@@ -103,7 +103,8 @@ def get_settings() -> Settings:
         ml_service_url=_normalize_service_url(
             os.environ.get("ML_SERVICE_URL") or os.environ.get("ML_API_URL")
         ),
-        ml_api_key=os.environ.get("ML_API_KEY") or os.environ.get("ML_SERVICE_API_KEY"),
+        # Prefer ML_SERVICE_API_KEY (Gravity_Score .env); ML_API_KEY is scrapers naming.
+        ml_api_key=os.environ.get("ML_SERVICE_API_KEY") or os.environ.get("ML_API_KEY"),
         internal_api_key=os.environ.get("GRAVITY_INTERNAL_API_KEY"),
         scrapers_service_url=_normalize_service_url(
             os.environ.get("SCRAPERS_SERVICE_URL")
