@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import uuid
 from typing import Any, Dict, List, Literal, Optional
 
@@ -29,6 +30,19 @@ def _admin_override_active(
     if not expected:
         return False
     return bool(admin_key and admin_key.strip() == expected)
+
+
+def _block_fallback_reports() -> bool:
+    """Hard-block CSC reports when the ML scorer is on fallback.
+
+    Off by default — the fallback model still produces commercially useful
+    estimates and every report carries an unmistakable banner. Operators
+    can enable hard blocking by setting CSC_BLOCK_FALLBACK to a truthy
+    value when they need stricter governance.
+    """
+    raw = (os.environ.get("CSC_BLOCK_FALLBACK") or "").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
 
 router = APIRouter()
 
@@ -99,7 +113,9 @@ async def create_report(
 
     metadata = report_json.get("metadata") if isinstance(report_json, dict) else None
     if isinstance(metadata, dict) and metadata.get("model_status") == "fallback":
-        if not (allow_fallback and _admin_override_active(x_gravity_admin_key)):
+        if _block_fallback_reports() and not (
+            allow_fallback and _admin_override_active(x_gravity_admin_key)
+        ):
             raise HTTPException(
                 status_code=503,
                 detail=(
@@ -107,6 +123,11 @@ async def create_report(
                     "Contact admin to override."
                 ),
             )
+        logger.warning(
+            "Persisting CSC report with fallback banner: athlete=%s model_version=%s",
+            athlete_uuid,
+            metadata.get("model_version"),
+        )
 
     report_uuid = str(uuid.uuid4())
     row = await db.fetchrow(
@@ -377,13 +398,18 @@ async def post_csc_report(
         raise HTTPException(status_code=404, detail="Athlete not found") from None
 
     # Per-report fallback enforcement. A fallback model means the report
-    # cannot be used for binding deal decisions; default behavior is 503
-    # unless an admin override is presented.
+    # cannot be used for binding deal decisions; the report already carries
+    # `metadata.model_status = "fallback"` and the UI/PDF render an
+    # unmistakable banner. Hard-blocking the endpoint is opt-in via
+    # `CSC_BLOCK_FALLBACK=1` (and is still gated by the admin override
+    # path) so the default behavior is "ship with banner".
     metadata = report.get("metadata") if isinstance(report, dict) else None
     if isinstance(metadata, dict) and metadata.get("model_status") == "fallback":
-        if not (allow_fallback and _admin_override_active(x_gravity_admin_key)):
+        if _block_fallback_reports() and not (
+            allow_fallback and _admin_override_active(x_gravity_admin_key)
+        ):
             logger.warning(
-                "CSC report blocked: athlete=%s model_version=%s",
+                "CSC report blocked (CSC_BLOCK_FALLBACK=1): athlete=%s model_version=%s",
                 athlete_id,
                 metadata.get("model_version"),
             )
@@ -394,6 +420,11 @@ async def post_csc_report(
                     "Contact admin to override."
                 ),
             )
+        logger.warning(
+            "CSC report served with fallback banner: athlete=%s model_version=%s",
+            athlete_id,
+            metadata.get("model_version"),
+        )
 
     # Final acceptance-criteria sweep. Cosmetic/copy violations are logged
     # as warnings for ops review; only structural violations in
