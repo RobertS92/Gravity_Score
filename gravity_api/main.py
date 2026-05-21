@@ -2,6 +2,7 @@
 
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
@@ -124,8 +125,19 @@ app.include_router(feed.router, prefix="/v1/feed", tags=["feed"])
 app.include_router(ingest.router, prefix="/v1/ingest", tags=["ingest"])
 
 
+def _ml_probe_is_stale() -> bool:
+    """Re-probe when the cached result is old or from before ML bundle deploy."""
+    cached = get_model_health()
+    if cached.reason in ("not_probed", "ml_service_reports_no_bundle"):
+        return True
+    age_s = (datetime.now(tz=timezone.utc) - cached.checked_at).total_seconds()
+    return age_s > 60
+
+
 @app.get("/health")
 async def health():
+    if _ml_probe_is_stale():
+        await probe_model_health()
     return {
         "status": "ok",
         "service": "gravity-nil-intelligence",

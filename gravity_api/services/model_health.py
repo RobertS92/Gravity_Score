@@ -183,9 +183,14 @@ async def probe_model_health(
                 break
 
         health.model_version = version
+        # gravity-ml `/health/ready` reports bundle presence without a version string.
+        if version is None and bundle_loaded is True:
+            health.status = "production"
+            health.model_version = "gravity_athlete_v2"
+            health.reason = "ml_service_reports_bundle_loaded"
         # Explicit `model_bundle: false` from gravity-ml beats any heuristic
         # — the service is telling us directly that it's serving fallback.
-        if version is None and bundle_loaded is False:
+        elif version is None and bundle_loaded is False:
             health.status = "fallback"
             health.model_version = "composite_fallback"
             health.reason = "ml_service_reports_no_bundle"
