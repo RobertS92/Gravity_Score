@@ -1,9 +1,37 @@
 """Environment-backed settings for the Gravity API."""
 
+import logging
 import os
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
+
+
+def _normalize_service_url(raw: str | None) -> str | None:
+    """Normalize a service URL env value.
+
+    Strips whitespace and trailing slashes; auto-prepends ``https://``
+    when the value is a bare host or path (Railway env values are
+    commonly pasted as ``service-name.railway.internal:8002`` or
+    ``service.up.railway.app`` without a scheme, and ``httpx`` then
+    refuses them with ``UnsupportedProtocol``).
+    """
+    if raw is None:
+        return None
+    cleaned = raw.strip().rstrip("/")
+    if not cleaned:
+        return None
+    lowered = cleaned.lower()
+    if lowered.startswith(("http://", "https://")):
+        return cleaned
+    # ``railway.internal`` hosts are reachable only via plain HTTP from
+    # within the project's private network; everything else defaults to
+    # HTTPS.
+    scheme = "http://" if ".railway.internal" in lowered else "https://"
+    logger.info("Service URL %r missing scheme; prepending %s", cleaned, scheme)
+    return f"{scheme}{cleaned}"
 
 
 @dataclass(frozen=True)
@@ -72,14 +100,13 @@ def get_settings() -> Settings:
         # against a backend without auth.
         allow_query_user_id=os.environ.get("GRAVITY_ALLOW_QUERY_USER_ID", "0").lower()
         in ("1", "true", "yes"),
-        ml_service_url=(
-            os.environ.get("ML_SERVICE_URL") or os.environ.get("ML_API_URL") or ""
-        ).rstrip("/")
-        or None,
+        ml_service_url=_normalize_service_url(
+            os.environ.get("ML_SERVICE_URL") or os.environ.get("ML_API_URL")
+        ),
         ml_api_key=os.environ.get("ML_API_KEY") or os.environ.get("ML_SERVICE_API_KEY"),
         internal_api_key=os.environ.get("GRAVITY_INTERNAL_API_KEY"),
-        scrapers_service_url=(
-            (os.environ.get("SCRAPERS_SERVICE_URL") or "").strip().rstrip("/") or None
+        scrapers_service_url=_normalize_service_url(
+            os.environ.get("SCRAPERS_SERVICE_URL")
         ),
         scrapers_service_api_key=(
             (os.environ.get("SCRAPERS_SERVICE_API_KEY") or "").strip() or None
