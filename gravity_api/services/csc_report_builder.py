@@ -300,7 +300,6 @@ async def _fetch_cohort_rows(
                  a.position,
                  a.position_group,
                  a.conference,
-                 a.nil_valuation_raw,
                  s.gravity_score,
                  s.velocity_score,
                  s.dollar_p50_usd,
@@ -325,10 +324,7 @@ async def _fetch_cohort_rows(
 
 
 def _cohort_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    benchmarks = [
-        _first_number(r.get("dollar_p50_usd"), r.get("nil_valuation_raw"))
-        for r in rows
-    ]
+    benchmarks = [_first_number(r.get("dollar_p50_usd")) for r in rows]
     benchmarks = [b for b in benchmarks if b is not None]
     velocities = [_first_number(r.get("velocity_score")) for r in rows]
     velocities = [v for v in velocities if v is not None]
