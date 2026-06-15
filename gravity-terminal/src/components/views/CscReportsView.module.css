@@ -1,21 +1,147 @@
 .grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 14px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
   min-height: 100%;
+  position: relative;
 }
 
 .preview {
   min-width: 0;
+  flex: 1;
+}
+
+.configBar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.configToggle {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.configToggle:hover {
+  background: var(--bg-tertiary);
+}
+
+.configBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: none;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
 }
 
 .config {
-  border: 1px solid var(--border-default);
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 50;
+  width: min(380px, 92vw);
+  height: 100dvh;
+  border-left: 1px solid var(--border-default);
   background: var(--bg-secondary);
   padding: 14px;
-  position: sticky;
-  top: 0;
+  overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.25);
+}
+
+.configOpen {
+  transform: translateX(0);
+}
+
+/* Narrow desktop (iPad landscape, small laptops) — keep the side-drawer but
+ * shrink width so the report has more room. */
+@media (max-width: 1280px) {
+  .config {
+    width: min(320px, 92vw);
+  }
+}
+
+/* Tablet portrait + phone — flip to a bottom slide-up sheet so the report
+ * stays visible above. Caps height at 70vh so users can still see the report
+ * peek through. */
+@media (max-width: 1024px) {
+  .config {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 70vh;
+    border-left: none;
+    border-top: 1px solid var(--border-default);
+    transform: translateY(100%);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .configOpen {
+    transform: translateY(0);
+  }
+}
+
+.configHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.configClose {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.configModeRow {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.configModeBtn,
+.configModeOn {
+  flex: 1;
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+}
+
+.configModeBtn {
+  background: var(--bg-primary);
+  color: var(--text-muted);
+}
+
+.configModeOn {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-color: var(--accent-green);
+}
+
+.configHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
 }
 
 .configTitle {
@@ -61,6 +187,48 @@
   gap: 8px;
 }
 
+.configHint {
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.weightingSection {
+  border-top: 1px dashed var(--border-subtle);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.weightingHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.weightingReset {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  cursor: pointer;
+  text-transform: lowercase;
+}
+
+.weightingReset:hover {
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+}
+
 .searchDrop {
   border: 1px solid var(--border-default);
   background: var(--bg-primary);
@@ -101,7 +269,10 @@
   margin-bottom: 14px;
   border: 1px solid var(--border-default);
   background: var(--bg-secondary);
-  padding: 10px 12px;
+  padding: 12px 14px;
+  animation: panelEntry var(--dur-base) var(--ease-out);
+  transition: border-color var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .sectionTitle {
@@ -110,6 +281,44 @@
   letter-spacing: 0.1em;
   color: var(--text-muted);
   margin-bottom: 8px;
+}
+
+/* Group divider: visually splits the report into VALUE / EXPLANATION /
+ * VALIDATION / DETAIL "chapters" without adding heavy chrome. */
+.groupBreak {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 10px;
+  color: var(--text-dim);
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.groupBreak::before,
+.groupBreak::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+.groupBreakLabel {
+  color: var(--accent-green);
+  letter-spacing: 0.22em;
+}
+
+/* When a section title needs to feel like its own chapter (e.g. Key Value
+ * Drivers, Market & Comparable Analysis) rather than a tiny inset label. */
+.sectionTitleMajor {
+  font-family: var(--font-data);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+  text-transform: uppercase;
 }
 
 .subSectionTitle {
@@ -189,6 +398,103 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.driverCard {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  transition: border-color var(--dur-fast) var(--ease-out),
+              box-shadow var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out);
+}
+
+.driverCard:hover {
+  border-color: var(--accent-green);
+  box-shadow: inset 0 0 0 1px rgba(76, 201, 99, 0.18),
+              0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.driverCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.driverSignals {
+  margin-bottom: 8px;
+}
+
+.driverSignalsTitle {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+/* Inline metric grid: raw structured numbers (Instagram 245K, Wiki 12.4K, etc.)
+ * shown as small "stat tiles" so the eye can scan them in one pass instead
+ * of reading a label-value list. */
+.driverMetrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.driverMetricCell {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.driverMetricValue {
+  font-family: var(--font-data);
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.driverMetricLabel {
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.driverMetricUnit {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.driverSignalList {
+  margin: 0;
+  padding-left: 18px;
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.driverSignalKey {
+  color: var(--text-muted);
+}
+
+.driverInterpretation {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+
 .driverLabel {
   font-family: var(--font-data);
   font-size: 12px;
@@ -232,9 +538,14 @@
 .prose {
   font-family: var(--font-prose);
   font-size: 13px;
-  line-height: 1.4;
-  color: var(--text-muted);
+  /* Narrative prose needs more leading than the dense terminal default.
+   * 1.55 matches editorial UI conventions without feeling airy. */
+  line-height: 1.55;
+  color: var(--text-secondary);
   margin: 0 0 10px;
+  /* Cap measure so long Executive Summary paragraphs don't sprawl
+   * across full-screen displays. */
+  max-width: 72ch;
 }
 
 .bandLabels {
@@ -337,6 +648,26 @@
   border-color: var(--border-subtle);
 }
 
+.tagLowData {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+  background: rgba(210, 153, 34, 0.06);
+}
+
+.tagCohortFit {
+  color: var(--text-muted);
+  border-color: var(--text-muted);
+}
+
+.guidelineCaption {
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 4px 0 8px;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+
 /* Fallback banner displayed when metadata.model_status === 'fallback'. */
 .fallbackBanner {
   border: 1px solid var(--accent-red, #ef5b5b);
@@ -381,14 +712,6 @@
 }
 
 @media (max-width: 1180px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-
-  .config {
-    position: static;
-  }
-
   .driverRow {
     grid-template-columns: 1fr;
     gap: 2px;

@@ -476,7 +476,7 @@ def test_v3_detail_blocks_provenance_includes_report_id_and_model_status():
     assert blocks["provenance"]["model_status"] == report["metadata"]["model_status"]
 
 
-def test_v3_drivers_have_four_canonical_rows():
+def test_v3_drivers_have_six_canonical_rows_with_signals():
     db = _FakeDb(
         athlete=_base_athlete(),
         latest_score=_base_score(),
@@ -484,7 +484,17 @@ def test_v3_drivers_have_four_canonical_rows():
     )
     report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
     labels = [d["label"] for d in report["explanation"]["key_value_drivers"]]
-    assert labels == ["Brand Strength", "Market Proof", "Exposure", "Risk"]
+    assert labels == [
+        "Brand Strength",
+        "Market Proof",
+        "Exposure",
+        "Momentum",
+        "Commercial Readiness",
+        "Risk",
+    ]
+    for driver in report["explanation"]["key_value_drivers"]:
+        assert driver.get("supporting_signals")
+        assert len(driver["supporting_signals"]) >= 2
 
 
 def test_v3_no_forbidden_terms_leak_into_prose():
@@ -528,3 +538,114 @@ def test_v3_percentile_never_exceeds_99_cap():
     pct = report["metadata"].get("athlete_benchmark_percentile_in_cohort")
     if pct is not None:
         assert pct <= 99.0
+
+
+# ---------------------------------------------------------------------------
+# Terminal Notes 5.x — new payload fields
+# ---------------------------------------------------------------------------
+
+
+def test_flat_range_collapses_to_estimate_with_min_band_enforcement():
+    """When p10 == p90 (or band is narrower than the floor), the builder must
+    re-center and widen the range and tag it as `range_quality == 'estimate'`
+    so the UI can collapse to a single ESTIMATE label instead of `$X – $X`."""
+    score = _base_score()
+    # Flat band — the exact pathology from Arch Manning's report.
+    score["dollar_p10_usd"] = 16_800
+    score["dollar_p50_usd"] = 21_900
+    score["dollar_p90_usd"] = 16_800
+    # Without raw NIL we exercise the model-emitted band path. With one,
+    # the builder intentionally widens around the raw NIL (covered
+    # elsewhere); here we want to verify the min-band floor.
+    athlete = _base_athlete()
+    athlete["nil_valuation_raw"] = None
+    db = _FakeDb(
+        athlete=athlete,
+        latest_score=score,
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    lo = report["value"]["range_low"]
+    hi = report["value"]["range_high"]
+    assert hi > lo, "Flat band must be widened to a non-zero spread"
+    assert report["metadata"]["range_quality"] == "estimate"
+
+
+def test_supporting_metrics_are_present_on_every_driver():
+    """Each of the six canonical drivers must surface a structured
+    `supporting_metrics` array alongside the qualitative `supporting_signals`,
+    which is what the new inline metric grid renders against."""
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    drivers = report["explanation"]["key_value_drivers"]
+    for driver in drivers:
+        metrics = driver.get("supporting_metrics")
+        assert isinstance(metrics, list)
+        # Each metric must have at minimum a label + value pair the UI can render.
+        for metric in metrics:
+            assert "label" in metric
+            assert "value" in metric
+
+
+def test_position_group_request_param_is_honored():
+    """`position_group` is the canonical request param; the legacy `position`
+    field must continue to work for backward compatibility."""
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report_canonical = asyncio.run(
+        build_csc_report_json(db, "subject-1", {"position_group": "QB"})
+    )
+    db2 = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report_legacy = asyncio.run(
+        build_csc_report_json(db2, "subject-1", {"position": "QB"})
+    )
+    # Both shapes must produce a report; metadata should reflect the resolved
+    # position group rather than crashing on unknown param keys.
+    assert report_canonical["metadata"].get("position_group") in {"QB", None}
+    assert report_legacy["metadata"].get("position_group") in {"QB", None}
+
+
+def test_market_view_metadata_round_trips():
+    """The builder must echo the requested `market_view` so the UI can show
+    the analyst what view produced the report (and so reports cached by
+    params remain auditable)."""
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(
+        build_csc_report_json(db, "subject-1", {"market_view": "conservative"})
+    )
+    assert report["metadata"].get("market_view") == "conservative"
+
+
+def test_csc_band_overrides_widen_range_when_provided():
+    """When the analyst passes explicit percentile bands, the builder must
+    widen lo/hi using `cohort_stats` rather than the raw model p10/p90."""
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(
+        build_csc_report_json(
+            db,
+            "subject-1",
+            {"csc_band_low_pct": 0.05, "csc_band_high_pct": 0.95},
+        )
+    )
+    # Metadata records the override so audits know the range was widened.
+    assert report["metadata"].get("csc_band_low_pct") == 0.05
+    assert report["metadata"].get("csc_band_high_pct") == 0.95

@@ -18,6 +18,15 @@ export interface ShapDrivers {
   risk?: string | null
 }
 
+/** Signed SHAP attribution rows. `feature` is the model feature name as
+ * exposed by GravityNet (e.g. "instagram_followers_log"), `delta` is the
+ * SHAP value (positive pushes the score up, negative pulls it down). */
+export interface ShapFactor {
+  feature: string
+  delta: number
+  display?: string | null
+}
+
 export interface AthleteRecord {
   athlete_id: string
   name: string
@@ -82,6 +91,8 @@ export interface AthleteRecord {
   google_trends_score_raw?: number | null
   data_quality_score?: number | null
   shap_drivers?: ShapDrivers | null
+  top_factors_up?: ShapFactor[] | null
+  top_factors_down?: ShapFactor[] | null
   updated_at?: string | null
 }
 

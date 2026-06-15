@@ -73,7 +73,7 @@
 .sourceLink:hover { opacity: 0.8; }
 
 .compact {
-  padding: 1px 4px;
-  font-size: 9px;
+  padding: 2px 5px;
+  font-size: var(--fs-label-sm);
   gap: 4px;
 }

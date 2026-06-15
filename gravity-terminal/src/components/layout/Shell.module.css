@@ -1,6 +1,6 @@
 .shell {
   display: grid;
-  grid-template-rows: var(--top-bar-h) auto 1fr var(--cmd-bar-h);
+  grid-template-rows: var(--top-bar-h) auto 1fr var(--cmd-bar-h) var(--status-bar-h);
   height: 100dvh;
   width: 100%;
   overflow: hidden;
@@ -72,7 +72,7 @@
 
 @media (max-width: 1024px) {
   .shell {
-    grid-template-rows: auto auto 1fr var(--cmd-bar-h);
+    grid-template-rows: auto auto 1fr var(--cmd-bar-h) var(--status-bar-h);
   }
 
   .body {

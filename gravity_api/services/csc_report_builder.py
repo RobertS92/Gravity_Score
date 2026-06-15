@@ -134,6 +134,273 @@ def _signal_rank(score: Optional[float], *, invert: bool = False) -> float:
     return (100.0 - score) if invert else score
 
 
+def _fmt_followers(value: Optional[float]) -> str:
+    if value is None:
+        return "N/A"
+    n = float(value)
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{round(n / 1_000)}K"
+    return str(round(n))
+
+
+def _news_visibility_label(mentions: Optional[float]) -> str:
+    if mentions is None:
+        return "N/A"
+    if mentions >= 20:
+        return "High"
+    if mentions >= 5:
+        return "Emerging"
+    return "Limited"
+
+
+def _wiki_activity_label(views: Optional[float]) -> str:
+    if views is None:
+        return "N/A"
+    if views >= 50_000:
+        return "High"
+    if views >= 10_000:
+        return "Moderate"
+    return "Emerging"
+
+
+def _trends_label(score: Optional[float]) -> str:
+    if score is None:
+        return "N/A"
+    if score >= 60:
+        return "Rising"
+    if score >= 35:
+        return "Stable"
+    return "Limited"
+
+
+def _commercial_readiness_score(
+    brand_score: Optional[float],
+    engagement: Optional[float],
+    deals: Optional[float],
+) -> Optional[float]:
+    parts: list[float] = []
+    if brand_score is not None:
+        parts.append(float(brand_score))
+    if engagement is not None:
+        parts.append(min(100.0, float(engagement) * 10.0))
+    if deals is not None and deals > 0:
+        parts.append(min(100.0, 40.0 + float(deals) * 8.0))
+    if not parts:
+        return None
+    return sum(parts) / len(parts)
+
+
+def _supporting_metrics_for_driver(
+    label: str,
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Return structured numeric metrics for the inline metric grid.
+
+    Distinct from `_supporting_signals_for_driver`, which surfaces
+    interpretive (qualitative) labels. `supporting_metrics` carry raw
+    numeric values + units so the frontend can render a stats grid and
+    so the same data can feed sparklines/charts.
+    """
+
+    def metric(label: str, value: Any, unit: str | None = None) -> dict[str, Any]:
+        return {"label": label, "value": value, "unit": unit}
+
+    ig = _first_number(athlete_d.get("instagram_followers"), latest_dict.get("instagram_followers"))
+    tw = _first_number(athlete_d.get("twitter_followers"), latest_dict.get("twitter_followers"))
+    tt = _first_number(athlete_d.get("tiktok_followers"), latest_dict.get("tiktok_followers"))
+    engagement = _first_number(
+        athlete_d.get("instagram_engagement_rate"),
+        latest_dict.get("instagram_engagement_rate"),
+    )
+    if label == "Brand Strength":
+        return [
+            metric("Instagram", ig, "followers"),
+            metric("TikTok", tt, "followers"),
+            metric("X", tw, "followers"),
+            metric("IG Engagement", engagement, "%"),
+        ]
+    if label == "Exposure":
+        return [
+            metric("News Mentions", _first_number(athlete_d.get("news_mentions_30d")), "30d"),
+            metric("Wiki Views", _first_number(athlete_d.get("wikipedia_page_views_30d")), "30d"),
+            metric(
+                "Search Trend",
+                _first_number(athlete_d.get("google_trends_score")),
+                "score",
+            ),
+        ]
+    if label == "Market Proof":
+        return [
+            metric(
+                "Verified Deals",
+                int(_first_number(athlete_d.get("verified_deals_count")) or 0),
+                "count",
+            ),
+            metric("Proof Score", _first_number(latest_dict.get("proof_score")), "/100"),
+            metric("Brand Score", _first_number(latest_dict.get("brand_score")), "/100"),
+        ]
+    if label == "Momentum":
+        return [
+            metric("Velocity", _first_number(latest_dict.get("velocity_score")), "/100"),
+            metric(
+                "30d NIL Δ",
+                _first_number(athlete_d.get("nil_valuation_delta_30d")),
+                "$",
+            ),
+            metric(
+                "30d Gravity Δ",
+                _first_number(athlete_d.get("gravity_delta_30d")),
+                "pts",
+            ),
+        ]
+    if label == "Commercial Readiness":
+        return [
+            metric(
+                "Combined Reach",
+                _first_number(athlete_d.get("social_combined_reach")),
+                "followers",
+            ),
+            metric("IG Engagement", engagement, "%"),
+            metric(
+                "Deals on File",
+                int(_first_number(athlete_d.get("verified_deals_count")) or 0),
+                "count",
+            ),
+            metric(
+                "Data Quality",
+                (
+                    round(float(athlete_d["data_quality_score"]) * 100)
+                    if _first_number(athlete_d.get("data_quality_score")) is not None
+                    else None
+                ),
+                "%",
+            ),
+        ]
+    if label == "Risk":
+        return [
+            metric("Risk Score", _first_number(latest_dict.get("risk_score")), "/100"),
+            metric(
+                "Roster",
+                "Inactive" if bool(athlete_d.get("roster_inactive")) else "Active",
+                None,
+            ),
+        ]
+    return []
+
+
+def _supporting_signals_for_driver(
+    label: str,
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+) -> list[dict[str, str]]:
+    ig = _first_number(athlete_d.get("instagram_followers"), latest_dict.get("instagram_followers"))
+    tw = _first_number(athlete_d.get("twitter_followers"), latest_dict.get("twitter_followers"))
+    tt = _first_number(athlete_d.get("tiktok_followers"), latest_dict.get("tiktok_followers"))
+    engagement = _first_number(
+        athlete_d.get("instagram_engagement_rate"),
+        latest_dict.get("instagram_engagement_rate"),
+    )
+    if label == "Brand Strength":
+        return [
+            {"label": "Instagram", "value": _fmt_followers(ig)},
+            {"label": "TikTok", "value": _fmt_followers(tt)},
+            {"label": "X", "value": _fmt_followers(tw)},
+            {
+                "label": "Instagram Engagement Rate",
+                "value": f"{_format_score(engagement)}%" if engagement is not None else "N/A",
+            },
+        ]
+    if label == "Exposure":
+        return [
+            {
+                "label": "News Visibility",
+                "value": _news_visibility_label(_first_number(athlete_d.get("news_mentions_30d"))),
+            },
+            {
+                "label": "Wikipedia Activity",
+                "value": _wiki_activity_label(_first_number(athlete_d.get("wikipedia_page_views_30d"))),
+            },
+            {
+                "label": "Search Interest",
+                "value": _trends_label(_first_number(athlete_d.get("google_trends_score"))),
+            },
+        ]
+    if label == "Market Proof":
+        return [
+            {"label": "Conference", "value": _text_or_fallback(athlete_d.get("conference"), "N/A")},
+            {"label": "Position", "value": _text_or_fallback(athlete_d.get("position"), "N/A")},
+            {
+                "label": "Verified deals",
+                "value": str(int(_first_number(athlete_d.get("verified_deals_count")) or 0)),
+            },
+            {
+                "label": "Proof score",
+                "value": _format_score(_first_number(latest_dict.get("proof_score"))),
+            },
+        ]
+    if label == "Momentum":
+        return [
+            {
+                "label": "Velocity score",
+                "value": _format_score(_first_number(latest_dict.get("velocity_score"))),
+            },
+            {
+                "label": "30d NIL delta",
+                "value": _format_nil_value(_first_number(athlete_d.get("nil_valuation_delta_30d")))
+                if _first_number(athlete_d.get("nil_valuation_delta_30d")) is not None
+                else "N/A",
+            },
+            {
+                "label": "30d Gravity delta",
+                "value": _format_score(_first_number(athlete_d.get("gravity_delta_30d")))
+                if _first_number(athlete_d.get("gravity_delta_30d")) is not None
+                else "N/A",
+            },
+        ]
+    if label == "Commercial Readiness":
+        return [
+            {
+                "label": "Combined reach",
+                "value": _fmt_followers(_first_number(athlete_d.get("social_combined_reach"))),
+            },
+            {
+                "label": "Engagement rate (IG)",
+                "value": f"{_format_score(engagement)}%" if engagement is not None else "N/A",
+            },
+            {
+                "label": "Deals on file",
+                "value": str(int(_first_number(athlete_d.get("verified_deals_count")) or 0)),
+            },
+            {
+                "label": "Data quality",
+                "value": (
+                    f"{round(float(athlete_d['data_quality_score']) * 100)}%"
+                    if _first_number(athlete_d.get("data_quality_score")) is not None
+                    else "N/A"
+                ),
+            },
+        ]
+    if label == "Risk":
+        inactive = bool(athlete_d.get("roster_inactive"))
+        return [
+            {"label": "Risk score", "value": _format_score(_first_number(latest_dict.get("risk_score")))},
+            {"label": "Roster status", "value": "Inactive" if inactive else "Active"},
+            {
+                "label": "Model confidence",
+                "value": _text_or_fallback(
+                    (latest_dict.get("dollar_confidence") or {}).get("dollar_confidence_label")
+                    if isinstance(latest_dict.get("dollar_confidence"), dict)
+                    else None,
+                    "N/A",
+                ),
+            },
+        ]
+    return []
+
+
 def _cap_confidence(level: str, *, max_level: str | None = None, min_level: str | None = None) -> str:
     order = {"Low": 0, "Moderate": 1, "High": 2}
     idx = order.get(level, 1)
@@ -316,9 +583,17 @@ async def _load_season_state(
 
 
 def _position_group_value(athlete_row: Dict[str, Any], params: Dict[str, Any]) -> str:
-    explicit = params.get("position_group")
+    # Accept either `position_group` (canonical) or legacy `position` from
+    # older terminal builds and agent payloads. When `position` looks like a
+    # specific role (e.g. "QB", "WR") we let `derive_position_group` collapse
+    # it into the canonical group; when it already looks like a group code we
+    # use it directly.
+    explicit = params.get("position_group") or params.get("position")
     if explicit:
-        return str(explicit).strip().upper()
+        explicit_str = str(explicit).strip()
+        if explicit_str:
+            derived = derive_position_group(explicit_str)
+            return (derived or explicit_str).strip().upper()
     raw = _text_or_fallback(
         athlete_row.get("position_group") or derive_position_group(athlete_row.get("position")),
         "UNK",
@@ -813,6 +1088,28 @@ async def build_csc_report_json(
     n_comp = int(params.get("comparables_count") or 12)
     conf_min = float(params.get("confidence_min") or 0.75)
 
+    # ---------------- PHASE 1.5: SIMPLE-MODE PARAM WIRING ----------------
+    # The terminal Simple mode resolves to a `market_view` preset
+    # (conservative/balanced/aggressive) plus a `report_focus` and a few
+    # verification/percentile toggles. The preset already shapes
+    # comparables_count + confidence_min via the frontend resolver, but we
+    # also apply server-side guards so manual API callers benefit.
+    market_view = (params.get("market_view") or "balanced").lower()
+    if market_view == "conservative":
+        # Tighten the comparable bar a bit further than the preset alone.
+        conf_min = max(conf_min, 0.85)
+    elif market_view == "aggressive":
+        conf_min = min(conf_min, 0.70)
+
+    verified_only = bool(params.get("verified_only", True))
+
+    # csc_band_low_pct / csc_band_high_pct override the displayed range when
+    # both are present; we apply them after the model + cohort blend runs.
+    band_low_pct = params.get("csc_band_low_pct")
+    band_high_pct = params.get("csc_band_high_pct")
+
+    report_focus = (params.get("report_focus") or "overall").lower()
+
     # ---------------- PHASE 2: DATA HYDRATION ----------------
     latest = await db.fetchrow(
         """SELECT * FROM athlete_gravity_scores
@@ -880,6 +1177,29 @@ async def build_csc_report_json(
     )
 
     season_state, cohort_window_days = await _load_season_state(db, sport_f, report_dt.date())
+
+    # date_from / date_to (when supplied) override the default cohort window.
+    # We compute the implied span in days and clamp to a sane range so
+    # callers can't accidentally trigger unbounded scans.
+    date_from_param = params.get("date_from")
+    date_to_param = params.get("date_to")
+    if date_from_param and date_to_param:
+        try:
+            df = datetime.fromisoformat(str(date_from_param)).date()
+            dt_ = datetime.fromisoformat(str(date_to_param)).date()
+            span_days = (dt_ - df).days
+            if 1 <= span_days <= 720:
+                cohort_window_days = span_days
+        except ValueError:
+            pass
+
+    # Market-view widens or tightens the cohort window — aggressive callers
+    # see more recent activity; conservative ones look further back for
+    # validated data.
+    if market_view == "aggressive":
+        cohort_window_days = max(7, int(cohort_window_days * 0.7))
+    elif market_view == "conservative":
+        cohort_window_days = int(cohort_window_days * 1.4)
 
     # Cohort fallback chain.
     cohort_fallback_step = 0
@@ -992,6 +1312,46 @@ async def build_csc_report_json(
             hi = benchmark * (1.0 + spread * 2.0)
             range_quality = "normal"
 
+    # csc_band_low_pct / csc_band_high_pct override the displayed band when
+    # the caller explicitly asked for tighter or looser percentile bounds
+    # (analyst mode). We re-read the cohort distribution at the requested
+    # percentiles when both endpoints are available; otherwise we ignore
+    # the override silently so a partial config doesn't break the report.
+    if (
+        band_low_pct is not None
+        and band_high_pct is not None
+        and cohort_stats["size"] >= 5
+        and benchmark is not None
+    ):
+        try:
+            low_pct = float(band_low_pct) / 100.0
+            high_pct = float(band_high_pct) / 100.0
+            if 0.0 < low_pct < high_pct < 1.0:
+                override_lo = _quantile(cohort_stats["benchmark_values"], low_pct)
+                override_hi = _quantile(cohort_stats["benchmark_values"], high_pct)
+                if override_lo is not None and override_hi is not None:
+                    lo = override_lo
+                    hi = override_hi
+                    range_quality = "normal"
+        except (TypeError, ValueError):
+            pass
+
+    # Minimum band enforcement: if the band collapses to <5% of benchmark
+    # (or <$1,000 absolute), tag the range as an `estimate` rather than
+    # surfacing "$17.9K – $17.9K". The frontend collapses identical
+    # endpoints into a single ESTIMATE label.
+    if benchmark is not None and benchmark > 0 and lo is not None and hi is not None:
+        min_band = max(1_000.0, benchmark * 0.05)
+        if float(hi) - float(lo) < min_band:
+            # Center the collapsed band on the midpoint, then re-expand to
+            # the minimum width so callers that still display a range get a
+            # meaningful one and downstream % deltas don't divide by zero.
+            mid = (float(lo) + float(hi)) / 2.0
+            half = min_band / 2.0
+            lo = max(0.0, mid - half)
+            hi = mid + half
+            range_quality = "estimate"
+
     raw_percentile_rank = (
         None
         if cohort_fallback_step >= 3
@@ -1082,9 +1442,26 @@ async def build_csc_report_json(
     else:
         tier_selected = tier_v1
 
-    # Deterministic comparables.
+    # Deterministic comparables. When `verified_only=true`, the lateral
+    # join filters on `verified = true`; otherwise it returns the most
+    # recent deal regardless of verification status.
+    deal_lateral = (
+        """LEFT JOIN LATERAL (
+               SELECT deal_type, verified, deal_value FROM athlete_nil_deals
+               WHERE athlete_id = a.id AND verified = true
+               ORDER BY (deal_value IS NOT NULL) DESC, ingested_at DESC
+               LIMIT 1
+           ) d ON true"""
+        if verified_only
+        else """LEFT JOIN LATERAL (
+               SELECT deal_type, verified, deal_value FROM athlete_nil_deals
+               WHERE athlete_id = a.id
+               ORDER BY (deal_value IS NOT NULL) DESC, ingested_at DESC
+               LIMIT 1
+           ) d ON true"""
+    )
     comp_rows = await db.fetch(
-        """SELECT a.id, a.name, a.school, a.position, s.gravity_score, s.brand_score,
+        f"""SELECT a.id, a.name, a.school, a.position, s.gravity_score, s.brand_score,
                   s.dollar_p50_usd, cs.similarity_score, d.deal_type, d.verified, d.deal_value,
                   dv.verified_deal_count, cs.created_at
            FROM comparable_sets cs
@@ -1093,12 +1470,7 @@ async def build_csc_report_json(
                SELECT * FROM athlete_gravity_scores
                WHERE athlete_id = a.id ORDER BY calculated_at DESC LIMIT 1
            ) s ON true
-           LEFT JOIN LATERAL (
-               SELECT deal_type, verified, deal_value FROM athlete_nil_deals
-               WHERE athlete_id = a.id
-               ORDER BY (deal_value IS NOT NULL) DESC, ingested_at DESC
-               LIMIT 1
-           ) d ON true
+           {deal_lateral}
            LEFT JOIN LATERAL (
                SELECT COUNT(*)::int AS verified_deal_count
                FROM athlete_nil_deals
@@ -1207,10 +1579,17 @@ async def build_csc_report_json(
         confidence_level = _cap_confidence(confidence_level, max_level="Moderate")
     risk_level = _signal_level(risk_score, invert=True)
 
+    commercial_score = _commercial_readiness_score(
+        brand_score,
+        _first_number(athlete_d.get("instagram_engagement_rate")),
+        _first_number(athlete_d.get("verified_deals_count")),
+    )
     drivers = [
         ("Brand Strength", brand_score, False),
         ("Market Proof", proof_score, False),
         ("Exposure", exposure_score, False),
+        ("Momentum", velocity_score, False),
+        ("Commercial Readiness", commercial_score, False),
         ("Risk", risk_score, True),
     ]
     top_driver = sorted(
@@ -1286,6 +1665,8 @@ async def build_csc_report_json(
         ("Brand Strength", _signal_level(brand_score)),
         ("Market Proof", _signal_level(proof_score)),
         ("Exposure", _signal_level(exposure_score)),
+        ("Momentum", _signal_level(velocity_score)),
+        ("Commercial Readiness", _signal_level(commercial_score)),
         ("Risk", _signal_level(risk_score, invert=True)),
     ]
     key_value_drivers: list[dict[str, Any]] = []
@@ -1304,7 +1685,32 @@ async def build_csc_report_json(
                 "label": label,
                 "signal": signal,
                 "explanation": driver_result.text,
+                "supporting_signals": _supporting_signals_for_driver(
+                    label,
+                    athlete_d,
+                    latest_dict,
+                ),
+                "supporting_metrics": _supporting_metrics_for_driver(
+                    label,
+                    athlete_d,
+                    latest_dict,
+                ),
             }
+        )
+
+    # Reorder drivers by `report_focus` so the most relevant value driver
+    # for the caller's use case appears first. The canonical order
+    # (Brand Strength → Market Proof → Exposure → Momentum → Commercial
+    # Readiness → Risk) is preserved for the remaining drivers.
+    focus_map = {
+        "brand": "Brand Strength",
+        "commercial": "Commercial Readiness",
+        "recruiting": "Momentum",
+    }
+    focus_label = focus_map.get(report_focus)
+    if focus_label:
+        key_value_drivers.sort(
+            key=lambda d: 0 if d.get("label") == focus_label else 1,
         )
 
     market_context = _build_market_context_text(
@@ -1507,6 +1913,16 @@ async def build_csc_report_json(
             ),
             "cohort_fit": cohort_fit_label,
             "range_quality": range_quality,
+            # Echo back the analyst/simple-mode knobs that shaped this run so
+            # the UI can show users which preset produced the report and so
+            # ops can debug "why does X look different today" answers.
+            "market_view": market_view,
+            "report_focus": report_focus,
+            "verified_only": verified_only,
+            "csc_band_low_pct": band_low_pct,
+            "csc_band_high_pct": band_high_pct,
+            "date_from": date_from_param,
+            "date_to": date_to_param,
             "report_id": report_id,
             "report_version": report_rollout.version,
             "report_rollout_phase": report_rollout.phase,

@@ -1,38 +1,157 @@
 :root {
-  /* Backgrounds — slightly lifted so borders read against them */
+  /* ----------------------------------------------------------------
+   * Backgrounds — slightly lifted so borders read against them
+   * ---------------------------------------------------------------- */
   --bg-primary:   #0b1017;
   --bg-secondary: #111820;
   --bg-tertiary:  #192030;
   --bg-elevated:  #141c28;
   --bg-right:     #0d1420;
+  --bg-hover:     #1a2230;   /* row hover, button hover */
+  --bg-active:    #1f2937;   /* selected row, pressed state */
 
-  /* Borders — visible without being harsh */
+  /* ----------------------------------------------------------------
+   * Borders — visible without being harsh
+   * ---------------------------------------------------------------- */
   --border-default: #2a3545;
   --border-subtle:  #1e2a38;
+  --border-strong:  #3b4a5e;
+  /* Legacy alias for files that still reference `var(--border)` (e.g.
+   * TrustBadge). Resolve it to the default border token so historical
+   * styles match the rest of the system. */
+  --border: var(--border-default);
 
-  /* Text — full 4-stop hierarchy with WCAG AA contrast on dark bg */
-  --text-primary:   #eef2f7;   /* almost white — headlines, values       */
-  --text-secondary: #c8d4e0;   /* body copy, table cells                  */
-  --text-muted:     #8ea5bb;   /* labels, secondary metadata              */
-  --text-dim:       #5a7080;   /* helper text, timestamps — still legible */
-  --text-ghost:     #3d5060;   /* truly background-level; use sparingly   */
+  /* ----------------------------------------------------------------
+   * Text — full 4-stop hierarchy with WCAG AA contrast on dark bg
+   * ---------------------------------------------------------------- */
+  --text-primary:   #eef2f7;
+  --text-secondary: #c8d4e0;
+  --text-muted:     #8ea5bb;
+  --text-dim:       #5a7080;
+  --text-ghost:     #3d5060;
 
-  /* Accents — slightly brighter for legibility on dark bg */
+  /* ----------------------------------------------------------------
+   * Accents — slightly brighter for legibility on dark bg
+   * ---------------------------------------------------------------- */
   --accent-green:  #4cc963;
   --accent-amber:  #e0ac3a;
   --accent-red:    #ff5f5a;
   --accent-blue:   #6ab4ff;
   --accent-cyan:   #5adfe6;
   --accent-purple: #b48afb;
+  --accent-teal:   #2dd4bf;
 
-  /* Typography — slightly larger base and a more legible mono stack */
-  --font-data:  'JetBrains Mono', 'Fira Code', 'Courier New', Courier, monospace;
-  --font-prose: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  /* Semantic status aliases — use these in component CSS instead of
+   * raw accent tokens so that retheming (e.g. high-contrast mode)
+   * only needs to update one place. */
+  --status-positive: var(--accent-green);
+  --status-warning:  var(--accent-amber);
+  --status-negative: var(--accent-red);
+  --status-info:     var(--accent-blue);
+  --status-neutral:  var(--text-muted);
+
+  /* Chart series tokens — pinned in a fixed order so multi-series
+   * charts pick up consistent, accessible hues without each chart
+   * inventing its own palette. */
+  --chart-series-1: var(--accent-green);
+  --chart-series-2: var(--accent-amber);
+  --chart-series-3: var(--accent-blue);
+  --chart-series-4: var(--accent-purple);
+  --chart-series-5: var(--accent-cyan);
+  --chart-series-6: var(--accent-red);
+  --chart-grid:     #1d2734;
+  --chart-axis:     var(--text-dim);
+
+  /* ----------------------------------------------------------------
+   * Typography
+   * ---------------------------------------------------------------- */
+  --font-data:    'JetBrains Mono', 'Fira Code', 'Courier New', Courier, monospace;
+  --font-prose:   -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Arial, sans-serif;
   --font-display: 'JetBrains Mono', 'Fira Code', 'Courier New', Courier, monospace;
 
-  /* Layout */
+  /* Heading scale — used by .h1/.h2/.h3 utility classes and by
+   * components that want a consistent type hierarchy. */
+  --fs-h1: 22px;
+  --fs-h2: 16px;
+  --fs-h3: 13px;
+  --fs-body: 12px;
+  --fs-label-sm: 11px;   /* Smallest readable label size — never go below this for prose. */
+
+  /* ----------------------------------------------------------------
+   * Layout
+   * ---------------------------------------------------------------- */
   --top-bar-h: 38px;
   --cmd-bar-h: 42px;
+  --status-bar-h: 22px;
   --sidebar-w: 204px;
   --right-w:   328px;
+
+  /* ----------------------------------------------------------------
+   * Spacing — 4px scale. Use these in place of arbitrary px values
+   * so density toggling can rescale the entire UI in one place.
+   * ---------------------------------------------------------------- */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  /* ----------------------------------------------------------------
+   * Radius — terminal aesthetic is mostly square; reserve radius
+   * for soft surfaces (modals, popovers, chips).
+   * ---------------------------------------------------------------- */
+  --radius-none: 0;
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+
+  /* ----------------------------------------------------------------
+   * Shadow — narrow, dark, slightly green-tinted to fit the
+   * terminal phosphor look without going full neon.
+   * ---------------------------------------------------------------- */
+  --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-3: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-overlay: 0 12px 36px rgba(0, 0, 0, 0.55);
+  --shadow-card-hover: inset 0 0 0 1px rgba(76, 201, 99, 0.18),
+                       0 2px 6px rgba(0, 0, 0, 0.35);
+
+  /* ----------------------------------------------------------------
+   * Motion — durations and easing curves. Use a token instead of
+   * an inline value so prefers-reduced-motion can short-circuit
+   * them all in globals.css.
+   * ---------------------------------------------------------------- */
+  --dur-instant: 80ms;
+  --dur-fast:    140ms;
+  --dur-base:    220ms;
+  --dur-slow:    320ms;
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ----------------------------------------------------------------
+   * z-index scale — keep layers explicit so we don't end up with
+   * components fighting each other via 9999 escalations.
+   * ---------------------------------------------------------------- */
+  --z-base:     1;
+  --z-sticky:   10;
+  --z-dropdown: 20;
+  --z-popover:  30;
+  --z-overlay:  40;
+  --z-drawer:   50;
+  --z-modal:    60;
+  --z-toast:    70;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --border-default: #4a5a72;
+    --border-subtle:  #2c3a4d;
+    --text-muted:     #b7c4d1;
+  }
 }

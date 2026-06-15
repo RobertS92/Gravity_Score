@@ -6,6 +6,7 @@ import type { AthleteRecord, ComparableRecord } from '../types/athlete'
 import type { CscReportJson } from '../types/reports'
 import { formatComparableConfidence, normalizeComparableRows } from './cscComparables'
 import { conferenceTierDisplayLabel, shouldSuppressPercentile } from './cscReportTags'
+import { enrichKeyValueDrivers } from './cscDriverSignals'
 import { formatNilValue, formatNilRangeAligned, formatScore } from './formatters'
 
 function nilFmt(v: number | null | undefined) {
@@ -145,7 +146,7 @@ export async function downloadCscPdf(
     // ── Key value drivers ─────────────────────────────────────────────────────
     rule()
     line('KEY VALUE DRIVERS', 9, true, '#6e7681')
-    const drivers = report?.explanation?.key_value_drivers ?? []
+    const drivers = enrichKeyValueDrivers(report?.explanation?.key_value_drivers, athlete)
     if (!drivers.length) {
       line(`Brand Strength: ${formatScore(athlete.brand_score)} (Moderate)`, 9, false, '#c9d1d9')
       line(`Market Proof: ${formatScore(athlete.proof_score)} (Moderate)`, 9, false, '#c9d1d9')
@@ -154,7 +155,14 @@ export async function downloadCscPdf(
     } else {
       for (const d of drivers) {
         line(`${d.label}: ${d.signal}`, 9, true, '#c9d1d9')
-        writeWrapped(d.explanation, 8, '#8b949e', 11)
+        if (d.supporting_signals?.length) {
+          for (const s of d.supporting_signals) {
+            line(`${s.label}: ${s.value}`, 8, false, '#8b949e')
+          }
+        }
+        if (d.explanation) {
+          writeWrapped(d.explanation, 8, '#8b949e', 11)
+        }
       }
     }
     if (report?.explanation?.driver_takeaway) {
@@ -230,16 +238,17 @@ export async function downloadCscPdf(
       }
       y += 4
     }
+    if (report?.validation?.takeaway) {
+      line('VALUE INTERPRETATION', 9, true, '#6e7681')
+      writeWrapped(report.validation.takeaway, 8, '#8b949e', 12)
+    }
     if (report?.confidence_risk) {
-      line('CONFIDENCE & RISK', 9, true, '#6e7681')
+      rule()
+      line('RISK & CONFIDENCE', 9, true, '#6e7681')
       line(`Confidence: ${report.confidence_risk.confidence_level}`, 8, true, '#c9d1d9')
       writeWrapped(report.confidence_risk.confidence_note, 8, '#8b949e', 12)
       line(`Risk: ${report.confidence_risk.risk_level}`, 8, true, '#c9d1d9')
       writeWrapped(report.confidence_risk.risk_note, 8, '#8b949e', 12)
-    }
-    if (report?.validation?.takeaway) {
-      line('VALUE INTERPRETATION', 9, true, '#6e7681')
-      writeWrapped(report.validation.takeaway, 8, '#8b949e', 12)
     }
 
     // ── Detail appendix ───────────────────────────────────────────────────────

@@ -1,0 +1,63 @@
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  min-width: 0;
+}
+
+.title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-data);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin: 0;
+  font-weight: 500;
+}
+
+.h2 .title {
+  font-size: var(--fs-h2);
+}
+
+.h3 .title {
+  font-size: var(--fs-h3);
+  color: var(--text-secondary);
+}
+
+.prefix {
+  font-family: var(--font-data);
+  font-size: var(--fs-label-sm);
+  letter-spacing: 0.06em;
+  opacity: 0.85;
+}
+
+.trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.intel .prefix {
+  color: var(--accent-green);
+}
+
+.cap .prefix {
+  color: var(--accent-amber);
+}
+
+.warn .prefix {
+  color: var(--status-warning);
+}
+
+.positive .prefix {
+  color: var(--status-positive);
+}
+
+.neutral .prefix {
+  color: var(--text-muted);
+}

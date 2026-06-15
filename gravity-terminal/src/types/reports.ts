@@ -16,10 +16,23 @@ export interface CscValueSection {
   confidence_tag?: string | null
 }
 
+export interface CscDriverSignal {
+  label: string
+  value: string
+}
+
+export interface CscDriverMetric {
+  label: string
+  value: number | string | null
+  unit?: string | null
+}
+
 export interface CscKeyValueDriver {
   label: string
   signal: CscSignalLevel
   explanation: string
+  supporting_signals?: CscDriverSignal[]
+  supporting_metrics?: CscDriverMetric[]
 }
 
 export interface CscExplanationSection {
@@ -130,7 +143,7 @@ export interface CscReportMetadata {
   model_status?: 'production' | 'fallback' | null
   model_version?: string | null
   cohort_fit?: 'good' | 'edge' | 'poor' | null
-  range_quality?: 'normal' | 'wide' | null
+  range_quality?: 'normal' | 'wide' | 'estimate' | null
   report_id?: string | null
   report_version?: 'v2' | 'v3' | null
   report_rollout_phase?: string | null
@@ -154,9 +167,28 @@ export interface CscReportJson {
   methodology?: string
 }
 
+export type CscMarketView = 'conservative' | 'balanced' | 'aggressive'
+export type CscReportFocus = 'overall' | 'brand' | 'commercial' | 'recruiting'
+
+export interface CscWeightingOverride {
+  brand: number
+  proof: number
+  exposure: number
+  velocity: number
+  risk: number
+}
+
 export interface CscReportParams {
   sport?: string
+  /** Position group filter sent to the backend; the field name matches
+   * `csc_report_builder.py` which reads `position_group`. */
+  position_group?: string
+  /** @deprecated kept for backward-compat with stored Zustand state; the API now reads `position_group`. */
   position?: string
+  /** Analyst-only weighting override. Consumed by the API only when the
+   * latest score row is on a fallback model; production scores use the
+   * learned model and ignore the override. Weights must sum to 1. */
+  weighting_override?: CscWeightingOverride | null
   comparables_count?: number
   confidence_min?: number
   csc_band_low_pct?: number
@@ -164,6 +196,9 @@ export interface CscReportParams {
   date_from?: string
   date_to?: string
   verified_only?: boolean
+  /** Simple-mode preset passed to API for narrative/comparable emphasis. */
+  market_view?: CscMarketView
+  report_focus?: CscReportFocus
 }
 
 export interface BrandMatchBrief {

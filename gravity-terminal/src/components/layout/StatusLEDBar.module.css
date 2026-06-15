@@ -1,0 +1,87 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: var(--status-bar-h);
+  padding: 0 12px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-default);
+  font-family: var(--font-data);
+  font-size: var(--fs-label-sm);
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+}
+
+.label {
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+}
+
+.value {
+  color: var(--text-secondary);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
+.flex {
+  flex: 1;
+}
+
+.clock {
+  font-family: var(--font-data);
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.clockSuffix {
+  color: var(--text-dim);
+}
+
+.led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.ledOk {
+  background: var(--status-positive);
+  box-shadow: 0 0 6px rgba(76, 201, 99, 0.45);
+  animation: ledPulse 2.4s ease-in-out infinite;
+}
+
+.ledWarn {
+  background: var(--status-warning);
+  box-shadow: 0 0 6px rgba(224, 172, 58, 0.4);
+}
+
+.ledErr {
+  background: var(--status-negative);
+  box-shadow: 0 0 6px rgba(255, 95, 90, 0.5);
+  animation: ledPulse 1s ease-in-out infinite;
+}
+
+.ledIdle {
+  background: var(--text-dim);
+  box-shadow: none;
+}
+
+@keyframes ledPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}

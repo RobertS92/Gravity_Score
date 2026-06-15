@@ -44,9 +44,9 @@
 }
 
 .statLabel {
-  font-size: 9px;
+  font-size: var(--fs-label-sm);
   letter-spacing: 0.10em;
-  color: var(--text-dim);
+  color: var(--text-muted);
 }
 
 .statValue {

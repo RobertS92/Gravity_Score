@@ -76,6 +76,18 @@
   letter-spacing: 0.18em;
   color: var(--text-primary);
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.brandSeparator {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+.brandCapiq {
+  color: var(--accent-amber);
 }
 
 .tabs {
@@ -86,6 +98,44 @@
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
+}
+
+/* Each cluster groups tabs that belong to the same product layer
+ * (Gravity Intelligence vs Cap Management). A small bracket label
+ * above the cluster makes the layer obvious without adding chrome. */
+.tabCluster {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  border-right: 2px solid var(--border-default);
+}
+
+.tabCluster:last-of-type {
+  border-right: none;
+}
+
+.tabClusterLabel {
+  position: absolute;
+  top: -4px;
+  left: 8px;
+  font-family: var(--font-data);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  background: var(--bg-secondary);
+  padding: 0 6px;
+  pointer-events: none;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tabClusterDim .tab,
+.tabClusterDim .tabActive {
+  opacity: 0.72;
+}
+
+.tabClusterActive .tabClusterLabel {
+  color: var(--accent-green);
 }
 
 .tab {

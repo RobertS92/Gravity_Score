@@ -1,0 +1,128 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  min-height: 100%;
+  background: var(--bg-primary);
+}
+
+.header {
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 12px;
+}
+
+.eyebrow {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--accent-amber);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.title {
+  font-family: var(--font-data);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.sub {
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.link {
+  color: var(--accent-green);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.linkSep {
+  color: var(--text-dim);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.column {
+  border: 1px solid var(--border-default);
+  background: var(--bg-secondary);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 6px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+  border: 1px dashed var(--border-default);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-family: var(--font-prose);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 16px;
+}
+
+.emptyTitle {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.emptyBody a {
+  color: var(--accent-green);
+  text-decoration: none;
+}
+
+.emptyBlock {
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
+.footer {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+
+.footerNote {
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}

@@ -40,7 +40,6 @@ export function RightPanel() {
   const shortlistRaw = useUiStore((s) => s.brandMatchShortlist) as unknown
   const shortlist = safeShortlist(shortlistRaw)
   const requestRefine = useUiStore((s) => s.requestBrandMatchRefine)
-  const isNilIntelligenceRoute = pathname === '/'
   const athleteId = typeof athlete?.athlete_id === 'string' && athlete.athlete_id.length > 0 ? athlete.athlete_id : null
 
   const fallbackFeedBlock = (
@@ -126,12 +125,44 @@ export function RightPanel() {
   )
 
   if (pathname.startsWith('/csc')) {
+    // Market Signals are now embedded inside each Key Value Driver card
+    // (see CscReportsView KeyValueDriversSection). The right rail on /csc
+    // intentionally stays minimal so the report owns the screen.
+    return (
+      <aside className={styles.panel}>
+        <div className={styles.scroll} />
+        {quickBlock}
+      </aside>
+    )
+  }
+
+  if (pathname.startsWith('/cap')) {
+    // Cap Management decision layer surface. The right rail here shows
+    // org-wide cap state (utilization, headroom), in-flight scenarios, and
+    // pending approvals — the operator's "where am I right now" panel.
+    //
+    // On the dedicated /cap/deal-desk view we additionally surface the
+    // athlete-scoped decision blocks (DealAction / Confidence / Alternatives)
+    // that previously lived on the NIL Intelligence home.
+    const isDealDesk = pathname.startsWith('/cap/deal-desk')
     return (
       <aside className={styles.panel}>
         <div className={styles.scroll}>
-          {nilBlock}
-          {signalsBlock}
+          <CapUtilizationBlock />
+          {isDealDesk && athleteId ? (
+            <>
+              {dealActionBlock}
+              {confidenceBlock}
+              {alternativesBlock}
+            </>
+          ) : (
+            <>
+              <CapScenariosBlock />
+              <CapApprovalsBlock />
+            </>
+          )}
         </div>
+        {quickBlock}
       </aside>
     )
   }
@@ -231,17 +262,84 @@ export function RightPanel() {
     )
   }
 
+  // NIL Intelligence home (`/`) intentionally focuses on valuation +
+  // signals only. The decision-oriented blocks (DealAction / Confidence /
+  // Alternatives) live on `/cap/deal-desk` so the Intelligence vs Cap
+  // separation is enforced in the layout itself.
   return (
     <aside className={styles.panel}>
       <div className={styles.scroll}>
         {nilBlock}
-        {isNilIntelligenceRoute && dealActionBlock}
-        {isNilIntelligenceRoute && confidenceBlock}
-        {isNilIntelligenceRoute && alternativesBlock}
         {signalsBlock}
         {feedBlock}
       </div>
       {quickBlock}
     </aside>
+  )
+}
+
+function CapUtilizationBlock() {
+  return (
+    <div className={styles.section}>
+      <div className={styles.title}>CAP UTILIZATION</div>
+      <div style={{ fontFamily: 'var(--font-data)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span>Total budget</span>
+          <span>{formatNilValue(15_000_000)}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span>Committed</span>
+          <span style={{ color: 'var(--accent-amber)' }}>{formatNilValue(11_240_000)}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span>Headroom</span>
+          <span style={{ color: 'var(--accent-green)' }}>{formatNilValue(3_760_000)}</span>
+        </div>
+        <div style={{ marginTop: 6, height: 6, background: 'var(--bg-primary)', position: 'relative' }}>
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: '75%',
+              background: 'var(--accent-amber)',
+              opacity: 0.85,
+            }}
+            aria-label="Cap utilization 75%"
+          />
+        </div>
+        <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-muted)' }}>
+          75% utilized · live cap data wires to /cap/scenarios when ready
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CapScenariosBlock() {
+  return (
+    <div className={styles.section}>
+      <div className={styles.title}>ACTIVE SCENARIOS</div>
+      <div style={{ fontFamily: 'var(--font-data)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+        <div>· QB upgrade — +$2.4M</div>
+        <div>· WR1 retention — locked</div>
+        <div>· Portal class build — TBD</div>
+      </div>
+    </div>
+  )
+}
+
+function CapApprovalsBlock() {
+  return (
+    <div className={styles.section}>
+      <div className={styles.title}>PENDING APPROVALS</div>
+      <div style={{ fontFamily: 'var(--font-data)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        <div>3 deals awaiting GM sign-off</div>
+        <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 4 }}>
+          Approval queue wires to /cap/workflow.
+        </div>
+      </div>
+    </div>
   )
 }

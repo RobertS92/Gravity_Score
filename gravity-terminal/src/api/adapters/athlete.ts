@@ -9,6 +9,7 @@ import type {
   GravityTier,
   ScoreHistoryPoint,
   ShapDrivers,
+  ShapFactor,
   Sport,
 } from '../../types/athlete'
 import type { FeedEventRecord, FeedEventType } from '../../types/feed'
@@ -89,6 +90,25 @@ function shapFromScoreRow(score: Record<string, unknown> | undefined): ShapDrive
   }
   if (Object.values(out).every((v) => v == null)) return null
   return out
+}
+
+function topFactorsFromScoreRow(
+  score: Record<string, unknown> | undefined,
+  field: 'top_factors_up' | 'top_factors_down',
+): ShapFactor[] | null {
+  if (!score) return null
+  const raw = score[field]
+  if (!Array.isArray(raw)) return null
+  const out: ShapFactor[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue
+    const row = entry as Record<string, unknown>
+    const feature = str(row.feature) ?? str(row.name)
+    const delta = num(row.delta) ?? num(row.shap_value) ?? num(row.value)
+    if (!feature || delta == null) continue
+    out.push({ feature, delta, display: str(row.display) ?? null })
+  }
+  return out.length ? out : null
 }
 
 function gravityDeltaWindow(history: Record<string, unknown>[]): number | null {
@@ -261,6 +281,8 @@ export function mapAthleteFromBundle(b: AthleteDetailBundle): AthleteRecord {
     data_quality_score: num(a.data_quality_score),
     verified_deals_count: nilAgg.verified,
     shap_drivers: shapFromScoreRow(latest),
+    top_factors_up: topFactorsFromScoreRow(latest, 'top_factors_up'),
+    top_factors_down: topFactorsFromScoreRow(latest, 'top_factors_down'),
     updated_at: str(latest?.calculated_at) ?? str(a.updated_at),
   }
 }

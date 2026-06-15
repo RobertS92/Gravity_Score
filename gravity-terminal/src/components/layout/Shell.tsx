@@ -9,6 +9,7 @@ import { CommandBar } from './CommandBar'
 import { RightPanel } from './RightPanel'
 import { Sidebar } from './Sidebar'
 import styles from './Shell.module.css'
+import { StatusLEDBar } from './StatusLEDBar'
 import { TopBar } from './TopBar'
 import { ErrorBoundary } from '../shared/ErrorBoundary'
 
@@ -62,6 +63,7 @@ export function Shell() {
         )}
       </div>
       {!isAiTab && <CommandBar />}
+      <StatusLEDBar />
     </div>
   )
 }

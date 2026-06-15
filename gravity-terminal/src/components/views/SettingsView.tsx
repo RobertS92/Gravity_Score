@@ -3,6 +3,39 @@ import { fetchUserPreferences, patchUserPreferences, type UserPreferences } from
 import { usePreferencesStore } from '../../stores/preferencesStore'
 import styles from './SettingsView.module.css'
 
+type DensityMode = 'comfortable' | 'default' | 'compact'
+
+const DENSITY_STORAGE_KEY = 'gravity.density.v1'
+
+function readDensity(): DensityMode {
+  if (typeof window === 'undefined') return 'default'
+  const stored = window.localStorage.getItem(DENSITY_STORAGE_KEY)
+  if (stored === 'comfortable' || stored === 'default' || stored === 'compact') return stored
+  return 'default'
+}
+
+function applyDensity(mode: DensityMode) {
+  if (typeof document === 'undefined') return
+  // `data-density` is consumed by tokens.css / globals.css which scale
+  // --space-3, --space-4, etc. depending on the mode.
+  if (mode === 'default') {
+    document.documentElement.removeAttribute('data-density')
+  } else {
+    document.documentElement.setAttribute('data-density', mode)
+  }
+  try {
+    window.localStorage.setItem(DENSITY_STORAGE_KEY, mode)
+  } catch {
+    // ignore storage failures (private mode, full disk, etc.)
+  }
+}
+
+/** Initialize density from localStorage on first import so the choice
+ * survives reloads without waiting for the user to open Settings. */
+if (typeof window !== 'undefined') {
+  applyDensity(readDensity())
+}
+
 const DASH_TABS = [
   { id: 'roster', label: 'CapIQ / Roster' },
   { id: 'market', label: 'Market scan' },
@@ -32,6 +65,12 @@ export function SettingsView() {
   const [seed, setSeed] = useState('')
   const [tab, setTab] = useState<string>('athletes')
   const [goal, setGoal] = useState('')
+  const [density, setDensity] = useState<DensityMode>(() => readDensity())
+
+  const onDensityChange = (mode: DensityMode) => {
+    setDensity(mode)
+    applyDensity(mode)
+  }
 
   useEffect(() => {
     void (async () => {
@@ -141,6 +180,26 @@ export function SettingsView() {
             <div className={styles.readonly}>{prefs.athletes_default_sort}</div>
           </>
         )}
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.h2}>Display density</h2>
+        <p className={styles.muted} style={{ marginBottom: 8 }}>
+          Scales section padding across the terminal. Comfortable adds room for
+          long-form reading sessions; Compact maximizes table density.
+        </p>
+        <div className={styles.row}>
+          {(['comfortable', 'default', 'compact'] as DensityMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`${styles.chip} ${density === mode ? styles.chipOn : ''}`}
+              onClick={() => onDensityChange(mode)}
+            >
+              {mode.charAt(0).toUpperCase() + mode.slice(1)}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className={styles.section}>

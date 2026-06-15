@@ -10,6 +10,7 @@ import { CapAllocationView } from './components/views/CapAllocationView'
 import { CapAuditLogView } from './components/views/CapAuditLogView'
 import { CapCashFlowView } from './components/views/CapCashFlowView'
 import { CapDashboardView } from './components/views/CapDashboardView'
+import { CapDealDeskView } from './components/views/CapDealDeskView'
 import { CapLayout } from './components/views/CapLayout'
 import { CapOutlookView } from './components/views/CapOutlookView'
 import { CapRosterView } from './components/views/CapRosterView'
@@ -58,6 +59,7 @@ export default function App() {
                 <Route path="scenarios" element={<CapScenariosView />} />
                 <Route path="outlook" element={<CapOutlookView />} />
                 <Route path="cash-flow" element={<CapCashFlowView />} />
+                <Route path="deal-desk" element={<CapDealDeskView />} />
                 <Route path="admin-rollup" element={<CapAdminRollupView />} />
                 <Route path="allocation" element={<CapAllocationView />} />
                 <Route path="workflow" element={<CapWorkflowView />} />

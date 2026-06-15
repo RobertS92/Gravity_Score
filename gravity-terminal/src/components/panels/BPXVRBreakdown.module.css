@@ -22,12 +22,109 @@
   color: var(--text-muted);
 }
 
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .row {
   display: grid;
-  grid-template-columns: 18px 1fr 24px 80px;
+  grid-template-columns: 18px 70px 1fr 36px 44px;
   align-items: center;
   gap: 8px;
   margin-bottom: 7px;
+}
+
+.componentLabel {
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.deltaCell {
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.driverCtx {
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--text-secondary);
+  grid-column: 3 / -1;
+  white-space: normal;
+  line-height: 1.45;
+}
+
+.factorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.factorCol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.factorTitle {
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.factorUpTitle {
+  color: var(--accent-green);
+}
+
+.factorDownTitle {
+  color: var(--accent-red);
+}
+
+.factorList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.factorRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--text-secondary);
+  gap: 8px;
+}
+
+.factorLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+
+.factorDeltaUp {
+  color: var(--accent-green);
+}
+
+.factorDeltaDown {
+  color: var(--accent-red);
+}
+
+.factorEmpty {
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--text-dim);
 }
 
 .row:last-child {

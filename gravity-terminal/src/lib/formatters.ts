@@ -50,14 +50,64 @@ export function formatNilValueInUnit(n: number | null | undefined, unit: NilUnit
   return `$${(value / 1_000).toFixed(1)}K`
 }
 
+function formatNilBandEndpoints(
+  benchmark: number | null | undefined,
+  low: number | null | undefined,
+  high: number | null | undefined,
+): { low: string; high: string } {
+  const lowValue = parseFiniteNumber(low)
+  const highValue = parseFiniteNumber(high)
+  if (lowValue == null || highValue == null) {
+    return { low: EM, high: EM }
+  }
+  let unit = selectNilDisplayUnit(benchmark ?? highValue)
+  let lowStr = formatNilValueInUnit(lowValue, unit)
+  let highStr = formatNilValueInUnit(highValue, unit)
+  if (lowStr === highStr && lowValue !== highValue) {
+    if (unit === 'M') {
+      lowStr = formatNilValueInUnit(lowValue, 'K')
+      highStr = formatNilValueInUnit(highValue, 'K')
+    }
+    if (lowStr === highStr) {
+      lowStr = `$${Math.round(lowValue).toLocaleString('en-US')}`
+      highStr = `$${Math.round(highValue).toLocaleString('en-US')}`
+    }
+  }
+  return { low: lowStr, high: highStr }
+}
+
 export function formatNilRangeAligned(
   benchmark: number | null | undefined,
   low: number | null | undefined,
   high: number | null | undefined,
 ): string {
-  const unit = selectNilDisplayUnit(benchmark)
-  return `RANGE: ${formatNilValueInUnit(low, unit)} \u2013 ${formatNilValueInUnit(high, unit)}`
+  const lowValue = parseFiniteNumber(low)
+  const highValue = parseFiniteNumber(high)
+  if (lowValue == null || highValue == null) {
+    return `RANGE: ${EM} \u2013 ${EM}`
+  }
+  // Collapse to a single ESTIMATE label when the range is effectively flat
+  // (within $250 difference). Mirrors backend `range_quality == "estimate"`
+  // and prevents the "$17.9K – $17.9K" failure mode in CSC reports.
+  if (Math.abs(highValue - lowValue) < 250) {
+    const center = (lowValue + highValue) / 2
+    return `ESTIMATE: ${formatNilValue(center)}`
+  }
+  const { low: lowStr, high: highStr } = formatNilBandEndpoints(benchmark, low, high)
+  return `RANGE: ${lowStr} \u2013 ${highStr}`
 }
+
+export function isNilRangeEstimate(
+  low: number | null | undefined,
+  high: number | null | undefined,
+): boolean {
+  const lowValue = parseFiniteNumber(low)
+  const highValue = parseFiniteNumber(high)
+  if (lowValue == null || highValue == null) return false
+  return Math.abs(highValue - lowValue) < 250
+}
+
+export { formatNilBandEndpoints }
 
 export function formatNilRange(low: number | null | undefined, high: number | null | undefined): string {
   const lowValue = parseFiniteNumber(low)
@@ -88,6 +138,43 @@ export function formatSignedMoneyDelta(n: number | null | undefined): string {
   if (v >= 1_000_000) return `${sign}${(v / 1_000_000).toFixed(1)}M`
   if (v >= 1_000) return `${sign}$${Math.round(v / 1_000)}K`
   return `${sign}$${Math.round(v)}`
+}
+
+/**
+ * Format a driver supporting_metric value. Picks K/M for follower counts,
+ * adds `$` for currency, percent for ratios, falls back to a localized int
+ * for everything else. Returns `EM` when value is missing.
+ */
+export function formatDriverMetric(
+  value: number | string | null | undefined,
+  unit: string | null | undefined,
+): string {
+  if (value === null || value === undefined || value === '') return EM
+  if (typeof value === 'string') return value
+  if (!Number.isFinite(value)) return EM
+  const u = (unit ?? '').toLowerCase()
+  if (u === 'followers' || u === 'reach' || u === 'count') {
+    if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+    if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(1)}K`
+    return formatInteger(value)
+  }
+  if (u === '%') {
+    return `${value.toFixed(1)}%`
+  }
+  if (u === '$') {
+    return formatSignedMoneyDelta(value)
+  }
+  if (u === 'pts') {
+    return `${value > 0 ? '+' : ''}${value.toFixed(1)}`
+  }
+  if (u === '/100' || u === 'score') {
+    return value.toFixed(1)
+  }
+  if (u === '30d') {
+    if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(1)}K`
+    return formatInteger(value)
+  }
+  return formatInteger(value)
 }
 
 export { EM }

@@ -57,12 +57,46 @@ export function MetricsRow({ athlete }: { athlete: AthleteRecord }) {
     prev.current = sig
   }, [sig])
 
+  // The exposure component is named `proximity_score` server-side for
+  // historical reasons. Surface it to users as "EXPOSURE" (the name the
+  // analytics docs use) and explain the formula on hover.
   const coreCells: ContextCell[] = [
-    { dim: 'brand', label: 'BRAND', val: athlete.brand_score, dk: 'brand' },
-    { dim: 'proof', label: 'PROOF', val: athlete.proof_score, dk: 'proof' },
-    { dim: 'proximity', label: 'PROXIMITY', val: athlete.proximity_score, dk: 'proximity' },
-    { dim: 'velocity', label: 'VELOCITY', val: athlete.velocity_score, dk: 'velocity' },
-    { dim: 'risk', label: 'RISK', val: athlete.risk_score, dk: 'risk' },
+    {
+      dim: 'brand',
+      label: 'BRAND',
+      val: athlete.brand_score,
+      dk: 'brand',
+      tooltip: 'Followers, engagement & social reach across IG / TikTok / X.',
+    },
+    {
+      dim: 'proof',
+      label: 'PROOF',
+      val: athlete.proof_score,
+      dk: 'proof',
+      tooltip: 'Verified NIL deals & publicly reported deal value.',
+    },
+    {
+      dim: 'proximity',
+      label: 'EXPOSURE',
+      val: athlete.proximity_score,
+      dk: 'proximity',
+      tooltip:
+        'EXPOSURE = (proximity_weight × proximity_score) + (velocity_weight × velocity_score). Weights live in the active exposure formula version.',
+    },
+    {
+      dim: 'velocity',
+      label: 'VELOCITY',
+      val: athlete.velocity_score,
+      dk: 'velocity',
+      tooltip: 'Rate of change across brand / proof / exposure over the last 30 days.',
+    },
+    {
+      dim: 'risk',
+      label: 'RISK',
+      val: athlete.risk_score,
+      dk: 'risk',
+      tooltip: 'Roster status, model confidence, and data quality. Higher is lower risk.',
+    },
   ]
 
   const contextCells: ContextCell[] = [

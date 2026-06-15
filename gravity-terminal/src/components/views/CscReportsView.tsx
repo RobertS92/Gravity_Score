@@ -20,7 +20,14 @@ import {
   normalizeComparableRows,
   withLegacyOption,
 } from '../../lib/cscComparables'
-import { formatNilRangeAligned, formatNilValue, formatNilValueInUnit, selectNilDisplayUnit, formatScore } from '../../lib/formatters'
+import { enrichKeyValueDrivers } from '../../lib/cscDriverSignals'
+import {
+  formatDriverMetric,
+  formatNilBandEndpoints,
+  formatNilRangeAligned,
+  formatNilValue,
+  formatScore,
+} from '../../lib/formatters'
 import {
   classifyConferenceTier,
   classifyConfidenceTag,
@@ -32,9 +39,8 @@ import { useAthleteStore } from '../../stores/athleteStore'
 import { useUiStore } from '../../stores/uiStore'
 import { useWatchlistStore } from '../../stores/watchlistStore'
 import { ActionButton } from '../shared/ActionButton'
+import { CscConfigPanel, useCscResolvedParams } from './CscConfigPanel'
 import styles from './CscReportsView.module.css'
-
-const SPORTS = ['CFB', 'NCAAB', 'NCAAWB'] as const
 
 function withDefaultText(value: string | null | undefined, fallback: string) {
   const clean = (value ?? '').trim()
@@ -210,6 +216,10 @@ function normalizeReport(
     shap_attribution: withDefaultText(report.detail?.shap_attribution, legacyShap),
     methodology: withDefaultText(report.detail?.methodology, legacyMethod),
     inputs: withDefaultText(report.detail?.inputs, fallback.detail.inputs),
+    // Pass through the structured detail.blocks so the SHAP table,
+    // cohort metadata, and provenance render from the live API
+    // instead of silently falling back to the flat strings above.
+    blocks: report.detail?.blocks ?? undefined,
   }
   const metadata: CscReportMetadata = {
     tier_version: report.metadata?.tier_version ?? fallback.metadata.tier_version,
@@ -248,10 +258,11 @@ function normalizeReport(
 export function CscReportsView() {
   const athlete = useAthleteStore((s) => s.activeAthlete)
   const setActive = useAthleteStore((s) => s.setActiveAthlete)
-  const reportConfig = useUiStore((s) => s.reportConfig)
-  const setReportConfig = useUiStore((s) => s.setReportConfig)
   const setCscLocked = useUiStore((s) => s.setCscLockedFromAgent)
   const cscLockedFromAgent = useUiStore((s) => s.cscLockedFromAgent)
+  const cscConfigOpen = useUiStore((s) => s.cscConfigOpen)
+  const setCscConfigOpen = useUiStore((s) => s.setCscConfigOpen)
+  const resolvedParams = useCscResolvedParams()
   const watchlist = useWatchlistStore((s) => s.athletes)
 
   const location = useLocation()
@@ -291,7 +302,7 @@ export function CscReportsView() {
     let cancelled = false
     setReportLoading(true)
     setReportError(null)
-    postCscReport(athlete.athlete_id, reportConfig)
+    postCscReport(athlete.athlete_id, resolvedParams)
       .then((r) => {
         if (!cancelled) {
           setReport(normalizeReport(r, athlete))
@@ -310,7 +321,7 @@ export function CscReportsView() {
     return () => {
       cancelled = true
     }
-  }, [athlete, reportConfig, cscLockedFromAgent])
+  }, [athlete, resolvedParams, cscLockedFromAgent])
 
   useEffect(() => {
     const q = searchQ.trim()
@@ -343,7 +354,7 @@ export function CscReportsView() {
     setCscLocked(false)
     setReportLoading(true)
     setReportError(null)
-    postCscReport(athlete.athlete_id, reportConfig)
+    postCscReport(athlete.athlete_id, resolvedParams)
       .then((r) => {
         setReport(normalizeReport(r, athlete))
         setReportError(null)
@@ -374,6 +385,16 @@ export function CscReportsView() {
 
   return (
     <div className={styles.grid}>
+      <div className={styles.configBar}>
+        <button
+          type="button"
+          className={styles.configToggle}
+          onClick={() => setCscConfigOpen(!cscConfigOpen)}
+          aria-expanded={cscConfigOpen}
+        >
+          {cscConfigOpen ? 'Hide configuration' : 'Configure report'}
+        </button>
+      </div>
       <div className={styles.preview}>
         {!athlete ? (
           <div
@@ -419,189 +440,78 @@ export function CscReportsView() {
                 {' '}This report is informational only and must not be used for binding decisions.
               </div>
             )}
+            <GroupBreak label="// VALUE" />
             <ValueSection
               value={report.value}
               plotPct={plotPct}
               athleteName={athlete.name}
               conferenceTier={report.metadata?.conference_tier ?? null}
+              cohortFallbackStep={report.metadata?.cohort_fallback_step ?? null}
+              cohortFit={report.metadata?.cohort_fit ?? null}
+              lowCohortData={report.metadata?.low_cohort_data ?? null}
             />
-            <ExplanationSection explanation={report.explanation} />
-            <ValidationSection validation={report.validation} onChange={(rows) => setReport({
-              ...report,
-              validation: { ...report.validation, example_comparables: rows },
-            })} confidenceRisk={report.confidence_risk} />
+            <GroupBreak label="// EXPLANATION" />
+            <ExecutiveSummarySection summary={report.explanation.executive_summary} />
+            <KeyValueDriversSection
+              explanation={report.explanation}
+              athlete={athlete}
+            />
+            <GroupBreak label="// VALIDATION" />
+            <ValidationSection
+              validation={report.validation}
+              onChange={(rows) =>
+                setReport({
+                  ...report,
+                  validation: { ...report.validation, example_comparables: rows },
+                })
+              }
+            />
+            <ConfidenceRiskSection confidenceRisk={report.confidence_risk} />
+            <GroupBreak label="// DETAIL" />
             <DetailSection detail={report.detail} metadata={report.metadata} />
             <ReportFooter metadata={report.metadata} />
           </>
         )}
       </div>
-      <aside className={styles.config}>
-        <div className={styles.configTitle}>CONFIGURATION</div>
-        <label className={styles.field}>
-          Athlete Search
-          <input
-            autoFocus={!athlete}
-            className={styles.textIn}
-            type="text"
-            placeholder="Search athlete by name..."
-            value={searchQ}
-            onChange={(e) => setSearchQ(e.target.value)}
-            onFocus={() => {
-              if (searchRows.length > 0 || searchQ.trim()) setSearchOpen(true)
-            }}
-          />
-        </label>
-        {searchOpen && (
-          <div className={styles.searchDrop}>
-            {searchLoading && <div className={styles.searchItemMuted}>Searching...</div>}
-            {!searchLoading && searchRows.length === 0 && (
-              <div className={styles.searchItemMuted}>No athletes found</div>
-            )}
-            {!searchLoading &&
-              searchRows.map((a) => (
-                <button
-                  key={a.athlete_id}
-                  type="button"
-                  className={styles.searchItem}
-                  onClick={() => {
-                    void setActive(a.athlete_id)
-                    setSearchQ('')
-                    setSearchRows([])
-                    setSearchOpen(false)
-                  }}
-                >
-                  <span>{a.name}</span>
-                  <span className={styles.subMuted}>
-                    {[a.school, a.position, a.conference].filter(Boolean).join(' · ')}
-                  </span>
-                </button>
-              ))}
-          </div>
-        )}
-        <label className={styles.field}>
-          Athlete
-          <select
-            className={styles.select}
-            value={athlete?.athlete_id ?? ''}
-            onChange={(e) => {
-              if (e.target.value) void setActive(e.target.value)
-            }}
+      {cscConfigOpen && (
+        <button
+          type="button"
+          className={styles.configBackdrop}
+          aria-label="Close configuration"
+          onClick={() => setCscConfigOpen(false)}
+        />
+      )}
+      <aside className={`${styles.config} ${cscConfigOpen ? styles.configOpen : ''}`}>
+        <div className={styles.configHeader}>
+          <div className={styles.configTitle}>CONFIGURATION</div>
+          <button
+            type="button"
+            className={styles.configClose}
+            onClick={() => setCscConfigOpen(false)}
+            aria-label="Close configuration"
           >
-            {!athlete && <option value="">Select athlete…</option>}
-            {selectorAthletes.map((a) => (
-              <option key={a.athlete_id} value={a.athlete_id}>
-                {a.name}
-                {a.school ? ` · ${a.school}` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.field}>
-          Sport
-          <select
-            className={styles.select}
-            value={reportConfig.sport ?? ''}
-            onChange={(e) => setReportConfig({ sport: e.target.value || undefined })}
-          >
-            <option value="">All</option>
-            {SPORTS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.field}>
-          Position (filter)
-          <input
-            className={styles.textIn}
-            type="text"
-            placeholder="e.g. WR"
-            value={reportConfig.position ?? ''}
-            onChange={(e) => setReportConfig({ position: e.target.value || undefined })}
-          />
-        </label>
-        <label className={styles.field}>
-          Comparables (5–25)
-          <input
-            type="range"
-            min={5}
-            max={25}
-            value={reportConfig.comparables_count ?? 12}
-            onChange={(e) => setReportConfig({ comparables_count: Number(e.target.value) })}
-          />
-          <span className={styles.mono}>{reportConfig.comparables_count ?? 12}</span>
-        </label>
-        <label className={styles.field}>
-          Confidence min
-          <input
-            type="range"
-            min={50}
-            max={99}
-            value={Math.round((reportConfig.confidence_min ?? 0.75) * 100)}
-            onChange={(e) => setReportConfig({ confidence_min: Number(e.target.value) / 100 })}
-          />
-        </label>
-        <label className={styles.field}>
-          CSC band low % (percentile)
-          <input
-            type="range"
-            min={5}
-            max={90}
-            value={reportConfig.csc_band_low_pct ?? 25}
-            onChange={(e) => setReportConfig({ csc_band_low_pct: Number(e.target.value) })}
-          />
-          <span className={styles.mono}>{reportConfig.csc_band_low_pct ?? 25}</span>
-        </label>
-        <label className={styles.field}>
-          CSC band high % (percentile)
-          <input
-            type="range"
-            min={10}
-            max={95}
-            value={reportConfig.csc_band_high_pct ?? 75}
-            onChange={(e) => setReportConfig({ csc_band_high_pct: Number(e.target.value) })}
-          />
-          <span className={styles.mono}>{reportConfig.csc_band_high_pct ?? 75}</span>
-        </label>
-        <label className={styles.field}>
-          Comparable deals from
-          <input
-            className={styles.textIn}
-            type="date"
-            value={reportConfig.date_from ?? ''}
-            onChange={(e) => setReportConfig({ date_from: e.target.value || undefined })}
-          />
-        </label>
-        <label className={styles.field}>
-          Comparable deals to
-          <input
-            className={styles.textIn}
-            type="date"
-            value={reportConfig.date_to ?? ''}
-            onChange={(e) => setReportConfig({ date_to: e.target.value || undefined })}
-          />
-        </label>
-        <label className={styles.toggle}>
-          <input
-            type="checkbox"
-            checked={reportConfig.verified_only ?? true}
-            onChange={(e) => setReportConfig({ verified_only: e.target.checked })}
-          />
-          Verified-only comparables
-        </label>
-        <div className={styles.actions}>
-          <ActionButton variant="primary" onClick={() => regen()} disabled={!athlete}>
-            Generate Report
-          </ActionButton>
-          <ActionButton
-            variant="secondary"
-            onClick={() => void handleExportPdf()}
-            disabled={pdfLoading || !athlete || !report}
-          >
-            {pdfLoading ? 'Generating PDF…' : 'Export PDF'}
-          </ActionButton>
+            ×
+          </button>
         </div>
+        <CscConfigPanel
+          searchQ={searchQ}
+          setSearchQ={setSearchQ}
+          searchOpen={searchOpen}
+          setSearchOpen={setSearchOpen}
+          searchLoading={searchLoading}
+          searchRows={searchRows}
+          selectorAthletes={selectorAthletes}
+          onSelectAthlete={(id) => {
+            void setActive(id)
+            setSearchQ('')
+            setSearchRows([])
+            setSearchOpen(false)
+          }}
+          onRegen={regen}
+          onExportPdf={() => void handleExportPdf()}
+          pdfLoading={pdfLoading}
+          hasReport={!!report}
+        />
       </aside>
     </div>
   )
@@ -653,22 +563,39 @@ function ValueSection({
   plotPct,
   athleteName,
   conferenceTier,
+  cohortFallbackStep,
+  cohortFit,
+  lowCohortData,
 }: {
   value: CscValueSection
   plotPct: number
   athleteName: string
   conferenceTier?: string | null
+  cohortFallbackStep?: number | null
+  cohortFit?: 'good' | 'edge' | 'poor' | null
+  lowCohortData?: boolean | null
 }) {
   const rangeText = formatNilRangeAligned(value.total_benchmark, value.range_low, value.range_high)
-  const unit = selectNilDisplayUnit(value.total_benchmark)
+  const bandEndpoints = formatNilBandEndpoints(
+    value.total_benchmark,
+    value.range_low,
+    value.range_high,
+  )
   const confTierLabel = conferenceTierLabel(conferenceTier)
+  const showLowDataChip =
+    lowCohortData === true || (cohortFallbackStep != null && cohortFallbackStep >= 2)
+  const showCohortFitChip = cohortFit === 'edge' || cohortFit === 'poor'
   return (
     <div className={styles.section}>
       <div className={styles.sectionTitle}>Total NIL Value Benchmark</div>
       <div className={styles.valueHero}>{formatNilValue(value.total_benchmark)}</div>
+      <div className={styles.guidelineCaption}>
+        Market benchmark — guideline, not target. Use range &amp; comparables
+        for deal construction.
+      </div>
       <div className={styles.bandLabels}>
-        <span>{formatNilValueInUnit(value.range_low, unit)}</span>
-        <span>{formatNilValueInUnit(value.range_high, unit)}</span>
+        <span>{bandEndpoints.low}</span>
+        <span>{bandEndpoints.high}</span>
       </div>
       <div className={styles.bandTrack}>
         <div className={styles.bandMarker} style={{ left: `${plotPct}%` }} title={athleteName} />
@@ -690,27 +617,127 @@ function ValueSection({
             {confTierLabel}
           </span>
         )}
+        {showLowDataChip && (
+          <span
+            className={`${styles.tagChip} ${styles.tagLowData}`}
+            title="Cohort fallback active — see Detail block for the fallback chain."
+          >
+            LOW DATA
+          </span>
+        )}
+        {showCohortFitChip && (
+          <span
+            className={`${styles.tagChip} ${styles.tagCohortFit}`}
+            title="Cohort fit is weak; percentile statistics may be suppressed."
+          >
+            COHORT FIT: {cohortFit?.toUpperCase()}
+          </span>
+        )}
       </div>
     </div>
   )
 }
 
-function ExplanationSection({ explanation }: { explanation: CscExplanationSection }) {
+function GroupBreak({ label }: { label: string }) {
+  return (
+    <div className={styles.groupBreak} aria-hidden="true">
+      <span className={styles.groupBreakLabel}>{label}</span>
+    </div>
+  )
+}
+
+function ExecutiveSummarySection({ summary }: { summary: string }) {
   return (
     <div className={styles.section}>
-      <div className={styles.sectionTitle}>Explanation</div>
-      <div className={styles.subSectionTitle}>Executive Summary</div>
-      <p className={styles.prose}>{explanation.executive_summary}</p>
-      <div className={styles.subSectionTitle}>Key Value Drivers</div>
-      {explanation.key_value_drivers.map((d, idx) => (
-        <div key={`${d.label}-${idx}`} className={styles.driverRow}>
-          <span className={styles.driverLabel}>{d.label}</span>
-          <span className={styles.driverSignal}>{d.signal}</span>
-          <span className={styles.subMuted}>{d.explanation}</span>
+      <div className={styles.sectionTitle}>Executive Summary</div>
+      <p className={styles.prose}>{summary}</p>
+    </div>
+  )
+}
+
+function KeyValueDriversSection({
+  explanation,
+  athlete,
+}: {
+  explanation: CscExplanationSection
+  athlete: ReturnType<typeof useAthleteStore.getState>['activeAthlete']
+}) {
+  const drivers = enrichKeyValueDrivers(explanation.key_value_drivers, athlete)
+  return (
+    <div className={styles.section}>
+      <div className={styles.sectionTitleMajor}>Key Value Drivers</div>
+      {drivers.map((d, idx) => (
+        <div key={`${d.label}-${idx}`} className={styles.driverCard}>
+          <div className={styles.driverCardHeader}>
+            <span className={styles.driverLabel}>{d.label}</span>
+            <span className={styles.driverSignal}>{d.signal}</span>
+          </div>
+          {d.supporting_metrics && d.supporting_metrics.length > 0 && (
+            <div className={styles.driverMetrics} aria-label={`${d.label} supporting metrics`}>
+              {d.supporting_metrics.map((m) => (
+                <div key={m.label} className={styles.driverMetricCell}>
+                  <div className={styles.driverMetricValue}>
+                    {formatDriverMetric(m.value, m.unit)}
+                    {m.unit &&
+                    !['followers', 'reach', 'count', '%', '$', 'pts', '/100', 'score', '30d'].includes(
+                      m.unit.toLowerCase(),
+                    ) ? (
+                      <span className={styles.driverMetricUnit}>{m.unit}</span>
+                    ) : null}
+                  </div>
+                  <div className={styles.driverMetricLabel}>{m.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          {d.supporting_signals && d.supporting_signals.length > 0 && (
+            <div className={styles.driverSignals}>
+              <div className={styles.driverSignalsTitle}>Supporting Signals</div>
+              <ul className={styles.driverSignalList}>
+                {d.supporting_signals.map((s) => (
+                  <li key={s.label}>
+                    <span className={styles.driverSignalKey}>{s.label}:</span> {s.value}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {d.explanation && (
+            <div className={styles.driverInterpretation}>
+              <div className={styles.driverSignalsTitle}>Interpretation</div>
+              <p className={styles.prose}>{d.explanation}</p>
+            </div>
+          )}
         </div>
       ))}
-      <div className={styles.subSectionTitle}>Value Interpretation</div>
-      <p className={styles.prose}>{explanation.driver_takeaway}</p>
+      {explanation.driver_takeaway && (
+        <>
+          <div className={styles.subSectionTitle}>Value Interpretation</div>
+          <p className={styles.prose}>{explanation.driver_takeaway}</p>
+        </>
+      )}
+    </div>
+  )
+}
+
+function ConfidenceRiskSection({
+  confidenceRisk,
+}: {
+  confidenceRisk: CscConfidenceRiskSection
+}) {
+  return (
+    <div className={styles.section}>
+      <div className={styles.sectionTitleMajor}>Risk & Confidence</div>
+      <div className={styles.driverRow}>
+        <span className={styles.driverLabel}>Confidence</span>
+        <span className={styles.driverSignal}>{confidenceRisk.confidence_level}</span>
+        <span className={styles.subMuted}>{confidenceRisk.confidence_note}</span>
+      </div>
+      <div className={styles.driverRow}>
+        <span className={styles.driverLabel}>Risk</span>
+        <span className={styles.driverSignal}>{confidenceRisk.risk_level}</span>
+        <span className={styles.subMuted}>{confidenceRisk.risk_note}</span>
+      </div>
     </div>
   )
 }
@@ -718,18 +745,16 @@ function ExplanationSection({ explanation }: { explanation: CscExplanationSectio
 function ValidationSection({
   validation,
   onChange,
-  confidenceRisk,
 }: {
   validation: CscValidationSection
   onChange: (rows: CscReportComparablesRow[]) => void
-  confidenceRisk: CscConfidenceRiskSection
 }) {
   const list = validation.example_comparables ?? []
   const positionalReferences = validation.positional_reference_athletes ?? []
   if (list.length === 0) {
     return (
       <div className={styles.section}>
-        <div className={styles.sectionTitle}>Market & Comparable Analysis</div>
+        <div className={styles.sectionTitleMajor}>Market & Comparable Analysis</div>
         <p className={styles.prose}>{validation.market_context}</p>
         <p className={styles.prose}>{validation.comparable_tier}</p>
         <div className={styles.muted}>
@@ -762,17 +787,6 @@ function ValidationSection({
             </table>
           </div>
         )}
-        <div className={styles.subSectionTitle}>Confidence & Risk</div>
-        <div className={styles.driverRow}>
-          <span className={styles.driverLabel}>Confidence</span>
-          <span className={styles.driverSignal}>{confidenceRisk.confidence_level}</span>
-          <span className={styles.subMuted}>{confidenceRisk.confidence_note}</span>
-        </div>
-        <div className={styles.driverRow}>
-          <span className={styles.driverLabel}>Risk</span>
-          <span className={styles.driverSignal}>{confidenceRisk.risk_level}</span>
-          <span className={styles.subMuted}>{confidenceRisk.risk_note}</span>
-        </div>
         <div className={styles.subSectionTitle}>Value Interpretation</div>
         <p className={styles.prose}>{validation.takeaway}</p>
       </div>
@@ -780,7 +794,7 @@ function ValidationSection({
   }
   return (
     <div className={styles.section}>
-      <div className={styles.sectionTitle}>Market & Comparable Analysis</div>
+      <div className={styles.sectionTitleMajor}>Market & Comparable Analysis</div>
       <p className={styles.prose}>{validation.market_context}</p>
       <p className={styles.prose}>{validation.comparable_tier}</p>
       {validation.comparable_state === 'sparse' && (
@@ -864,17 +878,6 @@ function ValidationSection({
             })}
           </tbody>
         </table>
-      </div>
-      <div className={styles.subSectionTitle}>Confidence & Risk</div>
-      <div className={styles.driverRow}>
-        <span className={styles.driverLabel}>Confidence</span>
-        <span className={styles.driverSignal}>{confidenceRisk.confidence_level}</span>
-        <span className={styles.subMuted}>{confidenceRisk.confidence_note}</span>
-      </div>
-      <div className={styles.driverRow}>
-        <span className={styles.driverLabel}>Risk</span>
-        <span className={styles.driverSignal}>{confidenceRisk.risk_level}</span>
-        <span className={styles.subMuted}>{confidenceRisk.risk_note}</span>
       </div>
       <div className={styles.subSectionTitle}>Value Interpretation</div>
       <p className={styles.prose}>{validation.takeaway}</p>

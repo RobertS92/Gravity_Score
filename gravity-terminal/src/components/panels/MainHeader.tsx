@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { formatDelta } from '../../lib/formatters'
 import { formatUpdatedAgo } from '../../lib/time'
@@ -22,6 +22,28 @@ export function MainHeader({
 }) {
   const navigate = useNavigate()
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [explainerOpen, setExplainerOpen] = useState(false)
+  const explainerRef = useRef<HTMLDivElement>(null)
+
+  // Close the explainer popover on outside click or Escape so it doesn't
+  // trap focus when the user moves on.
+  useEffect(() => {
+    if (!explainerOpen) return
+    const onClick = (e: MouseEvent) => {
+      if (!explainerRef.current?.contains(e.target as Node)) {
+        setExplainerOpen(false)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExplainerOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [explainerOpen])
 
   const handlePdf = async () => {
     setPdfLoading(true)
@@ -52,8 +74,19 @@ export function MainHeader({
         </div>
       </div>
       <div className={styles.right}>
-        <div className={styles.scoreBlock}>
-          <span className={styles.scoreLabel}>GRAVITY SCORE</span>
+        <div className={styles.scoreBlock} ref={explainerRef}>
+          <span className={styles.scoreLabel}>
+            GRAVITY SCORE
+            <button
+              type="button"
+              className={styles.explainerToggle}
+              aria-label="How is this calculated?"
+              aria-expanded={explainerOpen}
+              onClick={() => setExplainerOpen((v) => !v)}
+            >
+              ?
+            </button>
+          </span>
           <div className={styles.scoreRow}>
             <ScoreDisplay
               key={athlete.athlete_id}
@@ -64,6 +97,27 @@ export function MainHeader({
             <span className={`${styles.delta} ${deltaCls}`}>{formatDelta(d)}</span>
           </div>
           <span className={upd.stale ? styles.updatedStale : styles.updated}>{upd.text}</span>
+          {explainerOpen && (
+            <div className={styles.explainerPopover} role="dialog" aria-label="Gravity Score formula">
+              <div className={styles.explainerTitle}>HOW THIS IS CALCULATED</div>
+              <p className={styles.explainerBody}>
+                Gravity Score is a 0–100 composite of five inputs that the
+                GravityNet model weights for each athlete cohort:
+              </p>
+              <ul className={styles.explainerList}>
+                <li><strong>Brand</strong> — followers · engagement · IG · TikTok · X</li>
+                <li><strong>Proof</strong> — verified NIL deals · publicly reported deal value</li>
+                <li><strong>Exposure</strong> — news · search · Wikipedia · proximity to spotlight</li>
+                <li><strong>Velocity</strong> — 30-day deltas across the inputs above</li>
+                <li><strong>Risk</strong> — roster status · model confidence · data quality</li>
+              </ul>
+              <p className={styles.explainerFooter}>
+                Weights vary by sport &amp; position group. Top SHAP drivers
+                appear below in the breakdown. Fallback model: heuristic
+                weights (see Settings → Weighting).
+              </p>
+            </div>
+          )}
         </div>
         <div className={styles.scoreBlock}>
           <span className={styles.scoreLabel}>TIER</span>

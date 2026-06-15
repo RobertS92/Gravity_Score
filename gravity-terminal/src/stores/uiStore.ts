@@ -1,6 +1,45 @@
 import { create } from 'zustand'
+import {
+  DEFAULT_SIMPLE_CONFIG,
+  type CscConfigMode,
+  type CscSimpleConfig,
+} from '../lib/cscConfigPresets'
 import type { CscReportParams } from '../types/reports'
 import type { BrandMatchResult } from '../types/reports'
+
+// Persistence keys for CSC configuration. Stored under a single
+// versioned namespace so future schema changes can bump the version
+// without colliding with stale user state.
+const CSC_CONFIG_STORAGE_KEY = 'gravity.cscConfig.v1'
+
+type PersistedCscConfig = {
+  reportConfig?: CscReportParams
+  cscConfigMode?: CscConfigMode
+  cscSimpleConfig?: CscSimpleConfig
+}
+
+function readPersistedCscConfig(): PersistedCscConfig {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem(CSC_CONFIG_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object') return parsed as PersistedCscConfig
+  } catch {
+    // Corrupted storage: fall through to defaults rather than crashing
+    // the whole UI on a single bad JSON parse.
+  }
+  return {}
+}
+
+function writePersistedCscConfig(state: PersistedCscConfig): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(CSC_CONFIG_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // Storage may be full or disabled in private mode; ignore silently.
+  }
+}
 
 export type MainTab =
   | 'nil-intelligence'
@@ -28,6 +67,9 @@ export type UiStore = {
   commandBarHistoryIndex: number
   isReportModalOpen: boolean
   reportConfig: CscReportParams
+  cscConfigMode: CscConfigMode
+  cscSimpleConfig: CscSimpleConfig
+  cscConfigOpen: boolean
   marketScanSub: MarketScanSub
   marketScanFilters: MarketScanFilters
   brandMatchSummary: string | null
@@ -51,6 +93,9 @@ export type UiStore = {
   historyNext: () => string | null
   setReportModalOpen: (v: boolean) => void
   setReportConfig: (p: Partial<CscReportParams>) => void
+  setCscConfigMode: (mode: CscConfigMode) => void
+  setCscSimpleConfig: (p: Partial<CscSimpleConfig>) => void
+  setCscConfigOpen: (open: boolean) => void
   setMarketScanSub: (s: MarketScanSub) => void
   setMarketScanFilters: (next: Partial<MarketScanFilters>) => void
   resetMarketScanFilters: () => void
@@ -74,19 +119,26 @@ function median(vals: number[]): number | null {
   return (sorted[mid - 1] + sorted[mid]) / 2
 }
 
+const PERSISTED_CONFIG = readPersistedCscConfig()
+
+const DEFAULT_REPORT_CONFIG: CscReportParams = {
+  comparables_count: 12,
+  confidence_min: 0.75,
+  csc_band_low_pct: 25,
+  csc_band_high_pct: 75,
+  verified_only: true,
+}
+
 export const useUiStore = create<UiStore>((set, get) => ({
   activeSidebarItem: null,
   commandBarValue: '',
   commandBarHistory: [],
   commandBarHistoryIndex: -1,
   isReportModalOpen: false,
-  reportConfig: {
-    comparables_count: 12,
-    confidence_min: 0.75,
-    csc_band_low_pct: 25,
-    csc_band_high_pct: 75,
-    verified_only: true,
-  },
+  reportConfig: { ...DEFAULT_REPORT_CONFIG, ...(PERSISTED_CONFIG.reportConfig ?? {}) },
+  cscConfigMode: PERSISTED_CONFIG.cscConfigMode ?? 'simple',
+  cscSimpleConfig: { ...DEFAULT_SIMPLE_CONFIG, ...(PERSISTED_CONFIG.cscSimpleConfig ?? {}) },
+  cscConfigOpen: false,
   marketScanSub: 'position',
   marketScanFilters: {
     position: '',
@@ -103,7 +155,33 @@ export const useUiStore = create<UiStore>((set, get) => ({
   setActiveSidebarItem: (item) => set({ activeSidebarItem: item }),
   setCommandBarValue: (v) => set({ commandBarValue: v }),
   setReportModalOpen: (v) => set({ isReportModalOpen: v }),
-  setReportConfig: (p) => set({ reportConfig: { ...get().reportConfig, ...p } }),
+  setReportConfig: (p) => {
+    const next = { ...get().reportConfig, ...p }
+    set({ reportConfig: next })
+    writePersistedCscConfig({
+      reportConfig: next,
+      cscConfigMode: get().cscConfigMode,
+      cscSimpleConfig: get().cscSimpleConfig,
+    })
+  },
+  setCscConfigMode: (mode) => {
+    set({ cscConfigMode: mode })
+    writePersistedCscConfig({
+      reportConfig: get().reportConfig,
+      cscConfigMode: mode,
+      cscSimpleConfig: get().cscSimpleConfig,
+    })
+  },
+  setCscSimpleConfig: (p) => {
+    const next = { ...get().cscSimpleConfig, ...p }
+    set({ cscSimpleConfig: next })
+    writePersistedCscConfig({
+      reportConfig: get().reportConfig,
+      cscConfigMode: get().cscConfigMode,
+      cscSimpleConfig: next,
+    })
+  },
+  setCscConfigOpen: (open) => set({ cscConfigOpen: open }),
   setMarketScanSub: (s) => set({ marketScanSub: s }),
   setMarketScanFilters: (next) =>
     set({ marketScanFilters: { ...get().marketScanFilters, ...next } }),
