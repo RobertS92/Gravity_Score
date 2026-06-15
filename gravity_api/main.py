@@ -16,7 +16,7 @@ from gravity_api.database import close_db, init_db
 from gravity_api.services.model_health import (
     get_model_health,
     probe_model_health,
-    should_fail_on_fallback,
+    should_abort_startup_on_fallback,
 )
 from gravity_api.routers import (
     agent,
@@ -49,29 +49,37 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    try:
+        await init_db()
+    except Exception:
+        logger.exception("Gravity API startup failed while connecting to Postgres")
+        raise
     # Probe the ML scorer once so /health and CSC reporting know whether the
     # production model is live. The probe is best-effort and never blocks
-    # startup unless MODEL_FAIL_ON_FALLBACK=1 and the probe reports fallback.
+    # startup unless MODEL_FAIL_ON_FALLBACK=1 and the probe reports a confirmed
+    # fallback scorer (not a transient bundle-missing probe during ML deploy).
     health = await probe_model_health()
-    if health.is_fallback:
-        if should_fail_on_fallback():
-            logger.error(
-                "ML scorer is on fallback (%s); MODEL_FAIL_ON_FALLBACK is set — aborting startup",
-                health.model_version,
-            )
-            raise RuntimeError(
-                f"Refusing to start: ML scorer is on fallback ({health.model_version})"
-            )
-        logger.warning(
-            "ML scorer reported fallback model_version=%s — CSC reports will return 503 unless overridden",
+    if should_abort_startup_on_fallback(health):
+        logger.error(
+            "ML scorer is on fallback (%s, reason=%s); MODEL_FAIL_ON_FALLBACK is set — aborting startup",
             health.model_version,
+            health.reason,
+        )
+        raise RuntimeError(
+            f"Refusing to start: ML scorer is on fallback ({health.model_version})"
+        )
+    if health.is_fallback:
+        logger.warning(
+            "ML scorer reported fallback model_version=%s reason=%s — CSC reports will return 503 unless overridden; /health will re-probe",
+            health.model_version,
+            health.reason,
         )
     else:
         logger.info(
-            "ML scorer health: status=%s model_version=%s",
+            "ML scorer health: status=%s model_version=%s reason=%s",
             health.status,
             health.model_version,
+            health.reason,
         )
     logger.info("Gravity API started")
     yield

@@ -217,3 +217,29 @@ def should_fail_on_fallback() -> bool:
     """Whether the process should exit if the startup probe reports a fallback."""
     raw = (os.environ.get("MODEL_FAIL_ON_FALLBACK") or "").strip().lower()
     return raw in ("1", "true", "yes", "on")
+
+
+def should_abort_startup_on_fallback(health: ModelHealth) -> bool:
+    """Return True when startup should hard-fail because of ML fallback.
+
+    ``MODEL_FAIL_ON_FALLBACK=1`` is meant to block binding valuations backed
+    by a *confirmed* heuristic scorer. When gravity-ml is still deploying its
+    bundle it may briefly report ``model_bundle=false``; in that transient case
+    we warn and let the API boot — ``/health`` re-probes every 60s and CSC
+    routes still enforce per-row ``model_version`` before shipping reports.
+    """
+    if not health.is_fallback or not should_fail_on_fallback():
+        return False
+    if health.reason in {
+        "ml_service_reports_no_bundle",
+        "model_version_missing_from_probe",
+        "ml_service_url_not_configured",
+    }:
+        return False
+    if health.reason and health.reason.startswith("probe_failed:"):
+        return False
+    if health.reason and health.reason.startswith("probe_status_"):
+        return False
+    if health.reason and health.reason.startswith("wrong_service:"):
+        return False
+    return True
