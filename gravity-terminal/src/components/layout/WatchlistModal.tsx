@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { searchAthletesFilteredPaged } from '../../api/athletes'
 import type { AthleteRecord } from '../../types/athlete'
+import { useAthleteStore } from '../../stores/athleteStore'
 import { usePreferencesStore } from '../../stores/preferencesStore'
 import { useWatchlistStore } from '../../stores/watchlistStore'
 import { formatScore } from '../../lib/formatters'
@@ -30,6 +32,7 @@ type Filters = {
 }
 
 export function WatchlistModal({ onClose }: Props) {
+  const navigate = useNavigate()
   const [filters, setFilters] = useState<Filters>({ q: '', position: '', conference: '', sport: '' })
   const [results, setResults] = useState<AthleteRecord[]>([])
   const [total, setTotal] = useState<number>(0)
@@ -37,10 +40,11 @@ export function WatchlistModal({ onClose }: Props) {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [emptyCorpusDetected, setEmptyCorpusDetected] = useState(false)
+  const [opening, setOpening] = useState<string | null>(null)
 
   const watchlist = useWatchlistStore((s) => s.athletes)
   const addToWatchlist = useWatchlistStore((s) => s.addToWatchlist)
+  const setActiveAthlete = useAthleteStore((s) => s.setActiveAthlete)
   const activeSports = usePreferencesStore((s) => s.activeSports)
   const sportsCsv = activeSports.filter(Boolean).join(',')
 
@@ -72,13 +76,13 @@ export function WatchlistModal({ onClose }: Props) {
       } else {
         setResults(page.athletes)
       }
-      const isCorpusCheck =
-        !f.q.trim() && !f.position.trim() && !f.conference.trim() && !f.sport.trim() && offset === 0
-      if (isCorpusCheck) {
-        setEmptyCorpusDetected(page.total === 0)
-      }
     } catch (e) {
-      setError(String(e))
+      const message = e instanceof Error ? e.message : String(e)
+      setError(
+        /load failed|failed to fetch|networkerror/i.test(message)
+          ? 'Player search could not reach the Gravity API. Check the connection and retry.'
+          : message,
+      )
     } finally {
       if (append) setIsLoadingMore(false)
       else setLoading(false)
@@ -87,6 +91,17 @@ export function WatchlistModal({ onClose }: Props) {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    const hasSearch = Boolean(
+      filters.q.trim() || filters.position || filters.conference || filters.sport,
+    )
+    if (!hasSearch) {
+      setResults([])
+      setTotal(0)
+      setHasMore(false)
+      setError(null)
+      setLoading(false)
+      return
+    }
     debounceRef.current = setTimeout(() => void doSearch(filters, 0, false), 300)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -95,11 +110,25 @@ export function WatchlistModal({ onClose }: Props) {
 
   const isOnWatchlist = (id: string) => watchlist.some((a) => a.athlete_id === id)
 
+  const openAthlete = async (athleteId: string, destination: '/' | '/csc') => {
+    setOpening(`${athleteId}:${destination}`)
+    setError(null)
+    await setActiveAthlete(athleteId)
+    const loadError = useAthleteStore.getState().error
+    if (loadError) {
+      setError(loadError)
+      setOpening(null)
+      return
+    }
+    navigate(destination)
+    onClose()
+  }
+
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <header className={styles.header}>
-          <span className={styles.title}>ADD TO WATCHLIST</span>
+          <span className={styles.title}>FIND PLAYER</span>
           <button type="button" className={styles.closeBtn} onClick={onClose}>
             ×
           </button>
@@ -169,11 +198,9 @@ export function WatchlistModal({ onClose }: Props) {
           {error && <div className={styles.errorMsg}>{error}</div>}
           {!loading && results.length === 0 && !error && (
             <div className={styles.statusMsg}>
-              {emptyCorpusDetected
-                ? 'Database is being populated. Check Data Pipeline for scraper status.'
-                : filters.q.trim()
-                  ? 'No athletes match this search.'
-                  : 'No results'}
+              {filters.q.trim() || filters.position || filters.conference || filters.sport
+                ? 'No athletes match this search.'
+                : 'Search for a player, then open their NIL Intelligence profile or CSC report.'}
             </div>
           )}
           {!loading && results.length > 0 && (
@@ -195,11 +222,27 @@ export function WatchlistModal({ onClose }: Props) {
                   <span className={styles.resultScore}>{formatScore(a.gravity_score ?? null)}</span>
                   <button
                     type="button"
+                    className={styles.openBtn}
+                    disabled={opening !== null}
+                    onClick={() => void openAthlete(a.athlete_id, '/')}
+                  >
+                    {opening === `${a.athlete_id}:/` ? 'LOADING…' : 'NIL INTELLIGENCE'}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.openBtn}
+                    disabled={opening !== null}
+                    onClick={() => void openAthlete(a.athlete_id, '/csc')}
+                  >
+                    {opening === `${a.athlete_id}:/csc` ? 'LOADING…' : 'CSC REPORT'}
+                  </button>
+                  <button
+                    type="button"
                     className={added ? styles.addedBtn : styles.addBtn}
                     disabled={added}
                     onClick={() => void addToWatchlist(a.athlete_id)}
                   >
-                    {added ? '✓ ADDED' : '+ ADD'}
+                    {added ? '✓ WATCHING' : '+ WATCH'}
                   </button>
                 </div>
               </div>

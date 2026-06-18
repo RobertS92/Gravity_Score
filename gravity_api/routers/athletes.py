@@ -86,7 +86,10 @@ async def search_athletes(
         min_brand=min_brand,
         max_risk=max_risk,
         exclude_inactive=True,
-        roster_verified_within_days=ROSTER_FRESHNESS_DAYS,
+        # Direct name lookup is a discovery action, not a current-roster
+        # leaderboard. Keep active athletes searchable even when roster
+        # verification is older than the leaderboard freshness window.
+        roster_verified_within_days=None if q and q.strip() else ROSTER_FRESHNESS_DAYS,
         sort_by=sort_by,
         sort_dir=sort_dir,
         limit=limit,

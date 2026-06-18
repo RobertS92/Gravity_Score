@@ -44,9 +44,9 @@ export function Sidebar() {
               type="button"
               className={styles.addBtn}
               onClick={() => setShowModal(true)}
-              title="Add player to watchlist"
+              title="Find a player"
             >
-              + ADD
+              + FIND
             </button>
           </div>
           {athletes.map((a) => (
@@ -82,7 +82,7 @@ export function Sidebar() {
             </div>
           ))}
           {athletes.length === 0 && (
-            <div className={styles.emptyHint}>No players — click + ADD</div>
+            <div className={styles.emptyHint}>No players — click + FIND</div>
           )}
 
           {inCapLayer ? (
