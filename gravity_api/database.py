@@ -1,6 +1,7 @@
 """Async PostgreSQL pool (asyncpg)."""
 
 import logging
+import socket
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from urllib.parse import urlparse
@@ -26,6 +27,24 @@ def _redact_dsn_host(dsn: str) -> str:
         return f"{host}:{port}/{db}"
     except Exception:
         return "(unparseable PG_DSN)"
+
+
+def _connection_error_message(*, host_hint: str, exc: Exception) -> str:
+    """Turn low-level connect failures into operator-readable guidance."""
+    if isinstance(exc, (socket.gaierror, OSError)) and getattr(exc, "errno", None) in (-2, 8):
+        # errno -2 (EAI_NONAME) / 8 (ENOENT on some platforms): hostname does not resolve.
+        return (
+            f"Postgres hostname in PG_DSN does not resolve (DNS NXDOMAIN): {host_hint}. "
+            "The Supabase project ref in PG_DSN is likely wrong, the project was deleted/paused, "
+            "or the connection string is stale. In Supabase → Project Settings → Database, copy a "
+            "fresh URI (Transaction pooler :6543 recommended for Railway) and update PG_DSN on "
+            "the gravity_api service, then redeploy."
+        )
+    return (
+        f"Could not connect to Postgres at {host_hint}. Verify PG_DSN on the gravity_api "
+        f"service (credentials, sslmode=require for Supabase direct :5432, pooler port 6543). "
+        f"Original error: {exc}"
+    )
 
 
 def validate_pg_dsn_for_startup(*, environment: str, pg_dsn: str) -> None:
@@ -77,11 +96,7 @@ async def init_db() -> None:
             host_hint,
             type(exc).__name__,
         )
-        raise RuntimeError(
-            f"Could not connect to Postgres at {host_hint}. Verify PG_DSN on the "
-            f"gravity_api service (credentials, SSL, pooler port 6543 vs 5432). "
-            f"Original error: {exc}"
-        ) from exc
+        raise RuntimeError(_connection_error_message(host_hint=host_hint, exc=exc)) from exc
     logger.info("PostgreSQL pool initialized (%s)", _redact_dsn_host(settings.pg_dsn))
 
 

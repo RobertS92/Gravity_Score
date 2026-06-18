@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from gravity_api.database import validate_pg_dsn_for_startup
+from gravity_api.database import _connection_error_message, validate_pg_dsn_for_startup
 from gravity_api.services.model_health import ModelHealth, should_abort_startup_on_fallback
 
 
@@ -67,3 +67,15 @@ def test_startup_never_aborts_when_flag_unset(monkeypatch):
         reason="fallback_version_detected",
     )
     assert should_abort_startup_on_fallback(health) is False
+
+
+def test_connection_error_message_for_nxdomain():
+    err = OSError("[Errno -2] Name or service not known")
+    err.errno = -2
+    msg = _connection_error_message(
+        host_hint="db.deadbeef.supabase.co:5432/postgres",
+        exc=err,
+    )
+    assert "does not resolve" in msg
+    assert "NXDOMAIN" in msg
+    assert "Transaction pooler" in msg
