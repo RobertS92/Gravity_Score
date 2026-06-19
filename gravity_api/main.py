@@ -8,8 +8,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import ResponseValidationError
 
 from gravity_api.config import get_settings
 from gravity_api.database import close_db, init_db
@@ -107,6 +109,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(ResponseValidationError)
+async def response_validation_handler(
+    request: Request, exc: ResponseValidationError
+) -> JSONResponse:
+    """Return structured 500s so CORS middleware can attach headers on failures."""
+    logger.error("Response validation failed on %s: %s", request.url.path, exc.errors())
+    return JSONResponse(status_code=500, content={"detail": "Internal response validation error"})
 
 app.include_router(auth.router, prefix="/v1/auth", tags=["auth"])
 app.include_router(user_preferences.router, prefix="/v1/user", tags=["user"])

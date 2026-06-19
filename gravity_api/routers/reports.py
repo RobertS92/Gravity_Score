@@ -325,10 +325,10 @@ class CscReportOut(BaseModel):
             "mapped", "stored_fallback", "school_fallback", "unmapped"
         ] | None = None
         # CSC v3 fields (populated incrementally during rollout).
-        model_status: Literal["production", "fallback"] | None = None
+        model_status: Literal["production", "fallback", "unknown"] | None = None
         model_version: str | None = None
         cohort_fit: Literal["good", "edge", "poor"] | None = None
-        range_quality: Literal["normal", "wide"] | None = None
+        range_quality: Literal["normal", "wide", "estimate", "unavailable"] | None = None
         report_id: str | None = None
         report_version: Literal["v2", "v3"] | None = None
         report_rollout_phase: str | None = None
@@ -378,6 +378,10 @@ async def post_csc_report(
     athlete_id = body.get("athlete_id")
     if not athlete_id:
         raise HTTPException(status_code=400, detail="athlete_id required")
+    try:
+        uuid.UUID(str(athlete_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="athlete_id must be a UUID") from exc
     params = {k: v for k, v in body.items() if k != "athlete_id"}
     try:
         report = await build_csc_report_json(
