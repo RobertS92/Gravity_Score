@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AdminRoute } from './components/layout/AdminRoute'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { RequireOnboardingComplete } from './components/layout/RequireOnboardingComplete'
 import { Shell } from './components/layout/Shell'
@@ -51,7 +52,9 @@ export default function App() {
               <Route path="/csc" element={<CscReportsView />} />
               <Route path="/brand-match" element={<BrandMatchView />} />
               <Route path="/monitoring" element={<MonitoringView />} />
-              <Route path="/data-pipeline" element={<OperationsDashboardView />} />
+              <Route element={<AdminRoute />}>
+                <Route path="/data-pipeline" element={<OperationsDashboardView />} />
+              </Route>
               <Route path="/market-scan" element={<MarketScanView />} />
               <Route path="/cap" element={<CapLayout />}>
                 <Route index element={<CapDashboardView />} />

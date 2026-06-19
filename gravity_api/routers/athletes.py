@@ -65,6 +65,10 @@ async def search_athletes(
     max_risk: Optional[float] = None,
     sort_by: str = "gravity_score",
     sort_dir: str = "desc",
+    include_stale_roster: bool = Query(
+        False,
+        description="Include active athletes whose roster verification is older than the leaderboard window",
+    ),
     limit: int = Query(default=50, le=200),
     offset: int = 0,
     db: asyncpg.Connection = Depends(get_db),
@@ -89,7 +93,9 @@ async def search_athletes(
         # Direct name lookup is a discovery action, not a current-roster
         # leaderboard. Keep active athletes searchable even when roster
         # verification is older than the leaderboard freshness window.
-        roster_verified_within_days=None if q and q.strip() else ROSTER_FRESHNESS_DAYS,
+        roster_verified_within_days=(
+            None if (q and q.strip()) or include_stale_roster else ROSTER_FRESHNESS_DAYS
+        ),
         sort_by=sort_by,
         sort_dir=sort_dir,
         limit=limit,

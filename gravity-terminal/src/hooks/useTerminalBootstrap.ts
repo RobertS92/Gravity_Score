@@ -28,8 +28,15 @@ async function pickDefaultAthleteId(): Promise<string | null> {
   const sports = usePreferencesStore.getState().activeSports
   const primary = sports[0] ?? 'CFB'
   try {
-    const rows = await searchAthletesFiltered({ sports: primary, limit: '1' })
-    return rows[0]?.athlete_id ?? null
+    const fresh = await searchAthletesFiltered({ sports: primary, limit: '1' })
+    if (fresh[0]?.athlete_id) return fresh[0].athlete_id
+
+    const available = await searchAthletesFiltered({
+      sports: primary,
+      limit: '1',
+      include_stale_roster: 'true',
+    })
+    return available[0]?.athlete_id ?? null
   } catch {
     return null
   }
@@ -38,11 +45,37 @@ async function pickDefaultAthleteId(): Promise<string | null> {
 export function useTerminalBootstrap() {
   useEffect(() => {
     void (async () => {
-      await useAuthStore.getState().hydrate()
-      const prefState = usePreferencesStore.getState()
-      if (!prefState.hydrated) {
-        await prefState.hydratePreferences()
+      const athleteState = useAthleteStore.getState()
+      athleteState.setInitialLoading(true)
+      useUiStore.getState().setAthleteCorpusEmpty(false)
+
+      if (!useAuthStore.getState().hydrated) {
+        await useAuthStore.getState().hydrate()
       }
+
+      const prefState = usePreferencesStore.getState()
+      const preferencesReady = prefState.hydrated
+        ? Promise.resolve()
+        : prefState.hydratePreferences().then(() => undefined)
+
+      // Restore the last profile first so repeat visits can render from the
+      // local bundle cache while secondary dashboard data loads in parallel.
+      const last = readLastAthleteId()
+      if (last) {
+        await athleteState.setActiveAthlete(last)
+        if (useAthleteStore.getState().activeAthlete) {
+          void preferencesReady
+          void useWatchlistStore.getState().loadWatchlist()
+          startWatchlistRefresh()
+          void useAlertStore.getState().loadAlerts()
+          startAlertPolling()
+          void useTeamFavoritesStore.getState().load()
+          void useLiveFeedStore.getState().loadCatalog()
+          return
+        }
+      }
+
+      await preferencesReady
       await useWatchlistStore.getState().loadWatchlist()
       startWatchlistRefresh()
       void useAlertStore.getState().loadAlerts()
@@ -51,28 +84,22 @@ export function useTerminalBootstrap() {
       void useLiveFeedStore.getState().loadCatalog()
 
       const { activeAthleteId, setActiveAthlete } = useAthleteStore.getState()
-      if (activeAthleteId) return
+      if (activeAthleteId && useAthleteStore.getState().activeAthlete) return
 
       const wl = useWatchlistStore.getState().athletes
       if (wl.length > 0) {
-        useUiStore.getState().setAthleteCorpusEmpty(false)
-        void setActiveAthlete(wl[0].athlete_id)
-        return
-      }
-
-      const last = readLastAthleteId()
-      if (last) {
-        void setActiveAthlete(last)
-        return
+        await setActiveAthlete(wl[0].athlete_id)
+        if (useAthleteStore.getState().activeAthlete) return
       }
 
       const defaultId = await pickDefaultAthleteId()
       if (defaultId) {
-        useUiStore.getState().setAthleteCorpusEmpty(false)
-        void setActiveAthlete(defaultId)
-      } else {
-        useUiStore.getState().setAthleteCorpusEmpty(true)
+        await setActiveAthlete(defaultId)
+        if (useAthleteStore.getState().activeAthlete) return
       }
+
+      useAthleteStore.getState().setInitialLoading(false)
+      useUiStore.getState().setAthleteCorpusEmpty(true)
     })()
 
     return () => {

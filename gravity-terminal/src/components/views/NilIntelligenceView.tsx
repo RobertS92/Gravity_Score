@@ -14,6 +14,8 @@ export function NilIntelligenceView() {
   const comparables = useAthleteStore((s) => s.comparables)
   const scoreHistory = useAthleteStore((s) => s.scoreHistory)
   const pending = useAthleteStore((s) => s.scoreAnimationPending)
+  const isLoading = useAthleteStore((s) => s.isLoading)
+  const error = useAthleteStore((s) => s.error)
   const consume = useAthleteStore((s) => s.consumeScoreAnimation)
   const athleteCorpusEmpty = useUiStore((s) => s.athleteCorpusEmpty)
 
@@ -39,22 +41,31 @@ export function NilIntelligenceView() {
           textAlign: 'center',
         }}
       >
-        <div style={{ fontSize: 14, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          {athleteCorpusEmpty ? 'DATABASE IS BEING POPULATED' : 'NO ATHLETE SELECTED'}
+        <div className={isLoading ? styles.loadingMark : styles.emptyMark} aria-hidden>
+          {isLoading ? 'G' : '—'}
         </div>
-        <div style={{ fontSize: 12, maxWidth: 420, lineHeight: 1.5 }}>
-          {athleteCorpusEmpty ? (
+        <div className={styles.emptyTitle}>
+          {isLoading
+            ? 'LOADING ATHLETE INTELLIGENCE'
+            : athleteCorpusEmpty
+              ? 'ATHLETES UNAVAILABLE'
+              : 'NO ATHLETE SELECTED'}
+        </div>
+        <div className={styles.emptyCopy}>
+          {isLoading ? (
+            <>Loading the latest athlete profile and valuation signals…</>
+          ) : athleteCorpusEmpty || error ? (
             <>
-              Athlete data is currently loading. Check the{' '}
-              <Link to="/data-pipeline" style={{ color: 'var(--accent-green)' }}>
-                Data Pipeline
+              We couldn&apos;t load an athlete profile right now.{' '}
+              <Link to="/market-scan" className={styles.emptyLink}>
+                Browse athletes
               </Link>{' '}
-              tab for scraper status.
+              or refresh to try again.
             </>
           ) : (
             <>
               Pick an athlete from{' '}
-              <Link to="/market-scan" style={{ color: 'var(--accent-green)' }}>
+              <Link to="/market-scan" className={styles.emptyLink}>
                 Market Scan
               </Link>{' '}
               or search with the command bar to load their NIL intelligence profile.

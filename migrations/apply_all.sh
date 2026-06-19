@@ -27,12 +27,8 @@ if [[ -z "${PG_DSN:-}" ]]; then
   exit 1
 fi
 export PGOPTIONS="${PGOPTIONS:-}"
-psql "$PG_DSN" -v ON_ERROR_STOP=1 -f "$ROOT/001_gravity_nil_terminal.sql"
-psql "$PG_DSN" -v ON_ERROR_STOP=1 -f "$ROOT/002_athlete_gravity_money_company_brand.sql"
-psql "$PG_DSN" -v ON_ERROR_STOP=1 -f "$ROOT/003_roster_builds.sql"
-psql "$PG_DSN" -v ON_ERROR_STOP=1 -f "$ROOT/004_athlete_events.sql"
-psql "$PG_DSN" -v ON_ERROR_STOP=1 -f "$ROOT/005_athletes_active_roster.sql"
-psql "$PG_DSN" -v ON_ERROR_STOP=1 -f "$ROOT/006_cap_org_foundation.sql"
-psql "$PG_DSN" -v ON_ERROR_STOP=1 -f "$ROOT/007_cap_dev_seed.sql"
-psql "$PG_DSN" -v ON_ERROR_STOP=1 -f "$ROOT/008_user_onboarding_preferences.sql"
-echo "Applied 001 + 002 + 003 + 004 + 005 + 006 + 007 + 008."
+for migration in "$ROOT"/[0-9][0-9][0-9]_*.sql; do
+  echo "Applying $(basename "$migration")"
+  psql "$PG_DSN" -v ON_ERROR_STOP=1 -f "$migration"
+done
+echo "Applied all Gravity migrations."

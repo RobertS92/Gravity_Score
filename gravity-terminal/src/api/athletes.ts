@@ -124,7 +124,6 @@ export async function searchAthletesFilteredPaged(
   const qs = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
-    exclude_inactive: 'true',
     ...params,
   }).toString()
   const raw = await apiGet<{

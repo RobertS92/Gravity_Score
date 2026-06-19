@@ -275,6 +275,60 @@ async def _collect_db(db: asyncpg.Connection) -> dict[str, Any]:
                  AND updated_at >= NOW() - INTERVAL '30 days'""",
         )
 
+    reg_v2_predictions = await _safe_val(
+        db, "SELECT to_regclass('public.gravity_predictions')"
+    )
+    out["gravity_network_v2_schema_ready"] = bool(reg_v2_predictions)
+    if reg_v2_predictions:
+        out["gravity_v2_predictions_24h"] = await _safe_val(
+            db,
+            """SELECT COUNT(*)::bigint FROM gravity_predictions
+               WHERE scored_at >= NOW() - INTERVAL '24 hours'""",
+        )
+        out["gravity_v2_fallback_rate_24h"] = await _safe_val(
+            db,
+            """SELECT ROUND(
+                 AVG(CASE WHEN fallback_used THEN 1.0 ELSE 0.0 END)::numeric, 4
+               ) FROM gravity_predictions
+               WHERE scored_at >= NOW() - INTERVAL '24 hours'""",
+        )
+        out["gravity_v2_avg_confidence_24h"] = await _safe_val(
+            db,
+            """SELECT ROUND(AVG(confidence)::numeric, 4)
+               FROM gravity_predictions
+               WHERE scored_at >= NOW() - INTERVAL '24 hours'""",
+        )
+        out["gravity_v2_avg_ood_24h"] = await _safe_val(
+            db,
+            """SELECT ROUND(AVG(out_of_distribution_score)::numeric, 4)
+               FROM gravity_predictions
+               WHERE scored_at >= NOW() - INTERVAL '24 hours'""",
+        )
+        out["gravity_v2_prediction_mix_7d"] = [
+            dict(row)
+            for row in await db.fetch(
+                """SELECT entity_type, model_version, fallback_used, COUNT(*)::int AS count
+                   FROM gravity_predictions
+                   WHERE scored_at >= NOW() - INTERVAL '7 days'
+                   GROUP BY entity_type, model_version, fallback_used
+                   ORDER BY count DESC"""
+            )
+        ]
+
+    reg_registry = await _safe_val(
+        db, "SELECT to_regclass('public.gravity_model_registry')"
+    )
+    if reg_registry:
+        out["gravity_v2_champion_models"] = [
+            dict(row)
+            for row in await db.fetch(
+                """SELECT model_key, model_version, entity_type, metrics, calibration, trained_at
+                   FROM gravity_model_registry
+                   WHERE stage = 'champion'
+                   ORDER BY model_key"""
+            )
+        ]
+
     return out
 
 

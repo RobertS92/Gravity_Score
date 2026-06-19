@@ -100,6 +100,7 @@ export type AthleteStore = {
   error: string | null
   scoreAnimationPending: boolean
   liveScoreActive: boolean
+  setInitialLoading: (loading: boolean) => void
   setActiveAthlete: (id: string) => Promise<void>
   refreshActiveAthlete: () => Promise<void>
   clearActiveAthlete: () => void
@@ -112,10 +113,12 @@ export const useAthleteStore = create<AthleteStore>((set, get) => ({
   activeAthlete: null,
   comparables: [],
   scoreHistory: [],
-  isLoading: false,
+  isLoading: true,
   error: null,
   scoreAnimationPending: false,
   liveScoreActive: false,
+
+  setInitialLoading: (loading) => set({ isLoading: loading }),
 
   consumeScoreAnimation: () => set({ scoreAnimationPending: false }),
 
@@ -154,6 +157,7 @@ export const useAthleteStore = create<AthleteStore>((set, get) => ({
       error: null,
       scoreAnimationPending: false,
       liveScoreActive: false,
+      isLoading: false,
     })
   },
 

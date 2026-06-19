@@ -12,6 +12,13 @@ from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 
 router = APIRouter()
 ROSTER_FRESHNESS_DAYS = 14
+_OPTIONAL_NIL_VALUATION_SQL = """
+CASE
+    WHEN jsonb_typeof(to_jsonb(a) -> 'nil_valuation_raw') = 'number'
+    THEN (to_jsonb(a) ->> 'nil_valuation_raw')::numeric
+    ELSE NULL
+END
+""".strip()
 
 _TEAM_SPORT_ALIASES = {
     "cfb": "cfb",
@@ -110,7 +117,7 @@ async def market_schools(
     )
 
     athlete_agg_rows = await db.fetch(
-        """
+        f"""
         SELECT
             a.school AS school,
             a.sport AS sport,
@@ -131,7 +138,7 @@ async def market_schools(
                         THEN (s.dollar_p10_usd + s.dollar_p90_usd) / 2.0
                         ELSE NULL
                     END,
-                    a.nil_valuation_raw
+                    {_OPTIONAL_NIL_VALUATION_SQL}
                 )
             ) AS athlete_nil_market_estimate
         FROM athletes a

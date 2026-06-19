@@ -110,6 +110,13 @@ Copy `.env.example` to `.env` and fill values for Postgres, scrapers/ML URLs whe
 | `gravity-terminal/` | Vite + React terminal |
 | `gravity/` | Data pipeline, scoring, valuation, NIL stubs, packs, DB helpers |
 | `migrations/` | Postgres schema |
+
+## Gravity Network v2
+
+The v2 scoring architecture adds point-in-time provenance, calibrated athlete
+value intervals, explicit athlete/team/brand heads, relationship-fit scoring,
+and champion/challenger model operations. See
+[`docs/GRAVITY_NETWORK_V2.md`](docs/GRAVITY_NETWORK_V2.md).
 | `railway-service/` | Deployable service; stub crawlers; ScraperService → wire to gravity-scrapers |
 | `api/` | Legacy Gravity Score API (rule-based `api/model_cache.py`) |
 

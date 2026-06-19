@@ -116,10 +116,12 @@
 
 .tabClusterLabel {
   position: absolute;
-  top: -4px;
+  top: 2px;
   left: 8px;
+  z-index: 1;
   font-family: var(--font-data);
   font-size: 8px;
+  line-height: 1;
   letter-spacing: 0.18em;
   color: var(--text-dim);
   background: var(--bg-secondary);
@@ -141,7 +143,7 @@
 .tab {
   display: flex;
   align-items: center;
-  padding: 0 14px;
+  padding: 7px 14px 0;
   border-right: 1px solid var(--border-default);
   font-family: var(--font-data);
   font-size: 13px;
@@ -164,7 +166,7 @@
 .tabActive {
   display: flex;
   align-items: center;
-  padding: 0 14px;
+  padding: 7px 14px 0;
   border-right: 1px solid var(--border-default);
   font-family: var(--font-data);
   font-size: 13px;
@@ -315,7 +317,7 @@
 
   .tab,
   .tabActive {
-    padding: 0 10px;
+    padding: 7px 10px 0;
     font-size: 12px;
     letter-spacing: 0.08em;
   }

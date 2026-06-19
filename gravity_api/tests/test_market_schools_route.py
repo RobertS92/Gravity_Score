@@ -55,6 +55,9 @@ def test_market_schools_returns_program_gravity_scores():
     assert schools[0]["program_proof_score"] == 81.4
     assert schools[0]["program_velocity_score"] == 73.2
     assert schools[0]["program_risk_score"] == 89.0
+    athlete_aggregate_sql = conn.fetch.await_args_list[1].args[0]
+    assert "a.nil_valuation_raw" not in athlete_aggregate_sql
+    assert "to_jsonb(a) -> 'nil_valuation_raw'" in athlete_aggregate_sql
 
 
 def test_market_schools_maps_mcbb_programs_to_team_scores():

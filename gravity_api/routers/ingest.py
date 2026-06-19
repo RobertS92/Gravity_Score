@@ -18,6 +18,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime
 from typing import Any, Literal, Optional
@@ -40,6 +41,7 @@ from gravity_api.services.news_ingest import (
     ingest_athlete_event,
     ingest_team_event,
 )
+from gravity_api.services.feature_snapshots_v2 import materialize_feature_snapshot
 
 router = APIRouter()
 
@@ -89,6 +91,29 @@ class BatchItem(BaseModel):
 
 class BatchIn(BaseModel):
     items: list[BatchItem] = Field(..., max_length=50)
+
+
+class ObservationIn(BaseModel):
+    entity_type: Literal["athlete", "team", "brand", "campaign"]
+    entity_id: uuid.UUID
+    feature_key: str = Field(..., min_length=1, max_length=128)
+    numeric_value: Optional[float] = None
+    text_value: Optional[str] = None
+    json_value: Optional[dict[str, Any] | list[Any]] = None
+    observed_at: datetime
+    source_key: str = Field(..., min_length=1, max_length=128)
+    source_record_id: Optional[str] = Field(default=None, max_length=300)
+    confidence: Optional[float] = Field(default=None, ge=0, le=1)
+    verification_status: Literal[
+        "verified", "corroborated", "single_source", "unverified", "rejected"
+    ] = "unverified"
+    freshness_seconds: Optional[int] = Field(default=None, ge=0)
+    collection_run_id: Optional[str] = Field(default=None, max_length=200)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ObservationBatchIn(BaseModel):
+    observations: list[ObservationIn] = Field(..., min_length=1, max_length=500)
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +253,93 @@ async def post_batch(
         except IngestRejected as e:
             out.append({"ok": False, "reason": e.reason, "detail": e.detail})
     return {"results": out}
+
+
+@router.post("/observations")
+async def post_observations(
+    body: ObservationBatchIn,
+    db: asyncpg.Connection = Depends(get_db),
+    _: uuid.UUID = Depends(require_ops),
+):
+    """Upsert field-level observations with source lineage and observed time."""
+    inserted = 0
+    rejected: list[dict[str, Any]] = []
+    for index, item in enumerate(body.observations):
+        if (
+            item.numeric_value is None
+            and item.text_value is None
+            and item.json_value is None
+        ):
+            rejected.append({"index": index, "reason": "missing_value"})
+            continue
+        source = await db.fetchrow(
+            """SELECT id, default_confidence FROM gravity_data_sources
+               WHERE source_key = $1 AND active = TRUE""",
+            item.source_key,
+        )
+        if not source:
+            rejected.append({"index": index, "reason": "unknown_source"})
+            continue
+        confidence = (
+            item.confidence
+            if item.confidence is not None
+            else float(source["default_confidence"])
+        )
+        await db.execute(
+            """INSERT INTO gravity_observations (
+                 entity_type, entity_id, feature_key, numeric_value, text_value,
+                 json_value, observed_at, source_id, source_record_id, confidence,
+                 verification_status, freshness_seconds, collection_run_id, metadata
+               ) VALUES (
+                 $1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, $12, $13, $14::jsonb
+               )
+               ON CONFLICT (
+                 entity_type, entity_id, feature_key, source_id, source_record_id
+               ) WHERE source_record_id IS NOT NULL
+               DO UPDATE SET
+                 numeric_value = EXCLUDED.numeric_value,
+                 text_value = EXCLUDED.text_value,
+                 json_value = EXCLUDED.json_value,
+                 observed_at = EXCLUDED.observed_at,
+                 ingested_at = NOW(),
+                 confidence = EXCLUDED.confidence,
+                 verification_status = EXCLUDED.verification_status,
+                 freshness_seconds = EXCLUDED.freshness_seconds,
+                 collection_run_id = EXCLUDED.collection_run_id,
+                 metadata = EXCLUDED.metadata""",
+            item.entity_type,
+            item.entity_id,
+            item.feature_key,
+            item.numeric_value,
+            item.text_value,
+            json.dumps(item.json_value) if item.json_value is not None else None,
+            item.observed_at,
+            source["id"],
+            item.source_record_id,
+            confidence,
+            item.verification_status,
+            item.freshness_seconds,
+            item.collection_run_id,
+            json.dumps(item.metadata),
+        )
+        inserted += 1
+    return {"inserted": inserted, "rejected": rejected}
+
+
+@router.post("/snapshots/{entity_type}/{entity_id}")
+async def post_feature_snapshot(
+    entity_type: Literal["athlete", "team", "brand"],
+    entity_id: uuid.UUID,
+    as_of: Optional[datetime] = None,
+    db: asyncpg.Connection = Depends(get_db),
+    _: uuid.UUID = Depends(require_ops),
+):
+    return await materialize_feature_snapshot(
+        db,
+        entity_type=entity_type,
+        entity_id=str(entity_id),
+        as_of=as_of,
+    )
 
 
 # ---------------------------------------------------------------------------

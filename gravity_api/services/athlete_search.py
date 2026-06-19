@@ -7,6 +7,17 @@ import asyncpg
 from gravity_api.services.position_group_match import position_group_sql_predicate
 
 _INVERTED_RISK_SQL = "(100.0 - s.risk_score)"
+# Read the optional legacy valuation through the row's JSON representation.
+# PostgreSQL returns NULL when the physical column does not exist, so search
+# remains available while a deployment is between application and migration
+# versions. A direct `a.nil_valuation_raw` reference would fail the whole query.
+_OPTIONAL_NIL_VALUATION_SQL = """
+CASE
+    WHEN jsonb_typeof(to_jsonb(a) -> 'nil_valuation_raw') = 'number'
+    THEN (to_jsonb(a) ->> 'nil_valuation_raw')::numeric
+    ELSE NULL
+END
+""".strip()
 
 _VALID_SORTS = {
     "gravity_score": "s.gravity_score",
@@ -115,7 +126,7 @@ async def search_athletes(
                     THEN (s.dollar_p10_usd + s.dollar_p90_usd) / 2.0
                     ELSE NULL
                 END,
-                a.nil_valuation_raw
+                {_OPTIONAL_NIL_VALUATION_SQL}
             ) AS nil_estimate,
             s.confidence, s.top_factors_up, s.top_factors_down,
             s.calculated_at as score_date
