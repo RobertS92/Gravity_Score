@@ -9,7 +9,11 @@ import asyncpg
 import httpx
 
 from gravity_api.config import get_settings
-from gravity_api.services.nil_valuation import nil_from_row, sanitize_nil_valuation_usd
+from gravity_api.services.nil_valuation import (
+    elite_signal_strength,
+    nil_from_row,
+    sanitize_nil_valuation_usd,
+)
 from gravity_api.services.score_imputation import (
     apply_heuristic_imputations,
     apply_manual_imputations,
@@ -17,6 +21,17 @@ from gravity_api.services.score_imputation import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _coerce_effective_dq(value: Any) -> Optional[float]:
+    """Clamp the effective data-quality score to [0, 1] for persistence."""
+    if value is None:
+        return None
+    try:
+        dq = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, min(1.0, dq))
 
 
 def brand_gravity_score(brand: float, velocity: float, proof: float) -> float:
@@ -29,6 +44,10 @@ def program_row_to_team_raw(program: asyncpg.Record) -> Dict[str, Any]:
     dma = program.get("dma_rank")
     nil_env = program.get("nil_environment_score")
     tv = program.get("annual_tv_appearances")
+    # NOTE: `google_trends_score` and `program_social_followers` are placeholder
+    # defaults — the programs table does not yet carry scraped program-level
+    # search/social signals. They keep the team-gravity vector non-zero; replace
+    # them with scraped values once the program scrapers populate those fields.
     return {
         "nil_collective_budget_est": float(bud or 0) / 1_000_000.0,
         "school_market_rank": float(dma or 40),
@@ -243,7 +262,31 @@ def _heuristic_score_from_raw(raw: Dict[str, Any], sport: str | None) -> Dict[st
     )
 
     gravity = max(0.0, min(100.0, gravity))
-    dollar_p50 = max(25_000.0, min(2_000_000.0, gravity * 18_000.0))
+
+    # Component-derived band (gravity proxy). Historically this capped the
+    # heuristic P50 at $2M, which made it impossible to model elite media
+    # anchors (e.g. a sanitized NIL valuation of ~$21.9M) when ML was down —
+    # the score row and the downstream CSC benchmark would disagree.
+    base_p50 = max(25_000.0, min(2_000_000.0, gravity * 18_000.0))
+
+    # `nil_valuation` is the already-sanitized USD anchor that
+    # athlete_to_raw_data writes via nil_from_row. When it's present and the
+    # athlete shows elite commercial signal, blend the heuristic P50 toward it
+    # so the fallback agrees with the media anchor instead of being clamped.
+    nil_anchor = float(raw.get("nil_valuation") or 0) or None
+    elite = elite_signal_strength(raw)
+    if nil_anchor and nil_anchor > 0:
+        weight = min(0.9, 0.5 + 0.4 * elite)
+        dollar_p50 = base_p50 * (1.0 - weight) + nil_anchor * weight
+        dollar_p50 = max(25_000.0, min(75_000_000.0, dollar_p50))
+        p10 = dollar_p50 * 0.6
+        p90 = dollar_p50 * 1.8
+        dollar_quality = "moderate" if elite >= 0.55 else "low"
+    else:
+        dollar_p50 = base_p50
+        p10 = dollar_p50 * 0.65
+        p90 = dollar_p50 * 1.45
+        dollar_quality = "low"
     return {
         "gravity_score": round(gravity, 4),
         "brand_score": round(max(0.0, min(100.0, brand)), 4),
@@ -253,10 +296,14 @@ def _heuristic_score_from_raw(raw: Dict[str, Any], sport: str | None) -> Dict[st
         "risk_score": round(max(0.0, min(100.0, risk)), 4),
         "confidence": 0.35,
         "model_version": "heuristic_fallback_v1",
-        "dollar_p10_usd": round(dollar_p50 * 0.65, 2),
+        "dollar_p10_usd": round(p10, 2),
         "dollar_p50_usd": round(dollar_p50, 2),
-        "dollar_p90_usd": round(dollar_p50 * 1.45, 2),
-        "dollar_confidence": {"source": "heuristic", "quality": "low"},
+        "dollar_p90_usd": round(p90, 2),
+        "dollar_confidence": {
+            "source": "heuristic",
+            "quality": dollar_quality,
+            "nil_anchored": bool(nil_anchor),
+        },
         "brand_gravity_score": brand_gravity_score(brand, velocity, proof),
     }
 
@@ -375,6 +422,9 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
 
     new_score = float(score_data["gravity_score"])
 
+    imputed_fields = {"manual": manual_fields, "heuristic": heuristic_fields}
+    effective_data_quality = _coerce_effective_dq(raw.get("data_quality_score"))
+
     score_params = (
         athlete["id"],
         new_score,
@@ -392,6 +442,8 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
         company_g,
         brand_g,
         _to_jsonb(shap if shap else {}),
+        _to_jsonb(imputed_fields),
+        effective_data_quality,
     )
 
     # Production enforces one row per athlete (`uq_athlete_gravity_scores_athlete_id`).
@@ -413,6 +465,8 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
             company_gravity_score = $14,
             brand_gravity_score = $15,
             shap_values = $16::jsonb,
+            imputed_fields = $17::jsonb,
+            effective_data_quality = $18,
             calculated_at = NOW()
            WHERE athlete_id = $1""",
         *score_params,
@@ -424,10 +478,10 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
                 velocity_score, risk_score, confidence, model_version,
                 dollar_p10_usd, dollar_p50_usd, dollar_p90_usd, dollar_confidence,
                 company_gravity_score, brand_gravity_score,
-                shap_values
+                shap_values, imputed_fields, effective_data_quality
             ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9,
-                $10, $11, $12, $13::jsonb, $14, $15, $16::jsonb
+                $10, $11, $12, $13::jsonb, $14, $15, $16::jsonb, $17::jsonb, $18
             )""",
             *score_params,
         )

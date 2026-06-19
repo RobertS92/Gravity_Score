@@ -235,9 +235,17 @@ async def _log_dispersion_report(
             spread["spread_p50"] or 0.0,
             spread["stddev_gravity"] or 0.0,
         )
-        if (spread["stddev_p50"] or 0.0) < 50_000:
+        stddev_p50 = spread["stddev_p50"] or 0.0
+        if stddev_p50 < 50_000:
             logger.warning(
                 "dollar_p50 stddev < $50K — model may be collapsing or fallback-only"
+            )
+        elif stddev_p50 < 200_000:
+            # Above the collapse floor but below the A-grade dispersion target
+            # (≈$200K on a tight cohort like SEC QBs). Informational, not a
+            # failure — useful for tracking model-quality drift over time.
+            logger.info(
+                "dollar_p50 stddev $%.0f below A-grade target ($200K)", stddev_p50
             )
 
 

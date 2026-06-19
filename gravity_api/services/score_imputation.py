@@ -92,10 +92,21 @@ def apply_manual_imputations(raw: Dict[str, Any], manual: Dict[str, Any]) -> lis
     return applied
 
 
+# Effective data-quality is capped at this value when any follower/social
+# feature had to be fabricated, so downstream confidence reflects that the
+# brand/reach signal is synthetic rather than scraped.
+_FABRICATED_SOCIAL_DQ_CAP = 0.5
+
+
 def apply_heuristic_imputations(raw: Dict[str, Any], athlete: asyncpg.Record) -> list[str]:
     """
     Fill critical missing features deterministically so scoring can proceed.
     These are conservative defaults and should be superseded by real/manual data.
+
+    Fabricated follower counts keep the ML vector out of the all-zero regime,
+    but they are synthetic — so when any social follower field is fabricated we
+    cap ``data_quality_score`` (see ``_FABRICATED_SOCIAL_DQ_CAP``). The list of
+    imputed field names is returned so the caller can persist provenance.
     """
     applied: list[str] = []
     sport = athlete.get("sport")
@@ -103,15 +114,19 @@ def apply_heuristic_imputations(raw: Dict[str, Any], athlete: asyncpg.Record) ->
     pos_mult = _position_multiplier(position)
     base = _sport_base_followers(sport)
 
+    fabricated_social = False
     if _as_float(raw.get("instagram_followers")) is None:
         raw["instagram_followers"] = int(base * pos_mult)
         applied.append("instagram_followers")
+        fabricated_social = True
     if _as_float(raw.get("twitter_followers")) is None:
         raw["twitter_followers"] = int(base * 0.45 * pos_mult)
         applied.append("twitter_followers")
+        fabricated_social = True
     if _as_float(raw.get("tiktok_followers")) is None:
         raw["tiktok_followers"] = int(base * 0.65 * pos_mult)
         applied.append("tiktok_followers")
+        fabricated_social = True
     if _as_float(raw.get("news_count_30d")) is None:
         raw["news_count_30d"] = 0
         applied.append("news_count_30d")
@@ -121,4 +136,9 @@ def apply_heuristic_imputations(raw: Dict[str, Any], athlete: asyncpg.Record) ->
     if _as_float(raw.get("data_quality_score")) is None:
         raw["data_quality_score"] = 0.55
         applied.append("data_quality_score")
+
+    if fabricated_social:
+        current_dq = _as_float(raw.get("data_quality_score"))
+        if current_dq is None or current_dq > _FABRICATED_SOCIAL_DQ_CAP:
+            raw["data_quality_score"] = _FABRICATED_SOCIAL_DQ_CAP
     return applied

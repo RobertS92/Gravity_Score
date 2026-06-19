@@ -4,6 +4,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from gravity_api.database import get_db
+from gravity_api.services.athlete_enrichment import score_delta_30d, social_signal_fields
 from gravity_api.services.athlete_feed import build_athlete_feed_events
 from gravity_api.services.athlete_search import search_athletes as run_athlete_search
 from gravity_api.services.nil_valuation import nil_from_row, sanitize_nil_valuation_usd
@@ -11,31 +12,6 @@ from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 
 router = APIRouter()
 ROSTER_FRESHNESS_DAYS = 14
-
-
-def _score_delta_30d(scores: list[asyncpg.Record]) -> float | None:
-    if len(scores) < 2:
-        return None
-    latest = scores[0]
-    latest_score = latest.get("gravity_score")
-    latest_at = latest.get("calculated_at")
-    if latest_score is None or latest_at is None:
-        return None
-    target_ts = latest_at.timestamp() - (30 * 24 * 60 * 60)
-    best = None
-    best_diff = None
-    for row in scores[1:]:
-        score = row.get("gravity_score")
-        ts = row.get("calculated_at")
-        if score is None or ts is None:
-            continue
-        diff = abs(ts.timestamp() - target_ts)
-        if best is None or best_diff is None or diff < best_diff:
-            best = score
-            best_diff = diff
-    if best is None:
-        return None
-    return round(float(latest_score) - float(best), 1)
 
 
 def _invert_risk(v: object) -> float | None:
@@ -397,24 +373,22 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
         or latest_score.get("brand_gravity_score")
     )
 
-    # Social signals from raw scrape data
-    ig_followers  = raw_signals.get("instagram_followers")
-    tw_followers  = raw_signals.get("twitter_followers")
-    tt_followers  = raw_signals.get("tiktok_followers")
-    on3_followers = raw_signals.get("on3_nil_followers")
-    social_reach  = sum(
-        v for v in [ig_followers, tw_followers, tt_followers] if v and isinstance(v, (int, float))
-    ) or None
+    # Social signals from raw scrape data (shared resolver so the profile
+    # endpoint and the CSC report builder surface identical values).
+    signal_fields = social_signal_fields(raw_signals)
+    ig_followers = signal_fields["instagram_followers"]
+    tw_followers = signal_fields["twitter_followers"]
+    tt_followers = signal_fields["tiktok_followers"]
 
-    athlete_dict["social_combined_reach"]      = social_reach
+    athlete_dict["social_combined_reach"]      = signal_fields["social_combined_reach"]
     athlete_dict["instagram_followers"]        = ig_followers
     athlete_dict["twitter_followers"]          = tw_followers
     athlete_dict["tiktok_followers"]           = tt_followers
-    athlete_dict["news_mentions_30d"]          = raw_signals.get("news_count_30d")
-    athlete_dict["on3_nil_rank"]               = raw_signals.get("nil_ranking")
-    athlete_dict["google_trends_score"]        = raw_signals.get("google_trends_score")
-    athlete_dict["wikipedia_page_views_30d"]   = raw_signals.get("wikipedia_page_views_30d")
-    athlete_dict["nil_valuation_raw"]          = raw_signals.get("nil_valuation")
+    athlete_dict["news_mentions_30d"]          = signal_fields["news_mentions_30d"]
+    athlete_dict["on3_nil_rank"]               = signal_fields["on3_nil_rank"]
+    athlete_dict["google_trends_score"]        = signal_fields["google_trends_score"]
+    athlete_dict["wikipedia_page_views_30d"]   = signal_fields["wikipedia_page_views_30d"]
+    athlete_dict["nil_valuation_raw"]          = signal_fields["nil_valuation_raw"]
     athlete_dict["data_quality_score"]         = raw_signals.get("data_quality_score") or athlete_dict.get("data_quality_score")
 
     # Unified NIL valuation: merge raw_data + athlete row signals so the
@@ -464,7 +438,7 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     athlete_dict["nil_valuation_percentile"] = (
         int(nil_percentile_row["pct"]) if nil_percentile_row and nil_percentile_row["pct"] is not None else None
     )
-    athlete_dict["gravity_delta_30d"] = _score_delta_30d(scores)
+    athlete_dict["gravity_delta_30d"] = score_delta_30d(scores)
 
     score_history = [dict(s) for s in scores]
     for row in score_history:

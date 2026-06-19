@@ -14,6 +14,12 @@ from gravity_api.services.csc_report_llm import (
     generate_risk_rationale,
     generate_value_interpretation,
 )
+from gravity_api.services.athlete_enrichment import (
+    enrich_athlete_dict,
+    parse_raw_data,
+    score_delta_30d,
+    value_delta_30d,
+)
 from gravity_api.services.csc_report_rollout import (
     ReportRolloutState,
     load_report_rollout_state,
@@ -192,6 +198,26 @@ def _commercial_readiness_score(
     return sum(parts) / len(parts)
 
 
+def _driver_signal_inputs(
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+) -> tuple[Optional[float], Optional[float], Optional[float], Optional[float]]:
+    """Shared follower/engagement extraction for the driver helpers.
+
+    Both the qualitative (`_supporting_signals_for_driver`) and numeric
+    (`_supporting_metrics_for_driver`) helpers read the same four base signals;
+    resolving them in one place keeps the two surfaces from drifting.
+    """
+    ig = _first_number(athlete_d.get("instagram_followers"), latest_dict.get("instagram_followers"))
+    tw = _first_number(athlete_d.get("twitter_followers"), latest_dict.get("twitter_followers"))
+    tt = _first_number(athlete_d.get("tiktok_followers"), latest_dict.get("tiktok_followers"))
+    engagement = _first_number(
+        athlete_d.get("instagram_engagement_rate"),
+        latest_dict.get("instagram_engagement_rate"),
+    )
+    return ig, tw, tt, engagement
+
+
 def _supporting_metrics_for_driver(
     label: str,
     athlete_d: Mapping[str, Any],
@@ -208,13 +234,7 @@ def _supporting_metrics_for_driver(
     def metric(label: str, value: Any, unit: str | None = None) -> dict[str, Any]:
         return {"label": label, "value": value, "unit": unit}
 
-    ig = _first_number(athlete_d.get("instagram_followers"), latest_dict.get("instagram_followers"))
-    tw = _first_number(athlete_d.get("twitter_followers"), latest_dict.get("twitter_followers"))
-    tt = _first_number(athlete_d.get("tiktok_followers"), latest_dict.get("tiktok_followers"))
-    engagement = _first_number(
-        athlete_d.get("instagram_engagement_rate"),
-        latest_dict.get("instagram_engagement_rate"),
-    )
+    ig, tw, tt, engagement = _driver_signal_inputs(athlete_d, latest_dict)
     if label == "Brand Strength":
         return [
             metric("Instagram", ig, "followers"),
@@ -296,13 +316,7 @@ def _supporting_signals_for_driver(
     athlete_d: Mapping[str, Any],
     latest_dict: Mapping[str, Any],
 ) -> list[dict[str, str]]:
-    ig = _first_number(athlete_d.get("instagram_followers"), latest_dict.get("instagram_followers"))
-    tw = _first_number(athlete_d.get("twitter_followers"), latest_dict.get("twitter_followers"))
-    tt = _first_number(athlete_d.get("tiktok_followers"), latest_dict.get("tiktok_followers"))
-    engagement = _first_number(
-        athlete_d.get("instagram_engagement_rate"),
-        latest_dict.get("instagram_engagement_rate"),
-    )
+    ig, tw, tt, engagement = _driver_signal_inputs(athlete_d, latest_dict)
     if label == "Brand Strength":
         return [
             {"label": "Instagram", "value": _fmt_followers(ig)},
@@ -1148,15 +1162,69 @@ async def build_csc_report_json(
             athlete_id,
         )
         if raw_row and raw_row["raw_data"]:
-            import json as _json
-
-            rd = raw_row["raw_data"]
-            scraped_nil_row = _json.loads(rd) if isinstance(rd, str) else dict(rd)
+            scraped_nil_row = parse_raw_data(raw_row["raw_data"])
     except Exception:
         scraped_nil_row = {}
 
     nil_ctx = {**scraped_nil_row, **athlete_d}
     athlete_raw_nil = nil_from_row(nil_ctx)
+
+    # Enrich the athlete row with the same scraped signals the profile
+    # endpoint resolves (followers, engagement, news, search interest, etc.)
+    # plus the resolved conference, verified-deal count, and 30-day deltas.
+    # Without this merge the driver "supporting metrics" read keys that only
+    # ever live in raw_athlete_data / social_snapshots and render as N/A.
+    snap_row = await db.fetchrow(
+        """SELECT instagram_followers, twitter_followers, tiktok_followers,
+                  instagram_engagement_rate, news_mentions_30d, scraped_at
+           FROM social_snapshots
+           WHERE athlete_id = $1
+           ORDER BY scraped_at DESC
+           LIMIT 1""",
+        athlete_id,
+    )
+    snap_dict = dict(snap_row) if snap_row else None
+    verified_deals_count = await db.fetchval(
+        """SELECT COUNT(*)::int FROM athlete_nil_deals
+           WHERE athlete_id = $1 AND verified = true""",
+        athlete_id,
+    )
+    score_history = await db.fetch(
+        """SELECT gravity_score, calculated_at
+           FROM athlete_gravity_scores
+           WHERE athlete_id = $1
+           ORDER BY calculated_at DESC
+           LIMIT 52""",
+        athlete_id,
+    )
+    gravity_delta_30d = score_delta_30d([dict(r) for r in (score_history or [])])
+    nil_history_rows = await db.fetch(
+        """SELECT scraped_at, raw_data FROM raw_athlete_data
+           WHERE athlete_id = $1
+             AND scraped_at >= NOW() - INTERVAL '75 days'
+           ORDER BY scraped_at DESC
+           LIMIT 40""",
+        athlete_id,
+    )
+    nil_series: list[tuple[Any, Any]] = []
+    for nh in nil_history_rows or []:
+        nh_raw = parse_raw_data(nh.get("raw_data"))
+        if not nh_raw:
+            continue
+        nh_nil = nil_from_row({**nh_raw, **athlete_d})
+        if nh_nil is not None:
+            nil_series.append((nh.get("scraped_at"), nh_nil))
+    nil_valuation_delta_30d = value_delta_30d(nil_series)
+
+    enrich_athlete_dict(
+        athlete_d,
+        raw_signals=scraped_nil_row,
+        snap=snap_dict,
+        conference=conference_f,
+        verified_deals_count=verified_deals_count,
+        gravity_delta_30d=gravity_delta_30d,
+        nil_valuation_delta_30d=nil_valuation_delta_30d,
+    )
 
     # Model status: classify the version of the latest score row. A
     # `fallback` value flips the per-report 503 gate in the router and

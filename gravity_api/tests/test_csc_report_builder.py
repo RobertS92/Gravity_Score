@@ -631,6 +631,89 @@ def test_market_view_metadata_round_trips():
     assert report["metadata"].get("market_view") == "conservative"
 
 
+class _DbWithSignals(_FakeDb):
+    """FakeDb that also serves raw_athlete_data, social_snapshots, and a
+    verified-deal count so enrichment-dependent fields populate."""
+
+    def __init__(self, *, raw_data=None, snapshot=None, verified_deals=0, **kw):
+        super().__init__(**kw)
+        self._raw_data = raw_data or {}
+        self._snapshot = snapshot
+        self._verified_deals = verified_deals
+
+    async def fetchrow(self, query, *args):
+        if "SELECT raw_data FROM raw_athlete_data" in query:
+            return {"raw_data": self._raw_data}
+        if "FROM social_snapshots" in query:
+            return self._snapshot
+        return await super().fetchrow(query, *args)
+
+    async def fetchval(self, query, *args):
+        if "FROM athlete_nil_deals" in query and "verified = true" in query:
+            return self._verified_deals
+        return await super().fetchval(query, *args)
+
+
+def test_enrichment_populates_driver_supporting_metrics():
+    """Scraped social/news signals must flow onto the driver metric grid
+    instead of rendering N/A — the core Arch-Manning data-gap fix."""
+    raw_data = {
+        "instagram_followers": 750_000,
+        "twitter_followers": 300_000,
+        "tiktok_followers": 500_000,
+        "instagram_engagement_rate": 5.5,
+        "news_count_30d": 22,
+        "google_trends_score": 78,
+        "wikipedia_page_views_30d": 60_000,
+        "nil_valuation": 180_000,
+    }
+    db = _DbWithSignals(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+        raw_data=raw_data,
+        verified_deals=4,
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    drivers = {d["label"]: d for d in report["explanation"]["key_value_drivers"]}
+
+    brand_metrics = {m["label"]: m["value"] for m in drivers["Brand Strength"]["supporting_metrics"]}
+    assert brand_metrics["Instagram"] == 750_000
+    assert brand_metrics["TikTok"] == 500_000
+    assert brand_metrics["IG Engagement"] == 5.5
+
+    exposure_metrics = {m["label"]: m["value"] for m in drivers["Exposure"]["supporting_metrics"]}
+    assert exposure_metrics["News Mentions"] == 22
+    assert exposure_metrics["Search Trend"] == 78
+
+    # Conference resolves through the report header, not the (blank) raw row.
+    market_signals = {s["label"]: s["value"] for s in drivers["Market Proof"]["supporting_signals"]}
+    assert market_signals["Conference"] != "N/A"
+    assert market_signals["Verified deals"] == "4"
+
+
+def test_enrichment_falls_back_to_social_snapshot_for_followers():
+    db = _DbWithSignals(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+        raw_data={"nil_valuation": 180_000},
+        snapshot={
+            "instagram_followers": 410_000,
+            "twitter_followers": None,
+            "tiktok_followers": None,
+            "instagram_engagement_rate": 4.1,
+            "news_mentions_30d": 7,
+        },
+        verified_deals=1,
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    drivers = {d["label"]: d for d in report["explanation"]["key_value_drivers"]}
+    brand_metrics = {m["label"]: m["value"] for m in drivers["Brand Strength"]["supporting_metrics"]}
+    assert brand_metrics["Instagram"] == 410_000
+    assert brand_metrics["IG Engagement"] == 4.1
+
+
 def test_csc_band_overrides_widen_range_when_provided():
     """When the analyst passes explicit percentile bands, the builder must
     widen lo/hi using `cohort_stats` rather than the raw model p10/p90."""
