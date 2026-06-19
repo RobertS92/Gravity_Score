@@ -200,7 +200,7 @@ async def score_team_v2(conn: asyncpg.Connection, team_id: str) -> dict[str, Any
         "data_quality_score": 0.7 if aggregate and aggregate["roster_size"] else 0.35,
     }
     payload = await _post_ml(
-        "/score/team", {"entity_id": str(team["id"]), "raw_data": raw}
+        "/score/team", {"team_id": str(team["id"]), "raw_data": raw}
     )
     await _persist_prediction(
         conn, entity_type="team", entity_id=str(team["id"]), payload=payload
@@ -234,7 +234,7 @@ async def score_brand_v2(conn: asyncpg.Connection, brand_id: str) -> dict[str, A
         "data_quality_score": min(1.0, float(row.get("campaign_count") or 0) / 20.0),
     }
     payload = await _post_ml(
-        "/score/brand", {"entity_id": str(brand["id"]), "raw_data": raw}
+        "/score/brand", {"brand_id": str(brand["id"]), "raw_data": raw}
     )
     await _persist_prediction(
         conn, entity_type="brand", entity_id=str(brand["id"]), payload=payload
