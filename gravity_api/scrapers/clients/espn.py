@@ -60,7 +60,7 @@ class EspnClient:
     async def _get(self, url: str) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=self.timeout_s, headers=ESPN_HEADERS) as client:
             resp = await client.get(url)
-            if resp.status_code == 404:
+            if resp.status_code in (400, 404, 500, 502, 503):
                 return {}
             resp.raise_for_status()
             data = resp.json()
@@ -207,3 +207,60 @@ class EspnClient:
             "college_awards": profile.get("awards") or [],
             "college_achievements_json": profile.get("awards") or [],
         }
+
+    def roster_url(self, sport: str, espn_team_id: str) -> str:
+        sport = normalize_sport(sport)
+        league = SITE_LEAGUE_PATH.get(sport)
+        if not league:
+            raise ValueError(f"Unsupported sport for roster: {sport}")
+        return f"https://site.api.espn.com/apis/site/v2/sports/{league}/teams/{espn_team_id}/roster"
+
+    def team_detail_url(self, sport: str, espn_team_id: str) -> str:
+        sport = normalize_sport(sport)
+        league = SITE_LEAGUE_PATH.get(sport)
+        if not league:
+            raise ValueError(f"Unsupported sport for team detail: {sport}")
+        return f"https://site.api.espn.com/apis/site/v2/sports/{league}/teams/{espn_team_id}"
+
+    async def fetch_roster_payload(self, sport: str, espn_team_id: str) -> dict[str, Any]:
+        return await self._get(self.roster_url(sport, espn_team_id))
+
+    async def fetch_team_detail(self, sport: str, espn_team_id: str) -> dict[str, Any]:
+        return await self._get(self.team_detail_url(sport, espn_team_id))
+
+    @staticmethod
+    def flatten_roster_players(payload: dict[str, Any]) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        for bucket in payload.get("athletes") or []:
+            for item in bucket.get("items") or []:
+                out.append(item)
+        return out
+
+    @staticmethod
+    def position_str(item: dict[str, Any]) -> str:
+        pos = item.get("position")
+        if isinstance(pos, dict):
+            return str(pos.get("abbreviation") or pos.get("name") or "") or ""
+        if isinstance(pos, str):
+            return pos
+        return ""
+
+    @staticmethod
+    def jersey_str(item: dict[str, Any]) -> str | None:
+        jersey = item.get("jersey")
+        if jersey is None:
+            return None
+        return str(jersey)
+
+    @staticmethod
+    def parse_team_conference(payload: dict[str, Any]) -> str | None:
+        team = payload.get("team") or {}
+        groups = team.get("groups") or {}
+        if isinstance(groups, dict):
+            parent = groups.get("parent") or {}
+            if parent.get("name"):
+                return str(parent["name"])
+        standalone = team.get("standingSummary") or team.get("conference")
+        if isinstance(standalone, str) and standalone.strip():
+            return standalone.strip()
+        return None

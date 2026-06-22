@@ -1,12 +1,12 @@
 # Railway config for the Gravity NIL Intelligence API service.
 # In Railway → this service → Settings:
-#   - Root Directory: gravity_api
-#   - Build: Railway auto-detects the Dockerfile in this folder.
+#   - Root Directory: .  (repo root — required for gravity_composite / gravity_ml / config)
+#   - Build: Dockerfile at gravity_api/Dockerfile (below)
 # No startCommand override needed — the Dockerfile CMD expands ${PORT} via sh -c.
 
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+dockerfilePath = "gravity_api/Dockerfile"
 
 [deploy]
 healthcheckPath = "/health"

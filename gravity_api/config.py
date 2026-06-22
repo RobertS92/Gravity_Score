@@ -52,6 +52,8 @@ class Settings:
     scrapers_service_url: Optional[str]
     scrapers_service_api_key: Optional[str]
     firecrawl_api_key: Optional[str]
+    disable_firecrawl: bool
+    scrape_extended: bool
     cfbd_api_key: Optional[str]
     redis_url: Optional[str]
     stripe_webhook_secret: Optional[str]
@@ -115,6 +117,10 @@ def get_settings() -> Settings:
             (os.environ.get("SCRAPERS_SERVICE_API_KEY") or "").strip() or None
         ),
         firecrawl_api_key=(os.environ.get("FIRECRAWL_API_KEY") or "").strip() or None,
+        disable_firecrawl=os.environ.get("DISABLE_FIRECRAWL", "").strip().lower()
+        in ("1", "true", "yes"),
+        scrape_extended=os.environ.get("SCRAPE_EXTENDED", "").strip().lower()
+        in ("1", "true", "yes"),
         cfbd_api_key=(os.environ.get("CFBD_API_KEY") or "").strip() or None,
         redis_url=(os.environ.get("REDIS_URL") or "").strip() or None,
         stripe_webhook_secret=(os.environ.get("STRIPE_WEBHOOK_SECRET") or "").strip()

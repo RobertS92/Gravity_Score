@@ -8,7 +8,9 @@ from typing import Any
 
 import asyncpg
 
+from gravity_api.config import get_settings
 from gravity_api.scraper_registry import resolve_event_scraper_keys
+from gravity_api.scrapers.clients.firecrawl import begin_scrape_cache, clear_scrape_cache
 from gravity_api.scraper_registry.sports import SPORTS
 from gravity_api.scrapers.implementations import get_scraper_impl, load_program_context
 from gravity_api.scrapers.observations import merge_raw_athlete_data, persist_observations
@@ -53,7 +55,15 @@ async def run_scrapers_for_athlete(
     score_after: bool = True,
 ) -> dict[str, Any]:
     ctx = await build_context(conn, athlete_id)
-    keys = list(scraper_keys or resolve_event_scraper_keys(event_type, ctx.sport))
+    settings = get_settings()
+    keys = list(
+        scraper_keys
+        or resolve_event_scraper_keys(
+            event_type,
+            ctx.sport,
+            include_extended=settings.scrape_extended,
+        )
+    )
     if ctx.is_pro and "college_experience_pro" not in keys:
         keys.append("college_experience_pro")
 
@@ -61,45 +71,49 @@ async def run_scrapers_for_athlete(
     results: list[ScraperResult] = []
     merged_fields: dict[str, Any] = dict(ctx.existing_raw)
 
-    for key in keys:
-        impl = get_scraper_impl(key)
-        if not impl:
-            logger.info("No implementation for scraper_key=%s", key)
-            continue
-        ctx.existing_raw = merged_fields
-        try:
-            result = await impl.run(ctx, key)
-        except Exception as exc:
-            logger.exception("Scraper %s failed", key)
-            result = ScraperResult(
-                scraper_key=key,
-                status="failed",
-                error_message=str(exc),
-            )
-        results.append(result)
-        merged_fields.update(result.fields)
-
-        if persist:
+    begin_scrape_cache()
+    try:
+        for key in keys:
+            impl = get_scraper_impl(key)
+            if not impl:
+                logger.info("No implementation for scraper_key=%s", key)
+                continue
+            ctx.existing_raw = merged_fields
             try:
-                await record_run_result(
-                    conn,
+                result = await impl.run(ctx, key)
+            except Exception as exc:
+                logger.exception("Scraper %s failed", key)
+                result = ScraperResult(
                     scraper_key=key,
-                    status=result.status,
-                    athlete_id=athlete_id,
-                    sport=ctx.sport,
-                    fields_written=result.fields_written,
-                    fields_failed=result.fields_failed,
-                    error_message=result.error_message,
-                    metadata={"run_id": run_id},
+                    status="failed",
+                    error_message=str(exc),
                 )
-            except Exception:
-                logger.debug("scraper_run_results table unavailable", exc_info=True)
-            try:
-                await persist_observations(
-                    conn, athlete_id=athlete_id, result=result, collection_run_id=run_id
-                )
-            except Exception:
-                logger.debug("gravity_observations unavailable", exc_info=True)
+            results.append(result)
+            merged_fields.update(result.fields)
+
+            if persist:
+                try:
+                    await record_run_result(
+                        conn,
+                        scraper_key=key,
+                        status=result.status,
+                        athlete_id=athlete_id,
+                        sport=ctx.sport,
+                        fields_written=result.fields_written,
+                        fields_failed=result.fields_failed,
+                        error_message=result.error_message,
+                        metadata={"run_id": run_id},
+                    )
+                except Exception:
+                    logger.debug("scraper_run_results table unavailable", exc_info=True)
+                try:
+                    await persist_observations(
+                        conn, athlete_id=athlete_id, result=result, collection_run_id=run_id
+                    )
+                except Exception:
+                    logger.debug("gravity_observations unavailable", exc_info=True)
+    finally:
+        clear_scrape_cache()
 
     if persist and merged_fields != ctx.existing_raw:
         await merge_raw_athlete_data(conn, athlete_id=athlete_id, fields=merged_fields)

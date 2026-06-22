@@ -1,7 +1,5 @@
-# Gravity NIL Intelligence API — production container (FastAPI + uvicorn).
-# Build context MUST be the monorepo root (not gravity_api/) so sibling packages resolve.
-# Railway → Settings → Root Directory: . (repo root)
-# Railway → dockerfilePath: gravity_api/Dockerfile (see gravity_api/railway.toml)
+# Gravity NIL Intelligence API — build from monorepo root.
+# Railway gravity_api service: Root Directory = . , Dockerfile = Dockerfile.gravity-api
 
 FROM python:3.12-slim AS base
 
@@ -13,7 +11,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# System deps: TLS + compilers for any wheel fallback. Stripped after install.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates gcc libpq-dev \
  && rm -rf /var/lib/apt/lists/*
@@ -23,7 +20,6 @@ RUN pip install -r /app/gravity_api/requirements.txt
 
 RUN apt-get purge -y gcc libpq-dev && apt-get autoremove -y
 
-# Monorepo packages imported by gravity_api at runtime
 COPY gravity_composite /app/gravity_composite
 COPY config /app/config
 COPY gravity_ml /app/gravity_ml

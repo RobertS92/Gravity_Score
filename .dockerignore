@@ -1,0 +1,17 @@
+# Monorepo Docker builds (gravity_api, gravity_ml, railway-service).
+.git
+.github
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+**/venv
+**/.env
+**/.env.*
+**/*.md
+notebooks
+data
+gravity-terminal/node_modules
+gravity-terminal/dist
+models/bundles/**/*.pkl
+*.log

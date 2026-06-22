@@ -259,6 +259,17 @@ class RunScrapersBody(BaseModel):
     score_after: bool = True
 
 
+class RosterSyncBody(BaseModel):
+    sport: str = Field(default="cfb", description="cfb | ncaab_mens | ncaab_womens")
+    sports: list[str] | None = Field(
+        default=None,
+        description="When team_ids empty: sync these sports from school index",
+    )
+    team_ids: list[str] = Field(default_factory=list, description="ESPN team ids")
+    roster_season: str | None = None
+    rescrape_transfers: bool = True
+
+
 @router.post("/run/{athlete_id}")
 async def run_athlete_scrapers(
     athlete_id: str,
@@ -285,3 +296,46 @@ async def run_athlete_scrapers(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
     return summary
+
+
+@router.post("/jobs/roster-sync")
+async def run_roster_sync_job(
+    body: RosterSyncBody,
+    db: asyncpg.Connection = Depends(get_db),
+    _: uuid.UUID = Depends(require_ops),
+):
+    """In-process ESPN roster sync (replaces gravity-scrapers POST /jobs/roster-sync)."""
+    from gravity_api.scrapers.orchestrator import run_scrapers_for_athlete
+    from gravity_api.scrapers.roster.school_index import default_team_ids_for_sport
+    from gravity_api.services.roster_sync import sync_power5_sports, sync_sport_rosters
+
+    async def _rescrape(conn: asyncpg.Connection, athlete_id: str) -> None:
+        await run_scrapers_for_athlete(
+            conn,
+            athlete_id,
+            event_type="roster_sync",
+            score_after=True,
+        )
+
+    team_ids = [t.strip() for t in body.team_ids if t.strip()]
+    if not team_ids:
+        team_ids = default_team_ids_for_sport(body.sport)
+
+    rescrape_fn = _rescrape if body.rescrape_transfers else None
+    if team_ids:
+        result = await sync_sport_rosters(
+            db,
+            body.sport,
+            team_ids,
+            roster_season=body.roster_season,
+            rescrape_transfers=rescrape_fn,
+        )
+    else:
+        results = await sync_power5_sports(
+            db,
+            body.sports,
+            roster_season=body.roster_season,
+            rescrape_transfers=rescrape_fn,
+        )
+        result = {"sports": results, "count": len(results)}
+    return {"ok": True, "result": result}

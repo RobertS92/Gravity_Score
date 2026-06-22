@@ -50,16 +50,20 @@ class SocialHandleDiscoveryScraper(BaseMicroScraper):
                 url = ident.get(url_key)
                 if url:
                     sources.append(handles_from_page(url + f"\n{platform}.com/", "espn"))
-        if fc.enabled and ctx.school:
+        merged = merge_handle_sources(*sources)
+        has_primary_handles = bool(
+            merged.get("instagram_handle") or merged.get("twitter_handle")
+        )
+        if fc.enabled and ctx.school and not has_primary_handles:
             try:
                 md = await fc.scrape_markdown(
                     f"https://www.google.com/search?q={ctx.name.replace(' ', '+')}"
                     f"+{slugify_school(ctx.school)}+instagram+twitter"
                 )
                 sources.append(handles_from_page(md, "firecrawl_search"))
+                merged = merge_handle_sources(*sources)
             except Exception as e:
                 logger.debug("handle discovery firecrawl: %s", e)
-        merged = merge_handle_sources(*sources)
         return self._result(scraper_key, fields=merged, confidence=float(merged.get("handle_confidence") or 0.5))
 
 
@@ -72,6 +76,21 @@ class SocialEngagementInstagramScraper(BaseMicroScraper):
         fc = FirecrawlClient()
         if not handle or not fc.enabled:
             return self._result(scraper_key, fields={}, error="missing handle or firecrawl")
+        if (
+            ctx.existing_raw.get("instagram_followers")
+            and ctx.existing_raw.get("instagram_engagement_rate")
+        ):
+            return self._result(
+                scraper_key,
+                fields={
+                    "instagram_followers": ctx.existing_raw.get("instagram_followers"),
+                    "instagram_engagement_rate": ctx.existing_raw.get(
+                        "instagram_engagement_rate"
+                    ),
+                    "posts_30d": ctx.existing_raw.get("posts_30d"),
+                },
+                confidence=0.78,
+            )
         try:
             md = await fc.scrape_markdown(f"https://www.instagram.com/{handle.lstrip('@')}/")
             parsed = parse_engagement_from_markdown(md)
@@ -111,6 +130,13 @@ class InstagramFollowersScraper(BaseMicroScraper):
         handle = ctx.existing_raw.get("instagram_handle")
         fc = FirecrawlClient()
         fields: dict[str, Any] = {"instagram_handle": handle}
+        if not handle or not fc.enabled:
+            return self._result(
+                scraper_key,
+                fields=fields,
+                error="missing handle or firecrawl" if not fc.enabled else None,
+                confidence=0.3,
+            )
         if handle and fc.enabled:
             try:
                 md = await fc.scrape_markdown(f"https://www.instagram.com/{handle.lstrip('@')}/")
@@ -120,6 +146,8 @@ class InstagramFollowersScraper(BaseMicroScraper):
                 eng = parse_engagement_from_markdown(md)
                 if eng.get("instagram_engagement_rate"):
                     fields["instagram_engagement_rate"] = eng["instagram_engagement_rate"]
+                if eng.get("posts_sampled"):
+                    fields["posts_30d"] = eng.get("posts_sampled")
             except Exception as e:
                 return self._result(scraper_key, fields=fields, error=str(e))
         return self._result(scraper_key, fields=fields, confidence=0.8 if fields.get("instagram_followers") else 0.3)
@@ -139,6 +167,13 @@ class TiktokFollowersScraper(BaseMicroScraper):
                 count = parse_count(md)
                 if count:
                     fields["tiktok_followers"] = count
+                eng = parse_engagement_from_markdown(md)
+                rate = eng.get("instagram_engagement_rate")
+                if rate is not None:
+                    fields["tiktok_engagement_rate"] = rate
+                views = parse_count(md)
+                if views and not fields.get("tiktok_followers"):
+                    fields["tiktok_avg_views"] = views
             except Exception as e:
                 return self._result(scraper_key, fields=fields, error=str(e))
         return self._result(scraper_key, fields=fields, confidence=0.78 if fields.get("tiktok_followers") else 0.3)
@@ -168,6 +203,12 @@ class NcaaOfficialRosterScraper(BaseMicroScraper):
     SOURCE_KEY = "official_roster"
 
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        if ctx.existing_raw.get("is_on_roster") or ctx.existing_raw.get("espn_id"):
+            return self._result(
+                scraper_key,
+                fields={"is_on_roster": ctx.existing_raw.get("is_on_roster", True)},
+                confidence=0.85,
+            )
         fc = FirecrawlClient()
         if not fc.enabled or not ctx.school:
             return self._result(scraper_key, fields={}, error="firecrawl or school missing")
@@ -510,7 +551,7 @@ class ChampionshipResultsScraper(BaseMicroScraper):
     SOURCE_KEY = "espn"
 
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
-        text = json.dumps(ctx.existing_raw)
+        text = json.dumps(ctx.existing_raw, default=str)
         fields = {
             "national_championships": text.lower().count("national champion"),
             "conference_championships": text.lower().count("conference champion"),
@@ -642,5 +683,8 @@ async def load_program_context(conn: asyncpg.Connection, ctx: AthleteScrapeConte
     if not row:
         return
     ctx.existing_raw.setdefault("school_market_rank", row.get("dma_rank"))
-    ctx.existing_raw.setdefault("nil_environment_score", row.get("nil_environment_score"))
-    ctx.existing_raw.setdefault("conference_media_index", row.get("nil_environment_score"))
+    nil_env = row.get("nil_environment_score")
+    if nil_env is not None:
+        nil_f = float(nil_env)
+        ctx.existing_raw.setdefault("nil_environment_score", nil_f)
+        ctx.existing_raw.setdefault("conference_media_index", nil_f)

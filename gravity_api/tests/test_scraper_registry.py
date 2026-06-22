@@ -53,6 +53,19 @@ def test_resolve_scheduled_full_cfb():
     assert "espn_awards_cfb" in keys
     assert "social_handle_discovery_cfb" in keys
     assert "cfbd_api_stats_cfb" in keys
+    # Firecrawl-heavy scrapers moved to extended tier
+    assert "google_trends_athlete_cfb" not in keys
+    assert "transfer_portal_cfb" not in keys
+    assert "ncaa_official_roster_cfb" not in keys
+
+
+def test_resolve_scheduled_extended_cfb():
+    keys = resolve_event_scraper_keys(
+        "scheduled_full", "cfb", include_extended=True
+    )
+    assert "google_trends_athlete_cfb" in keys
+    assert "transfer_portal_cfb" in keys
+    assert "nil_deal_verified_cfb" in keys
 
 
 def test_resolve_achievements_event_volleyball():

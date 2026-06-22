@@ -62,27 +62,17 @@ EVENT_SCRAPER_SUFFIXES: dict[str, list[str]] = {
         "national_awards",
         "avca_all_american_volleyball",
     ],
+    # Nightly default — ESPN-first, minimal Firecrawl (0–3 calls/athlete typical).
     "scheduled_full": [
         "social_handle_discovery",
         "espn_roster",
-        "ncaa_official_roster",
         "espn_stats",
         "stats_freshness",
         "cfbd_api_stats_cfb",
-        "recruiting_247",
-        "on3_nil",
-        "nil_deal_verified",
-        "opendorse_profile",
         "instagram_followers",
         "tiktok_followers",
         "twitter_followers",
-        "social_engagement_instagram",
-        "youtube_subscribers",
-        "google_trends_athlete",
-        "wikipedia_pageviews",
-        "media_appearances",
         "injury_structured",
-        "transfer_portal",
         "identity_consensus",
         "social_authenticity",
         "espn_awards",
@@ -90,8 +80,23 @@ EVENT_SCRAPER_SUFFIXES: dict[str, list[str]] = {
         "conference_honors",
         "championship_results",
         "national_awards",
-        "social_growth_delta",
+        "wikipedia_pageviews",
         "college_experience_pro",
+    ],
+    # Optional tier — Firecrawl-heavy / nice-to-have (SCRAPE_EXTENDED=1).
+    "scheduled_extended": [
+        "ncaa_official_roster",
+        "transfer_portal",
+        "recruiting_247",
+        "on3_nil",
+        "nil_deal_verified",
+        "opendorse_profile",
+        "social_engagement_instagram",
+        "social_engagement_tiktok",
+        "youtube_subscribers",
+        "google_trends_athlete",
+        "media_appearances",
+        "social_growth_delta",
     ],
     "school_submission": [
         "espn_roster",
@@ -129,14 +134,21 @@ COLLECTOR_MAP: dict[str, list[str]] = {
 }
 
 
-def resolve_event_scraper_keys(event_type: str, sport: str) -> list[str]:
+def resolve_event_scraper_keys(
+    event_type: str,
+    sport: str,
+    *,
+    include_extended: bool = False,
+) -> list[str]:
     """Return concrete scraper_keys for an event + sport."""
     from gravity_api.scraper_registry import registry_by_key
 
     keys_map = registry_by_key()
-    suffixes = EVENT_SCRAPER_SUFFIXES.get(
-        event_type, EVENT_SCRAPER_SUFFIXES["scheduled_full"]
+    suffixes = list(
+        EVENT_SCRAPER_SUFFIXES.get(event_type, EVENT_SCRAPER_SUFFIXES["scheduled_full"])
     )
+    if event_type == "scheduled_full" and include_extended:
+        suffixes.extend(EVENT_SCRAPER_SUFFIXES.get("scheduled_extended", []))
     shared_keys = {
         "news_rss_on3",
         "social_growth_delta",
