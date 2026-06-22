@@ -6,6 +6,7 @@ import uuid
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from gravity_api.database import get_db
@@ -27,6 +28,13 @@ class NightlyBody(BaseModel):
     scrape: bool = True
     rebuild_cohorts: bool = True
     score: bool = True
+
+
+class ExportCsvBody(BaseModel):
+    mode: str = Field("scored", pattern="^(scored|labeled|teams)$")
+    sport: str | None = None
+    target_key: str = "nil_valuation_usd"
+    limit: int = Field(50_000, ge=1, le=200_000)
 
 
 @router.post("/nightly")
@@ -101,6 +109,44 @@ async def list_sport_pipelines(_: None = Depends(_require_internal_key)):
             for k, v in ALL_SPORT_PIPELINES.items()
         }
     }
+
+
+@router.post("/export/training-csv")
+async def export_training_csv(
+    body: ExportCsvBody = ExportCsvBody(),
+    db: asyncpg.Connection = Depends(get_db),
+    _: None = Depends(_require_internal_key),
+):
+    """Download training CSV for Colab (internal key required)."""
+    from gravity_api.jobs.export_training_csv import (
+        export_labeled_rows,
+        export_scored_athletes,
+        export_teams,
+    )
+    from gravity_api.services.training_export import rows_to_csv
+
+    if body.mode == "scored":
+        rows = await export_scored_athletes(db, sport=body.sport, limit=body.limit)
+        filename = f"gravity_athletes_{body.sport or 'all'}_scored.csv"
+    elif body.mode == "labeled":
+        rows = await export_labeled_rows(
+            db,
+            entity_type="athlete",
+            target_key=body.target_key,
+            sport=body.sport,
+            limit=body.limit,
+        )
+        filename = f"gravity_labeled_{body.target_key}.csv"
+    else:
+        rows = await export_teams(db, sport=body.sport)
+        filename = f"gravity_teams_{body.sport or 'all'}.csv"
+
+    csv_text = rows_to_csv(rows)
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/athletes/{athlete_id}/features")
