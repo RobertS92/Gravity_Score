@@ -1,0 +1,3053 @@
+{
+  "sports": {
+    "cfb": {
+      "league": "ncaa",
+      "display_name": "College Football",
+      "terminal_visible": true,
+      "college_pro_bridge": false,
+      "min_games_for_proof_pctile": 4,
+      "position_groups": {
+        "QB": {
+          "aliases": [
+            "QB",
+            "QUARTERBACK"
+          ],
+          "expected_games": 12,
+          "performance_stats": [
+            {
+              "stat_key": "pass_yards",
+              "weight": 0.22,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pass_td",
+              "weight": 0.18,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "passer_rating",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "qbr",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "completion_pct",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pass_int",
+              "weight": 0.1,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "rush_yards",
+              "weight": 0.05,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "RB": {
+          "aliases": [
+            "RB",
+            "FB",
+            "TB",
+            "RUNNING BACK"
+          ],
+          "expected_games": 12,
+          "performance_stats": [
+            {
+              "stat_key": "rush_yards",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "rush_td",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "yards_per_carry",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "scrimmage_yards",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "receptions",
+              "weight": 0.08,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "fumbles",
+              "weight": 0.07,
+              "direction": "lower"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "WR": {
+          "aliases": [
+            "WR",
+            "WIDE RECEIVER"
+          ],
+          "expected_games": 12,
+          "performance_stats": [
+            {
+              "stat_key": "rec_yards",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "receptions",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "rec_td",
+              "weight": 0.22,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "yards_per_catch",
+              "weight": 0.18,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "scrimmage_yards",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "TE": {
+          "aliases": [
+            "TE",
+            "TIGHT END"
+          ],
+          "expected_games": 12,
+          "performance_stats": [
+            {
+              "stat_key": "rec_yards",
+              "weight": 0.28,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "receptions",
+              "weight": 0.22,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "rec_td",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "yards_per_catch",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blocks_grade",
+              "weight": 0.15,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "OL": {
+          "aliases": [
+            "OL",
+            "OT",
+            "OG",
+            "OC",
+            "C",
+            "G",
+            "T",
+            "LT",
+            "RT",
+            "LG",
+            "RG",
+            "IOL"
+          ],
+          "expected_games": 12,
+          "performance_stats": [
+            {
+              "stat_key": "games_started",
+              "weight": 0.35,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pancakes",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "sacks_allowed",
+              "weight": 0.2,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "penalties",
+              "weight": 0.15,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "team_rush_yards",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "DL": {
+          "aliases": [
+            "DL",
+            "DE",
+            "DT",
+            "NT",
+            "EDGE"
+          ],
+          "expected_games": 12,
+          "performance_stats": [
+            {
+              "stat_key": "tackles",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "sacks",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "tfl",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "qb_hits",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "forced_fumbles",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "LB": {
+          "aliases": [
+            "LB",
+            "ILB",
+            "OLB",
+            "MLB",
+            "WLB",
+            "SLB"
+          ],
+          "expected_games": 12,
+          "performance_stats": [
+            {
+              "stat_key": "tackles",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "tfl",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "sacks",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "interceptions",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "passes_defended",
+              "weight": 0.15,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "DB": {
+          "aliases": [
+            "DB",
+            "CB",
+            "S",
+            "FS",
+            "SS",
+            "SAF",
+            "NICKEL"
+          ],
+          "expected_games": 12,
+          "performance_stats": [
+            {
+              "stat_key": "tackles",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "interceptions",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "passes_defended",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "forced_fumbles",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "completion_pct_allowed",
+              "weight": 0.15,
+              "direction": "lower"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "K": {
+          "aliases": [
+            "K",
+            "PK",
+            "P",
+            "PUNTER",
+            "LS"
+          ],
+          "expected_games": 12,
+          "performance_stats": [
+            {
+              "stat_key": "fg_pct",
+              "weight": 0.35,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "fg_made",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "xp_pct",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "long_fg",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "punt_avg",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        }
+      },
+      "brand_metrics": [
+        "brand.social_reach_total",
+        "brand.social_reach_weighted",
+        "brand.engagement_quality",
+        "brand.platform_diversity",
+        "brand.wikipedia_buzz",
+        "brand.cross_platform_pctile",
+        "brand.instagram_followers",
+        "brand.tiktok_followers",
+        "brand.twitter_followers",
+        "brand.youtube_subscribers"
+      ],
+      "proximity_metrics": [
+        "proximity.nil_valuation",
+        "proximity.nil_deal_count",
+        "proximity.nil_per_follower",
+        "proximity.market_index",
+        "proximity.program_gravity",
+        "proximity.collective_env"
+      ],
+      "velocity_metrics": [
+        "velocity.proof_performance",
+        "velocity.social_reach",
+        "velocity.engagement",
+        "velocity.news_volume",
+        "velocity.google_trends",
+        "velocity.media_buzz",
+        "velocity.nil_valuation",
+        "velocity.deal_activity"
+      ],
+      "risk_metrics": [
+        "risk.injury_risk",
+        "risk.availability",
+        "risk.transfer_portal",
+        "risk.narrative",
+        "risk.data_quality",
+        "risk.games_missed"
+      ]
+    },
+    "ncaab_mens": {
+      "league": "ncaa",
+      "display_name": "Men's College Basketball",
+      "terminal_visible": true,
+      "college_pro_bridge": false,
+      "min_games_for_proof_pctile": 8,
+      "position_groups": {
+        "PG": {
+          "aliases": [
+            "PG",
+            "G",
+            "POINT GUARD"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "three_pct",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "to",
+              "weight": 0.1,
+              "direction": "lower"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "SG": {
+          "aliases": [
+            "SG",
+            "G",
+            "SHOOTING GUARD"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.35,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "three_pct",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.12,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.08,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "SF": {
+          "aliases": [
+            "SF",
+            "SMALL FORWARD"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "reb",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "PF": {
+          "aliases": [
+            "PF",
+            "POWER FORWARD"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "reb",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pts",
+              "weight": 0.28,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blk",
+              "weight": 0.17,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "C": {
+          "aliases": [
+            "C",
+            "CENTER"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "reb",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blk",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pts",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "fg_pct",
+              "weight": 0.12,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "double_doubles",
+              "weight": 0.08,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        }
+      },
+      "brand_metrics": [
+        "brand.social_reach_total",
+        "brand.social_reach_weighted",
+        "brand.engagement_quality",
+        "brand.platform_diversity",
+        "brand.wikipedia_buzz",
+        "brand.cross_platform_pctile",
+        "brand.instagram_followers",
+        "brand.tiktok_followers",
+        "brand.twitter_followers",
+        "brand.youtube_subscribers"
+      ],
+      "proximity_metrics": [
+        "proximity.nil_valuation",
+        "proximity.nil_deal_count",
+        "proximity.nil_per_follower",
+        "proximity.market_index",
+        "proximity.program_gravity",
+        "proximity.collective_env"
+      ],
+      "velocity_metrics": [
+        "velocity.proof_performance",
+        "velocity.social_reach",
+        "velocity.engagement",
+        "velocity.news_volume",
+        "velocity.google_trends",
+        "velocity.media_buzz",
+        "velocity.nil_valuation",
+        "velocity.deal_activity"
+      ],
+      "risk_metrics": [
+        "risk.injury_risk",
+        "risk.availability",
+        "risk.transfer_portal",
+        "risk.narrative",
+        "risk.data_quality",
+        "risk.games_missed"
+      ]
+    },
+    "ncaab_womens": {
+      "league": "ncaa",
+      "display_name": "Women's College Basketball",
+      "terminal_visible": true,
+      "college_pro_bridge": false,
+      "min_games_for_proof_pctile": 8,
+      "position_groups": {
+        "PG": {
+          "aliases": [
+            "PG",
+            "G",
+            "POINT GUARD"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "three_pct",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "to",
+              "weight": 0.1,
+              "direction": "lower"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "SG": {
+          "aliases": [
+            "SG",
+            "G",
+            "SHOOTING GUARD"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.35,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "three_pct",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.12,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.08,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "SF": {
+          "aliases": [
+            "SF",
+            "SMALL FORWARD"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "reb",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "PF": {
+          "aliases": [
+            "PF",
+            "POWER FORWARD"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "reb",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pts",
+              "weight": 0.28,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blk",
+              "weight": 0.17,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "C": {
+          "aliases": [
+            "C",
+            "CENTER"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "reb",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blk",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pts",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "fg_pct",
+              "weight": 0.12,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "double_doubles",
+              "weight": 0.08,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        }
+      },
+      "brand_metrics": [
+        "brand.social_reach_total",
+        "brand.social_reach_weighted",
+        "brand.engagement_quality",
+        "brand.platform_diversity",
+        "brand.wikipedia_buzz",
+        "brand.cross_platform_pctile",
+        "brand.instagram_followers",
+        "brand.tiktok_followers",
+        "brand.twitter_followers",
+        "brand.youtube_subscribers"
+      ],
+      "proximity_metrics": [
+        "proximity.nil_valuation",
+        "proximity.nil_deal_count",
+        "proximity.nil_per_follower",
+        "proximity.market_index",
+        "proximity.program_gravity",
+        "proximity.collective_env"
+      ],
+      "velocity_metrics": [
+        "velocity.proof_performance",
+        "velocity.social_reach",
+        "velocity.engagement",
+        "velocity.news_volume",
+        "velocity.google_trends",
+        "velocity.media_buzz",
+        "velocity.nil_valuation",
+        "velocity.deal_activity"
+      ],
+      "risk_metrics": [
+        "risk.injury_risk",
+        "risk.availability",
+        "risk.transfer_portal",
+        "risk.narrative",
+        "risk.data_quality",
+        "risk.games_missed"
+      ]
+    },
+    "ncaa_baseball": {
+      "league": "ncaa",
+      "display_name": "College Baseball",
+      "terminal_visible": true,
+      "college_pro_bridge": false,
+      "min_games_for_proof_pctile": 10,
+      "position_groups": {
+        "SP": {
+          "aliases": [
+            "SP",
+            "STARTER",
+            "STARTING PITCHER"
+          ],
+          "expected_games": 15,
+          "performance_stats": [
+            {
+              "stat_key": "era",
+              "weight": 0.3,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "whip",
+              "weight": 0.25,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "k9",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ip",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "wins",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "RP": {
+          "aliases": [
+            "RP",
+            "MR",
+            "SU",
+            "CL",
+            "CLOSER",
+            "RELIEVER"
+          ],
+          "expected_games": 25,
+          "performance_stats": [
+            {
+              "stat_key": "era",
+              "weight": 0.28,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "whip",
+              "weight": 0.22,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "k9",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "saves",
+              "weight": 0.18,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ip",
+              "weight": 0.12,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "C": {
+          "aliases": [
+            "C",
+            "CATCHER"
+          ],
+          "expected_games": 50,
+          "performance_stats": [
+            {
+              "stat_key": "ops",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "avg",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "obp",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "slg",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "cs_pct",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "fielding_pct",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "IF": {
+          "aliases": [
+            "IF",
+            "1B",
+            "2B",
+            "3B",
+            "SS",
+            "INF",
+            "INFIELD"
+          ],
+          "expected_games": 50,
+          "performance_stats": [
+            {
+              "stat_key": "ops",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "avg",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "obp",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "slg",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "fielding_pct",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "sb",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "OF": {
+          "aliases": [
+            "OF",
+            "LF",
+            "CF",
+            "RF",
+            "OUTFIELD"
+          ],
+          "expected_games": 50,
+          "performance_stats": [
+            {
+              "stat_key": "ops",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "avg",
+              "weight": 0.18,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "obp",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "slg",
+              "weight": 0.17,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "sb",
+              "weight": 0.12,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "rf_assists",
+              "weight": 0.08,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "UT": {
+          "aliases": [
+            "UT",
+            "UTIL",
+            "DH",
+            "DESIGNATED HITTER"
+          ],
+          "expected_games": 45,
+          "performance_stats": [
+            {
+              "stat_key": "ops",
+              "weight": 0.35,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "avg",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "obp",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "slg",
+              "weight": 0.18,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "sb",
+              "weight": 0.12,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        }
+      },
+      "brand_metrics": [
+        "brand.social_reach_total",
+        "brand.social_reach_weighted",
+        "brand.engagement_quality",
+        "brand.platform_diversity",
+        "brand.wikipedia_buzz",
+        "brand.cross_platform_pctile",
+        "brand.instagram_followers",
+        "brand.tiktok_followers",
+        "brand.twitter_followers",
+        "brand.youtube_subscribers"
+      ],
+      "proximity_metrics": [
+        "proximity.draft_stock",
+        "proximity.market_index",
+        "proximity.program_gravity",
+        "proximity.nil_valuation"
+      ],
+      "velocity_metrics": [
+        "velocity.proof_performance",
+        "velocity.social_reach",
+        "velocity.engagement",
+        "velocity.news_volume",
+        "velocity.google_trends",
+        "velocity.media_buzz",
+        "velocity.nil_valuation",
+        "velocity.deal_activity"
+      ],
+      "risk_metrics": [
+        "risk.injury_risk",
+        "risk.availability",
+        "risk.transfer_portal",
+        "risk.narrative",
+        "risk.data_quality",
+        "risk.games_missed"
+      ]
+    },
+    "ncaa_volleyball": {
+      "league": "ncaa",
+      "display_name": "College Volleyball",
+      "terminal_visible": true,
+      "college_pro_bridge": false,
+      "min_games_for_proof_pctile": 8,
+      "position_groups": {
+        "OH": {
+          "aliases": [
+            "OH",
+            "OUTSIDE HITTER",
+            "OUTSIDE"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "kills",
+              "weight": 0.28,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "kills_per_set",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "hitting_pct",
+              "weight": 0.22,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "aces",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "digs",
+              "weight": 0.15,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "MB": {
+          "aliases": [
+            "MB",
+            "MIDDLE",
+            "MIDDLE BLOCKER"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "kills",
+              "weight": 0.22,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blocks",
+              "weight": 0.28,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blocks_per_set",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "hitting_pct",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "aces",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "S": {
+          "aliases": [
+            "S",
+            "SETTER"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "assists",
+              "weight": 0.35,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "assists_per_set",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "aces",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "digs",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "setting_efficiency",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "LIB": {
+          "aliases": [
+            "LIB",
+            "L",
+            "LIBERO",
+            "DS",
+            "DEFENSIVE SPECIALIST"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "digs",
+              "weight": 0.35,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "digs_per_set",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "receive_rating",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "aces",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        },
+        "OPP": {
+          "aliases": [
+            "OPP",
+            "OPPOSITE",
+            "RIGHT SIDE",
+            "RS"
+          ],
+          "expected_games": 30,
+          "performance_stats": [
+            {
+              "stat_key": "kills",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "kills_per_set",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "hitting_pct",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blocks",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "aces",
+              "weight": 0.1,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [
+            "recruiting_stars",
+            "recruiting_rank_national",
+            "recruiting_rank_position"
+          ],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 0.8
+          }
+        }
+      },
+      "brand_metrics": [
+        "brand.social_reach_total",
+        "brand.social_reach_weighted",
+        "brand.engagement_quality",
+        "brand.platform_diversity",
+        "brand.wikipedia_buzz",
+        "brand.cross_platform_pctile",
+        "brand.instagram_followers",
+        "brand.tiktok_followers",
+        "brand.twitter_followers",
+        "brand.youtube_subscribers"
+      ],
+      "proximity_metrics": [
+        "proximity.nil_valuation",
+        "proximity.nil_deal_count",
+        "proximity.nil_per_follower",
+        "proximity.market_index",
+        "proximity.program_gravity",
+        "proximity.collective_env"
+      ],
+      "velocity_metrics": [
+        "velocity.proof_performance",
+        "velocity.social_reach",
+        "velocity.engagement",
+        "velocity.news_volume",
+        "velocity.google_trends",
+        "velocity.media_buzz",
+        "velocity.nil_valuation",
+        "velocity.deal_activity"
+      ],
+      "risk_metrics": [
+        "risk.injury_risk",
+        "risk.availability",
+        "risk.transfer_portal",
+        "risk.narrative",
+        "risk.data_quality",
+        "risk.games_missed"
+      ]
+    },
+    "nfl": {
+      "league": "nfl",
+      "display_name": "NFL",
+      "terminal_visible": false,
+      "college_pro_bridge": true,
+      "min_games_for_proof_pctile": 4,
+      "position_groups": {
+        "QB": {
+          "aliases": [
+            "QB",
+            "QUARTERBACK"
+          ],
+          "expected_games": 17,
+          "performance_stats": [
+            {
+              "stat_key": "pass_yards",
+              "weight": 0.22,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pass_td",
+              "weight": 0.18,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "passer_rating",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "qbr",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "completion_pct",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pass_int",
+              "weight": 0.1,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "rush_yards",
+              "weight": 0.05,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "epa_per_play",
+              "weight": 0.08,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "snap_count",
+              "weight": 0.05,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.7,
+            "all_pro": 1.2,
+            "all_star": 0.8,
+            "super_bowl": 1.0
+          }
+        },
+        "RB": {
+          "aliases": [
+            "RB",
+            "FB",
+            "TB",
+            "RUNNING BACK"
+          ],
+          "expected_games": 17,
+          "performance_stats": [
+            {
+              "stat_key": "rush_yards",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "rush_td",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "yards_per_carry",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "scrimmage_yards",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "receptions",
+              "weight": 0.08,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "fumbles",
+              "weight": 0.07,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "epa_per_play",
+              "weight": 0.08,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "snap_count",
+              "weight": 0.05,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.7,
+            "all_pro": 1.2,
+            "all_star": 0.8,
+            "super_bowl": 1.0
+          }
+        },
+        "WR": {
+          "aliases": [
+            "WR",
+            "WIDE RECEIVER"
+          ],
+          "expected_games": 17,
+          "performance_stats": [
+            {
+              "stat_key": "rec_yards",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "receptions",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "rec_td",
+              "weight": 0.22,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "yards_per_catch",
+              "weight": 0.18,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "scrimmage_yards",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "epa_per_play",
+              "weight": 0.08,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "snap_count",
+              "weight": 0.05,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.7,
+            "all_pro": 1.2,
+            "all_star": 0.8,
+            "super_bowl": 1.0
+          }
+        },
+        "TE": {
+          "aliases": [
+            "TE",
+            "TIGHT END"
+          ],
+          "expected_games": 17,
+          "performance_stats": [
+            {
+              "stat_key": "rec_yards",
+              "weight": 0.28,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "receptions",
+              "weight": 0.22,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "rec_td",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "yards_per_catch",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blocks_grade",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "epa_per_play",
+              "weight": 0.08,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "snap_count",
+              "weight": 0.05,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.7,
+            "all_pro": 1.2,
+            "all_star": 0.8,
+            "super_bowl": 1.0
+          }
+        },
+        "OL": {
+          "aliases": [
+            "OL",
+            "OT",
+            "OG",
+            "OC",
+            "C",
+            "G",
+            "T",
+            "LT",
+            "RT",
+            "LG",
+            "RG",
+            "IOL"
+          ],
+          "expected_games": 17,
+          "performance_stats": [
+            {
+              "stat_key": "games_started",
+              "weight": 0.35,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pancakes",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "sacks_allowed",
+              "weight": 0.2,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "penalties",
+              "weight": 0.15,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "team_rush_yards",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "epa_per_play",
+              "weight": 0.05,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "snap_count",
+              "weight": 0.05,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.7,
+            "all_pro": 1.2,
+            "all_star": 0.8,
+            "super_bowl": 1.0
+          }
+        },
+        "DL": {
+          "aliases": [
+            "DL",
+            "DE",
+            "DT",
+            "NT",
+            "EDGE"
+          ],
+          "expected_games": 17,
+          "performance_stats": [
+            {
+              "stat_key": "tackles",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "sacks",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "tfl",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "qb_hits",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "forced_fumbles",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "epa_per_play",
+              "weight": 0.05,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "snap_count",
+              "weight": 0.05,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.7,
+            "all_pro": 1.2,
+            "all_star": 0.8,
+            "super_bowl": 1.0
+          }
+        },
+        "LB": {
+          "aliases": [
+            "LB",
+            "ILB",
+            "OLB",
+            "MLB",
+            "WLB",
+            "SLB"
+          ],
+          "expected_games": 17,
+          "performance_stats": [
+            {
+              "stat_key": "tackles",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "tfl",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "sacks",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "interceptions",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "passes_defended",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "epa_per_play",
+              "weight": 0.05,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "snap_count",
+              "weight": 0.05,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.7,
+            "all_pro": 1.2,
+            "all_star": 0.8,
+            "super_bowl": 1.0
+          }
+        },
+        "DB": {
+          "aliases": [
+            "DB",
+            "CB",
+            "S",
+            "FS",
+            "SS",
+            "SAF",
+            "NICKEL"
+          ],
+          "expected_games": 17,
+          "performance_stats": [
+            {
+              "stat_key": "tackles",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "interceptions",
+              "weight": 0.3,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "passes_defended",
+              "weight": 0.25,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "forced_fumbles",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "completion_pct_allowed",
+              "weight": 0.15,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "epa_per_play",
+              "weight": 0.05,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "snap_count",
+              "weight": 0.05,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.7,
+            "all_pro": 1.2,
+            "all_star": 0.8,
+            "super_bowl": 1.0
+          }
+        },
+        "K": {
+          "aliases": [
+            "K",
+            "PK",
+            "P",
+            "PUNTER",
+            "LS"
+          ],
+          "expected_games": 17,
+          "performance_stats": [
+            {
+              "stat_key": "fg_pct",
+              "weight": 0.35,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "fg_made",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "xp_pct",
+              "weight": 0.2,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "long_fg",
+              "weight": 0.15,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "punt_avg",
+              "weight": 0.1,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "epa_per_play",
+              "weight": 0.05,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "snap_count",
+              "weight": 0.05,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.7,
+            "all_pro": 1.2,
+            "all_star": 0.8,
+            "super_bowl": 1.0
+          }
+        }
+      },
+      "brand_metrics": [
+        "brand.social_reach_total",
+        "brand.social_reach_weighted",
+        "brand.engagement_quality",
+        "brand.platform_diversity",
+        "brand.wikipedia_buzz",
+        "brand.cross_platform_pctile",
+        "brand.instagram_followers",
+        "brand.tiktok_followers",
+        "brand.twitter_followers",
+        "brand.youtube_subscribers"
+      ],
+      "proximity_metrics": [
+        "proximity.contract_aav",
+        "proximity.endorsement_earnings",
+        "proximity.market_index",
+        "proximity.team_market_size"
+      ],
+      "velocity_metrics": [
+        "velocity.proof_performance",
+        "velocity.social_reach",
+        "velocity.engagement",
+        "velocity.news_volume",
+        "velocity.google_trends",
+        "velocity.media_buzz",
+        "velocity.nil_valuation",
+        "velocity.deal_activity"
+      ],
+      "risk_metrics": [
+        "risk.injury_risk",
+        "risk.availability",
+        "risk.transfer_portal",
+        "risk.narrative",
+        "risk.data_quality",
+        "risk.games_missed"
+      ]
+    },
+    "nba": {
+      "league": "nba",
+      "display_name": "NBA",
+      "terminal_visible": false,
+      "college_pro_bridge": true,
+      "min_games_for_proof_pctile": 10,
+      "position_groups": {
+        "PG": {
+          "aliases": [
+            "PG",
+            "G",
+            "POINT GUARD"
+          ],
+          "expected_games": 82,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.164,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.24599999999999997,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.12299999999999998,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.12299999999999998,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "three_pct",
+              "weight": 0.082,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "to",
+              "weight": 0.082,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "per",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "bpm",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "usage",
+              "weight": 0.06,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 1.0,
+            "all_nba": 1.3
+          }
+        },
+        "SG": {
+          "aliases": [
+            "SG",
+            "G",
+            "SHOOTING GUARD"
+          ],
+          "expected_games": 82,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.287,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "three_pct",
+              "weight": 0.205,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.164,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.09839999999999999,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.06559999999999999,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "per",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "bpm",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "usage",
+              "weight": 0.06,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 1.0,
+            "all_nba": 1.3
+          }
+        },
+        "SF": {
+          "aliases": [
+            "SF",
+            "SMALL FORWARD"
+          ],
+          "expected_games": 82,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.24599999999999997,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "reb",
+              "weight": 0.205,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.12299999999999998,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.164,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.082,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "per",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "bpm",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "usage",
+              "weight": 0.06,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 1.0,
+            "all_nba": 1.3
+          }
+        },
+        "PF": {
+          "aliases": [
+            "PF",
+            "POWER FORWARD"
+          ],
+          "expected_games": 82,
+          "performance_stats": [
+            {
+              "stat_key": "reb",
+              "weight": 0.24599999999999997,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pts",
+              "weight": 0.2296,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blk",
+              "weight": 0.1394,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.12299999999999998,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.082,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "per",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "bpm",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "usage",
+              "weight": 0.06,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 1.0,
+            "all_nba": 1.3
+          }
+        },
+        "C": {
+          "aliases": [
+            "C",
+            "CENTER"
+          ],
+          "expected_games": 82,
+          "performance_stats": [
+            {
+              "stat_key": "reb",
+              "weight": 0.24599999999999997,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blk",
+              "weight": 0.205,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pts",
+              "weight": 0.205,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "fg_pct",
+              "weight": 0.09839999999999999,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "double_doubles",
+              "weight": 0.06559999999999999,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "per",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "bpm",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "usage",
+              "weight": 0.06,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 1.0,
+            "all_nba": 1.3
+          }
+        }
+      },
+      "brand_metrics": [
+        "brand.social_reach_total",
+        "brand.social_reach_weighted",
+        "brand.engagement_quality",
+        "brand.platform_diversity",
+        "brand.wikipedia_buzz",
+        "brand.cross_platform_pctile",
+        "brand.instagram_followers",
+        "brand.tiktok_followers",
+        "brand.twitter_followers",
+        "brand.youtube_subscribers"
+      ],
+      "proximity_metrics": [
+        "proximity.contract_aav",
+        "proximity.endorsement_earnings",
+        "proximity.market_index",
+        "proximity.team_market_size"
+      ],
+      "velocity_metrics": [
+        "velocity.proof_performance",
+        "velocity.social_reach",
+        "velocity.engagement",
+        "velocity.news_volume",
+        "velocity.google_trends",
+        "velocity.media_buzz",
+        "velocity.nil_valuation",
+        "velocity.deal_activity"
+      ],
+      "risk_metrics": [
+        "risk.injury_risk",
+        "risk.availability",
+        "risk.transfer_portal",
+        "risk.narrative",
+        "risk.data_quality",
+        "risk.games_missed"
+      ]
+    },
+    "wnba": {
+      "league": "wnba",
+      "display_name": "WNBA",
+      "terminal_visible": false,
+      "college_pro_bridge": true,
+      "min_games_for_proof_pctile": 10,
+      "position_groups": {
+        "PG": {
+          "aliases": [
+            "PG",
+            "G",
+            "POINT GUARD"
+          ],
+          "expected_games": 82,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.164,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.24599999999999997,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.12299999999999998,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.12299999999999998,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "three_pct",
+              "weight": 0.082,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "to",
+              "weight": 0.082,
+              "direction": "lower"
+            },
+            {
+              "stat_key": "per",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "bpm",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "usage",
+              "weight": 0.06,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 1.0,
+            "all_nba": 1.3
+          }
+        },
+        "SG": {
+          "aliases": [
+            "SG",
+            "G",
+            "SHOOTING GUARD"
+          ],
+          "expected_games": 82,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.287,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "three_pct",
+              "weight": 0.205,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.164,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.09839999999999999,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.06559999999999999,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "per",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "bpm",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "usage",
+              "weight": 0.06,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 1.0,
+            "all_nba": 1.3
+          }
+        },
+        "SF": {
+          "aliases": [
+            "SF",
+            "SMALL FORWARD"
+          ],
+          "expected_games": 82,
+          "performance_stats": [
+            {
+              "stat_key": "pts",
+              "weight": 0.24599999999999997,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "reb",
+              "weight": 0.205,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.12299999999999998,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.164,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "stl",
+              "weight": 0.082,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "per",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "bpm",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "usage",
+              "weight": 0.06,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 1.0,
+            "all_nba": 1.3
+          }
+        },
+        "PF": {
+          "aliases": [
+            "PF",
+            "POWER FORWARD"
+          ],
+          "expected_games": 82,
+          "performance_stats": [
+            {
+              "stat_key": "reb",
+              "weight": 0.24599999999999997,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pts",
+              "weight": 0.2296,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blk",
+              "weight": 0.1394,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ts_pct",
+              "weight": 0.12299999999999998,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "ast",
+              "weight": 0.082,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "per",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "bpm",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "usage",
+              "weight": 0.06,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 1.0,
+            "all_nba": 1.3
+          }
+        },
+        "C": {
+          "aliases": [
+            "C",
+            "CENTER"
+          ],
+          "expected_games": 82,
+          "performance_stats": [
+            {
+              "stat_key": "reb",
+              "weight": 0.24599999999999997,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "blk",
+              "weight": 0.205,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "pts",
+              "weight": 0.205,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "fg_pct",
+              "weight": 0.09839999999999999,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "double_doubles",
+              "weight": 0.06559999999999999,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "per",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "bpm",
+              "weight": 0.06,
+              "direction": "higher"
+            },
+            {
+              "stat_key": "usage",
+              "weight": 0.06,
+              "direction": "higher"
+            }
+          ],
+          "recruiting_stats": [],
+          "achievement_weights": {
+            "all_american": 1.0,
+            "conference_honor": 0.4,
+            "national_award": 1.5,
+            "championship": 0.8,
+            "pro_bowl": 0.6,
+            "all_pro": 1.0,
+            "all_star": 1.0,
+            "all_nba": 1.3
+          }
+        }
+      },
+      "brand_metrics": [
+        "brand.social_reach_total",
+        "brand.social_reach_weighted",
+        "brand.engagement_quality",
+        "brand.platform_diversity",
+        "brand.wikipedia_buzz",
+        "brand.cross_platform_pctile",
+        "brand.instagram_followers",
+        "brand.tiktok_followers",
+        "brand.twitter_followers",
+        "brand.youtube_subscribers"
+      ],
+      "proximity_metrics": [
+        "proximity.contract_aav",
+        "proximity.endorsement_earnings",
+        "proximity.market_index",
+        "proximity.team_market_size"
+      ],
+      "velocity_metrics": [
+        "velocity.proof_performance",
+        "velocity.social_reach",
+        "velocity.engagement",
+        "velocity.news_volume",
+        "velocity.google_trends",
+        "velocity.media_buzz",
+        "velocity.nil_valuation",
+        "velocity.deal_activity"
+      ],
+      "risk_metrics": [
+        "risk.injury_risk",
+        "risk.availability",
+        "risk.transfer_portal",
+        "risk.narrative",
+        "risk.data_quality",
+        "risk.games_missed"
+      ]
+    }
+  },
+  "schema_version": "gravity_features_bpxvr_v1",
+  "description": "BPXVR feature extraction specs \u2014 all positions, college + pro target sports. Profile card: level_raw, level_pctile, level_tier, delta_yoy_pct, trajectory_class, stability_score."
+}

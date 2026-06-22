@@ -1,0 +1,21 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Copy monorepo packages needed for ML service
+COPY gravity_ml/requirements.txt /app/gravity_ml/requirements.txt
+COPY gravity_composite /app/gravity_composite
+COPY config /app/config
+COPY gravity_ml /app/gravity_ml
+
+RUN pip install --no-cache-dir -r /app/gravity_ml/requirements.txt
+
+ENV PYTHONPATH=/app
+ENV MODEL_BUNDLE_ROOT=/bundles
+ENV PORT=8080
+
+RUN mkdir -p /bundles
+
+EXPOSE 8080
+
+CMD ["sh", "-c", "uvicorn gravity_ml.main:app --host 0.0.0.0 --port ${PORT}"]

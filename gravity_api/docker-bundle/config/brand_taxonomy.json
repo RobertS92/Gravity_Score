@@ -1,0 +1,211 @@
+{
+  "schema_version": "brand_taxonomy_v1",
+  "description": "Canonical brand list by category with prestige scores (0-100). Used for athlete partnership scoring.",
+  "categories": {
+    "apparel": {
+      "label": "Apparel & Sportswear",
+      "component": "brand",
+      "brands": [
+        {"key": "nike", "names": ["nike", "jordan", "air jordan"], "prestige": 98, "tier": "global"},
+        {"key": "adidas", "names": ["adidas"], "prestige": 94, "tier": "global"},
+        {"key": "under_armour", "names": ["under armour", "underarmour", "ua"], "prestige": 88, "tier": "global"},
+        {"key": "puma", "names": ["puma"], "prestige": 85, "tier": "global"},
+        {"key": "new_balance", "names": ["new balance"], "prestige": 82, "tier": "global"},
+        {"key": "lululemon", "names": ["lululemon"], "prestige": 86, "tier": "global"},
+        {"key": "fanatics", "names": ["fanatics"], "prestige": 72, "tier": "national"},
+        {"key": "champion", "names": ["champion"], "prestige": 68, "tier": "national"},
+        {"key": "hoka", "names": ["hoka"], "prestige": 78, "tier": "national"},
+        {"key": "on_running", "names": ["on running", "on"], "prestige": 76, "tier": "national"}
+      ]
+    },
+    "footwear": {
+      "label": "Footwear",
+      "component": "brand",
+      "brands": [
+        {"key": "nike_footwear", "names": ["nike cleats", "nike football"], "prestige": 97, "tier": "global"},
+        {"key": "adidas_footwear", "names": ["adidas cleats"], "prestige": 93, "tier": "global"},
+        {"key": "crocs", "names": ["crocs"], "prestige": 70, "tier": "global"},
+        {"key": "ugg", "names": ["ugg"], "prestige": 65, "tier": "national"}
+      ]
+    },
+    "food_beverage": {
+      "label": "Food & Beverage",
+      "component": "brand",
+      "brands": [
+        {"key": "gatorade", "names": ["gatorade", "pepsico gatorade"], "prestige": 92, "tier": "global", "proof_boost": 0.08},
+        {"key": "coca_cola", "names": ["coca-cola", "coca cola", "coke"], "prestige": 90, "tier": "global"},
+        {"key": "pepsi", "names": ["pepsi", "pepsico"], "prestige": 88, "tier": "global"},
+        {"key": "monster", "names": ["monster energy", "monster"], "prestige": 84, "tier": "global"},
+        {"key": "red_bull", "names": ["red bull"], "prestige": 86, "tier": "global"},
+        {"key": "bodyarmor", "names": ["bodyarmor"], "prestige": 80, "tier": "national"},
+        {"key": "chipotle", "names": ["chipotle"], "prestige": 78, "tier": "national"},
+        {"key": "mcdonalds", "names": ["mcdonald's", "mcdonalds"], "prestige": 85, "tier": "global"},
+        {"key": "starbucks", "names": ["starbucks"], "prestige": 83, "tier": "global"},
+        {"key": "wingstop", "names": ["wingstop"], "prestige": 72, "tier": "national"},
+        {"key": "popeyes", "names": ["popeyes"], "prestige": 74, "tier": "national"},
+        {"key": "taco_bell", "names": ["taco bell"], "prestige": 76, "tier": "global"}
+      ]
+    },
+    "quick_service": {
+      "label": "Quick Service Restaurants",
+      "component": "brand",
+      "brands": [
+        {"key": "dominos", "names": ["domino's", "dominos"], "prestige": 70, "tier": "national"},
+        {"key": "pizza_hut", "names": ["pizza hut"], "prestige": 68, "tier": "national"},
+        {"key": "subway", "names": ["subway"], "prestige": 65, "tier": "national"}
+      ]
+    },
+    "auto": {
+      "label": "Automotive",
+      "component": "brand",
+      "brands": [
+        {"key": "ford", "names": ["ford"], "prestige": 88, "tier": "global"},
+        {"key": "chevrolet", "names": ["chevrolet", "chevy"], "prestige": 86, "tier": "global"},
+        {"key": "toyota", "names": ["toyota"], "prestige": 87, "tier": "global"},
+        {"key": "bmw", "names": ["bmw"], "prestige": 90, "tier": "global"},
+        {"key": "mercedes", "names": ["mercedes", "mercedes-benz"], "prestige": 91, "tier": "global"},
+        {"key": "hyundai", "names": ["hyundai"], "prestige": 80, "tier": "global"},
+        {"key": "nissan", "names": ["nissan"], "prestige": 78, "tier": "global"},
+        {"key": "rivian", "names": ["rivian"], "prestige": 75, "tier": "national"}
+      ]
+    },
+    "finance": {
+      "label": "Financial Services",
+      "component": "brand",
+      "brands": [
+        {"key": "capital_one", "names": ["capital one"], "prestige": 88, "tier": "global"},
+        {"key": "american_express", "names": ["american express", "amex"], "prestige": 90, "tier": "global"},
+        {"key": "visa", "names": ["visa"], "prestige": 92, "tier": "global"},
+        {"key": "mastercard", "names": ["mastercard"], "prestige": 91, "tier": "global"},
+        {"key": "chase", "names": ["chase", "jpmorgan chase"], "prestige": 87, "tier": "global"},
+        {"key": "state_farm", "names": ["state farm"], "prestige": 84, "tier": "national"},
+        {"key": "sofi", "names": ["sofi"], "prestige": 72, "tier": "national"},
+        {"key": "barstool", "names": ["barstool sports", "barstool"], "prestige": 78, "tier": "national"}
+      ]
+    },
+    "insurance": {
+      "label": "Insurance",
+      "component": "brand",
+      "brands": [
+        {"key": "progressive", "names": ["progressive"], "prestige": 80, "tier": "national"},
+        {"key": "geico", "names": ["geico"], "prestige": 82, "tier": "national"},
+        {"key": "allstate", "names": ["allstate"], "prestige": 79, "tier": "national"}
+      ]
+    },
+    "tech": {
+      "label": "Technology",
+      "component": "brand",
+      "brands": [
+        {"key": "apple", "names": ["apple"], "prestige": 97, "tier": "global"},
+        {"key": "google", "names": ["google", "alphabet"], "prestige": 95, "tier": "global"},
+        {"key": "microsoft", "names": ["microsoft"], "prestige": 93, "tier": "global"},
+        {"key": "amazon", "names": ["amazon", "aws"], "prestige": 94, "tier": "global"},
+        {"key": "meta", "names": ["meta", "facebook", "instagram"], "prestige": 90, "tier": "global"},
+        {"key": "samsung", "names": ["samsung"], "prestige": 88, "tier": "global"},
+        {"key": "verizon", "names": ["verizon"], "prestige": 85, "tier": "global"},
+        {"key": "at_t", "names": ["at&t", "att"], "prestige": 84, "tier": "global"},
+        {"key": "t_mobile", "names": ["t-mobile", "tmobile"], "prestige": 83, "tier": "global"},
+        {"key": "coinbase", "names": ["coinbase"], "prestige": 76, "tier": "national"},
+        {"key": "draftkings", "names": ["draftkings", "draft kings"], "prestige": 82, "tier": "national"},
+        {"key": "fanduel", "names": ["fanduel", "fan duel"], "prestige": 81, "tier": "national"},
+        {"key": "opendorse", "names": ["opendorse"], "prestige": 70, "tier": "national"}
+      ]
+    },
+    "gaming": {
+      "label": "Gaming & Esports",
+      "component": "brand",
+      "brands": [
+        {"key": "ea_sports", "names": ["ea sports", "electronic arts"], "prestige": 90, "tier": "global"},
+        {"key": "2k", "names": ["2k", "take-two"], "prestige": 86, "tier": "global"},
+        {"key": "playstation", "names": ["playstation", "sony playstation"], "prestige": 88, "tier": "global"},
+        {"key": "xbox", "names": ["xbox", "microsoft xbox"], "prestige": 87, "tier": "global"},
+        {"key": "twitch", "names": ["twitch"], "prestige": 84, "tier": "global"},
+        {"key": "discord", "names": ["discord"], "prestige": 78, "tier": "global"},
+        {"key": "razer", "names": ["razer"], "prestige": 75, "tier": "national"}
+      ]
+    },
+    "streaming": {
+      "label": "Streaming & Media",
+      "component": "brand",
+      "brands": [
+        {"key": "netflix", "names": ["netflix"], "prestige": 92, "tier": "global"},
+        {"key": "espn", "names": ["espn", "disney espn"], "prestige": 94, "tier": "global", "proof_boost": 0.05},
+        {"key": "hulu", "names": ["hulu"], "prestige": 80, "tier": "national"},
+        {"key": "peacock", "names": ["peacock"], "prestige": 78, "tier": "national"},
+        {"key": "paramount", "names": ["paramount", "cbs"], "prestige": 82, "tier": "global"},
+        {"key": "youtube", "names": ["youtube"], "prestige": 91, "tier": "global"},
+        {"key": "spotify", "names": ["spotify"], "prestige": 86, "tier": "global"}
+      ]
+    },
+    "beauty": {
+      "label": "Beauty & Personal Care",
+      "component": "brand",
+      "brands": [
+        {"key": "sephora", "names": ["sephora"], "prestige": 85, "tier": "global"},
+        {"key": "ulta", "names": ["ulta"], "prestige": 80, "tier": "national"},
+        {"key": "dove", "names": ["dove"], "prestige": 78, "tier": "global"},
+        {"key": "old_spice", "names": ["old spice"], "prestige": 76, "tier": "national"},
+        {"key": "gillette", "names": ["gillette"], "prestige": 77, "tier": "global"}
+      ]
+    },
+    "health": {
+      "label": "Health & Wellness",
+      "component": "brand",
+      "brands": [
+        {"key": "peloton", "names": ["peloton"], "prestige": 80, "tier": "national"},
+        {"key": "whoop", "names": ["whoop"], "prestige": 82, "tier": "national", "proof_boost": 0.1},
+        {"key": "oura", "names": ["oura"], "prestige": 78, "tier": "national"},
+        {"key": "optimum_nutrition", "names": ["optimum nutrition", "on"], "prestige": 74, "tier": "national", "proof_boost": 0.06}
+      ]
+    },
+    "retail": {
+      "label": "Retail",
+      "component": "brand",
+      "brands": [
+        {"key": "walmart", "names": ["walmart"], "prestige": 88, "tier": "global"},
+        {"key": "target", "names": ["target"], "prestige": 86, "tier": "global"},
+        {"key": "amazon_retail", "names": ["amazon storefront"], "prestige": 84, "tier": "global"},
+        {"key": "dick_sporting_goods", "names": ["dick's sporting goods", "dicks sporting goods"], "prestige": 78, "tier": "national"}
+      ]
+    },
+    "travel": {
+      "label": "Travel & Hospitality",
+      "component": "brand",
+      "brands": [
+        {"key": "delta", "names": ["delta", "delta airlines"], "prestige": 84, "tier": "global"},
+        {"key": "american_airlines", "names": ["american airlines"], "prestige": 82, "tier": "global"},
+        {"key": "united", "names": ["united", "united airlines"], "prestige": 81, "tier": "global"},
+        {"key": "marriott", "names": ["marriott"], "prestige": 80, "tier": "global"},
+        {"key": "hilton", "names": ["hilton"], "prestige": 79, "tier": "global"}
+      ]
+    },
+    "crypto": {
+      "label": "Crypto & Web3",
+      "component": "brand",
+      "brands": [
+        {"key": "coinbase_crypto", "names": ["coinbase"], "prestige": 74, "tier": "national"},
+        {"key": "ftx_legacy", "names": ["ftx"], "prestige": 40, "tier": "national"},
+        {"key": "crypto_com", "names": ["crypto.com"], "prestige": 72, "tier": "national"}
+      ]
+    },
+    "local_business": {
+      "label": "Local & Regional",
+      "component": "brand",
+      "brands": [
+        {"key": "local_restaurant", "names": ["local restaurant", "restaurant"], "prestige": 45, "tier": "regional"},
+        {"key": "local_auto", "names": ["local dealership", "dealership"], "prestige": 50, "tier": "regional"},
+        {"key": "local_bank", "names": ["credit union", "community bank"], "prestige": 55, "tier": "regional"}
+      ]
+    },
+    "performance_proof": {
+      "label": "Performance-Linked (Proof boost)",
+      "component": "proof",
+      "brands": [
+        {"key": "nike_performance", "names": ["nike training"], "prestige": 90, "tier": "global", "proof_boost": 0.12},
+        {"key": "gatorade_performance", "names": ["gatorade performance"], "prestige": 88, "tier": "global", "proof_boost": 0.15},
+        {"key": "bowl_game", "names": ["bowl game", "cfp", "college football playoff"], "prestige": 85, "tier": "national", "proof_boost": 0.2},
+        {"key": "ncaa_championship", "names": ["ncaa championship", "final four", "march madness"], "prestige": 88, "tier": "national", "proof_boost": 0.18}
+      ]
+    }
+  }
+}

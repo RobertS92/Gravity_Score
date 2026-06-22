@@ -1,4 +1,4 @@
-# Keep the image small and build-cache friendly.
+# Keep image small; docker-bundle/ is required for monorepo imports.
 Dockerfile
 .dockerignore
 railway.toml
@@ -7,7 +7,6 @@ README.md
 *.md
 __pycache__
 *.pyc
-*.pyo
 .pytest_cache
 tests
 .env

@@ -1,0 +1,9 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.31.0
+pydantic>=2.9.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+joblib>=1.3.0
+# Optional production deps:
+# torch>=2.2.0
+# boto3>=1.34.0
