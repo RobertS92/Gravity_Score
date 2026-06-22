@@ -1,0 +1,9 @@
+{
+  "model_key": "gravity_athlete_nfl_value_v1",
+  "entity_type": "athlete",
+  "sport": "nfl",
+  "objective": "value",
+  "version": "1.0.0",
+  "trained_at": "2026-06-22T16:56:05.280171+00:00",
+  "row_count": 200
+}

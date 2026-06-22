@@ -34,6 +34,7 @@ from gravity_api.routers import (
     market,
     match,
     operations,
+    pipeline,
     programs,
     query,
     reports,
@@ -142,6 +143,7 @@ app.include_router(scraper_jobs.router, prefix="/v1/scraper", tags=["scraper-pip
 app.include_router(team_favorites.router, prefix="/v1/team-favorites", tags=["team-favorites"])
 app.include_router(feed.router, prefix="/v1/feed", tags=["feed"])
 app.include_router(ingest.router, prefix="/v1/ingest", tags=["ingest"])
+app.include_router(pipeline.router, prefix="/v1/pipeline", tags=["pipeline"])
 
 
 def _ml_probe_is_stale() -> bool:

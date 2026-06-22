@@ -19,6 +19,7 @@ from gravity_api.services.score_imputation import (
     apply_manual_imputations,
     load_manual_imputations,
 )
+from gravity_composite.composite import compute_gravity_raw
 
 logger = logging.getLogger(__name__)
 
@@ -253,15 +254,14 @@ def _heuristic_score_from_raw(raw: Dict[str, Any], sport: str | None) -> Dict[st
     velocity = min(100.0, max(15.0, 20.0 + (news * 2.2) + (trends * 0.30)))
     # Lower risk when data quality is higher and signal is richer.
     risk = min(95.0, max(15.0, 65.0 - (dqs * 30.0) - (news * 0.8)))
-    gravity = (
-        0.28 * brand
-        + 0.24 * proof
-        + 0.18 * proximity
-        + 0.20 * velocity
-        + 0.10 * (100.0 - risk)
+    gravity = compute_gravity_raw(
+        brand=brand,
+        proof=proof,
+        proximity=proximity,
+        velocity=velocity,
+        risk=risk,
+        sport=sport,
     )
-
-    gravity = max(0.0, min(100.0, gravity))
 
     # Component-derived band (gravity proxy). Historically this capped the
     # heuristic P50 at $2M, which made it impossible to model elite media
@@ -315,54 +315,27 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
     if not athlete:
         raise ValueError("Athlete not found")
 
-    snap = await conn.fetchrow(
-        """SELECT * FROM social_snapshots
-           WHERE athlete_id = $1
-           ORDER BY scraped_at DESC
-           LIMIT 1""",
-        athlete_id,
+    prev_score = await conn.fetchval(
+        """SELECT gravity_score FROM athlete_gravity_scores
+           WHERE athlete_id = $1 ORDER BY calculated_at DESC LIMIT 1""",
+        athlete["id"],
     )
-    scraped = await fetch_latest_scraped_raw(conn, athlete_id)
-    raw = athlete_to_raw_data(athlete, snap, scraped_raw=scraped)
-    pg_score = athlete.get("program_gravity_score")
-    deal_brand_gravity = athlete.get("active_deal_brand_gravity")
-    if pg_score is not None:
-        raw["program_gravity_score"] = float(pg_score)
-    if deal_brand_gravity is not None:
-        raw["active_deal_brand_gravity"] = float(deal_brand_gravity)
 
-    # Apply manual imputations first, then deterministic heuristic fallback
-    # for critical score inputs that are still missing.
-    manual = await load_manual_imputations(conn, str(athlete["id"]))
-    manual_fields = apply_manual_imputations(raw, manual)
-    heuristic_fields = apply_heuristic_imputations(raw, athlete)
+    from gravity_api.services.sport_pipeline.run import run_athlete_pipeline
+
+    pipeline_result = await run_athlete_pipeline(conn, athlete_id, score=True)
+    score_data = pipeline_result.get("score") or {}
+
+    row = await conn.fetchrow(
+        """SELECT * FROM athlete_gravity_scores WHERE athlete_id = $1
+           ORDER BY calculated_at DESC LIMIT 1""",
+        athlete["id"],
+    )
+    if not row:
+        raise RuntimeError("Pipeline did not persist a score row")
 
     headers = {"Authorization": f"Bearer {settings.ml_api_key}"} if settings.ml_api_key else {}
     base = settings.ml_service_url
-
-    score_data: Dict[str, Any]
-    try:
-        if not base or not settings.ml_api_key:
-            raise RuntimeError("ML service not configured")
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            r = await client.post(
-                f"{base}/score/athlete",
-                params={"include_shap": "true"},
-                json={
-                    "athlete_id": str(athlete["id"]),
-                    "sport": athlete["sport"],
-                    "raw_data": raw,
-                    "partial_scoring": False,
-                },
-                headers=headers,
-            )
-            r.raise_for_status()
-            score_data = r.json()
-            if score_data.get("gravity_score") is None:
-                raise ValueError("ML response missing gravity_score")
-    except Exception as exc:
-        logger.warning("ML scoring failed for %s, using heuristic fallback: %s", athlete_id, exc)
-        score_data = _heuristic_score_from_raw(raw, athlete.get("sport"))
 
     program = await conn.fetchrow(
         """SELECT * FROM programs
@@ -372,13 +345,14 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
         athlete["sport"],
     )
     company_g: Optional[float] = None
-    if program:
+    if program and base and settings.ml_api_key:
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 r2 = await client.post(
-                    f"{base}/score/team",
+                    f"{base}/score/team/{athlete['sport']}",
                     json={
                         "team_id": str(program["id"]),
+                        "sport": athlete["sport"],
                         "raw_data": program_row_to_team_raw(program),
                     },
                     headers=headers,
@@ -388,107 +362,21 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
                 cg = body.get("gravity_score")
                 if cg is not None:
                     company_g = float(cg)
+                    await conn.execute(
+                        """UPDATE athlete_gravity_scores SET company_gravity_score = $2
+                           WHERE athlete_id = $1""",
+                        athlete["id"],
+                        company_g,
+                    )
         except Exception as e:
             logger.warning("Team/program gravity skipped: %s", e)
 
-    brand = float(score_data.get("brand_score") or 0)
-    vel = float(score_data.get("velocity_score") or 0)
-    proof = float(score_data.get("proof_score") or 0)
-    bg = score_data.get("brand_gravity_score")
-    brand_g = float(bg) if bg is not None else brand_gravity_score(brand, vel, proof)
-
-    dconf = score_data.get("dollar_confidence")
-    dconf_param: Any = None
-    if isinstance(dconf, dict):
-        dconf_param = dconf  # asyncpg serializes dict → jsonb automatically
-
-    shap = shap_values_from_ml(score_data)
-
-    import json as _json
-
-    def _to_jsonb(v: Any) -> str | None:
-        if v is None:
-            return None
-        return _json.dumps(v) if not isinstance(v, str) else v
-
-    prev_score = await conn.fetchval(
-        """SELECT gravity_score
-           FROM athlete_gravity_scores
-           WHERE athlete_id = $1
-           ORDER BY calculated_at DESC
-           LIMIT 1""",
-        athlete["id"],
-    )
-
-    new_score = float(score_data["gravity_score"])
-
-    imputed_fields = {"manual": manual_fields, "heuristic": heuristic_fields}
-    effective_data_quality = _coerce_effective_dq(raw.get("data_quality_score"))
-
-    score_params = (
-        athlete["id"],
-        new_score,
-        float(score_data.get("brand_score") or 0),
-        float(score_data.get("proof_score") or 0),
-        float(score_data.get("proximity_score") or 0),
-        float(score_data.get("velocity_score") or 0),
-        float(score_data.get("risk_score") or 0),
-        float(score_data.get("confidence") or 0.5),
-        str(score_data.get("model_version") or "ml_sync"),
-        score_data.get("dollar_p10_usd"),
-        score_data.get("dollar_p50_usd"),
-        score_data.get("dollar_p90_usd"),
-        _to_jsonb(dconf_param),
-        company_g,
-        brand_g,
-        _to_jsonb(shap if shap else {}),
-        _to_jsonb(imputed_fields),
-        effective_data_quality,
-    )
-
-    # Production enforces one row per athlete (`uq_athlete_gravity_scores_athlete_id`).
-    # Re-scoring must UPDATE the existing row, not INSERT a second one.
-    updated = await conn.execute(
-        """UPDATE athlete_gravity_scores SET
-            gravity_score = $2,
-            brand_score = $3,
-            proof_score = $4,
-            proximity_score = $5,
-            velocity_score = $6,
-            risk_score = $7,
-            confidence = $8,
-            model_version = $9,
-            dollar_p10_usd = $10,
-            dollar_p50_usd = $11,
-            dollar_p90_usd = $12,
-            dollar_confidence = $13::jsonb,
-            company_gravity_score = $14,
-            brand_gravity_score = $15,
-            shap_values = $16::jsonb,
-            imputed_fields = $17::jsonb,
-            effective_data_quality = $18,
-            calculated_at = NOW()
-           WHERE athlete_id = $1""",
-        *score_params,
-    )
-    if updated.split()[-1] == "0":
-        await conn.execute(
-            """INSERT INTO athlete_gravity_scores (
-                athlete_id, gravity_score, brand_score, proof_score, proximity_score,
-                velocity_score, risk_score, confidence, model_version,
-                dollar_p10_usd, dollar_p50_usd, dollar_p90_usd, dollar_confidence,
-                company_gravity_score, brand_gravity_score,
-                shap_values, imputed_fields, effective_data_quality
-            ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9,
-                $10, $11, $12, $13::jsonb, $14, $15, $16::jsonb, $17::jsonb, $18
-            )""",
-            *score_params,
-        )
+    brand_g = float(row.get("brand_gravity_score") or 0)
+    new_score = float(row["gravity_score"])
 
     if prev_score is not None:
         try:
-            delta = float(new_score) - float(prev_score)
+            delta = new_score - float(prev_score)
             watchers = await conn.fetch(
                 "SELECT DISTINCT user_id FROM watchlists WHERE athlete_id = $1",
                 athlete["id"],
@@ -496,16 +384,16 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
             alert_rows: list[tuple[str, str]] = []
             if abs(delta) >= 3.0:
                 alert_rows.append(("SCORE_MOVE", f"Gravity score moved {delta:+.1f}"))
-            p50 = score_data.get("dollar_p50_usd")
+            p50 = row.get("dollar_p50_usd")
             if p50 is not None and float(p50) >= 250_000:
                 alert_rows.append(("NIL_SIGNAL", f"Model NIL P50 updated to {float(p50):,.0f}"))
-            for row in watchers:
+            for wrow in watchers:
                 for kind, reason in alert_rows:
                     await conn.execute(
                         """INSERT INTO score_alerts
                            (user_id, athlete_id, previous_score, new_score, delta, trigger_reason, read)
                            VALUES ($1, $2, $3, $4, $5, $6, false)""",
-                        row["user_id"],
+                        wrow["user_id"],
                         athlete["id"],
                         float(prev_score),
                         new_score,
@@ -518,12 +406,12 @@ async def sync_athlete_score_from_ml(conn: asyncpg.Connection, athlete_id: str) 
     return {
         "ok": True,
         "athlete_id": str(athlete["id"]),
-        "gravity_score": score_data["gravity_score"],
+        "gravity_score": new_score,
         "company_gravity_score": company_g,
         "brand_gravity_score": brand_g,
-        "dollar_p50_usd": score_data.get("dollar_p50_usd"),
-        "imputation_applied": {
-            "manual_fields": manual_fields,
-            "heuristic_fields": heuristic_fields,
-        },
+        "dollar_p50_usd": row.get("dollar_p50_usd"),
+        "pipeline": pipeline_result,
+        "model_key": score_data.get("model_key"),
+        "proof_pctile": pipeline_result.get("proof_pctile"),
+        "proof_trajectory": pipeline_result.get("proof_trajectory"),
     }

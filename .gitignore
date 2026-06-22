@@ -1,5 +1,8 @@
+# ML artifacts (train locally / sync from S3)
+models/bundles/**/*.pkl
+models/bundles/**/*.joblib
+models/bundles/**/*.pt
 
-# Python
 __pycache__/
 *.py[cod]
 *$py.class

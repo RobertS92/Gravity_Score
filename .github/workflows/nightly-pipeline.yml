@@ -1,0 +1,57 @@
+name: Nightly Sport Pipeline
+
+on:
+  schedule:
+    # 3 AM UTC — after daily scrape (2 AM UTC in railway-service)
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      sport:
+        description: "Optional single sport (cfb, nfl, ...); blank = all 8"
+        required: false
+        default: ""
+      athlete_limit:
+        description: "Max stale athletes per sport"
+        required: false
+        default: "100"
+
+jobs:
+  nightly-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r gravity_api/requirements.txt
+
+      - name: Run nightly pipeline
+        env:
+          PG_DSN: ${{ secrets.PG_DSN }}
+          ML_SERVICE_URL: ${{ secrets.ML_SERVICE_URL }}
+          ML_SERVICE_API_KEY: ${{ secrets.ML_SERVICE_API_KEY }}
+          GRAVITY_INTERNAL_API_KEY: ${{ secrets.GRAVITY_INTERNAL_API_KEY }}
+          NIGHTLY_ATHLETE_LIMIT: ${{ github.event.inputs.athlete_limit || '100' }}
+        run: |
+          if [ -n "${{ github.event.inputs.sport }}" ]; then
+            PYTHONPATH=. python3 -m gravity_api.jobs.nightly_pipeline \
+              --sport "${{ github.event.inputs.sport }}" \
+              --limit "${{ github.event.inputs.athlete_limit || '100' }}"
+          else
+            PYTHONPATH=. python3 -m gravity_api.jobs.nightly_pipeline \
+              --limit "${{ github.event.inputs.athlete_limit || '100' }}"
+          fi
+
+      - name: Trigger via API (fallback if job secrets prefer HTTP)
+        if: false
+        run: |
+          curl -sf -X POST \
+            "${{ secrets.GRAVITY_API_URL }}/v1/pipeline/nightly" \
+            -H "X-Gravity-Internal-Key: ${{ secrets.GRAVITY_INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"athlete_limit": 100, "scrape": true, "rebuild_cohorts": true, "score": true}'

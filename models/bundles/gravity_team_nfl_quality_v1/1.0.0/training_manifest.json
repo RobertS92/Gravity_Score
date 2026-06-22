@@ -1,0 +1,9 @@
+{
+  "model_key": "gravity_team_nfl_quality_v1",
+  "entity_type": "team",
+  "sport": "nfl",
+  "objective": "quality",
+  "version": "1.0.0",
+  "trained_at": "2026-06-22T16:56:05.999851+00:00",
+  "row_count": 200
+}

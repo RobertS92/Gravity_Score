@@ -1,0 +1,9 @@
+{
+  "model_key": "gravity_team_nba_value_v1",
+  "entity_type": "team",
+  "sport": "nba",
+  "objective": "value",
+  "version": "1.0.0",
+  "trained_at": "2026-06-22T16:56:06.673947+00:00",
+  "row_count": 200
+}

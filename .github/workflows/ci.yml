@@ -17,7 +17,19 @@ jobs:
       - name: Install API deps
         run: pip install -r requirements-gravity-api.txt pytest
       - name: Pytest
-        run: PYTHONPATH=. pytest gravity_api/tests -q
+        run: PYTHONPATH=. pytest gravity_api/tests gravity_ml/tests -q
+
+  gravity-ml:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ML deps
+        run: pip install -r gravity_ml/requirements.txt pytest httpx
+      - name: Pytest
+        run: PYTHONPATH=. pytest gravity_ml/tests -q
 
   gravity-terminal:
     runs-on: ubuntu-latest

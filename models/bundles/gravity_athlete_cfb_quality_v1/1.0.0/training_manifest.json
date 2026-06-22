@@ -1,0 +1,9 @@
+{
+  "model_key": "gravity_athlete_cfb_quality_v1",
+  "entity_type": "athlete",
+  "sport": "cfb",
+  "objective": "quality",
+  "version": "1.0.0",
+  "trained_at": "2026-06-22T16:56:01.044389+00:00",
+  "row_count": 200
+}

@@ -28,6 +28,7 @@ import httpx
 from gravity_api.config import get_settings
 from gravity_api.services.athlete_score_sync import sync_athlete_score_from_ml
 from gravity_api.services.team_conferences import refresh_athlete_conference_backfill
+from gravity_api.services.sport_pipeline.nightly import rebuild_cohorts_for_sport
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ async def run_bulk(
     concurrency: int = 8,
     *,
     rescore_fallback: bool = False,
+    rebuild_cohorts: bool = False,
 ) -> None:
     dsn = os.environ["PG_DSN"]
     settings = get_settings()
@@ -88,6 +90,17 @@ async def run_bulk(
         )
     except Exception as exc:
         logger.warning("Conference backfill failed (non-fatal): %s", exc)
+
+    if rebuild_cohorts:
+        from gravity_api.services.sport_pipeline.config import ALL_SPORT_PIPELINES
+
+        sports = [sport] if sport else list(ALL_SPORT_PIPELINES.keys())
+        for s in sports:
+            try:
+                n = await rebuild_cohorts_for_sport(conn, s)
+                logger.info("Cohort rebuild %s: %d baseline rows", s, n)
+            except Exception as exc:
+                logger.warning("Cohort rebuild failed for %s: %s", s, exc)
 
     try:
         sport_clause = "AND a.sport = $1" if sport else ""
@@ -259,6 +272,11 @@ def main() -> None:
         action="store_true",
         help="Re-score athletes whose latest model_version contains 'fallback'",
     )
+    ap.add_argument(
+        "--rebuild-cohorts",
+        action="store_true",
+        help="Rebuild gravity_cohort_baselines before scoring",
+    )
     args = ap.parse_args()
     asyncio.run(
         run_bulk(
@@ -266,6 +284,7 @@ def main() -> None:
             args.sport,
             args.concurrency,
             rescore_fallback=args.rescore_fallback,
+            rebuild_cohorts=args.rebuild_cohorts,
         )
     )
 

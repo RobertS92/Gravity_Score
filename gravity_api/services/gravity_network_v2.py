@@ -10,10 +10,6 @@ import asyncpg
 import httpx
 
 from gravity_api.config import get_settings
-from gravity_api.services.athlete_score_sync import (
-    athlete_to_raw_data,
-    fetch_latest_scraped_raw,
-)
 
 
 def _headers() -> dict[str, str]:
@@ -83,91 +79,40 @@ async def _persist_prediction(
 
 
 async def score_athlete_v2(conn: asyncpg.Connection, athlete_id: str) -> dict[str, Any]:
-    athlete = await conn.fetchrow("SELECT * FROM athletes WHERE id = $1", athlete_id)
-    if not athlete:
-        raise ValueError("Athlete not found")
-    social = await conn.fetchrow(
-        """SELECT * FROM social_snapshots
-           WHERE athlete_id = $1 ORDER BY scraped_at DESC LIMIT 1""",
+    from gravity_api.services.sport_pipeline.run import run_athlete_pipeline
+
+    result = await run_athlete_pipeline(conn, athlete_id, score=True)
+    score = result.get("score") or {}
+    row = await conn.fetchrow(
+        """SELECT gravity_score, brand_score, proof_score, proximity_score,
+                  velocity_score, risk_score, confidence, model_version,
+                  dollar_p10_usd, dollar_p50_usd, dollar_p90_usd
+           FROM athlete_gravity_scores WHERE athlete_id = $1
+           ORDER BY calculated_at DESC LIMIT 1""",
         athlete_id,
     )
-    scraped = await fetch_latest_scraped_raw(conn, athlete_id)
-    raw = athlete_to_raw_data(athlete, social, scraped_raw=scraped)
-    raw["collection_timestamp"] = (
-        social.get("scraped_at").isoformat() if social and social.get("scraped_at") else None
-    )
-    payload = await _post_ml(
-        "/score/athlete/v2",
-        {
-            "athlete_id": str(athlete["id"]),
-            "sport": str(athlete["sport"]),
-            "raw_data": raw,
+    payload = {
+        "gravity_score": float(row["gravity_score"]) if row else score.get("gravity_score"),
+        "component_scores": {
+            "brand": float(row["brand_score"]) if row else None,
+            "proof": float(row["proof_score"]) if row else None,
+            "proximity": float(row["proximity_score"]) if row else None,
+            "velocity": float(row["velocity_score"]) if row else None,
+            "risk": float(row["risk_score"]) if row else None,
         },
-    )
+        "model_version": row["model_version"] if row else score.get("model_version"),
+        "confidence": float(row["confidence"]) if row and row["confidence"] else 0.5,
+        "value_usd": {
+            "p10": row["dollar_p10_usd"] if row else None,
+            "p50": row["dollar_p50_usd"] if row else None,
+            "p90": row["dollar_p90_usd"] if row else None,
+        },
+        "pipeline": result,
+        "fallback_used": score.get("fallback_used", False),
+    }
     await _persist_prediction(
-        conn, entity_type="athlete", entity_id=str(athlete["id"]), payload=payload
+        conn, entity_type="athlete", entity_id=str(athlete_id), payload=payload
     )
-    components = payload.get("component_scores") or {}
-    value = payload.get("value_usd") or {}
-    updated = await conn.execute(
-        """UPDATE athlete_gravity_scores SET
-             gravity_score = $2, brand_score = $3, proof_score = $4,
-             proximity_score = $5, velocity_score = $6, risk_score = $7,
-             confidence = $8, model_version = $9,
-             dollar_p10_usd = $10, dollar_p50_usd = $11, dollar_p90_usd = $12,
-             dollar_confidence = $13::jsonb, calculated_at = NOW()
-           WHERE athlete_id = $1""",
-        athlete["id"],
-        payload.get("gravity_score"),
-        components.get("brand"),
-        components.get("proof"),
-        components.get("proximity"),
-        components.get("velocity"),
-        components.get("risk"),
-        payload.get("confidence"),
-        payload.get("model_version"),
-        value.get("p10"),
-        value.get("p50"),
-        value.get("p90"),
-        json.dumps(
-            {
-                "confidence": payload.get("confidence"),
-                "data_quality_score": payload.get("data_quality_score"),
-                "out_of_distribution_score": payload.get("out_of_distribution_score"),
-                "fallback_used": payload.get("fallback_used"),
-            }
-        ),
-    )
-    if updated == "UPDATE 0":
-        await conn.execute(
-            """INSERT INTO athlete_gravity_scores (
-                 athlete_id, gravity_score, brand_score, proof_score, proximity_score,
-                 velocity_score, risk_score, confidence, model_version,
-                 dollar_p10_usd, dollar_p50_usd, dollar_p90_usd, dollar_confidence
-               ) VALUES (
-                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb
-               )""",
-            athlete["id"],
-            payload.get("gravity_score"),
-            components.get("brand"),
-            components.get("proof"),
-            components.get("proximity"),
-            components.get("velocity"),
-            components.get("risk"),
-            payload.get("confidence"),
-            payload.get("model_version"),
-            value.get("p10"),
-            value.get("p50"),
-            value.get("p90"),
-            json.dumps(
-                {
-                    "confidence": payload.get("confidence"),
-                    "data_quality_score": payload.get("data_quality_score"),
-                    "out_of_distribution_score": payload.get("out_of_distribution_score"),
-                    "fallback_used": payload.get("fallback_used"),
-                }
-            ),
-        )
     return payload
 
 
@@ -200,7 +145,8 @@ async def score_team_v2(conn: asyncpg.Connection, team_id: str) -> dict[str, Any
         "data_quality_score": 0.7 if aggregate and aggregate["roster_size"] else 0.35,
     }
     payload = await _post_ml(
-        "/score/team", {"team_id": str(team["id"]), "raw_data": raw}
+        "/score/team",
+        {"team_id": str(team["id"]), "sport": team["sport"], "raw_data": raw},
     )
     await _persist_prediction(
         conn, entity_type="team", entity_id=str(team["id"]), payload=payload

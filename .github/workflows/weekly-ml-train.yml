@@ -1,0 +1,55 @@
+name: Weekly ML Train
+
+on:
+  schedule:
+    - cron: "0 6 * * 0"
+  workflow_dispatch:
+    inputs:
+      sport:
+        description: "Optional sport; blank = all"
+        required: false
+        default: ""
+      synthetic:
+        description: "Use synthetic bootstrap if DB thin"
+        type: boolean
+        default: true
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ML deps
+        run: pip install -r gravity_ml/requirements.txt scikit-learn joblib boto3
+
+      - name: Ingest labels
+        if: env.PG_DSN != ''
+        env:
+          PG_DSN: ${{ secrets.PG_DSN }}
+        run: PYTHONPATH=. python3 -m gravity_api.jobs.ingest_training_labels || true
+
+      - name: Train and register bundles
+        env:
+          PG_DSN: ${{ secrets.PG_DSN }}
+          MODEL_S3_BUCKET: ${{ secrets.MODEL_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          ARGS="--out models/bundles --register --include-teams"
+          if [ "${{ github.event.inputs.synthetic }}" = "true" ]; then ARGS="$ARGS --synthetic"; fi
+          if [ -n "${{ github.event.inputs.sport }}" ]; then ARGS="$ARGS --sport ${{ github.event.inputs.sport }}"; fi
+          if [ -n "$MODEL_S3_BUCKET" ]; then ARGS="$ARGS --upload-s3"; fi
+          PYTHONPATH=. python3 -m gravity_api.jobs.ml_bootstrap $ARGS
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gravity-ml-bundles
+          path: models/bundles/

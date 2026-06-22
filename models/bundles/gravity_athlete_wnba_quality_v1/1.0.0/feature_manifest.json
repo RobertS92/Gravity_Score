@@ -1,0 +1,32 @@
+{
+  "feature_names": [
+    "brand_composite_pctile",
+    "conference_media_index",
+    "data_quality_score",
+    "games_played_season",
+    "gravity_score_prior",
+    "market_reach",
+    "news_count_30d",
+    "nil_collective_budget_est",
+    "nil_deal_count",
+    "partnership_deal_count",
+    "partnership_proof_boost",
+    "partnership_verified_count",
+    "performance",
+    "proof_composite_index",
+    "proof_composite_pctile",
+    "proof_performance_index_pctile",
+    "proximity_composite_pctile",
+    "quality_score_prior",
+    "recruiting_rank_national",
+    "recruiting_stars",
+    "retention",
+    "roster_size",
+    "roster_stability",
+    "roster_value",
+    "roster_velocity",
+    "school_market_rank",
+    "velocity_composite_pctile",
+    "youtube_subscribers"
+  ]
+}

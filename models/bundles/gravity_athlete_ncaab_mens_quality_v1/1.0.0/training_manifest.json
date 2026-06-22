@@ -1,0 +1,9 @@
+{
+  "model_key": "gravity_athlete_ncaab_mens_quality_v1",
+  "entity_type": "athlete",
+  "sport": "ncaab_mens",
+  "objective": "quality",
+  "version": "1.0.0",
+  "trained_at": "2026-06-22T16:56:01.900011+00:00",
+  "row_count": 200
+}

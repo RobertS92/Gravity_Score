@@ -1,0 +1,9 @@
+{
+  "model_key": "gravity_athlete_ncaa_volleyball_value_v1",
+  "entity_type": "athlete",
+  "sport": "ncaa_volleyball",
+  "objective": "value",
+  "version": "1.0.0",
+  "trained_at": "2026-06-22T16:56:04.373020+00:00",
+  "row_count": 200
+}

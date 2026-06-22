@@ -1,0 +1,10 @@
+{
+  "validation": {
+    "mae": 3.5946,
+    "rmse": 3.6551,
+    "pearson": 0.3201
+  },
+  "train_rows": 140,
+  "val_rows": 30,
+  "test_rows": 30
+}

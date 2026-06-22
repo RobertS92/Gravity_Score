@@ -9,19 +9,11 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable, Deque, Dict, List, Optional, TypeVar
 
+from gravity_api.scraper_registry.events import COLLECTOR_MAP
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
-
-COLLECTOR_MAP: Dict[str, List[str]] = {
-    "transfer_portal": ["identity", "proximity", "risk"],
-    "injury_report": ["risk", "velocity"],
-    "nil_deal": ["proximity", "brand", "velocity"],
-    "social_delta": ["brand", "velocity"],
-    "stat_update": ["proof", "velocity"],
-    "scheduled_full": ["identity", "brand", "proof", "proximity", "velocity", "risk"],
-    "school_submission": ["identity", "proof", "brand"],
-}
 
 
 class CircuitOpenError(Exception):
@@ -101,7 +93,17 @@ class ScraperPipelineState:
     circuits: Dict[str, SourceCircuitBreaker] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        for src in ("espn", "sports_reference", "on3", "firecrawl", "social"):
+        for src in (
+            "espn",
+            "sports_reference",
+            "on3",
+            "firecrawl",
+            "social",
+            "instagram",
+            "ncaa",
+            "google_trends",
+            "wikipedia",
+        ):
             self.circuits[src] = SourceCircuitBreaker(src)
 
     def enqueue(self, priority: str, event: Dict[str, Any]) -> None:

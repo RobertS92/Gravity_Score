@@ -1,0 +1,9 @@
+{
+  "model_key": "gravity_team_wnba_value_v1",
+  "entity_type": "team",
+  "sport": "wnba",
+  "objective": "value",
+  "version": "1.0.0",
+  "trained_at": "2026-06-22T16:56:07.737194+00:00",
+  "row_count": 200
+}

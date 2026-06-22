@@ -1,21 +1,32 @@
-"""Placeholder job: social/news ingestion runs from the external scrapers repository."""
+"""Placeholder job — delegates to nightly_pipeline."""
 
 import asyncio
 import logging
 import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 async def run_daily_incremental() -> None:
-    dsn = os.environ.get("PG_DSN")
-    if not dsn:
-        raise RuntimeError("PG_DSN required")
-    logger.info(
-        "daily_incremental: no-op in monorepo — scheduled scrapes run via "
-        "gravity-scrapers (GitHub Actions → POST /jobs/daily). "
-        "See docs/PLATFORM_PRODUCTION_AND_ROSTER_OPS.md."
+    from gravity_api.jobs.nightly_pipeline import main_async
+
+    logger.info("daily_incremental → nightly_pipeline (all sports)")
+    await main_async(
+        sport=None,
+        limit=int(os.environ.get("NIGHTLY_ATHLETE_LIMIT", "50")),
+        concurrency=int(os.environ.get("NIGHTLY_CONCURRENCY", "4")),
+        skip_scrape=False,
+        skip_cohorts=False,
+        skip_score=True,
     )
 
 
