@@ -37,6 +37,7 @@ async def build_context(conn: asyncpg.Connection, athlete_id: str) -> AthleteScr
         position=row.get("position"),
         conference=row.get("conference"),
         class_year=row.get("class_year"),
+        espn_id=row.get("espn_id"),
         college=row.get("school"),
         existing_raw=scraped,
         league_tier=cfg.get("league_tier", "college"),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -316,7 +317,7 @@ async def _insert_roster_event(
         ev["title"],
         ev.get("description"),
         ev.get("source", "ROSTER_DIFF"),
-        ev.get("metadata") or {},
+        json.dumps(ev.get("metadata") or {}),
         occurred_at,
     )
 

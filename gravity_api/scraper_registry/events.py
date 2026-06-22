@@ -179,6 +179,7 @@ def resolve_event_scraper_keys(
         "news_rss_espn_volleyball",
     }
 
+    pro_sports = {"nfl", "nba", "wnba"}
     resolved: list[str] = []
     for suffix in suffixes:
         if suffix in shared_keys:
@@ -187,6 +188,8 @@ def resolve_event_scraper_keys(
             key = suffix
         else:
             key = f"{suffix}_{sport}"
+        if key == "college_experience_pro" and sport not in pro_sports:
+            continue
         if key in keys_map:
             resolved.append(key)
     return resolved

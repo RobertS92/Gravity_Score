@@ -109,14 +109,13 @@ def main() -> None:
     args = parser.parse_args()
 
     team_ids = [t.strip() for t in args.team_ids.split(",") if t.strip()]
-    if not team_ids and args.sport:
-        team_ids = default_team_ids_for_sport(args.sport)
-
     sports = [s.strip() for s in args.sports.split(",") if s.strip()] or None
+    if not team_ids and not sports and args.sport:
+        team_ids = default_team_ids_for_sport(args.sport)
 
     asyncio.run(
         main_async(
-            sport=args.sport if team_ids else None,
+            sport=args.sport if team_ids and not sports else None,
             sports=sports,
             team_ids=team_ids or None,
             roster_season=args.roster_season,

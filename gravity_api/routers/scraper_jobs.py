@@ -9,7 +9,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from gravity_api.auth_deps import require_user_id
+from gravity_api.auth_deps import optional_user_id
 from gravity_api.config import get_settings
 from gravity_api.database import get_db
 from gravity_api.scraper_registry import build_registry, resolve_event_scraper_keys
@@ -27,12 +27,14 @@ router = APIRouter()
 
 async def require_ops(
     db: asyncpg.Connection = Depends(get_db),
-    user_id: uuid.UUID = Depends(require_user_id),
+    user_id: uuid.UUID | None = Depends(optional_user_id),
     x_internal_key: Optional[str] = Header(None, alias="X-Internal-Key"),
 ):
     settings = get_settings()
     if x_internal_key and settings.internal_api_key and x_internal_key == settings.internal_api_key:
         return user_id
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Missing bearer token or X-Internal-Key")
     row = await db.fetchrow("SELECT role FROM user_accounts WHERE id = $1", user_id)
     if not row or row["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin or X-Internal-Key required")
