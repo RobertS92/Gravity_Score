@@ -11,6 +11,16 @@ from gravity_api.scraper_registry.sports import SPORTS
 
 logger = logging.getLogger(__name__)
 
+
+def _espn_nested_description(value: Any) -> str | None:
+    if isinstance(value, dict):
+        desc = value.get("description") or value.get("name") or value.get("displayName")
+        return str(desc) if desc else None
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
 ESPN_HEADERS = {
     "User-Agent": "GravityScrapers/1.0",
     "Accept": "application/json",
@@ -137,10 +147,12 @@ class EspnClient:
                 identity["tiktok_profile_url"] = href
         injuries = []
         for inj in athlete.get("injuries") or []:
+            if not isinstance(inj, dict):
+                continue
             injuries.append(
                 {
-                    "type": (inj.get("type") or {}).get("description"),
-                    "status": (inj.get("status") or {}).get("description"),
+                    "type": _espn_nested_description(inj.get("type")),
+                    "status": _espn_nested_description(inj.get("status")),
                     "date": inj.get("date"),
                 }
             )
@@ -232,8 +244,21 @@ class EspnClient:
     def flatten_roster_players(payload: dict[str, Any]) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for bucket in payload.get("athletes") or []:
-            for item in bucket.get("items") or []:
-                out.append(item)
+            if not isinstance(bucket, dict):
+                continue
+            items = bucket.get("items")
+            if items is not None:
+                for item in items:
+                    if isinstance(item, dict):
+                        out.append(item)
+                continue
+            # Basketball / WNBA / NBA: flat player list (no position buckets).
+            if (
+                bucket.get("id") is not None
+                or bucket.get("displayName")
+                or bucket.get("fullName")
+            ):
+                out.append(bucket)
         return out
 
     @staticmethod
