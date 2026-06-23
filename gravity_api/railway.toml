@@ -1,7 +1,12 @@
 # Railway config for the Gravity NIL Intelligence API service.
-# Settings → Root Directory: gravity_api  (this folder)
-# Build uses Dockerfile here + docker-bundle/ for gravity_composite, gravity_ml, config.
-# After changing sibling packages, run: bash scripts/sync_api_docker_bundle.sh
+#
+# Required service settings (Railway dashboard → Settings):
+#   Root Directory = gravity_api
+#   Builder = Dockerfile  (not Nixpacks/Railpack — sibling packages are not pip-installable)
+#   Dockerfile path = Dockerfile
+#
+# docker-bundle/ vendors gravity_composite, gravity_ml, config for this build context.
+# After changing those packages at repo root, run: bash scripts/sync_api_docker_bundle.sh
 
 [build]
 builder = "DOCKERFILE"
