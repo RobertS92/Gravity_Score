@@ -71,6 +71,7 @@ async def run_scrapers_for_athlete(
     run_id = str(uuid.uuid4())
     results: list[ScraperResult] = []
     merged_fields: dict[str, Any] = dict(ctx.existing_raw)
+    raw_before = dict(ctx.existing_raw)
 
     begin_scrape_cache()
     try:
@@ -116,7 +117,7 @@ async def run_scrapers_for_athlete(
     finally:
         clear_scrape_cache()
 
-    if persist and merged_fields != ctx.existing_raw:
+    if persist and merged_fields != raw_before:
         await merge_raw_athlete_data(conn, athlete_id=athlete_id, fields=merged_fields)
 
     pipeline_result = None

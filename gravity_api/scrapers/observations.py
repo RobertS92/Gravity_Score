@@ -78,6 +78,12 @@ async def merge_raw_athlete_data(
 ) -> None:
     if not fields:
         return
+    athlete = await conn.fetchrow(
+        "SELECT name, sport FROM athletes WHERE id = $1::uuid",
+        athlete_id,
+    )
+    if not athlete:
+        return
     row = await conn.fetchrow(
         """SELECT raw_data FROM raw_athlete_data
            WHERE athlete_id = $1::uuid
@@ -90,8 +96,11 @@ async def merge_raw_athlete_data(
     merged.update(fields)
     merged["collection_timestamp"] = datetime.now(tz=timezone.utc).isoformat()
     await conn.execute(
-        """INSERT INTO raw_athlete_data (athlete_id, raw_data, scraped_at, source)
-           VALUES ($1::uuid, $2::jsonb, NOW(), 'gravity_api_scrapers')""",
+        """INSERT INTO raw_athlete_data (
+             athlete_id, athlete_name, sport, raw_data, scraped_at, scrape_version
+           ) VALUES ($1::uuid, $2, $3, $4::jsonb, NOW(), 'gravity_api_scrapers_v1')""",
         athlete_id,
+        str(athlete["name"]),
+        str(athlete["sport"]),
         json.dumps(merged, default=str),
     )
