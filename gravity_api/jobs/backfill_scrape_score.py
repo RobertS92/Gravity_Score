@@ -22,7 +22,15 @@ from gravity_api.services.sport_pipeline.nightly import run_nightly_for_sport
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-DEFAULT_SPORTS = ("nfl", "ncaab_mens", "ncaab_womens", "nba", "wnba")
+DEFAULT_SPORTS = (
+    "nfl",
+    "ncaab_mens",
+    "ncaab_womens",
+    "ncaa_baseball",
+    "ncaa_volleyball",
+    "nba",
+    "wnba",
+)
 
 
 async def count_unscraped(conn: asyncpg.Connection, sport: str) -> int:

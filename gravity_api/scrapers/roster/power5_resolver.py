@@ -115,9 +115,11 @@ def _walk_hoops_conference_teams(
                 if not tid:
                     continue
                 name = str(t.get("displayName") or t.get("name") or "").strip()
+                slug = str(t.get("slug") or "").strip()
                 accum[tid] = {
                     "espn_team_id": tid,
                     "school_name": name,
+                    "slug": slug,
                     "conference": cname,
                     "sport": sport_key,
                     "nil_market_rank": DEFAULT_MARKET_RANK,
@@ -144,8 +146,15 @@ def fetch_womens_power4_entries() -> list[dict[str, Any]]:
 
 
 def fetch_all_power5_entries(*, season_year: int) -> list[dict[str, Any]]:
+    from gravity_api.scrapers.roster.college_sport_resolver import (
+        fetch_ncaa_baseball_power_entries,
+        fetch_ncaa_volleyball_power_entries,
+    )
+
     out: list[dict[str, Any]] = []
     out.extend(fetch_cfb_power_entries(season_year=season_year))
     out.extend(fetch_mens_power4_entries())
     out.extend(fetch_womens_power4_entries())
+    out.extend(fetch_ncaa_baseball_power_entries())
+    out.extend(fetch_ncaa_volleyball_power_entries())
     return out

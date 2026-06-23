@@ -91,7 +91,7 @@ def main() -> None:
         "--sports",
         default=os.getenv(
             "ROSTER_SYNC_SPORTS",
-            "cfb,ncaab_mens,ncaab_womens,nfl,nba,wnba",
+            "cfb,ncaab_mens,ncaab_womens,ncaa_baseball,ncaa_volleyball,nfl,nba,wnba",
         ),
         help="Comma-separated sports when syncing full index",
     )

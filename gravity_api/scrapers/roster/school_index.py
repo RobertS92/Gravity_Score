@@ -32,7 +32,13 @@ _STATIC_SAMPLE: list[SchoolEntry] = [
 
 _resolved: list[SchoolEntry] | None = None
 
-COLLEGE_ROSTER_SPORTS = ("cfb", "ncaab_mens", "ncaab_womens")
+COLLEGE_ROSTER_SPORTS = (
+    "cfb",
+    "ncaab_mens",
+    "ncaab_womens",
+    "ncaa_baseball",
+    "ncaa_volleyball",
+)
 PRO_ROSTER_SPORTS = ("nfl", "nba", "wnba")
 DEFAULT_ROSTER_SPORTS = COLLEGE_ROSTER_SPORTS + PRO_ROSTER_SPORTS
 
