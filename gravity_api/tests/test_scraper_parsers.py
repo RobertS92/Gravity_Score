@@ -3,8 +3,11 @@
 from gravity_api.scrapers.parsers.achievements import parse_achievements_from_text
 from gravity_api.scrapers.parsers.common import extract_handles, parse_count
 from gravity_api.scrapers.parsers.nil import is_suspect_nil, verify_nil_consensus
+from gravity_api.scrapers.parsers.opendorse import parse_opendorse_profile
+from gravity_api.scrapers.parsers.recruiting import parse_247_recruiting_profile
 from gravity_api.scrapers.parsers.roster import parse_transfer_portal
 from gravity_api.scrapers.parsers.social import merge_handle_sources
+from gravity_api.scrapers.parsers.sports_reference import parse_sports_ref_honors, ref_domain_for_sport
 
 
 def test_extract_handles():
@@ -58,3 +61,39 @@ def test_merge_handles():
     assert merged["instagram_handle"] == "a"
     assert merged["twitter_handle"] == "c"
     assert merged["handle_confidence"] >= 0.85
+
+
+def test_247_recruiting_parse():
+    text = (
+        "5-star recruit National Rank #42 Position Rank #3 State Rank #1 "
+        "https://247sports.com/player/john-smith-123456/"
+    )
+    out = parse_247_recruiting_profile(text)
+    assert out["recruiting_stars"] == 5.0
+    assert out["recruiting_rank_national"] == 42.0
+    assert out["recruiting_rank_position"] == 3.0
+    assert out["external_id_247"] == "123456"
+
+
+def test_opendorse_parse():
+    text = (
+        "https://opendorse.com/athletes/jane-doe NIL valuation $850,000 "
+        "engagement rate 4.2% followers 120K"
+    )
+    out = parse_opendorse_profile(text)
+    assert out["marketplace_listing"] is True
+    assert out["nil_valuation"] == 850_000.0
+    assert out["engagement_rate"] == 4.2
+
+
+def test_sports_ref_honors_parse():
+    text = "2023 All-Pro first team\n2022 All-Star\n2021 Pro Bowl\nNBA MVP 2023"
+    out = parse_sports_ref_honors(text)
+    assert out["all_pro_count"] >= 1.0
+    assert out["all_star_count"] >= 1.0
+    assert out["major_awards_json"]
+
+
+def test_ref_domain_mapping():
+    assert ref_domain_for_sport("nfl") == "pro-football-reference.com"
+    assert ref_domain_for_sport("cfb") == "sports-reference.com/cfb"

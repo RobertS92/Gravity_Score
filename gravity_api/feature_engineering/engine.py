@@ -114,7 +114,12 @@ class FeatureEngineeringEngine:
         as_of = as_of or datetime.now(tz=timezone.utc)
 
         pos_spec = next((p for p in spec.position_groups if p.position_group == position_group), None)
-        season_stats = {k: v for k, v in raw.items() if isinstance(v, (int, float))}
+        from gravity_api.scrapers.parsers.stat_normalizer import flatten_raw_for_stats
+
+        flat_stats = flatten_raw_for_stats(raw, sport)
+        season_stats = flat_stats or {
+            k: v for k, v in raw.items() if isinstance(v, (int, float))
+        }
         cohort_means = raw.get("cohort_stat_means", {})
         cohort_stds = raw.get("cohort_stat_stds", {})
 

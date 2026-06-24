@@ -33,7 +33,10 @@ async def main_async(
     *,
     sport: str | None,
     limit: int,
-    concurrency: int,
+    concurrency: int | None,
+    scrape_concurrency: int,
+    score_concurrency: int,
+    sport_parallel: int,
     skip_scrape: bool,
     skip_cohorts: bool,
     skip_score: bool,
@@ -42,7 +45,7 @@ async def main_async(
     if not dsn:
         raise RuntimeError("PG_DSN required")
 
-    conn = await asyncpg.connect(dsn)
+    conn = await asyncpg.connect(dsn, command_timeout=120)
     try:
         if sport:
             result = await run_nightly_for_sport(
@@ -50,6 +53,8 @@ async def main_async(
                 sport=sport,
                 athlete_limit=limit,
                 concurrency=concurrency,
+                scrape_concurrency=scrape_concurrency,
+                score_concurrency=score_concurrency,
                 scrape=not skip_scrape,
                 rebuild_cohorts=not skip_cohorts,
                 score=not skip_score,
@@ -60,6 +65,9 @@ async def main_async(
                 conn,
                 athlete_limit_per_sport=limit,
                 concurrency=concurrency,
+                scrape_concurrency=scrape_concurrency,
+                score_concurrency=score_concurrency,
+                sport_parallel=sport_parallel,
             )
             logger.info("Nightly complete: %s", summary)
     finally:
@@ -70,7 +78,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Nightly sport pipeline")
     parser.add_argument("--sport", default=None, help="Single sport; default all 8")
     parser.add_argument("--limit", type=int, default=100, help="Max stale athletes per sport")
-    parser.add_argument("--concurrency", type=int, default=4)
+    parser.add_argument("--concurrency", type=int, default=None, help="Override scrape+score concurrency")
+    parser.add_argument(
+        "--scrape-concurrency",
+        type=int,
+        default=int(os.environ.get("SCRAPE_CONCURRENCY", "3")),
+    )
+    parser.add_argument(
+        "--score-concurrency",
+        type=int,
+        default=int(os.environ.get("SCORE_CONCURRENCY", "8")),
+    )
+    parser.add_argument(
+        "--sport-parallel",
+        type=int,
+        default=int(os.environ.get("SPORT_PARALLEL", "1")),
+    )
     parser.add_argument("--skip-scrape", action="store_true")
     parser.add_argument("--skip-cohorts", action="store_true")
     parser.add_argument("--skip-score", action="store_true")
@@ -80,6 +103,9 @@ def main() -> None:
             sport=args.sport,
             limit=args.limit,
             concurrency=args.concurrency,
+            scrape_concurrency=args.scrape_concurrency,
+            score_concurrency=args.score_concurrency,
+            sport_parallel=args.sport_parallel,
             skip_scrape=args.skip_scrape,
             skip_cohorts=args.skip_cohorts,
             skip_score=args.skip_score,

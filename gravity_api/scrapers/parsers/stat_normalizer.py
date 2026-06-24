@@ -1,0 +1,304 @@
+"""Map ESPN stat labels to canonical keys and flatten scrape payloads."""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+from gravity_api.scrapers.parsers.stat_catalog import all_stat_keys_for_sport
+
+_PERCENT_RE = re.compile(r"^([\d.]+)\s*%$")
+_NUMBER_RE = re.compile(r"^[\d,]+(?:\.\d+)?$")
+
+
+def parse_stat_value(raw: Any) -> float | None:
+    """Coerce ESPN stat display values to float."""
+    if raw is None or raw == "" or raw == "-":
+        return None
+    if isinstance(raw, bool):
+        return float(raw)
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    text = str(raw).strip().replace(",", "")
+    if not text:
+        return None
+    m = _PERCENT_RE.match(text)
+    if m:
+        return float(m.group(1))
+    if text.endswith("%"):
+        try:
+            return float(text[:-1])
+        except ValueError:
+            return None
+    if ":" in text and text.count(":") == 1:
+        # innings pitched e.g. 45.1 — keep as decimal approximation
+        parts = text.split(":")
+        try:
+            return float(parts[0]) + float(parts[1]) / 10.0
+        except ValueError:
+            pass
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _alias_table() -> dict[str, dict[str, tuple[str, ...]]]:
+    """ESPN label/abbreviation aliases → canonical key, grouped by sport family."""
+    football = {
+        "pass_yards": (
+            "passingYards",
+            "passYards",
+            "pass_yards",
+            "YDS",
+            "Pass Yds",
+            "Passing Yards",
+            "pass yds",
+        ),
+        "pass_td": ("passingTouchdowns", "passTD", "TD", "Pass TD", "pass td"),
+        "pass_int": ("interceptions", "INT", "passINT", "Pass INT", "pass int"),
+        "pass_attempts": ("passingAttempts", "ATT", "passAtt", "Pass Att"),
+        "pass_completions": ("completions", "CMP", "passCmp", "Pass Cmp"),
+        "completion_pct": ("completionPct", "CMP%", "Comp %", "completionPercentage"),
+        "passer_rating": ("passerRating", "RTG", "Rating", "pass rating"),
+        "qbr": ("QBR", "qbr", "adjQBR"),
+        "pass_yards_per_attempt": ("yardsPerPassAttempt", "YPA", "Avg"),
+        "pass_long": ("longPass", "longPassing", "Long"),
+        "pass_sacks": ("sacks", "SACKS", "sacked"),
+        "rush_yards": ("rushingYards", "rushYards", "RUSH YDS", "Rush Yds"),
+        "rush_attempts": ("rushingAttempts", "CAR", "rushAtt", "Rush Att"),
+        "rush_td": ("rushingTouchdowns", "rushTD", "Rush TD"),
+        "yards_per_carry": ("yardsPerRushAttempt", "YPC", "Avg", "rush avg"),
+        "rush_long": ("longRushing", "longRush"),
+        "rec_yards": ("receivingYards", "recYards", "REC YDS", "Rec Yds"),
+        "receptions": ("receptions", "REC", "rec"),
+        "rec_td": ("receivingTouchdowns", "recTD", "Rec TD"),
+        "rec_targets": ("receivingTargets", "TGTS", "Targets"),
+        "yards_per_catch": ("yardsPerReception", "Y/R", "Avg"),
+        "scrimmage_yards": ("scrimmageYards", "SCRIM YDS", "Scrimmage Yds"),
+        "fumbles": ("fumbles", "FUM", "fumblesLost"),
+        "tackles": ("totalTackles", "TOT", "tackles", "Tackles"),
+        "solo_tackles": ("soloTackles", "SOLO"),
+        "assist_tackles": ("assistTackles", "AST"),
+        "sacks": ("sacks", "SACK", "sacks"),
+        "tfl": ("tacklesForLoss", "TFL", "tfl"),
+        "qb_hits": ("qbHits", "QBH"),
+        "qb_hurries": ("hurries", "HUR"),
+        "interceptions": ("interceptions", "INT", "int"),
+        "passes_defended": ("passesDefended", "PD", "pass def"),
+        "forced_fumbles": ("forcedFumbles", "FF"),
+        "completion_pct_allowed": ("cmpPctAllowed", "Cmp% Allowed"),
+        "fg_pct": ("fieldGoalPct", "FG%", "FG Pct"),
+        "fg_made": ("fieldGoalsMade", "FGM", "FG Made"),
+        "fg_attempts": ("fieldGoalAttempts", "FGA"),
+        "xp_pct": ("extraPointPct", "XP%", "XP Pct"),
+        "xp_attempts": ("extraPointAttempts", "XPA"),
+        "long_fg": ("longFieldGoal", "Long FG", "longFG"),
+        "punt_avg": ("grossAvgPuntYards", "Punt Avg", "punt avg"),
+        "punt_yards": ("puntYards", "Punt Yds"),
+        "punt_attempts": ("punts", "Punts"),
+        "games_started": ("gamesStarted", "GS"),
+        "games_played_season": ("gamesPlayed", "GP", "G", "games"),
+        "snap_count": ("snapCounts", "Snaps", "snaps"),
+        "epa_per_play": ("epa", "EPA", "epaPerPlay"),
+    }
+    basketball = {
+        "pts": ("points", "PTS", "Pts", "pointsPerGame", "PPG"),
+        "ast": ("assists", "AST", "Ast", "assistsPerGame"),
+        "reb": ("rebounds", "REB", "Reb", "reboundsPerGame", "RPG"),
+        "oreb": ("offensiveRebounds", "OR", "OREB"),
+        "dreb": ("defensiveRebounds", "DR", "DREB"),
+        "stl": ("steals", "STL", "Stl"),
+        "blk": ("blocks", "BLK", "Blk"),
+        "to": ("turnovers", "TO", "TOV"),
+        "pf": ("fouls", "PF", "personalFouls"),
+        "fgm": ("fieldGoalsMade", "FGM"),
+        "fga": ("fieldGoalsAttempted", "FGA"),
+        "fg_pct": ("fieldGoalPct", "FG%", "FG Pct"),
+        "fg3m": ("threePointFieldGoalsMade", "3PM", "3PTM"),
+        "fg3a": ("threePointFieldGoalsAttempted", "3PA", "3PTA"),
+        "three_pct": ("threePointFieldGoalPct", "3P%", "3PT%"),
+        "ftm": ("freeThrowsMade", "FTM"),
+        "fta": ("freeThrowsAttempted", "FTA"),
+        "ft_pct": ("freeThrowPct", "FT%", "FT Pct"),
+        "ts_pct": ("trueShootingPct", "TS%", "trueShootingPercentage"),
+        "efg_pct": ("effectiveFieldGoalPct", "eFG%"),
+        "min": ("minutes", "MIN", "Min", "minutesPerGame"),
+        "gp": ("gamesPlayed", "GP", "G"),
+        "games_played_season": ("gamesPlayed", "GP", "G"),
+        "double_doubles": ("doubleDouble", "doubleDoubles", "DD"),
+        "triple_doubles": ("tripleDouble", "tripleDoubles", "TD"),
+        "per": ("playerEfficiencyRating", "PER"),
+        "bpm": ("boxPlusMinus", "BPM"),
+        "usage": ("usageRate", "USG%", "usage"),
+        "plus_minus": ("plusMinus", "+/-", "plusMinusRating"),
+        "pie": ("pie", "PIE"),
+        "ast_to_ratio": ("assistTurnoverRatio", "AST/TO"),
+    }
+    baseball = {
+        "era": ("earnedRunAvg", "ERA"),
+        "whip": ("WHIP", "whip"),
+        "k9": ("strikeoutsPerNineInnings", "K/9", "K9"),
+        "bb9": ("walksPerNineInnings", "BB/9", "BB9"),
+        "ip": ("innings", "IP", "inningsPitched"),
+        "wins": ("wins", "W"),
+        "l": ("losses", "L"),
+        "saves": ("saves", "SV"),
+        "bs": ("blownSaves", "BS"),
+        "hld": ("holds", "HLD"),
+        "so": ("strikeouts", "SO", "K"),
+        "bb": ("walks", "BB", "baseOnBalls"),
+        "h": ("hits", "H"),
+        "hr": ("homeRuns", "HR"),
+        "rbi": ("RBIs", "RBI"),
+        "r": ("runs", "R"),
+        "avg": ("avg", "AVG", "battingAverage"),
+        "obp": ("OBP", "onBasePct", "onBasePercentage"),
+        "slg": ("SLG", "sluggingPct", "sluggingPercentage"),
+        "ops": ("OPS", "onBasePlusSlugging"),
+        "sb": ("stolenBases", "SB"),
+        "cs": ("caughtStealing", "CS"),
+        "fielding_pct": ("fieldingPct", "FLD%", "fieldingPercentage"),
+        "cs_pct": ("caughtStealingPct", "CS%"),
+        "rf_assists": ("outfieldAssists", "A"),
+        "er": ("earnedRuns", "ER"),
+        "h_allowed": ("hitsAllowed", "H"),
+        "ab": ("atBats", "AB"),
+        "g": ("gamesPlayed", "G"),
+        "gs": ("gamesStarted", "GS"),
+        "games_played_season": ("gamesPlayed", "G", "GP"),
+    }
+    volleyball = {
+        "kills": ("kills", "K", "Kills"),
+        "kills_per_set": ("killsPerSet", "K/S", "KPS"),
+        "hitting_pct": ("hittingPct", "HIT%", "Hitting %", "attackPct"),
+        "errors": ("attackErrors", "E", "Err"),
+        "total_attacks": ("attackAttempts", "TA", "Attacks"),
+        "assists": ("assists", "A", "Assists"),
+        "assists_per_set": ("assistsPerSet", "A/S", "APS"),
+        "aces": ("serviceAces", "SA", "Aces"),
+        "service_errors": ("serviceErrors", "SE"),
+        "blocks": ("blocks", "BLK", "Total Blocks"),
+        "blocks_per_set": ("blocksPerSet", "B/S", "BPS"),
+        "digs": ("digs", "D", "Digs"),
+        "digs_per_set": ("digsPerSet", "D/S", "DPS"),
+        "receive_rating": ("receptionRating", "Recv Rtg"),
+        "setting_efficiency": ("settingEfficiency", "Set Eff"),
+        "gp": ("gamesPlayed", "GP"),
+        "sets_played": ("sets", "Sets"),
+        "games_played_season": ("gamesPlayed", "GP"),
+        "points": ("points", "PTS"),
+        "points_per_set": ("pointsPerSet", "P/S"),
+    }
+    return {
+        "cfb": football,
+        "nfl": football,
+        "ncaab_mens": basketball,
+        "ncaab_womens": basketball,
+        "nba": basketball,
+        "wnba": basketball,
+        "ncaa_baseball": baseball,
+        "ncaa_volleyball": volleyball,
+    }
+
+
+def _normalize_key(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+def _build_reverse_lookup(sport: str) -> dict[str, str]:
+    tables = _alias_table()
+    sport_aliases = tables.get(sport, {})
+    reverse: dict[str, str] = {}
+    for canonical, aliases in sport_aliases.items():
+        reverse[_normalize_key(canonical)] = canonical
+        for alias in aliases:
+            reverse[_normalize_key(alias)] = canonical
+    return reverse
+
+
+def normalize_espn_stats(sport: str, raw_stats: dict[str, Any]) -> dict[str, float]:
+    """Map a flat ESPN stat dict to canonical numeric keys."""
+    if not raw_stats:
+        return {}
+    lookup = _build_reverse_lookup(sport)
+    out: dict[str, float] = {}
+    for raw_key, raw_val in raw_stats.items():
+        norm = _normalize_key(str(raw_key))
+        canonical = lookup.get(norm)
+        if not canonical:
+            # camelCase ESPN names: passingYards → passingyards
+            for alias_norm, can in lookup.items():
+                if alias_norm in norm or norm in alias_norm:
+                    canonical = can
+                    break
+        if not canonical:
+            continue
+        val = parse_stat_value(raw_val)
+        if val is None:
+            continue
+        if canonical not in out:
+            out[canonical] = val
+    # Passing vs defensive INT disambiguation when ESPN uses generic "interceptions"
+    if "interceptions" in out and "pass_yards" in out and "pass_int" not in out:
+        out["pass_int"] = out.pop("interceptions")
+    return out
+
+
+def merge_stat_layers(
+    sport: str,
+    *,
+    current: dict[str, Any] | None = None,
+    history: dict[str, dict[str, Any]] | None = None,
+    career: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build raw_athlete_data stat fields with flat current-season scalars."""
+    fields: dict[str, Any] = {}
+    normalized_current = normalize_espn_stats(sport, current or {})
+    if normalized_current:
+        fields["season_stats"] = normalized_current
+        fields.update(normalized_current)
+    if history:
+        normalized_history: dict[str, dict[str, float]] = {}
+        for season_key, stats in history.items():
+            norm = normalize_espn_stats(sport, stats)
+            if norm:
+                normalized_history[str(season_key)] = norm
+        if normalized_history:
+            fields["season_stats_history"] = normalized_history
+    if career:
+        normalized_career = normalize_espn_stats(sport, career)
+        if normalized_career:
+            fields["career_stats"] = normalized_career
+            if normalized_career.get("games_played_season") is not None:
+                fields["games_played_career"] = normalized_career["games_played_season"]
+            elif normalized_career.get("gp") is not None:
+                fields["games_played_career"] = normalized_career["gp"]
+    gp = normalized_current.get("games_played_season") or normalized_current.get("gp")
+    if gp is not None:
+        fields["games_played_season"] = int(gp)
+    return fields
+
+
+def flatten_raw_for_stats(raw: dict[str, Any], sport: str) -> dict[str, float]:
+    """Collect all numeric stats from top-level raw and nested season_stats."""
+    out: dict[str, float] = {}
+    nested = raw.get("season_stats")
+    if isinstance(nested, dict):
+        out.update(normalize_espn_stats(sport, nested))
+    for key in all_stat_keys_for_sport(sport):
+        val = raw.get(key)
+        if val is None and isinstance(nested, dict):
+            val = nested.get(key)
+        parsed = parse_stat_value(val)
+        if parsed is not None:
+            out[key] = parsed
+    return out
+
+
+__all__ = [
+    "flatten_raw_for_stats",
+    "merge_stat_layers",
+    "normalize_espn_stats",
+    "parse_stat_value",
+]

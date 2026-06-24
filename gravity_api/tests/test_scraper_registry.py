@@ -59,6 +59,13 @@ def test_resolve_scheduled_full_cfb():
     assert "ncaa_official_roster_cfb" not in keys
 
 
+def test_cfbd_not_resolved_for_non_cfb():
+    keys = resolve_event_scraper_keys("scheduled_full", "nfl")
+    assert "cfbd_api_stats_cfb" not in keys
+    keys_bb = resolve_event_scraper_keys("scheduled_full", "ncaa_baseball")
+    assert "cfbd_api_stats_cfb" not in keys_bb
+
+
 def test_resolve_scheduled_extended_cfb():
     keys = resolve_event_scraper_keys(
         "scheduled_full", "cfb", include_extended=True

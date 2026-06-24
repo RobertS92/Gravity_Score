@@ -4,24 +4,39 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any
 
 import asyncpg
 
 from gravity_api.scrapers.base import BaseMicroScraper, sport_from_any_key
+from gravity_api.scrapers.clients.cfbd import CfbdClient
 from gravity_api.scrapers.clients.espn import EspnClient, normalize_sport
 from gravity_api.scrapers.clients.firecrawl import FirecrawlClient
+from gravity_api.scrapers.clients.kenpom import KenPomClient, parse_kenpom_markdown
 from gravity_api.scrapers.clients.wikipedia import WikipediaClient
+from gravity_api.scrapers.db_context import get_scrape_db
 from gravity_api.scrapers.parsers.achievements import merge_espn_awards, parse_achievements_from_text
 from gravity_api.scrapers.parsers.common import parse_count, slugify_school
 from gravity_api.scrapers.parsers.nil import parse_nil_from_text, verify_nil_consensus
+from gravity_api.scrapers.parsers.opendorse import parse_opendorse_profile
+from gravity_api.scrapers.parsers.recruiting import parse_247_recruiting_profile
 from gravity_api.scrapers.parsers.roster import parse_roster_presence, parse_transfer_portal
+from gravity_api.scrapers.parsers.sports_reference import (
+    parse_sports_ref_honors,
+    ref_domain_for_sport,
+)
 from gravity_api.scrapers.parsers.social import (
     authenticity_score,
     handles_from_page,
     merge_handle_sources,
     parse_engagement_from_markdown,
+)
+from gravity_api.scrapers.parsers.site_search import (
+    SITE_SEARCH_CONFIG,
+    scrape_site_fields,
+    site_suffix_for_key,
 )
 from gravity_api.scrapers.types import AthleteScrapeContext, ScraperResult
 
@@ -476,7 +491,21 @@ class EspnStatsScraper(BaseMicroScraper):
         if not espn_id:
             return self._result(scraper_key, fields={}, error="espn id missing")
         stats = await espn.get_season_stats(str(espn_id), ctx.sport)
-        return self._result(scraper_key, fields=stats, confidence=0.9)
+        from gravity_api.scrapers.parsers.stat_normalizer import merge_stat_layers
+
+        fields = merge_stat_layers(
+            ctx.sport,
+            current=stats.get("season_stats"),
+            history=stats.get("season_stats_history"),
+            career=stats.get("career_stats"),
+        )
+        if stats.get("stats_as_of"):
+            fields["stats_as_of"] = stats["stats_as_of"]
+        if stats.get("stats_source"):
+            fields["stats_source"] = stats["stats_source"]
+        if stats.get("season_id"):
+            fields["season_id"] = stats["season_id"]
+        return self._result(scraper_key, fields=fields, confidence=0.9 if fields else 0.3)
 
 
 class EspnAwardsScraper(BaseMicroScraper):
@@ -581,6 +610,8 @@ class CollegeExperienceProScraper(BaseMicroScraper):
             "college_espn_id": data.get("college_espn_id"),
             "college_achievements_json": data.get("college_awards"),
             "college_stats_json": data.get("college_stats"),
+            "college_stats_history": data.get("college_stats_history") or {},
+            "college_career_stats": data.get("college_career_stats") or {},
         }
         ident = data.get("college_identity") or {}
         flat["college_team"] = ident.get("team") or ident.get("college")
@@ -605,6 +636,413 @@ class ProgramContextScraper(BaseMicroScraper):
             if ctx.existing_raw.get(k) is not None
         }
         return self._result(scraper_key, fields=fields, confidence=0.75 if fields else 0.3)
+
+
+class CfbdStatsScraper(BaseMicroScraper):
+    KEY_SUFFIX = "cfbd_api_stats"
+    SOURCE_KEY = "cfbd"
+
+    async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        if ctx.sport != "cfb":
+            return self._result(scraper_key, fields={}, error="cfbd is cfb-only")
+        client = CfbdClient()
+        if not client.enabled:
+            return self._result(scraper_key, fields={}, error="CFBD_API_KEY not configured")
+        team = ctx.team or ctx.school
+        player = await client.search_player(ctx.name, team=team)
+        from gravity_api.scrapers.clients.cfbd import player_id_from_row
+        from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+        from gravity_api.scrapers.parsers.stat_normalizer import merge_stat_layers
+
+        player_id = player_id_from_row(player) if player else None
+        year = _current_season_year()
+        rows = await client.player_season_stats(
+            year=year,
+            player_id=player_id,
+            team=team,
+            player_name=ctx.name,
+        )
+        current = client.merge_season_rows(rows)
+        history = await client.player_career_stats(
+            player_id=player_id,
+            team=team,
+            start_year=year - 5,
+            end_year=year,
+            player_name=ctx.name,
+        )
+        if not player and not current and not history:
+            return self._result(scraper_key, fields={}, error="cfbd player not found")
+        fields = merge_stat_layers(
+            "cfb",
+            current=current,
+            history=history,
+        )
+        if player_id is not None:
+            fields["cfbd_player_id"] = player_id
+        fields["stats_source"] = "cfbd"
+        fields["advanced_stats"] = {"source": "cfbd", "season_year": year}
+        return self._result(scraper_key, fields=fields, confidence=0.93 if current else 0.4)
+
+
+class SocialGrowthDeltaScraper(BaseMicroScraper):
+    KEY_SUFFIX = "social_growth_delta"
+    SOURCE_KEY = "derived"
+
+    async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        conn = get_scrape_db()
+        if not conn:
+            return self._result(scraper_key, fields={}, error="db context unavailable")
+        rows = await conn.fetch(
+            """SELECT instagram_followers, tiktok_followers, twitter_followers, scraped_at
+               FROM social_snapshots
+               WHERE athlete_id = $1::uuid
+               ORDER BY scraped_at DESC
+               LIMIT 2""",
+            ctx.athlete_id,
+        )
+        if len(rows) < 2:
+            return self._result(scraper_key, fields={}, confidence=0.2)
+        latest, prior = rows[0], rows[1]
+
+        def delta(key: str) -> float | None:
+            a = latest.get(key)
+            b = prior.get(key)
+            if a is None or b is None:
+                return None
+            try:
+                return float(a) - float(b)
+            except (TypeError, ValueError):
+                return None
+
+        fields: dict[str, Any] = {}
+        for src, out in (
+            ("instagram_followers", "instagram_growth_30d"),
+            ("tiktok_followers", "tiktok_growth_30d"),
+            ("twitter_followers", "twitter_growth_30d"),
+        ):
+            d = delta(src)
+            if d is not None:
+                fields[out] = round(d, 2)
+        return self._result(scraper_key, fields=fields, confidence=0.85 if fields else 0.3)
+
+
+class NewsAggregateScraper(BaseMicroScraper):
+    KEY_SUFFIX = "news_rss"
+    SOURCE_KEY = "on3"
+
+    async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        conn = get_scrape_db()
+        if not conn:
+            return self._result(scraper_key, fields={}, error="db context unavailable")
+        count = await conn.fetchval(
+            """SELECT COUNT(*)::int FROM athlete_events
+               WHERE athlete_id = $1::uuid
+                 AND retracted_at IS NULL
+                 AND occurred_at > NOW() - INTERVAL '30 days'""",
+            ctx.athlete_id,
+        )
+        headlines = await conn.fetch(
+            """SELECT title, category, occurred_at, source_domain
+               FROM athlete_events
+               WHERE athlete_id = $1::uuid
+                 AND retracted_at IS NULL
+                 AND occurred_at > NOW() - INTERVAL '30 days'
+               ORDER BY occurred_at DESC
+               LIMIT 15""",
+            ctx.athlete_id,
+        )
+        fields: dict[str, Any] = {"news_count_30d": int(count or 0)}
+        if headlines:
+            fields["news_headlines_json"] = [
+                {
+                    "title": r["title"],
+                    "category": r["category"],
+                    "occurred_at": r["occurred_at"].isoformat() if r["occurred_at"] else None,
+                    "source": r["source_domain"],
+                }
+                for r in headlines
+            ]
+        brand_deals = [
+            {
+                "brand": r["title"][:120],
+                "category": r["category"],
+                "verified": True,
+                "source": "athlete_events",
+            }
+            for r in headlines
+            if str(r["category"] or "") == "NIL_DEAL"
+        ]
+        if brand_deals and ctx.is_pro:
+            fields["brand_deals"] = brand_deals
+        elif brand_deals:
+            fields["nil_deals"] = brand_deals
+        return self._result(scraper_key, fields=fields, confidence=0.8 if count else 0.3)
+
+
+def _pro_proximity_aliases(fields: dict[str, Any]) -> dict[str, Any]:
+    if fields.get("contract_aav_usd") is not None:
+        fields["contract_aav"] = fields["contract_aav_usd"]
+    if fields.get("endorsement_value_usd") is not None:
+        fields["endorsement_earnings"] = fields["endorsement_value_usd"]
+    return fields
+
+
+class SpotracContractScraper(BaseMicroScraper):
+    KEY_SUFFIX = "spotrac_contract"
+    SOURCE_KEY = "spotrac"
+
+    async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        fc = FirecrawlClient()
+        if not fc.enabled:
+            return self._result(scraper_key, fields={}, error="firecrawl disabled")
+        sport = sport_from_any_key(scraper_key)
+        league = {"nfl": "nfl", "nba": "nba", "wnba": "wnba"}.get(sport, sport)
+        q = ctx.name.replace(" ", "+")
+        try:
+            md = await fc.scrape_markdown(
+                f"https://www.google.com/search?q=site:spotrac.com+{q}+{league}+contract"
+            )
+        except Exception as e:
+            return self._result(scraper_key, fields={}, error=str(e))
+        total = parse_count(md)
+        aav = None
+        for pat in (r"avg\.?\s*(?:annual|salary)[^\d$]*(\$[\d,.]+[KMB]?)", r"AAV[^\d$]*(\$[\d,.]+[KMB]?)"):
+            m = re.search(pat, md, re.I)
+            if m:
+                aav = parse_count(m.group(1))
+                break
+        fields: dict[str, Any] = {}
+        if total:
+            fields["contract_total_usd"] = float(total)
+        if aav:
+            fields["contract_aav_usd"] = float(aav)
+        return self._result(
+            scraper_key,
+            fields=_pro_proximity_aliases(fields),
+            confidence=0.75 if fields else 0.25,
+        )
+
+
+class ForbesEarningsScraper(BaseMicroScraper):
+    KEY_SUFFIX = "forbes_earnings"
+    SOURCE_KEY = "forbes"
+
+    async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        fc = FirecrawlClient()
+        if not fc.enabled:
+            return self._result(scraper_key, fields={}, error="firecrawl disabled")
+        sport = sport_from_any_key(scraper_key)
+        q = ctx.name.replace(" ", "+")
+        try:
+            md = await fc.scrape_markdown(
+                f"https://www.google.com/search?q=site:forbes.com+{q}+{sport}+earnings+endorsement"
+            )
+        except Exception as e:
+            return self._result(scraper_key, fields={}, error=str(e))
+        endorsement = None
+        total = None
+        for label, key in (
+            (r"endorsement[^\d$]*(\$[\d,.]+[KMB]?)", "endorsement_value_usd"),
+            (r"total[^\d$]*earnings[^\d$]*(\$[\d,.]+[KMB]?)", "total_earnings_usd"),
+        ):
+            m = re.search(label, md, re.I)
+            if m:
+                val = parse_count(m.group(1))
+                if val:
+                    if key == "endorsement_value_usd":
+                        endorsement = float(val)
+                    else:
+                        total = float(val)
+        fields: dict[str, Any] = {}
+        if endorsement:
+            fields["endorsement_value_usd"] = endorsement
+        if total:
+            fields["total_earnings_usd"] = total
+        return self._result(
+            scraper_key,
+            fields=_pro_proximity_aliases(fields),
+            confidence=0.7 if fields else 0.25,
+        )
+
+
+class KenPomStatsScraper(BaseMicroScraper):
+    KEY_SUFFIX = "kenpom"
+    SOURCE_KEY = "kenpom"
+
+    async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        if ctx.sport != "ncaab_mens":
+            return self._result(scraper_key, fields={}, error="kenpom is ncaab_mens-only")
+        from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+
+        year = _current_season_year()
+        client = KenPomClient()
+        fields: dict[str, Any] = {}
+        if client.enabled:
+            fields = await client.player_stats(season=year, name=ctx.name)
+        else:
+            fc = FirecrawlClient()
+            if not fc.enabled:
+                return self._result(scraper_key, fields={}, error="KENPOM_API_KEY and Firecrawl unavailable")
+            try:
+                md = await fc.scrape_markdown(
+                    f"https://www.google.com/search?q=site:kenpom.com+{ctx.name.replace(' ', '+')}+stats"
+                )
+                fields = parse_kenpom_markdown(md)
+            except Exception as e:
+                return self._result(scraper_key, fields={}, error=str(e))
+        if fields.get("usage_rate") is not None and fields.get("usage") is None:
+            fields["usage"] = fields["usage_rate"]
+        if fields:
+            fields["advanced_stats"] = {"source": "kenpom", "season_year": year}
+            fields["stats_source"] = "kenpom"
+        return self._result(scraper_key, fields=fields, confidence=0.9 if fields else 0.25)
+
+
+class SiteSearchScraper(BaseMicroScraper):
+    """Google site-search scraper for sport-specific third-party sources."""
+
+    KEY_SUFFIX = ""
+
+    async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        suffix = site_suffix_for_key(scraper_key)
+        if not suffix:
+            return self._result(scraper_key, fields={}, error="unknown site-search scraper")
+        cfg = SITE_SEARCH_CONFIG[suffix]
+        expected_sport = cfg.get("sport")
+        if expected_sport and ctx.sport != expected_sport:
+            return self._result(
+                scraper_key,
+                fields={},
+                error=f"{suffix} is {expected_sport}-only",
+            )
+        fc = FirecrawlClient()
+        if not fc.enabled:
+            return self._result(scraper_key, fields={}, error="firecrawl disabled")
+        try:
+            fields = await scrape_site_fields(
+                fc,
+                domain=str(cfg["domain"]),
+                name=ctx.name,
+                team=ctx.team or ctx.school,
+                parse=cfg["parse"],
+            )
+        except Exception as e:
+            return self._result(scraper_key, fields={}, error=str(e))
+        if fields.get("usage") is None and fields.get("usage_rate") is not None:
+            fields["usage"] = fields["usage_rate"]
+        return self._result(scraper_key, fields=fields, confidence=0.75 if fields else 0.25)
+
+
+class Recruiting247Scraper(BaseMicroScraper):
+    KEY_SUFFIX = "recruiting_247"
+    SOURCE_KEY = "247sports"
+
+    async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        if ctx.is_pro:
+            return self._result(scraper_key, fields={}, error="recruiting_247 is college-only")
+        fc = FirecrawlClient()
+        if not fc.enabled:
+            return self._result(scraper_key, fields={}, error="firecrawl disabled")
+        parts = [ctx.name.replace(" ", "+")]
+        if ctx.school:
+            parts.append(ctx.school.replace(" ", "+"))
+        q = "+".join(parts)
+        md = ""
+        try:
+            md = await fc.scrape_markdown(f"https://www.google.com/search?q=site:247sports.com+{q}")
+            fields = parse_247_recruiting_profile(md)
+            player_id = fields.get("external_id_247") or ctx.existing_raw.get("external_id_247")
+            if player_id and not fields.get("recruiting_stars"):
+                profile_md = await fc.scrape_markdown(
+                    f"https://247sports.com/player/-{player_id}/"
+                )
+                fields.update(parse_247_recruiting_profile(profile_md))
+            elif not fields.get("recruiting_stars"):
+                profile_md = await fc.scrape_markdown(
+                    f"https://www.google.com/search?q=site:247sports.com/player+{q}+recruiting"
+                )
+                fields.update(parse_247_recruiting_profile(profile_md))
+        except Exception as e:
+            return self._result(scraper_key, fields={}, error=str(e))
+        return self._result(scraper_key, fields=fields, confidence=0.78 if fields else 0.25)
+
+
+class OpendorseProfileScraper(BaseMicroScraper):
+    KEY_SUFFIX = "opendorse_profile"
+    SOURCE_KEY = "opendorse"
+
+    async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        if ctx.is_pro:
+            return self._result(scraper_key, fields={}, error="opendorse_profile is college-only")
+        fc = FirecrawlClient()
+        if not fc.enabled:
+            return self._result(scraper_key, fields={}, error="firecrawl disabled")
+        q = ctx.name.replace(" ", "+")
+        if ctx.school:
+            q = f"{q}+{ctx.school.replace(' ', '+')}"
+        try:
+            md = await fc.scrape_markdown(f"https://www.google.com/search?q=site:opendorse.com+{q}")
+            fields = parse_opendorse_profile(md)
+            if not fields.get("nil_valuation") and not fields.get("marketplace_listing"):
+                md = await fc.scrape_markdown(
+                    f"https://www.google.com/search?q=site:opendorse.com/athletes+{q}"
+                )
+                fields.update(parse_opendorse_profile(md))
+        except Exception as e:
+            return self._result(scraper_key, fields={}, error=str(e))
+
+        if fields.get("nil_valuation"):
+            sources: list[dict[str, Any]] = []
+            if ctx.existing_raw.get("nil_valuation"):
+                sources.append(
+                    {
+                        "nil_valuation": ctx.existing_raw["nil_valuation"],
+                        "source": ctx.existing_raw.get("nil_valuation_source") or "existing_raw",
+                        "confidence": 0.75,
+                    }
+                )
+            sources.append(
+                {
+                    "nil_valuation": fields["nil_valuation"],
+                    "source": "opendorse",
+                    "confidence": 0.88,
+                }
+            )
+            consensus = verify_nil_consensus(sources)
+            fields.update(
+                {
+                    k: v
+                    for k, v in consensus.items()
+                    if k in ("nil_valuation", "nil_valuation_source", "nil_confidence")
+                }
+            )
+        return self._result(scraper_key, fields=fields, confidence=0.82 if fields else 0.25)
+
+
+class SportsRefHonorsScraper(BaseMicroScraper):
+    KEY_SUFFIX = "sports_ref_honors"
+    SOURCE_KEY = "sports_reference"
+
+    async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        domain = ref_domain_for_sport(ctx.sport)
+        if not domain:
+            return self._result(scraper_key, fields={}, error=f"no sports ref domain for {ctx.sport}")
+        fc = FirecrawlClient()
+        if not fc.enabled:
+            return self._result(scraper_key, fields={}, error="firecrawl disabled")
+        parts = [ctx.name.replace(" ", "+")]
+        team = ctx.team or ctx.school
+        if team:
+            parts.append(team.replace(" ", "+"))
+        q = "+".join(parts)
+        try:
+            md = await fc.scrape_markdown(
+                f"https://www.google.com/search?q=site:{domain}+{q}+awards+honors"
+            )
+            fields = parse_sports_ref_honors(md)
+        except Exception as e:
+            return self._result(scraper_key, fields={}, error=str(e))
+        return self._result(scraper_key, fields=fields, confidence=0.85 if fields else 0.25)
 
 
 class GenericPassthroughScraper(BaseMicroScraper):
@@ -650,6 +1088,16 @@ ALL_SCRAPER_CLASSES: list[type[BaseMicroScraper]] = [
     ChampionshipResultsScraper,
     CollegeExperienceProScraper,
     ProgramContextScraper,
+    CfbdStatsScraper,
+    SocialGrowthDeltaScraper,
+    NewsAggregateScraper,
+    SpotracContractScraper,
+    ForbesEarningsScraper,
+    KenPomStatsScraper,
+    SiteSearchScraper,
+    Recruiting247Scraper,
+    OpendorseProfileScraper,
+    SportsRefHonorsScraper,
 ]
 
 _IMPLEMENTATIONS: dict[str, BaseMicroScraper] = {}
@@ -658,7 +1106,11 @@ for cls in ALL_SCRAPER_CLASSES:
 
 
 def get_scraper_impl(scraper_key: str) -> BaseMicroScraper | None:
+    if site_suffix_for_key(scraper_key):
+        return _IMPLEMENTATIONS.get("")
     for suffix, impl in _IMPLEMENTATIONS.items():
+        if not suffix:
+            continue
         if scraper_key.startswith(f"{suffix}_") or scraper_key == suffix:
             return impl
     if scraper_key == "program_context" or scraper_key.startswith("program_context"):

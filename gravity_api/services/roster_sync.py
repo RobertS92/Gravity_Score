@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -12,6 +13,7 @@ from typing import Any, Awaitable, Callable
 import asyncpg
 
 from gravity_api.scrapers.clients.espn import EspnClient, normalize_sport
+from gravity_api.scrapers.observations import seed_raw_from_roster_if_missing
 from gravity_api.scrapers.roster.roster_diff import SnapshotRow, compute_roster_changes
 from gravity_api.scrapers.roster.school_index import (
     all_sports_in_index,
@@ -22,6 +24,8 @@ from gravity_api.scrapers.roster.school_index import (
 logger = logging.getLogger(__name__)
 
 RescrapeFn = Callable[[asyncpg.Connection, str], Awaitable[None]]
+
+DEFAULT_ROSTER_FETCH_CONCURRENCY = int(os.environ.get("ROSTER_FETCH_CONCURRENCY", "12"))
 
 
 def _default_season_year() -> str:
@@ -61,15 +65,19 @@ async def sync_team_roster(
     snapshot_date: date | None = None,
     defer_snapshot: bool = False,
     snapshots_out: list[SnapshotRow] | None = None,
+    roster_payload: dict[str, Any] | None = None,
+    espn: EspnClient | None = None,
 ) -> dict[str, Any]:
     """Fetch one ESPN roster and upsert athletes (school = team display name)."""
     canonical = _canonical_sport(sport)
     season = roster_season or _default_season_year()
     snap_d = snapshot_date or date.today()
     now = datetime.now(timezone.utc)
-    espn = EspnClient()
+    client = espn or EspnClient()
 
-    payload = await espn.fetch_roster_payload(canonical, espn_team_id)
+    payload = roster_payload
+    if payload is None:
+        payload = await client.fetch_roster_payload(canonical, espn_team_id)
     if not payload:
         return {
             "sport": canonical,
@@ -81,11 +89,18 @@ async def sync_team_roster(
     team_name = team_block.get("displayName") or team_block.get("name") or ""
     conference = EspnClient.parse_team_conference({"team": team_block})
     if not conference:
-        detail = await espn.fetch_team_detail(canonical, espn_team_id)
+        detail = await client.fetch_team_detail(canonical, espn_team_id)
         conference = EspnClient.parse_team_conference(detail) if detail else None
 
     players = EspnClient.flatten_roster_players(payload)
-    added = updated = transfers = 0
+    if not players:
+        logger.warning(
+            "[%s] team %s (%s): roster HTTP OK but 0 players parsed",
+            canonical,
+            espn_team_id,
+            team_name or "?",
+        )
+    added = updated = transfers = seeded = 0
     errors: list[str] = []
 
     for item in players:
@@ -216,6 +231,16 @@ async def sync_team_roster(
                 aid = str(row["id"])
                 added += 1
 
+            seed_fields = EspnClient.roster_item_to_raw_fields(
+                item,
+                team_name=team_name,
+                conference=conference,
+            )
+            if await seed_raw_from_roster_if_missing(
+                conn, athlete_id=aid, fields=seed_fields
+            ):
+                seeded += 1
+
             snap_row = SnapshotRow(
                 athlete_id=aid,
                 espn_athlete_id=ext_id_s,
@@ -259,6 +284,7 @@ async def sync_team_roster(
         "added": added,
         "updated": updated,
         "transfers_flagged": transfers,
+        "raw_seeded": seeded,
         "roster_season": season,
         "errors": errors,
     }
@@ -329,17 +355,26 @@ async def sync_sport_rosters(
     *,
     roster_season: str | None = None,
     rescrape_transfers: RescrapeFn | None = None,
+    fetch_concurrency: int | None = None,
 ) -> dict[str, Any]:
     """Sync all teams for one sport, diff snapshots, optionally rescrape transfers."""
     canonical = _canonical_sport(sport)
     snap_d = date.today()
     current: list[SnapshotRow] = []
     results: list[dict[str, Any]] = []
+    fetch_sem = asyncio.Semaphore(fetch_concurrency or DEFAULT_ROSTER_FETCH_CONCURRENCY)
+    espn = EspnClient()
 
-    for tid in team_ids:
+    async def fetch_team(tid: str) -> tuple[str, dict[str, Any]]:
         tid = tid.strip()
-        if not tid:
-            continue
+        async with fetch_sem:
+            payload = await espn.fetch_roster_payload(canonical, tid)
+        return tid, payload
+
+    cleaned_ids = [tid.strip() for tid in team_ids if tid.strip()]
+    fetched = await asyncio.gather(*[fetch_team(tid) for tid in cleaned_ids])
+
+    for tid, payload in fetched:
         try:
             results.append(
                 await sync_team_roster(
@@ -350,6 +385,8 @@ async def sync_sport_rosters(
                     snapshot_date=snap_d,
                     defer_snapshot=True,
                     snapshots_out=current,
+                    roster_payload=payload,
+                    espn=espn,
                 )
             )
         except Exception as exc:

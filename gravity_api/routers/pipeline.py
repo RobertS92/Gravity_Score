@@ -24,7 +24,10 @@ class PipelineRunBody(BaseModel):
 class NightlyBody(BaseModel):
     sport: str | None = None
     athlete_limit: int = Field(100, ge=1, le=2000)
-    concurrency: int = Field(4, ge=1, le=32)
+    concurrency: int | None = Field(None, ge=1, le=32)
+    scrape_concurrency: int = Field(3, ge=1, le=32)
+    score_concurrency: int = Field(8, ge=1, le=32)
+    sport_parallel: int = Field(1, ge=1, le=8)
     scrape: bool = True
     rebuild_cohorts: bool = True
     score: bool = True
@@ -55,6 +58,8 @@ async def run_nightly_pipeline(
             sport=body.sport,
             athlete_limit=body.athlete_limit,
             concurrency=body.concurrency,
+            scrape_concurrency=body.scrape_concurrency,
+            score_concurrency=body.score_concurrency,
             scrape=body.scrape,
             rebuild_cohorts=body.rebuild_cohorts,
             score=body.score,
@@ -73,6 +78,9 @@ async def run_nightly_pipeline(
         db,
         athlete_limit_per_sport=body.athlete_limit,
         concurrency=body.concurrency,
+        scrape_concurrency=body.scrape_concurrency,
+        score_concurrency=body.score_concurrency,
+        sport_parallel=body.sport_parallel,
     )
 
 

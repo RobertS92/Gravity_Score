@@ -112,6 +112,48 @@ EVENT_SCRAPER_SUFFIXES: dict[str, list[str]] = {
     ],
 }
 
+# Suffixes that only apply to college athletes (blocked for pro tier).
+COLLEGE_ONLY_SUFFIXES = frozenset(
+    {
+        "ncaa_official_roster",
+        "transfer_portal",
+        "recruiting_247",
+        "recruiting_rivals",
+        "recruiting_espn",
+        "on3_nil",
+        "nil_deal_verified",
+        "inflcr_social",
+    }
+)
+
+# Additional sport-specific keys appended to scheduled_full (beyond suffix expansion).
+SCHEDULED_SPORT_API_KEYS: dict[str, list[str]] = {
+    "ncaab_mens": ["kenpom_ncaab_mens"],
+    "ncaab_womens": ["her_hoop_stats_ncaab_womens"],
+    "ncaa_baseball": [
+        "perfect_game_recruiting_baseball",
+        "d1baseball_rankings_baseball",
+        "mlb_draft_pipeline_baseball",
+    ],
+    "ncaa_volleyball": [
+        "avca_poll_volleyball",
+        "prepvolleyball_recruiting_volleyball",
+        "avca_all_american_volleyball",
+    ],
+}
+
+SCHEDULED_PRO_API_KEYS: dict[str, list[str]] = {
+    "nfl": ["spotrac_contract_nfl", "forbes_earnings_nfl", "fantasy_adp_nfl"],
+    "nba": ["spotrac_contract_nba", "forbes_earnings_nba", "college_experience_pro_nba"],
+    "wnba": ["spotrac_contract_wnba", "forbes_earnings_wnba"],
+}
+
+SCHEDULED_SHARED_VELOCITY = [
+    "news_rss_on3",
+    "social_growth_delta",
+    "program_context",
+]
+
 # Legacy dimension map (unchanged API surface)
 COLLECTOR_MAP: dict[str, list[str]] = {
     "transfer_portal": ["identity", "proximity", "risk"],
@@ -142,11 +184,18 @@ def resolve_event_scraper_keys(
 ) -> list[str]:
     """Return concrete scraper_keys for an event + sport."""
     from gravity_api.scraper_registry import registry_by_key
+    from gravity_api.scraper_registry.sports import SPORTS
 
     keys_map = registry_by_key()
+    league_tier = SPORTS.get(sport, {}).get("league_tier", "college")
     suffixes = list(
         EVENT_SCRAPER_SUFFIXES.get(event_type, EVENT_SCRAPER_SUFFIXES["scheduled_full"])
     )
+    if event_type == "scheduled_full":
+        suffixes.extend(SCHEDULED_SHARED_VELOCITY)
+        suffixes.extend(SCHEDULED_SPORT_API_KEYS.get(sport, []))
+        if league_tier == "pro":
+            suffixes.extend(SCHEDULED_PRO_API_KEYS.get(sport, []))
     if event_type == "scheduled_full" and include_extended:
         suffixes.extend(EVENT_SCRAPER_SUFFIXES.get("scheduled_extended", []))
     shared_keys = {
@@ -169,8 +218,10 @@ def resolve_event_scraper_keys(
         "college_experience_pro_nba",
         "spotrac_contract_nfl",
         "spotrac_contract_nba",
+        "spotrac_contract_wnba",
         "forbes_earnings_nfl",
         "forbes_earnings_nba",
+        "forbes_earnings_wnba",
         "fantasy_adp_nfl",
         "news_rss_espn_cfb",
         "news_rss_espn_ncaab_mens",
@@ -180,14 +231,39 @@ def resolve_event_scraper_keys(
     }
 
     pro_sports = {"nfl", "nba", "wnba"}
+    # Keys that only apply to specific sports (skip wrong-sport suffix expansion).
+    sport_exclusive_keys: dict[str, frozenset[str]] = {
+        "cfbd_api_stats_cfb": frozenset({"cfb"}),
+        "kenpom_ncaab_mens": frozenset({"ncaab_mens"}),
+        "her_hoop_stats_ncaab_womens": frozenset({"ncaab_womens"}),
+        "perfect_game_recruiting_baseball": frozenset({"ncaa_baseball"}),
+        "d1baseball_rankings_baseball": frozenset({"ncaa_baseball"}),
+        "mlb_draft_pipeline_baseball": frozenset({"ncaa_baseball"}),
+        "avca_poll_volleyball": frozenset({"ncaa_volleyball"}),
+        "prepvolleyball_recruiting_volleyball": frozenset({"ncaa_volleyball"}),
+        "avca_all_american_volleyball": frozenset({"ncaa_volleyball"}),
+        "college_experience_pro_nba": frozenset({"nba"}),
+        "spotrac_contract_nfl": frozenset({"nfl"}),
+        "spotrac_contract_nba": frozenset({"nba"}),
+        "spotrac_contract_wnba": frozenset({"wnba"}),
+        "forbes_earnings_nfl": frozenset({"nfl"}),
+        "forbes_earnings_nba": frozenset({"nba"}),
+        "forbes_earnings_wnba": frozenset({"wnba"}),
+        "fantasy_adp_nfl": frozenset({"nfl"}),
+    }
     resolved: list[str] = []
     for suffix in suffixes:
+        if league_tier == "pro" and suffix in COLLEGE_ONLY_SUFFIXES:
+            continue
         if suffix in shared_keys:
             key = suffix
         elif suffix in sport_only_keys:
             key = suffix
         else:
             key = f"{suffix}_{sport}"
+        allowed = sport_exclusive_keys.get(key)
+        if allowed is not None and sport not in allowed:
+            continue
         if key == "college_experience_pro" and sport not in pro_sports:
             continue
         if key in keys_map:

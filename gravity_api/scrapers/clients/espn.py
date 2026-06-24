@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+import contextvars
 import logging
 from typing import Any
 
 import httpx
 
-from gravity_api.scraper_registry.sports import SPORTS
-
 logger = logging.getLogger(__name__)
+
+_espn_get_cache: contextvars.ContextVar[dict[str, dict[str, Any]] | None] = (
+    contextvars.ContextVar("_espn_get_cache", default=None)
+)
+
+
+def begin_espn_cache() -> None:
+    """Start in-memory GET dedup for the current athlete scrape run."""
+    _espn_get_cache.set({})
+
+
+def clear_espn_cache() -> None:
+    _espn_get_cache.set(None)
 
 
 def _espn_nested_description(value: Any) -> str | None:
@@ -53,6 +65,9 @@ CORE_LEAGUE_PATH: dict[str, str] = {
     "wnba": "basketball/leagues/wnba",
 }
 
+# common v3 athlete endpoints often 500 for these sports — prefer core API first.
+CORE_PROFILE_FIRST_SPORTS = frozenset({"ncaa_baseball", "ncaa_volleyball"})
+
 
 def normalize_sport(sport: str) -> str:
     s = sport.lower().strip()
@@ -63,18 +78,69 @@ def normalize_sport(sport: str) -> str:
     return s
 
 
+def _profile_from_core_athlete(athlete: dict[str, Any], athlete_id: str) -> dict[str, Any]:
+    pos = athlete.get("position") or {}
+    identity: dict[str, Any] = {
+        "player_name": athlete.get("displayName") or athlete.get("fullName"),
+        "position": pos.get("abbreviation") if isinstance(pos, dict) else pos,
+        "jersey_number": athlete.get("jersey"),
+        "team": None,
+        "college": None,
+        "headshot_url": (athlete.get("headshot") or {}).get("href")
+        if isinstance(athlete.get("headshot"), dict)
+        else athlete.get("headshot"),
+        "espn_id": athlete_id,
+    }
+    exp = athlete.get("experience")
+    if isinstance(exp, dict):
+        identity["class_year"] = exp.get("displayValue")
+    elif isinstance(exp, str):
+        identity["class_year"] = exp
+    if athlete.get("height") is not None:
+        identity["height_inches"] = athlete.get("height")
+    if athlete.get("weight") is not None:
+        identity["weight_lbs"] = athlete.get("weight")
+    return identity
+
+
+def _stats_from_core_payload(data: dict[str, Any]) -> dict[str, Any]:
+    from gravity_api.scrapers.parsers.espn_stats import stats_from_espn_payload
+
+    return stats_from_espn_payload(data)
+
+
 class EspnClient:
     def __init__(self, *, timeout_s: float = 30.0):
         self.timeout_s = timeout_s
 
-    async def _get(self, url: str) -> dict[str, Any]:
+    async def _get(self, url: str, *, allow_empty: bool = True) -> dict[str, Any]:
+        cache = _espn_get_cache.get()
+        if cache is not None and url in cache:
+            return dict(cache[url])
+
         async with httpx.AsyncClient(timeout=self.timeout_s, headers=ESPN_HEADERS) as client:
             resp = await client.get(url)
             if resp.status_code in (400, 404, 500, 502, 503):
-                return {}
-            resp.raise_for_status()
-            data = resp.json()
-            return data if isinstance(data, dict) else {}
+                data: dict[str, Any] = {}
+            else:
+                resp.raise_for_status()
+                raw = resp.json()
+                data = raw if isinstance(raw, dict) else {}
+
+        if cache is not None:
+            cache[url] = data
+        return data
+
+    async def _get_core(self, sport: str, path: str) -> dict[str, Any]:
+        sport = normalize_sport(sport)
+        league = CORE_LEAGUE_PATH.get(sport)
+        if not league:
+            return {}
+        url = f"https://sports.core.api.espn.com/v2/sports/{league}/{path.lstrip('/')}"
+        data = await self._get(url)
+        if data.get("error"):
+            return {}
+        return data
 
     async def search_athlete(
         self, name: str, sport: str, *, team: str | None = None
@@ -88,7 +154,6 @@ class EspnClient:
         data = await self._get(url)
         items = data.get("results") or []
         name_lower = name.lower()
-        team_lower = (team or "").lower()
         for bucket in items:
             for entry in bucket.get("contents") or []:
                 if entry.get("type") != "player":
@@ -102,7 +167,6 @@ class EspnClient:
                 link = str(entry.get("link") or entry.get("href") or "")
                 if "/id/" in link:
                     return link.split("/id/")[-1].split("/")[0]
-        # Fallback: common v3 athletes search
         search_url = (
             f"https://site.api.espn.com/apis/common/v3/sports/{league}/athletes"
             f"?search={q}&limit=5"
@@ -114,7 +178,9 @@ class EspnClient:
                 return str(item.get("id") or "")
         return None
 
-    async def get_athlete_profile(self, athlete_id: str, sport: str) -> dict[str, Any]:
+    async def _get_athlete_profile_site(
+        self, athlete_id: str, sport: str
+    ) -> dict[str, Any]:
         sport = normalize_sport(sport)
         league = SITE_LEAGUE_PATH.get(sport)
         if not league:
@@ -122,9 +188,13 @@ class EspnClient:
         url = f"https://site.api.espn.com/apis/common/v3/sports/{league}/athletes/{athlete_id}"
         data = await self._get(url)
         athlete = data.get("athlete") or data
+        if not athlete or not isinstance(athlete, dict):
+            return {}
         identity: dict[str, Any] = {
             "player_name": athlete.get("displayName") or athlete.get("fullName"),
-            "position": (athlete.get("position") or {}).get("abbreviation"),
+            "position": (athlete.get("position") or {}).get("abbreviation")
+            if isinstance(athlete.get("position"), dict)
+            else athlete.get("position"),
             "jersey_number": athlete.get("jersey"),
             "team": (athlete.get("team") or {}).get("displayName"),
             "college": (athlete.get("college") or {}).get("name")
@@ -172,7 +242,55 @@ class EspnClient:
             "raw": athlete,
         }
 
-    async def get_season_stats(self, athlete_id: str, sport: str) -> dict[str, Any]:
+    async def _get_athlete_profile_core(
+        self, athlete_id: str, sport: str
+    ) -> dict[str, Any]:
+        athlete = await self._get_core(sport, f"athletes/{athlete_id}")
+        if not athlete:
+            return {}
+        identity = _profile_from_core_athlete(athlete, athlete_id)
+        return {
+            "identity": identity,
+            "injuries": [],
+            "awards": [],
+            "raw": athlete,
+        }
+
+    async def get_athlete_profile(self, athlete_id: str, sport: str) -> dict[str, Any]:
+        sport = normalize_sport(sport)
+        if sport in CORE_PROFILE_FIRST_SPORTS:
+            profile = await self._get_athlete_profile_core(athlete_id, sport)
+            if profile.get("identity", {}).get("player_name"):
+                return profile
+            site = await self._get_athlete_profile_site(athlete_id, sport)
+            return site if site else profile
+
+        profile = await self._get_athlete_profile_site(athlete_id, sport)
+        if profile.get("identity", {}).get("player_name"):
+            return profile
+        return await self._get_athlete_profile_core(athlete_id, sport)
+
+    def _pack_stats_response(
+        self, data: dict[str, Any], *, stats_source: str
+    ) -> dict[str, Any]:
+        from gravity_api.scrapers.parsers.espn_stats import build_stats_bundle
+
+        if not data:
+            return {}
+        bundle = build_stats_bundle(data)
+        current = bundle.get("current") or {}
+        if not current and not bundle.get("history"):
+            return {}
+        return {
+            "season_stats": current,
+            "season_stats_history": bundle.get("history") or {},
+            "career_stats": bundle.get("career") or {},
+            "stats_as_of": bundle.get("stats_as_of"),
+            "stats_source": stats_source,
+            "raw": data,
+        }
+
+    async def _get_season_stats_site(self, athlete_id: str, sport: str) -> dict[str, Any]:
         sport = normalize_sport(sport)
         league = SITE_LEAGUE_PATH.get(sport)
         if not league:
@@ -182,21 +300,25 @@ class EspnClient:
             f"{athlete_id}/stats"
         )
         data = await self._get(url)
-        splits = data.get("splits") or {}
-        categories = splits.get("categories") or data.get("categories") or []
-        season_stats: dict[str, Any] = {}
-        for cat in categories:
-            for stat in cat.get("stats") or []:
-                key = stat.get("name") or stat.get("abbreviation")
-                val = stat.get("value") or stat.get("displayValue")
-                if key:
-                    season_stats[str(key)] = val
-        return {
-            "season_stats": season_stats,
-            "stats_as_of": data.get("season") or data.get("displaySeason"),
-            "stats_source": "espn",
-            "raw": data,
-        }
+        return self._pack_stats_response(data, stats_source="espn")
+
+    async def _get_season_stats_core(self, athlete_id: str, sport: str) -> dict[str, Any]:
+        data = await self._get_core(sport, f"athletes/{athlete_id}/statistics")
+        return self._pack_stats_response(data, stats_source="espn_core")
+
+    async def get_season_stats(self, athlete_id: str, sport: str) -> dict[str, Any]:
+        sport = normalize_sport(sport)
+        if sport in CORE_PROFILE_FIRST_SPORTS:
+            stats = await self._get_season_stats_core(athlete_id, sport)
+            if stats.get("season_stats"):
+                return stats
+            site = await self._get_season_stats_site(athlete_id, sport)
+            return site if site.get("season_stats") else stats
+
+        stats = await self._get_season_stats_site(athlete_id, sport)
+        if stats.get("season_stats"):
+            return stats
+        return await self._get_season_stats_core(athlete_id, sport)
 
     async def get_college_career_for_pro(
         self, name: str, college: str | None, pro_sport: str
@@ -210,12 +332,27 @@ class EspnClient:
             return {"college_career_found": False}
         profile = await self.get_athlete_profile(athlete_id, college_sport)
         stats = await self.get_season_stats(athlete_id, college_sport)
+        from gravity_api.scrapers.parsers.stat_normalizer import merge_stat_layers
+
+        college_layers = merge_stat_layers(
+            college_sport,
+            current=stats.get("season_stats"),
+            history=stats.get("season_stats_history"),
+            career=stats.get("career_stats"),
+        )
         return {
             "college_career_found": True,
             "college_sport_scraped": college_sport,
             "college_espn_id": athlete_id,
             "college_identity": profile.get("identity") or {},
-            "college_stats": stats.get("season_stats") or {},
+            "college_stats": college_layers.get("season_stats") or stats.get("season_stats") or {},
+            "college_stats_history": college_layers.get("season_stats_history")
+            or stats.get("season_stats_history")
+            or {},
+            "college_career_stats": college_layers.get("career_stats")
+            or stats.get("career_stats")
+            or {},
+            "college_stats_json": college_layers.get("season_stats") or {},
             "college_awards": profile.get("awards") or [],
             "college_achievements_json": profile.get("awards") or [],
         }
@@ -252,7 +389,6 @@ class EspnClient:
                     if isinstance(item, dict):
                         out.append(item)
                 continue
-            # Basketball / WNBA / NBA: flat player list (no position buckets).
             if (
                 bucket.get("id") is not None
                 or bucket.get("displayName")
@@ -260,6 +396,45 @@ class EspnClient:
             ):
                 out.append(bucket)
         return out
+
+    @staticmethod
+    def roster_item_to_raw_fields(
+        item: dict[str, Any],
+        *,
+        team_name: str,
+        conference: str | None,
+    ) -> dict[str, Any]:
+        """Baseline scrape fields from ESPN roster payload (no profile API needed)."""
+        display = item.get("fullName") or item.get("displayName") or ""
+        pos = EspnClient.position_str(item)
+        exp = item.get("experience") or {}
+        class_year = str(exp.get("displayValue") or "") or None if isinstance(exp, dict) else None
+        fields: dict[str, Any] = {
+            "player_name": str(display).strip() or None,
+            "espn_id": str(item.get("id")) if item.get("id") is not None else None,
+            "position": pos or None,
+            "team": team_name,
+            "college": team_name,
+            "conference": conference,
+            "jersey_number": EspnClient.jersey_str(item),
+            "class_year": class_year,
+            "roster_seeded": True,
+            "stats_source": "espn_roster",
+            "is_on_roster": True,
+        }
+        if item.get("height") is not None:
+            fields["height_inches"] = item.get("height")
+        if item.get("weight") is not None:
+            fields["weight_lbs"] = item.get("weight")
+        bp = item.get("birthPlace") or {}
+        if isinstance(bp, dict):
+            city = bp.get("city")
+            st = bp.get("state")
+            if city or st:
+                fields["hometown"] = ", ".join(p for p in (city, st) if p)
+            if st:
+                fields["home_state"] = str(st)
+        return {k: v for k, v in fields.items() if v is not None and v != ""}
 
     @staticmethod
     def position_str(item: dict[str, Any]) -> str:

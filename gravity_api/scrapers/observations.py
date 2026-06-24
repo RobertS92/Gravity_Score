@@ -90,17 +90,50 @@ async def merge_raw_athlete_data(
            ORDER BY scraped_at DESC NULLS LAST LIMIT 1""",
         athlete_id,
     )
-    merged: dict[str, Any] = dict(row["raw_data"]) if row and row["raw_data"] else {}
-    if isinstance(merged, str):
-        merged = json.loads(merged)
+    merged: dict[str, Any] = {}
+    if row and row["raw_data"]:
+        raw = row["raw_data"]
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+                merged = dict(parsed) if isinstance(parsed, dict) else {}
+            except json.JSONDecodeError:
+                merged = {}
+        elif isinstance(raw, dict):
+            merged = dict(raw)
     merged.update(fields)
     merged["collection_timestamp"] = datetime.now(tz=timezone.utc).isoformat()
     await conn.execute(
         """INSERT INTO raw_athlete_data (
              athlete_id, athlete_name, sport, raw_data, scraped_at, scrape_version
-           ) VALUES ($1::uuid, $2, $3, $4::jsonb, NOW(), 'gravity_api_scrapers_v1')""",
+           ) VALUES ($1::uuid, $2, $3, $4::jsonb, NOW(), 'gravity_api_scrapers_v1')
+           ON CONFLICT (athlete_id) DO UPDATE SET
+             athlete_name = EXCLUDED.athlete_name,
+             sport = EXCLUDED.sport,
+             raw_data = EXCLUDED.raw_data,
+             scraped_at = NOW(),
+             scrape_version = EXCLUDED.scrape_version""",
         athlete_id,
         str(athlete["name"]),
         str(athlete["sport"]),
         json.dumps(merged, default=str),
     )
+
+
+async def seed_raw_from_roster_if_missing(
+    conn: asyncpg.Connection,
+    *,
+    athlete_id: str,
+    fields: dict[str, Any],
+) -> bool:
+    """Insert baseline raw_athlete_data from roster sync when athlete has no scrape row."""
+    if not fields:
+        return False
+    exists = await conn.fetchval(
+        "SELECT 1 FROM raw_athlete_data WHERE athlete_id = $1::uuid LIMIT 1",
+        athlete_id,
+    )
+    if exists:
+        return False
+    await merge_raw_athlete_data(conn, athlete_id=athlete_id, fields=fields)
+    return True

@@ -135,6 +135,69 @@ def flatten_raw_data(raw: dict[str, Any] | None) -> dict[str, Any]:
     return out
 
 
+def flatten_raw_data_export(raw: dict[str, Any] | None) -> dict[str, Any]:
+    """Flatten all top-level raw_athlete_data fields for CSV export."""
+    if not raw:
+        return {}
+    out: dict[str, Any] = {}
+    out.update(flatten_raw_data(raw))
+    for key, value in raw.items():
+        if key in SKIP_JSON_KEYS:
+            continue
+        col = f"raw_{key}"
+        if col in out:
+            continue
+        if isinstance(value, (dict, list)):
+            out[col] = json.dumps(value, default=str)
+        elif value is not None and value != "":
+            out[col] = value
+    return out
+
+
+def build_scraped_row(
+    *,
+    entity_id: str,
+    sport: str | None,
+    identity: dict[str, Any],
+    raw_data: dict[str, Any] | None,
+    scraped_at: str | None = None,
+    scrape_version: str | None = None,
+    has_raw: bool = False,
+) -> dict[str, Any]:
+    """Build export row from athlete identity + latest raw scrape (no scores)."""
+    row: dict[str, Any] = {
+        "entity_id": entity_id,
+        "entity_type": "athlete",
+        "sport": sport,
+        "scraped_at": scraped_at,
+        "scrape_version": scrape_version,
+        "has_raw_scrape": has_raw,
+    }
+    for k in (
+        "name",
+        "school",
+        "position",
+        "conference",
+        "class_year",
+        "espn_id",
+        "jersey_number",
+        "height_inches",
+        "weight_lbs",
+        "hometown",
+        "home_state",
+        "is_active",
+        "roster_status",
+    ):
+        if identity.get(k) is not None:
+            row[k] = identity[k]
+    parsed = raw_data or {}
+    if parsed:
+        row["raw_data_json"] = json.dumps(parsed, default=str)
+        row["roster_seeded"] = bool(parsed.get("roster_seeded"))
+    row.update(flatten_raw_data_export(parsed))
+    return row
+
+
 def build_training_row(
     *,
     entity_id: str,
@@ -214,13 +277,7 @@ def build_training_row(
     return row
 
 
-def rows_to_csv(rows: list[dict[str, Any]]) -> str:
-    """Serialize rows to CSV string (stdlib, no pandas required)."""
-    import csv
-    from io import StringIO
-
-    if not rows:
-        return ""
+def _csv_columns(rows: list[dict[str, Any]]) -> list[str]:
     columns: list[str] = []
     seen: set[str] = set()
     for row in rows:
@@ -228,27 +285,64 @@ def rows_to_csv(rows: list[dict[str, Any]]) -> str:
             if key not in seen:
                 seen.add(key)
                 columns.append(key)
+    return columns
+
+
+def _csv_row_values(row: dict[str, Any]) -> dict[str, Any]:
+    clean: dict[str, Any] = {}
+    for k, v in row.items():
+        if isinstance(v, (dict, list)):
+            clean[k] = json.dumps(v, default=str)
+        elif v is None:
+            clean[k] = ""
+        else:
+            clean[k] = v
+    return clean
+
+
+def rows_to_csv(rows: list[dict[str, Any]]) -> str:
+    """Serialize rows to CSV string (stdlib, no pandas required)."""
+    import csv
+    from io import StringIO
+
+    if not rows:
+        return ""
+    columns = _csv_columns(rows)
     buf = StringIO()
     writer = csv.DictWriter(buf, fieldnames=columns, extrasaction="ignore")
     writer.writeheader()
     for row in rows:
-        clean = {}
-        for k, v in row.items():
-            if isinstance(v, (dict, list)):
-                clean[k] = json.dumps(v, default=str)
-            elif v is None:
-                clean[k] = ""
-            else:
-                clean[k] = v
-        writer.writerow(clean)
+        writer.writerow(_csv_row_values(row))
     return buf.getvalue()
 
 
-def write_csv(rows: list[dict[str, Any]], path: str) -> int:
+def write_csv(
+    rows: list[dict[str, Any]],
+    path: str,
+    *,
+    compress: bool = False,
+) -> int:
+    """Write rows to CSV, streaming to disk. Optional gzip (.gz appended when compress=True)."""
+    import csv
+    import gzip
     from pathlib import Path
 
     p = Path(path)
+    if compress and p.suffix != ".gz":
+        p = p.with_suffix(p.suffix + ".gz")
     p.parent.mkdir(parents=True, exist_ok=True)
-    content = rows_to_csv(rows)
-    p.write_text(content, encoding="utf-8")
+
+    if not rows:
+        p.write_text("", encoding="utf-8")
+        return 0
+
+    columns = _csv_columns(rows)
+    opener = gzip.open if p.suffix == ".gz" else open
+    mode = "wt"
+    encoding = None if p.suffix == ".gz" else "utf-8"
+    with opener(p, mode, encoding=encoding, newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=columns, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(_csv_row_values(row))
     return len(rows)

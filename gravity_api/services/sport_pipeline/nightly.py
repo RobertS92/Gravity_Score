@@ -11,7 +11,7 @@ import asyncpg
 
 from gravity_api.config import get_settings
 from gravity_api.feature_engineering.positions import SPORT_LEAGUE
-from gravity_api.feature_engineering.sport_specs import ALL_SPORT_SPECS, get_sport_spec
+from gravity_api.feature_engineering.sport_specs import get_sport_spec
 from gravity_api.jobs.rebuild_cohort_baselines import rebuild_for_cohort
 from gravity_api.scrapers.orchestrator import run_scrapers_for_athlete
 from gravity_api.services.sport_pipeline.config import ALL_SPORT_PIPELINES
@@ -19,6 +19,14 @@ from gravity_api.services.sport_pipeline.run import run_athlete_pipeline
 from gravity_api.services.sport_pipeline.season_stats import _current_season_year
 
 logger = logging.getLogger(__name__)
+
+_DB_RETRY_EXCEPTIONS = (
+    TimeoutError,
+    OSError,
+    asyncpg.exceptions.TooManyConnectionsError,
+    asyncpg.exceptions.ConnectionDoesNotExistError,
+    asyncpg.exceptions.InterfaceError,
+)
 
 
 @dataclass
@@ -90,16 +98,62 @@ async def rebuild_cohorts_for_sport(conn: asyncpg.Connection, sport: str) -> int
     return total
 
 
+async def _create_worker_pool(
+    dsn: str,
+    *,
+    scrape_concurrency: int,
+    score_concurrency: int,
+) -> asyncpg.Pool:
+    pool_max = max(scrape_concurrency, score_concurrency) + 2
+    return await asyncpg.create_pool(
+        dsn,
+        min_size=1,
+        max_size=pool_max,
+        command_timeout=120,
+        max_inactive_connection_lifetime=300,
+    )
+
+
+async def _run_with_pool_retry(
+    pool: asyncpg.Pool,
+    fn,
+    *,
+    retries: int = 3,
+):
+    last_exc: Exception | None = None
+    for attempt in range(retries):
+        try:
+            async with pool.acquire() as task_conn:
+                return await fn(task_conn)
+        except _DB_RETRY_EXCEPTIONS as exc:
+            last_exc = exc
+            if attempt + 1 >= retries:
+                break
+            delay = 2**attempt
+            logger.warning("DB retry %d/%d after %s", attempt + 1, retries, exc)
+            await asyncio.sleep(delay)
+    if last_exc:
+        raise last_exc
+    raise RuntimeError("pool retry failed without exception")
+
+
 async def run_nightly_for_sport(
     conn: asyncpg.Connection,
     *,
     sport: str,
     athlete_limit: int = 100,
-    concurrency: int = 4,
+    concurrency: int | None = None,
+    scrape_concurrency: int = 3,
+    score_concurrency: int = 8,
     scrape: bool = True,
     rebuild_cohorts: bool = True,
     score: bool = True,
+    pool: asyncpg.Pool | None = None,
 ) -> NightlySportResult:
+    if concurrency is not None:
+        scrape_concurrency = concurrency
+        score_concurrency = concurrency
+
     result = NightlySportResult(sport=sport)
     if sport not in ALL_SPORT_PIPELINES:
         result.errors.append(f"Unknown sport: {sport}")
@@ -109,47 +163,79 @@ async def run_nightly_for_sport(
     result.stale_found = len(stale_ids)
     logger.info("[%s] stale athletes: %d", sport, len(stale_ids))
 
-    sem = asyncio.Semaphore(concurrency)
+    if not stale_ids:
+        if rebuild_cohorts:
+            result.cohort_baselines_written = await rebuild_cohorts_for_sport(conn, sport)
+        return result
+
     dsn = get_settings().pg_dsn
+    owned_pool = pool is None
+    if owned_pool:
+        pool = await _create_worker_pool(
+            dsn,
+            scrape_concurrency=scrape_concurrency,
+            score_concurrency=score_concurrency,
+        )
 
-    if scrape and stale_ids:
-        async def scrape_one(aid: str) -> None:
-            async with sem:
-                task_conn = await asyncpg.connect(dsn)
-                try:
-                    summary = await run_scrapers_for_athlete(
-                        task_conn, aid, score_after=False, persist=True
-                    )
-                    if summary.get("success_count", 0) > 0:
-                        result.scraped_ok += 1
-                    else:
-                        result.scraped_fail += 1
-                except Exception as exc:
+    scrape_sem = asyncio.Semaphore(scrape_concurrency)
+    score_sem = asyncio.Semaphore(score_concurrency)
+
+    try:
+        if scrape:
+            async def scrape_one(aid: str) -> tuple[bool, str | None]:
+                async with scrape_sem:
+                    try:
+                        async def work(task_conn: asyncpg.Connection) -> bool:
+                            summary = await run_scrapers_for_athlete(
+                                task_conn, aid, score_after=False, persist=True
+                            )
+                            return summary.get("success_count", 0) > 0
+
+                        ok = await _run_with_pool_retry(pool, work)
+                        return ok, None
+                    except Exception as exc:
+                        return False, f"scrape {aid[:8]}: {exc}"
+
+            scrape_outcomes = await asyncio.gather(*[scrape_one(aid) for aid in stale_ids])
+            for ok, err in scrape_outcomes:
+                if ok:
+                    result.scraped_ok += 1
+                else:
                     result.scraped_fail += 1
-                    result.errors.append(f"scrape {aid[:8]}: {exc}")
-                finally:
-                    await task_conn.close()
+                    if err:
+                        result.errors.append(err)
 
-        await asyncio.gather(*[scrape_one(aid) for aid in stale_ids])
+        if rebuild_cohorts:
+            result.cohort_baselines_written = await rebuild_cohorts_for_sport(conn, sport)
+            logger.info(
+                "[%s] cohort baselines upserted: %d",
+                sport,
+                result.cohort_baselines_written,
+            )
 
-    if rebuild_cohorts:
-        result.cohort_baselines_written = await rebuild_cohorts_for_sport(conn, sport)
-        logger.info("[%s] cohort baselines upserted: %d", sport, result.cohort_baselines_written)
+        if score:
+            async def score_one(aid: str) -> tuple[bool, str | None]:
+                async with score_sem:
+                    try:
+                        async def work(task_conn: asyncpg.Connection) -> None:
+                            await run_athlete_pipeline(task_conn, aid, score=True)
 
-    if score and stale_ids:
-        async def score_one(aid: str) -> None:
-            async with sem:
-                task_conn = await asyncpg.connect(dsn)
-                try:
-                    await run_athlete_pipeline(task_conn, aid, score=True)
+                        await _run_with_pool_retry(pool, work)
+                        return True, None
+                    except Exception as exc:
+                        return False, f"score {aid[:8]}: {exc}"
+
+            score_outcomes = await asyncio.gather(*[score_one(aid) for aid in stale_ids])
+            for ok, err in score_outcomes:
+                if ok:
                     result.scored_ok += 1
-                except Exception as exc:
+                else:
                     result.scored_fail += 1
-                    result.errors.append(f"score {aid[:8]}: {exc}")
-                finally:
-                    await task_conn.close()
-
-        await asyncio.gather(*[score_one(aid) for aid in stale_ids])
+                    if err:
+                        result.errors.append(err)
+    finally:
+        if owned_pool and pool is not None:
+            await pool.close()
 
     return result
 
@@ -158,20 +244,29 @@ async def run_nightly_all_sports(
     conn: asyncpg.Connection,
     *,
     athlete_limit_per_sport: int = 100,
-    concurrency: int = 4,
+    concurrency: int | None = None,
+    scrape_concurrency: int = 3,
+    score_concurrency: int = 8,
     sports: tuple[str, ...] | None = None,
+    sport_parallel: int = 1,
 ) -> dict[str, Any]:
+    if concurrency is not None:
+        scrape_concurrency = concurrency
+        score_concurrency = concurrency
+
     sport_list = sports or tuple(ALL_SPORT_PIPELINES.keys())
     results: dict[str, Any] = {}
-    for sport in sport_list:
-        logger.info("=== Nightly pipeline: %s ===", sport)
+
+    async def run_one(sp: str) -> tuple[str, dict[str, Any]]:
+        logger.info("=== Nightly pipeline: %s ===", sp)
         r = await run_nightly_for_sport(
             conn,
-            sport=sport,
+            sport=sp,
             athlete_limit=athlete_limit_per_sport,
-            concurrency=concurrency,
+            scrape_concurrency=scrape_concurrency,
+            score_concurrency=score_concurrency,
         )
-        results[sport] = {
+        payload = {
             "stale_found": r.stale_found,
             "scraped_ok": r.scraped_ok,
             "scraped_fail": r.scraped_fail,
@@ -180,4 +275,21 @@ async def run_nightly_all_sports(
             "scored_fail": r.scored_fail,
             "errors": r.errors[:10],
         }
+        return sp, payload
+
+    if sport_parallel <= 1:
+        for sport in sport_list:
+            sp, payload = await run_one(sport)
+            results[sp] = payload
+    else:
+        sem = asyncio.Semaphore(sport_parallel)
+
+        async def guarded(sp: str) -> tuple[str, dict[str, Any]]:
+            async with sem:
+                return await run_one(sp)
+
+        pairs = await asyncio.gather(*[guarded(sp) for sp in sport_list])
+        for sp, payload in pairs:
+            results[sp] = payload
+
     return {"sports": results, "sport_count": len(sport_list)}

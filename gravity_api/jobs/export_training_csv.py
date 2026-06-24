@@ -18,6 +18,10 @@ Examples:
   PYTHONPATH=. python3 -m gravity_api.jobs.export_training_csv \\
     --mode scored --out-dir data/colab_exports/
 
+  # All roster athletes + raw scrape fields (no scores required)
+  PYTHONPATH=. python3 -m gravity_api.jobs.export_training_csv \\
+    --mode raw --out-dir data/raw_exports/
+
 After export, upload CSV to Colab:
   from google.colab import files
   files.upload()  # or mount Drive / pull from S3
@@ -35,14 +39,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).parent.parent.parent / ".env", override=True)
 
 import asyncpg
 
 from gravity_api.config import get_settings
 from gravity_api.services.sport_pipeline.config import ALL_SPORT_PIPELINES
 from gravity_api.services.athlete_enrichment import parse_raw_data
-from gravity_api.services.training_export import build_training_row, write_csv
+from gravity_api.services.training_export import build_scraped_row, build_training_row, write_csv
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +216,63 @@ async def export_labeled_rows(
     return out
 
 
+async def export_raw_athletes(
+    conn: asyncpg.Connection,
+    *,
+    sport: str | None = None,
+    limit: int = 200_000,
+    active_only: bool = True,
+) -> list[dict]:
+    """Export every roster athlete with latest raw_athlete_data (scores not required)."""
+    clauses = ["WHERE 1=1"]
+    params: list = []
+    if sport:
+        params.append(sport)
+        clauses.append(f"AND a.sport = ${len(params)}")
+    if active_only:
+        clauses.append("AND COALESCE(a.is_active, TRUE) = TRUE")
+    params.append(limit)
+    limit_idx = len(params)
+    query = f"""
+        SELECT
+          a.id::text AS entity_id,
+          a.name, a.school, a.position, a.conference, a.class_year,
+          a.sport, a.espn_id, a.jersey_number, a.height_inches, a.weight_lbs,
+          a.hometown, a.home_state, a.is_active, a.roster_status,
+          r.raw_data,
+          r.scraped_at,
+          r.scrape_version,
+          (r.raw_data IS NOT NULL) AS has_raw
+        FROM athletes a
+        LEFT JOIN LATERAL (
+          SELECT raw_data, scraped_at, scrape_version
+          FROM raw_athlete_data
+          WHERE athlete_id = a.id
+          ORDER BY scraped_at DESC NULLS LAST
+          LIMIT 1
+        ) r ON TRUE
+        {' '.join(clauses)}
+        ORDER BY a.sport, a.school, a.name
+        LIMIT ${limit_idx}
+    """
+    rows = await conn.fetch(query, *params)
+    out = []
+    for row in rows:
+        raw = parse_raw_data(row["raw_data"])
+        out.append(
+            build_scraped_row(
+                entity_id=row["entity_id"],
+                sport=row["sport"],
+                identity=dict(row),
+                raw_data=raw if raw else None,
+                scraped_at=row["scraped_at"].isoformat() if row["scraped_at"] else None,
+                scrape_version=row["scrape_version"],
+                has_raw=bool(row["has_raw"]),
+            )
+        )
+    return out
+
+
 async def export_teams(
     conn: asyncpg.Connection,
     *,
@@ -298,6 +359,54 @@ async def run_export(args: argparse.Namespace) -> dict:
             n = write_csv(rows, str(args.out))
             return {"path": str(args.out), "rows": n}
 
+        if args.mode == "raw":
+            compress = not args.no_compress
+            if args.out_dir:
+                results = {}
+                sports = [args.sport] if args.sport else ALL_SPORT_PIPELINES.keys()
+                for sp in sports:
+                    rows = await export_raw_athletes(
+                        conn,
+                        sport=sp,
+                        limit=args.limit,
+                        active_only=not args.include_inactive,
+                    )
+                    path = Path(args.out_dir) / f"athletes_{sp}_raw.csv"
+                    n = write_csv(rows, str(path), compress=compress)
+                    out_path = str(path.with_suffix(path.suffix + ".gz")) if compress else str(path)
+                    results[sp] = {
+                        "path": out_path,
+                        "rows": n,
+                        "with_raw": sum(1 for r in rows if r.get("has_raw_scrape")),
+                    }
+                    logger.info(
+                        "Wrote %d rows (%d with raw) → %s",
+                        n,
+                        results[sp]["with_raw"],
+                        out_path,
+                    )
+                return {"exports": results}
+
+            rows = await export_raw_athletes(
+                conn,
+                sport=args.sport,
+                limit=args.limit,
+                active_only=not args.include_inactive,
+            )
+            if not args.out:
+                raise ValueError("--out required when not using --out-dir")
+            n = write_csv(rows, str(args.out), compress=compress)
+            out_path = (
+                str(args.out.with_suffix(args.out.suffix + ".gz"))
+                if compress
+                else str(args.out)
+            )
+            return {
+                "path": out_path,
+                "rows": n,
+                "with_raw": sum(1 for r in rows if r.get("has_raw_scrape")),
+            }
+
         if args.mode == "labeled":
             rows = await export_labeled_rows(
                 conn,
@@ -335,16 +444,26 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Export Gravity training CSV for Colab")
     parser.add_argument(
         "--mode",
-        choices=["scored", "labeled", "teams"],
+        choices=["scored", "raw", "labeled", "teams"],
         default="scored",
-        help="scored=athletes+features+proxy labels; labeled=leakage-safe labels; teams=program rows",
+        help="scored=features+labels; raw=all roster athletes+raw scrape; labeled=leakage-safe; teams=programs",
+    )
+    parser.add_argument(
+        "--include-inactive",
+        action="store_true",
+        help="For raw mode: include inactive roster departures",
+    )
+    parser.add_argument(
+        "--no-compress",
+        action="store_true",
+        help="For raw mode: write plain .csv (requires ~600MB+ free disk for full export)",
     )
     parser.add_argument("--sport", default=None, help="Filter to one sport")
     parser.add_argument("--entity-type", default="athlete", choices=["athlete", "team", "brand"])
     parser.add_argument("--target-key", default="nil_valuation_usd", help="For labeled mode")
     parser.add_argument("--out", type=Path, default=None, help="Output CSV path")
     parser.add_argument("--out-dir", type=Path, default=None, help="Write one CSV per sport")
-    parser.add_argument("--limit", type=int, default=50_000)
+    parser.add_argument("--limit", type=int, default=200_000)
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
