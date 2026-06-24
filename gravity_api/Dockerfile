@@ -23,6 +23,7 @@ RUN apt-get update \
 COPY . /tmp/build-context
 
 RUN set -eux; \
+    mkdir -p /app/gravity_api; \
     if [ -f /tmp/build-context/requirements.txt ]; then \
       cp /tmp/build-context/requirements.txt /app/gravity_api/requirements.txt; \
     elif [ -f /tmp/build-context/gravity_api/requirements.txt ]; then \
@@ -30,8 +31,7 @@ RUN set -eux; \
     else \
       echo "ERROR: gravity_api requirements.txt not found in build context"; \
       exit 1; \
-    fi; \
-    mkdir -p /app/gravity_api
+    fi
 
 RUN pip install -r /app/gravity_api/requirements.txt
 
