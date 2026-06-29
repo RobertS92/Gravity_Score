@@ -29,7 +29,7 @@ from gravity_api.services.partner_api import (
     format_partner_score_row,
     format_score_history_point,
 )
-from gravity_api.services.sport_query import cap_prefs_to_db_slugs
+from gravity_api.services.partner_sports import fetch_partner_sport_catalog, resolve_sport_filters
 
 router = APIRouter()
 
@@ -65,13 +65,28 @@ async def partner_health():
     }
 
 
+@router.get("/sports")
+async def partner_list_sports(
+    db: asyncpg.Connection = Depends(get_db),
+    partner: PartnerContext = Depends(require_partner),
+):
+    """All sports available in Gravity with athlete/scored counts and filter codes."""
+    require_scope(partner, "search:read")
+    catalog = await fetch_partner_sport_catalog(db)
+    catalog["attribution"] = {"text": ATTRIBUTION_TEXT, "url": ATTRIBUTION_URL}
+    return catalog
+
+
 @router.get("/athletes")
 async def partner_search_athletes(
     q: Optional[str] = None,
-    sport: Optional[str] = None,
+    sport: Optional[str] = Query(
+        None,
+        description="Single sport: db slug (cfb, nba) or code (CFB, NBA)",
+    ),
     sports: Optional[str] = Query(
         None,
-        description="Comma-separated cap codes: CFB,NCAAB,NCAAW",
+        description="Comma-separated codes or slugs: CFB,NCAAB,NBA,NFL,WNBA,NCAA_BASEBALL,NCAA_VOLLEYBALL",
     ),
     school: Optional[str] = None,
     min_gravity: Optional[float] = None,
@@ -84,13 +99,11 @@ async def partner_search_athletes(
     partner: PartnerContext = Depends(require_partner),
 ):
     require_scope(partner, "search:read")
-    sports_db: Optional[List[str]] = None
-    if not sport and sports and sports.strip():
-        sports_db = cap_prefs_to_db_slugs([s.strip() for s in sports.split(",") if s.strip()])
+    single_sport, sports_db = resolve_sport_filters(sport, sports)
     raw = await run_athlete_search(
         db,
         q=q,
-        sport=sport,
+        sport=single_sport,
         sports_db=sports_db,
         school=school,
         min_gravity=min_gravity,
@@ -117,17 +130,22 @@ async def partner_search_athletes(
 async def partner_resolve_athlete(
     name: str = Query(..., min_length=1, max_length=200),
     school: Optional[str] = None,
-    sport: Optional[str] = None,
+    sport: Optional[str] = Query(
+        None,
+        description="Db slug (cfb, nba) or partner code (CFB, NBA)",
+    ),
     limit: int = Query(default=5, le=20),
     db: asyncpg.Connection = Depends(get_db),
     partner: PartnerContext = Depends(require_partner),
 ):
     """Resolve athlete identity by name (and optional school/sport)."""
     require_scope(partner, "search:read")
+    single_sport, sports_db = resolve_sport_filters(sport, None)
     raw = await run_athlete_search(
         db,
         q=name.strip(),
-        sport=sport,
+        sport=single_sport,
+        sports_db=sports_db,
         school=school,
         exclude_inactive=True,
         roster_verified_within_days=None,
