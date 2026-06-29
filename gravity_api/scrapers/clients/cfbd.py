@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
+import time
 from typing import Any
 
 import httpx
@@ -15,6 +17,23 @@ logger = logging.getLogger(__name__)
 
 _cfbd_request_count = 0
 _cfbd_run_request_count = 0
+_cfbd_cooldown_until: float = 0.0
+_cfbd_request_sem: asyncio.Semaphore | None = None
+
+
+def _cfbd_concurrency_limit() -> int:
+    raw = (os.environ.get("CFBD_MAX_CONCURRENT_REQUESTS") or "1").strip()
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return 1
+
+
+def _get_cfbd_sem() -> asyncio.Semaphore:
+    global _cfbd_request_sem
+    if _cfbd_request_sem is None:
+        _cfbd_request_sem = asyncio.Semaphore(_cfbd_concurrency_limit())
+    return _cfbd_request_sem
 
 
 def _cfbd_max_requests_per_month() -> int:
@@ -35,8 +54,42 @@ def _cfbd_max_calls_per_run() -> int | None:
         return None
 
 
+def _cfbd_career_depth() -> int:
+    """Prior seasons to fetch in addition to current (0 = current season only)."""
+    raw = (os.environ.get("CFBD_CAREER_DEPTH") or "0").strip()
+    try:
+        return max(0, min(5, int(raw)))
+    except ValueError:
+        return 0
+
+
+def _cfbd_request_delay_s() -> float:
+    raw = (os.environ.get("CFBD_REQUEST_DELAY_MS") or "250").strip()
+    try:
+        return max(0.0, int(raw) / 1000.0)
+    except ValueError:
+        return 0.25
+
+
+def _cfbd_rate_limit_cooldown_s() -> float:
+    raw = (os.environ.get("CFBD_RATE_LIMIT_COOLDOWN_SECS") or "120").strip()
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return 120.0
+
+
 def cfbd_requests_used_this_process() -> int:
     return _cfbd_request_count
+
+
+def cfbd_is_rate_limited() -> bool:
+    return time.monotonic() < _cfbd_cooldown_until
+
+
+def reset_cfbd_run_counters() -> None:
+    global _cfbd_run_request_count
+    _cfbd_run_request_count = 0
 
 
 CFBD_BASE = "https://api.collegefootballdata.com"
@@ -218,7 +271,10 @@ class CfbdClient:
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         if not self.enabled:
             return []
-        global _cfbd_request_count, _cfbd_run_request_count
+        global _cfbd_request_count, _cfbd_run_request_count, _cfbd_cooldown_until
+        if cfbd_is_rate_limited():
+            logger.debug("CFBD in cooldown; skipping %s", path)
+            return []
         monthly_cap = _cfbd_max_requests_per_month()
         run_cap = _cfbd_max_calls_per_run()
         if monthly_cap and _cfbd_request_count >= monthly_cap:
@@ -237,18 +293,48 @@ class CfbdClient:
                 path,
             )
             return []
-        _cfbd_request_count += 1
-        _cfbd_run_request_count += 1
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        url = f"{CFBD_BASE}/{path.lstrip('/')}"
-        async with httpx.AsyncClient(timeout=self.timeout_s, headers=headers) as client:
-            resp = await client.get(url, params=params or {})
-            if resp.status_code in (401, 403, 404, 400):
-                logger.debug("CFBD %s -> %s params=%s", path, resp.status_code, params)
-                return []
-            resp.raise_for_status()
-            data = resp.json()
-            return data if isinstance(data, list) else data
+        delay = _cfbd_request_delay_s()
+        if delay:
+            await asyncio.sleep(delay)
+        sem = _get_cfbd_sem()
+        async with sem:
+            _cfbd_request_count += 1
+            _cfbd_run_request_count += 1
+            headers = {"Authorization": f"Bearer {self.api_key}"}
+            url = f"{CFBD_BASE}/{path.lstrip('/')}"
+            backoff = (2.0, 5.0)
+            async with httpx.AsyncClient(timeout=self.timeout_s, headers=headers) as client:
+                for attempt, wait_s in enumerate((0.0, *backoff)):
+                    if wait_s:
+                        await asyncio.sleep(wait_s)
+                    try:
+                        resp = await client.get(url, params=params or {})
+                    except httpx.HTTPError as exc:
+                        logger.warning("CFBD transport error on %s: %s", path, exc)
+                        return []
+                    if resp.status_code == 429:
+                        if attempt < len(backoff):
+                            logger.warning("CFBD 429 on %s; retry in %.0fs", path, backoff[attempt])
+                            continue
+                        cooldown = _cfbd_rate_limit_cooldown_s()
+                        _cfbd_cooldown_until = time.monotonic() + cooldown
+                        logger.warning(
+                            "CFBD rate limited; cooling down %.0fs (path=%s)",
+                            cooldown,
+                            path,
+                        )
+                        return []
+                    if resp.status_code in (401, 403, 404, 400):
+                        logger.debug("CFBD %s -> %s params=%s", path, resp.status_code, params)
+                        return []
+                    try:
+                        resp.raise_for_status()
+                    except httpx.HTTPStatusError as exc:
+                        logger.warning("CFBD HTTP %s on %s: %s", exc.response.status_code, path, exc)
+                        return []
+                    data = resp.json()
+                    return data if isinstance(data, list) else data
+        return []
 
     def _pick_search_row(
         self,
@@ -341,7 +427,15 @@ class CfbdClient:
         player_name: str | None = None,
     ) -> dict[str, dict[str, float]]:
         history: dict[str, dict[str, float]] = {}
-        for year in range(start_year, end_year + 1):
+        depth = _cfbd_career_depth()
+        if depth <= 0:
+            return history
+        # Only fetch prior seasons; current year handled separately to avoid duplicate calls.
+        prior_end = min(end_year - 1, end_year)
+        prior_start = max(start_year, end_year - depth)
+        if prior_start > prior_end:
+            return history
+        for year in range(prior_start, prior_end + 1):
             rows = await self.player_season_stats(
                 year=year,
                 player_id=player_id,
@@ -357,6 +451,36 @@ class CfbdClient:
                 history[str(year)] = merged
         return history
 
+    async def fetch_player_stats_bundle(
+        self,
+        *,
+        name: str,
+        team: str | None,
+        year: int,
+    ) -> tuple[dict[str, Any] | None, dict[str, float], dict[str, dict[str, float]]]:
+        """Efficient path: search + current season + optional shallow career history."""
+        if cfbd_is_rate_limited():
+            return None, {}, {}
+        player = await self.search_player(name, team=team)
+        player_id = player_id_from_row(player) if player else None
+        rows = await self.player_season_stats(
+            year=year,
+            player_id=player_id,
+            team=team,
+            player_name=name,
+        )
+        current = self.merge_season_rows(rows)
+        history = await self.player_career_stats(
+            player_id=player_id,
+            team=team,
+            start_year=year - 5,
+            end_year=year,
+            player_name=name,
+        )
+        if current:
+            history[str(year)] = {**history.get(str(year), {}), **current}
+        return player, current, history
+
     def merge_season_rows(self, rows: list[dict[str, Any]]) -> dict[str, float]:
         merged: dict[str, float] = {}
         for row in rows:
@@ -368,6 +492,9 @@ class CfbdClient:
 __all__ = [
     "CfbdClient",
     "_map_cfbd_category_row",
+    "cfbd_is_rate_limited",
+    "cfbd_requests_used_this_process",
     "parse_cfbd_player_id",
     "player_id_from_row",
+    "reset_cfbd_run_counters",
 ]

@@ -175,12 +175,51 @@ def test_player_season_stats_filters_by_name_when_id_invalid():
     assert rows[0]["playerId"] == "222"
 
 
+def test_cfbd_429_enters_cooldown_without_crash():
+    import gravity_api.scrapers.clients.cfbd as cfbd_mod
+
+    cfbd_mod._cfbd_request_count = 0
+    cfbd_mod._cfbd_run_request_count = 0
+    cfbd_mod._cfbd_cooldown_until = 0.0
+    client = CfbdClient(api_key="test-key")
+
+    class Fake429:
+        status_code = 429
+
+        def json(self):
+            return {}
+
+        def raise_for_status(self):
+            raise httpx.HTTPStatusError(
+                "429",
+                request=httpx.Request("GET", "https://example.com"),
+                response=self,  # type: ignore[arg-type]
+            )
+
+    call_count = 0
+
+    async def fake_get(_url, params=None):
+        nonlocal call_count
+        call_count += 1
+        return Fake429()
+
+    async def run():
+        with patch("httpx.AsyncClient.get", new=AsyncMock(side_effect=fake_get)):
+            return await client._get("/player/search", {"searchTerm": "x"})
+
+    result = asyncio.run(run())
+    assert result == []
+    assert cfbd_mod.cfbd_is_rate_limited()
+    assert call_count >= 3  # initial + retries
+
+
 def test_cfbd_monthly_request_cap_skips_http():
     import os
     import gravity_api.scrapers.clients.cfbd as cfbd_mod
 
     cfbd_mod._cfbd_request_count = 0
     cfbd_mod._cfbd_run_request_count = 0
+    cfbd_mod._cfbd_cooldown_until = 0.0
     os.environ["CFBD_MAX_REQUESTS_PER_MONTH"] = "2"
     os.environ.pop("CFBD_MAX_CALLS_PER_RUN", None)
     client = CfbdClient(api_key="test-key")

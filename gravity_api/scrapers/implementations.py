@@ -645,33 +645,33 @@ class CfbdStatsScraper(BaseMicroScraper):
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
         if ctx.sport != "cfb":
             return self._result(scraper_key, fields={}, error="cfbd is cfb-only")
+        from gravity_api.scrapers.clients.cfbd import (
+            CfbdClient,
+            cfbd_is_rate_limited,
+            player_id_from_row,
+        )
+        from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+        from gravity_api.scrapers.parsers.stat_normalizer import merge_stat_layers
+
         client = CfbdClient()
         if not client.enabled:
             return self._result(scraper_key, fields={}, error="CFBD_API_KEY not configured")
         team = ctx.team or ctx.school
-        player = await client.search_player(ctx.name, team=team)
-        from gravity_api.scrapers.clients.cfbd import player_id_from_row
-        from gravity_api.services.sport_pipeline.season_stats import _current_season_year
-        from gravity_api.scrapers.parsers.stat_normalizer import merge_stat_layers
-
-        player_id = player_id_from_row(player) if player else None
         year = _current_season_year()
-        rows = await client.player_season_stats(
+
+        if cfbd_is_rate_limited():
+            return self._cfbd_fallback_result(ctx, scraper_key, note="cfbd rate limited")
+
+        player, current, history = await client.fetch_player_stats_bundle(
+            name=ctx.name,
+            team=team,
             year=year,
-            player_id=player_id,
-            team=team,
-            player_name=ctx.name,
         )
-        current = client.merge_season_rows(rows)
-        history = await client.player_career_stats(
-            player_id=player_id,
-            team=team,
-            start_year=year - 5,
-            end_year=year,
-            player_name=ctx.name,
-        )
+        player_id = player_id_from_row(player) if player else None
+
         if not player and not current and not history:
-            return self._result(scraper_key, fields={}, error="cfbd player not found")
+            return self._cfbd_fallback_result(ctx, scraper_key, note="cfbd player not found")
+
         fields = merge_stat_layers(
             "cfb",
             current=current,
@@ -682,6 +682,30 @@ class CfbdStatsScraper(BaseMicroScraper):
         fields["stats_source"] = "cfbd"
         fields["advanced_stats"] = {"source": "cfbd", "season_year": year}
         return self._result(scraper_key, fields=fields, confidence=0.93 if current else 0.4)
+
+    def _cfbd_fallback_result(
+        self,
+        ctx: AthleteScrapeContext,
+        scraper_key: str,
+        *,
+        note: str,
+    ) -> ScraperResult:
+        """Keep existing ESPN/raw stats when CFBD is unavailable."""
+        raw = ctx.existing_raw
+        has_espn = bool(
+            raw.get("season_stats")
+            or raw.get("season_stats_history")
+            or raw.get("pass_yards")
+            or raw.get("rush_yards")
+        )
+        if has_espn:
+            return self._result(
+                scraper_key,
+                fields={},
+                confidence=0.35,
+                error=f"{note}; using existing espn stats",
+            )
+        return self._result(scraper_key, fields={}, error=note)
 
 
 class SocialGrowthDeltaScraper(BaseMicroScraper):

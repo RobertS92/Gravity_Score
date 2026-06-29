@@ -420,6 +420,13 @@ async def audit_sport(
                     limit_per_sport=limit,
                 )
                 checkpoint_mark = processed
+    logger.info("[%s] sport audit complete (%d athletes)", sport, len(ids))
+    await write_checkpoint(
+        collector,
+        output_dir=output_dir,
+        sports=sports_for_report,
+        limit_per_sport=limit,
+    )
 
 
 async def run_audit(
@@ -432,6 +439,9 @@ async def run_audit(
     resume_within_hours: int | None,
     checkpoint_every: int | None,
 ) -> dict[str, Any]:
+    from gravity_api.scrapers.clients.cfbd import reset_cfbd_run_counters
+
+    reset_cfbd_run_counters()
     dsn = os.environ.get("PG_DSN", "").strip()
     if not dsn:
         raise RuntimeError("PG_DSN required")
