@@ -61,6 +61,8 @@ class Settings:
     stripe_secret_key: Optional[str]
     password_reset_ttl_minutes: int
     password_reset_webhook_url: Optional[str]
+    partner_api_key: Optional[str]
+    partner_api_rate_limit_per_minute: int
 
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
@@ -131,5 +133,15 @@ def get_settings() -> Settings:
         password_reset_ttl_minutes=max(5, ttl_minutes),
         password_reset_webhook_url=(
             (os.environ.get("PASSWORD_RESET_WEBHOOK_URL") or "").strip() or None
+        ),
+        partner_api_key=(
+            (os.environ.get("GRAVITY_PARTNER_API_KEY") or "").strip() or None
+        ),
+        partner_api_rate_limit_per_minute=max(
+            1,
+            int(
+                (os.environ.get("GRAVITY_PARTNER_API_RATE_LIMIT_PER_MINUTE") or "600").strip()
+                or "600"
+            ),
         ),
     )

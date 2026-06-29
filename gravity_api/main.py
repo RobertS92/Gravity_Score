@@ -34,6 +34,7 @@ from gravity_api.routers import (
     market,
     match,
     operations,
+    partner,
     pipeline,
     programs,
     query,
@@ -144,6 +145,7 @@ app.include_router(team_favorites.router, prefix="/v1/team-favorites", tags=["te
 app.include_router(feed.router, prefix="/v1/feed", tags=["feed"])
 app.include_router(ingest.router, prefix="/v1/ingest", tags=["ingest"])
 app.include_router(pipeline.router, prefix="/v1/pipeline", tags=["pipeline"])
+app.include_router(partner.router, prefix="/v2/partner", tags=["partner"])
 
 
 def _ml_probe_is_stale() -> bool:
