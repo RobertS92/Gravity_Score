@@ -39,6 +39,8 @@ run_ultra_fast_fixed.sh
 
 # Data files (don't commit scraped data)
 *.csv
+!reports/athletes_scraped_by_sport.csv
+!reports/csv_exports/**
 *.db
 *.sqlite
 *.log

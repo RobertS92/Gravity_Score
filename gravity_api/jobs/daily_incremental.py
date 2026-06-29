@@ -20,10 +20,14 @@ async def run_daily_incremental() -> None:
     from gravity_api.jobs.nightly_pipeline import main_async
 
     logger.info("daily_incremental → nightly_pipeline (all sports)")
+    concurrency = int(os.environ.get("NIGHTLY_CONCURRENCY", "4"))
     await main_async(
         sport=None,
         limit=int(os.environ.get("NIGHTLY_ATHLETE_LIMIT", "50")),
-        concurrency=int(os.environ.get("NIGHTLY_CONCURRENCY", "4")),
+        concurrency=concurrency,
+        scrape_concurrency=concurrency,
+        score_concurrency=int(os.environ.get("SCORE_CONCURRENCY", "8")),
+        sport_parallel=int(os.environ.get("SPORT_PARALLEL", "1")),
         skip_scrape=False,
         skip_cohorts=False,
         skip_score=True,

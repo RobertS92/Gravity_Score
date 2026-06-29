@@ -273,6 +273,85 @@ async def export_raw_athletes(
     return out
 
 
+async def export_scrape_summary(
+    conn: asyncpg.Connection,
+    *,
+    stale_days: int = 7,
+) -> list[dict]:
+    """Per-sport roster and scrape coverage counts."""
+    rows = await conn.fetch(
+        """
+        SELECT
+          a.sport,
+          COUNT(*)::int AS total_athletes,
+          COUNT(*) FILTER (WHERE COALESCE(a.is_active, TRUE))::int AS active_athletes,
+          COUNT(*) FILTER (WHERE r.athlete_id IS NOT NULL)::int AS scraped_athletes,
+          COUNT(*) FILTER (
+            WHERE r.athlete_id IS NULL AND COALESCE(a.is_active, TRUE)
+          )::int AS unscraped_active,
+          COUNT(*) FILTER (
+            WHERE COALESCE(a.is_active, TRUE)
+              AND (
+                r.scraped_at IS NULL
+                OR r.scraped_at < NOW() - make_interval(days => $1)
+              )
+          )::int AS stale_athletes,
+          MAX(r.scraped_at) AS last_scrape_at
+        FROM athletes a
+        LEFT JOIN LATERAL (
+          SELECT athlete_id, scraped_at
+          FROM raw_athlete_data
+          WHERE athlete_id = a.id
+          ORDER BY scraped_at DESC NULLS LAST
+          LIMIT 1
+        ) r ON TRUE
+        GROUP BY a.sport
+        ORDER BY total_athletes DESC
+        """,
+        stale_days,
+    )
+    out: list[dict] = []
+    totals = {
+        "sport": "TOTAL",
+        "total_athletes": 0,
+        "active_athletes": 0,
+        "scraped_athletes": 0,
+        "unscraped_active": 0,
+        "stale_athletes": 0,
+        "last_scrape_at": None,
+        "scrape_coverage_pct": None,
+    }
+    for row in rows:
+        total = int(row["total_athletes"])
+        scraped = int(row["scraped_athletes"])
+        item = {
+            "sport": row["sport"],
+            "total_athletes": total,
+            "active_athletes": int(row["active_athletes"]),
+            "scraped_athletes": scraped,
+            "unscraped_active": int(row["unscraped_active"]),
+            "stale_athletes": int(row["stale_athletes"]),
+            "last_scrape_at": row["last_scrape_at"].isoformat() if row["last_scrape_at"] else None,
+            "scrape_coverage_pct": round(100.0 * scraped / total, 2) if total else 0.0,
+        }
+        out.append(item)
+        for key in (
+            "total_athletes",
+            "active_athletes",
+            "scraped_athletes",
+            "unscraped_active",
+            "stale_athletes",
+        ):
+            totals[key] += item[key]
+    if totals["total_athletes"]:
+        totals["scrape_coverage_pct"] = round(
+            100.0 * totals["scraped_athletes"] / totals["total_athletes"],
+            2,
+        )
+    out.append(totals)
+    return out
+
+
 async def export_teams(
     conn: asyncpg.Connection,
     *,
@@ -356,6 +435,13 @@ async def run_export(args: argparse.Namespace) -> dict:
             rows = await export_scored_athletes(conn, sport=args.sport, limit=args.limit)
             if not args.out:
                 raise ValueError("--out required when not using --out-dir")
+            n = write_csv(rows, str(args.out))
+            return {"path": str(args.out), "rows": n}
+
+        if args.mode == "summary":
+            rows = await export_scrape_summary(conn, stale_days=args.stale_days)
+            if not args.out:
+                raise ValueError("--out required for summary mode")
             n = write_csv(rows, str(args.out))
             return {"path": str(args.out), "rows": n}
 
@@ -444,9 +530,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Export Gravity training CSV for Colab")
     parser.add_argument(
         "--mode",
-        choices=["scored", "raw", "labeled", "teams"],
+        choices=["scored", "raw", "labeled", "teams", "summary"],
         default="scored",
-        help="scored=features+labels; raw=all roster athletes+raw scrape; labeled=leakage-safe; teams=programs",
+        help="scored=features+labels; raw=all roster athletes+raw scrape; summary=per-sport counts; labeled=leakage-safe; teams=programs",
     )
     parser.add_argument(
         "--include-inactive",
@@ -464,6 +550,12 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=None, help="Output CSV path")
     parser.add_argument("--out-dir", type=Path, default=None, help="Write one CSV per sport")
     parser.add_argument("--limit", type=int, default=200_000)
+    parser.add_argument(
+        "--stale-days",
+        type=int,
+        default=7,
+        help="For summary mode: days without scrape to count as stale",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
