@@ -1,97 +1,91 @@
 # Scrape & Score Review — Gap-Fill Run
 
-**Status:** Full gap-fill running in background (~6–8 hours for 500 athletes × 6 sports)  
+**Status:** ✅ Complete (2026-07-02 10:13 UTC, ~7.6 hours)  
 **Log:** `/tmp/gap_fill_run.log`  
-**Commits:** `fa59eac` (pipeline fixes), `92bebc1` (commercial viability scoring fix)
+**Checkpoint:** [`reports/gap_fill_checkpoint.json`](gap_fill_checkpoint.json)
 
 ---
 
-## What was done
+## Run summary
 
-1. **Committed** CFB stats/NIL pipeline fixes (GP mapping, SR fallback, ASS↔raw sync, ranked-athlete NIL priority, commercial viability 1–99 + dollar bands).
-2. **Fixed scoring blocker** — commercial viability cohort percentile was crashing on JSON-string `raw_data`; rescore now succeeds.
-3. **Smoke test** — CFB 3-athlete gap-fill: 3 scraped, 3 scored, 0 failures.
-4. **Full gap-fill started** — all 6 acceptance sports, 500 athletes each, scrape + rescore.
-5. **EDA reports generated** — baseline captured before run; interim report includes delta vs baseline.
+| Sport | Athletes | Scraped | Scored | Failures |
+|-------|----------|---------|--------|----------|
+| cfb | 500 | 500 | 500 | 0 |
+| ncaab_mens | 500 | 500 | 500 | 0 |
+| ncaab_womens | 500 | 500 | 500 | 0 |
+| nfl | 500 | 500 | 500 | 0 |
+| nba | 500 | 500 | 500 | 0 |
+| wnba | 199 | 199 | 199 | 0 |
+| **Total** | **2,699** | **2,699** | **2,699** | **0** |
+
+**Root cause of earlier crashes:** `nohup` from Cursor's short-lived shell tool exits when the parent session ends (~7s). Fixed with `scripts/run_gap_fill_durable.py` (serial sports + checkpoint file) launched in a persistent background shell.
 
 ---
 
-## Reports to review
+## Post-run vs baseline
+
+### CFB (primary target)
+
+| Metric | Baseline | Post gap-fill | Δ |
+|--------|----------|---------------|---|
+| GP coverage | 1.4% | 1.5% | +0.1pp ⚠️ |
+| Stats ≥3 | 5.6% | 5.9% | +0.2pp ⚠️ |
+| NIL observed | 0.2% (11) | **1.6% (~108)** | **+1.5pp ✅** |
+| SR sources | 0 | 0 | no change ❌ |
+| Commercial viability | 0% | **7.4%** | +7.4pp ✅ |
+| ASS≥3 not in raw | 204 | 457 | worsened ⚠️ |
+
+**NIL wins:** On3 observed 8→39; `existing_raw` verified 69; QB NIL obs 0.6%→6.8%. Ranked-athlete prioritization is working for NIL.
+
+**Stats still broken:** GP and stats≥3 barely moved population-wide because gap-fill only touched 500/6761 CFB athletes and ESPN GP mapping + SR fallback still aren't landing in raw JSON at scale. SR fallback remains at **0 sources** — Firecrawl may not be reaching parseable SR pages.
+
+### College commercial viability ✅
+
+| Sport | Comm. score coverage | Dollar P50 on scores |
+|-------|---------------------|----------------------|
+| cfb | 7.4% (500 rescored) | 70.3% |
+| ncaab_mens | 48.0% | 100% |
+| ncaab_womens | 59.0% | 61.9% |
+
+Top CFB athletes now have CV 99 + observed NIL dollar bands (e.g. Mark Davis $12.1M observed, Joe Cruz $9.7M observed).
+
+### Scoring — still mostly fallback
+
+| Sport | Avg | % fallback | Notes |
+|-------|-----|------------|-------|
+| NFL, NBA, WNBA | ~77.1 | **100%** | `composite_fallback_v0` — ML 404 on sport routes |
+| NCAAB M | 77.2 | 99.8% | fallback |
+| CFB | 62.4 | 69.7% fallback + 30% v2 | some spread, not value model |
+| NCAAB W | 47.7 | 7.6% fallback | old collapsed `gravity_athlete_v2` dominates |
+
+Production `gravity-ml` still 404s `/score/athlete/cfb` → falls back to generic endpoint. **Redeploy gravity-ml** to unlock real model scoring.
+
+---
+
+## Reports
 
 | File | Description |
 |------|-------------|
-| [`reports/scrape_score_eda_report_baseline.md`](scrape_score_eda_report_baseline.md) | Pre-run snapshot (2026-07-02) |
-| [`reports/scrape_score_eda_report.md`](scrape_score_eda_report.md) | Latest metrics (updates when you re-run the generator) |
-| [`reports/scrape_score_eda_report.json`](scrape_score_eda_report.json) | Machine-readable snapshot for dashboards |
-| [`reports/scrape_score_eda_report_baseline.json`](scrape_score_eda_report_baseline.json) | Baseline JSON for diffing |
-
-Re-generate after gap-fill completes:
-
-```bash
-export PYTHONPATH=.
-export REPORT_NOTE="Post gap-fill final."
-python3 scripts/generate_scrape_score_eda_report.py
-```
+| [`scrape_score_eda_report_baseline.md`](scrape_score_eda_report_baseline.md) | Pre-run baseline |
+| [`scrape_score_eda_report.md`](scrape_score_eda_report.md) | **Final post-run EDA with delta table** |
+| [`scrape_score_eda_report.json`](scrape_score_eda_report.json) | Machine-readable snapshot |
+| [`gap_fill_checkpoint.json`](gap_fill_checkpoint.json) | Per-sport run results |
 
 ---
 
-## Baseline findings (before gap-fill)
+## Remaining action items
 
-### Data quality — CFB was broken on stats
-
-| Metric | CFB | Basketball (control) |
-|--------|-----|------------------------|
-| GP coverage | **1.4%** | 91–99% stats≥3 |
-| Stats ≥3 | **5.6%** | — |
-| NIL observed | **0.2%** (11 athletes) | — |
-| SR fallback sources | **0** | — |
-| ASS≥3 not in raw | **204 athletes** | — |
-
-Root causes addressed in code: ESPN `gp` not promoted, SR fallback not persisting, ASS→raw sync missing, On3 scraping random roster slots, imputed NIL treated as observed.
-
-### Scoring — mostly fallback, not real models
-
-| Sport | Avg score | % near 77 | % fallback model |
-|-------|-----------|-----------|------------------|
-| NFL, NBA, NCAAB M, WNBA | ~77.1 | 65–84% | **100%** |
-| CFB | 61.5 | 0.6% | 68% fallback + 32% old v2 |
-| NCAAB W | 48.1 | 7.7% | 92% old collapsed v2 |
-
-Production `gravity-ml` returns **404** on `/score/athlete/cfb` → all pro sports use `composite_fallback_v0` (~77 flat). CFB has partial `gravity_athlete_v2` but needs redeploy with `gravity_athlete_cfb_value_v1` bundle.
+1. **Fix CFB GP/stats at source** — ESPN parser + SR fallback still not populating raw; investigate Firecrawl SR search pages and ASS→raw sync direction (gap grew 204→457).
+2. **Redeploy gravity-ml on Railway** — sport routes + `gravity_athlete_cfb_value_v1` bundle.
+3. **Run full CFB gap-fill** (limit 6761 or nightly cron) — 500-athlete batch only moved population metrics ~0.2pp on stats.
+4. **Ingest training labels** — NIL observed now ~108 CFB athletes: `python3 -m gravity_api.jobs.ingest_training_labels`
+5. **Re-run gap-fill durably:** `bash scripts/run_gap_fill_and_report.sh` (uses checkpoint; skips completed sports)
 
 ---
 
-## What to expect post gap-fill
+## Commits in this workstream
 
-| Signal | Target |
-|--------|--------|
-| CFB GP% | Should rise materially (GP finalize + SR fallback + ASS sync) |
-| SR sources | >0 rows with `stats_source = sports_reference` |
-| ASS→raw gap | `ass3_not_in_raw` should drop toward 0 |
-| NIL observed | More On3 hits on ranked athletes (stars, nil_rank, social) |
-| Commercial viability | College athletes get `commercial_viability_score` 1–99 + dollar P10/P50/P90 |
-| Imputed NIL | No longer skips On3 scrape; not counted as training signal |
-
-Scoring distribution will **still cluster near 77** for pro sports until `gravity-ml` is redeployed from current repo.
-
----
-
-## Action items
-
-1. **Wait for gap-fill** — monitor `tail -f /tmp/gap_fill_run.log`
-2. **Re-run EDA report** when complete (command above)
-3. **Redeploy gravity-ml on Railway** — enables sport routes + CFB value bundle (blocks real model scoring)
-4. **Run training label ingest** after NIL observed count rises: `python3 -m gravity_api.jobs.ingest_training_labels`
-
----
-
-## Scoring architecture (college commercial viability)
-
-For CFB / NCAAB, each rescore now computes:
-
-- **Commercial viability index** (0–100): social reach + recruiting + proof stats + observed NIL
-- **Commercial viability score** (1–99): percentile vs sport cohort, capped at 99
-- **NIL dollar bands** (P10/P50/P90): from observed On3 NIL when available, else estimated from index
-- **nil_signal_source**: `observed` vs `estimated` — training labels only use `observed`
-
-These persist on raw JSON and backfill `dollar_p10/p50/p90` on `athlete_gravity_scores` when ML omits them.
+- `fa59eac` — CFB stats/NIL pipeline fixes + EDA tooling
+- `92bebc1` — Commercial viability JSON-string fix
+- `b1ec3d5` — Persist CV + dollar bands to raw
+- `d0374f4` — Durable serial gap-fill runner with checkpointing

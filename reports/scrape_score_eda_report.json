@@ -1,41 +1,41 @@
 {
-  "generated_at": "2026-07-02T02:29:17.735864+00:00",
+  "generated_at": "2026-07-02T10:13:40.202791+00:00",
   "sports": {
     "cfb": {
       "scrape": {
         "active_n": 6761,
         "scraped": 6761,
-        "has_gp": 95,
-        "stats3": 384,
-        "nil_observed": 13,
-        "nil_imputed_only": 456,
+        "has_gp": 99,
+        "stats3": 397,
+        "nil_observed": 111,
+        "nil_imputed_only": 382,
         "sr_source": 0,
-        "ig_handle": 518,
-        "has_commercial_score": 0,
-        "last_scraped": "2026-07-02 02:27:33.408696+00:00"
+        "ig_handle": 643,
+        "has_commercial_score": 501,
+        "last_scraped": "2026-07-02 06:12:29.974891+00:00"
       },
       "score": {
         "scored_n": 6717,
-        "avg_gravity": "61.45",
-        "std_gravity": "11.87",
-        "min_gravity": "43.08",
+        "avg_gravity": "62.42",
+        "std_gravity": "12.40",
+        "min_gravity": "41.05",
         "max_gravity": "90.64",
-        "near_77": 42,
-        "fallback_model": 4565,
-        "has_dollar_p50": 4567,
-        "last_scored": "2026-07-02 02:28:46.213958+00:00",
+        "near_77": 59,
+        "fallback_model": 4680,
+        "has_dollar_p50": 4724,
+        "last_scored": "2026-07-02 06:12:32.919514+00:00",
         "models": [
           [
             "composite_fallback_v0",
-            4565
+            4680
           ],
           [
             "gravity_athlete_v2",
-            2150
+            1993
           ],
           [
             "heuristic_cfb",
-            2
+            44
           ]
         ]
       }
@@ -44,25 +44,25 @@
       "scrape": {
         "active_n": 2924,
         "scraped": 2924,
-        "has_gp": 37,
+        "has_gp": 238,
         "stats3": 1473,
         "nil_observed": 0,
         "nil_imputed_only": 0,
         "sr_source": 0,
         "ig_handle": 169,
         "has_commercial_score": 0,
-        "last_scraped": "2026-07-01 20:50:01.418775+00:00"
+        "last_scraped": "2026-07-02 09:18:53.228134+00:00"
       },
       "score": {
         "scored_n": 2888,
-        "avg_gravity": "77.12",
-        "std_gravity": "0.68",
+        "avg_gravity": "77.13",
+        "std_gravity": "0.69",
         "min_gravity": "41.91",
-        "max_gravity": "79.13",
-        "near_77": 1899,
+        "max_gravity": "81.26",
+        "near_77": 1892,
         "fallback_model": 2887,
         "has_dollar_p50": 2888,
-        "last_scored": "2026-07-01 21:01:01.335183+00:00",
+        "last_scored": "2026-07-02 09:31:42.604229+00:00",
         "models": [
           [
             "composite_fallback_v0",
@@ -79,25 +79,25 @@
       "scrape": {
         "active_n": 535,
         "scraped": 535,
-        "has_gp": 9,
+        "has_gp": 10,
         "stats3": 533,
         "nil_observed": 2,
         "nil_imputed_only": 0,
         "sr_source": 0,
         "ig_handle": 163,
         "has_commercial_score": 0,
-        "last_scraped": "2026-07-01 22:45:37.312362+00:00"
+        "last_scraped": "2026-07-02 09:56:32.342482+00:00"
       },
       "score": {
         "scored_n": 535,
-        "avg_gravity": "77.15",
-        "std_gravity": "0.52",
-        "min_gravity": "74.62",
+        "avg_gravity": "77.14",
+        "std_gravity": "0.56",
+        "min_gravity": "72.32",
         "max_gravity": "84.76",
-        "near_77": 450,
+        "near_77": 449,
         "fallback_model": 535,
         "has_dollar_p50": 535,
-        "last_scored": "2026-07-01 22:48:00.636448+00:00",
+        "last_scored": "2026-07-02 10:00:06.623235+00:00",
         "models": [
           [
             "composite_fallback_v0",
@@ -115,24 +115,28 @@
         "nil_observed": 5,
         "nil_imputed_only": 0,
         "sr_source": 0,
-        "ig_handle": 163,
-        "has_commercial_score": 0,
-        "last_scraped": "2026-07-01 18:29:04.801160+00:00"
+        "ig_handle": 164,
+        "has_commercial_score": 500,
+        "last_scraped": "2026-07-02 07:34:40.802657+00:00"
       },
       "score": {
         "scored_n": 1042,
-        "avg_gravity": "77.30",
-        "std_gravity": "0.55",
-        "min_gravity": "74.15",
+        "avg_gravity": "77.23",
+        "std_gravity": "1.67",
+        "min_gravity": "41.37",
         "max_gravity": "85.32",
         "near_77": 1,
-        "fallback_model": 1042,
+        "fallback_model": 1040,
         "has_dollar_p50": 1042,
-        "last_scored": "2026-07-01 18:31:22.421563+00:00",
+        "last_scored": "2026-07-02 07:34:41.858662+00:00",
         "models": [
           [
             "composite_fallback_v0",
-            1042
+            1040
+          ],
+          [
+            "heuristic_ncaab_mens",
+            2
           ]
         ]
       }
@@ -146,28 +150,32 @@
         "nil_observed": 5,
         "nil_imputed_only": 0,
         "sr_source": 0,
-        "ig_handle": 151,
-        "has_commercial_score": 0,
-        "last_scraped": "2026-07-01 20:29:52.267960+00:00"
+        "ig_handle": 153,
+        "has_commercial_score": 500,
+        "last_scraped": "2026-07-02 08:36:07.258585+00:00"
       },
       "score": {
         "scored_n": 847,
-        "avg_gravity": "48.11",
-        "std_gravity": "8.45",
-        "min_gravity": "45.50",
+        "avg_gravity": "47.71",
+        "std_gravity": "8.46",
+        "min_gravity": "39.51",
         "max_gravity": "77.38",
-        "near_77": 65,
-        "fallback_model": 67,
-        "has_dollar_p50": 72,
-        "last_scored": "2026-07-01 20:32:23.744754+00:00",
+        "near_77": 62,
+        "fallback_model": 64,
+        "has_dollar_p50": 524,
+        "last_scored": "2026-07-02 08:36:09.086353+00:00",
         "models": [
           [
             "gravity_athlete_v2",
-            780
+            742
           ],
           [
             "composite_fallback_v0",
-            67
+            64
+          ],
+          [
+            "heuristic_ncaab_womens",
+            41
           ]
         ]
       }
@@ -183,7 +191,7 @@
         "sr_source": 0,
         "ig_handle": 77,
         "has_commercial_score": 0,
-        "last_scraped": "2026-07-01 21:53:21.015907+00:00"
+        "last_scraped": "2026-07-02 10:11:55.427855+00:00"
       },
       "score": {
         "scored_n": 199,
@@ -194,7 +202,7 @@
         "near_77": 164,
         "fallback_model": 199,
         "has_dollar_p50": 199,
-        "last_scored": "2026-07-01 21:54:36.493374+00:00",
+        "last_scored": "2026-07-02 10:13:24.449724+00:00",
         "models": [
           [
             "composite_fallback_v0",
@@ -205,7 +213,7 @@
     }
   },
   "cfb_ass_sync": {
-    "ass_has_3": 477,
-    "ass3_not_in_raw": 201
+    "ass_has_3": 746,
+    "ass3_not_in_raw": 457
   }
 }
