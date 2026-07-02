@@ -6,7 +6,11 @@ from gravity_api.scrapers.parsers.nil import is_suspect_nil, verify_nil_consensu
 from gravity_api.scrapers.parsers.opendorse import parse_opendorse_profile
 from gravity_api.scrapers.parsers.recruiting import parse_247_recruiting_profile
 from gravity_api.scrapers.parsers.roster import parse_transfer_portal
-from gravity_api.scrapers.parsers.social import merge_handle_sources
+from gravity_api.scrapers.parsers.social import (
+    fetch_instagram_followers_from_text,
+    instagram_aggregator_urls,
+    merge_handle_sources,
+)
 from gravity_api.scrapers.parsers.sports_reference import parse_sports_ref_honors, ref_domain_for_sport
 
 
@@ -51,6 +55,22 @@ def test_achievements_parse():
     parsed = parse_achievements_from_text(text)
     assert parsed["all_american_count"] >= 1
     assert parsed["heisman_finalist"] is True
+
+
+def test_instagram_aggregator_urls():
+    urls = instagram_aggregator_urls("@Athlete")
+    assert any("socialblade.com" in u for u in urls)
+    assert any("instagram.com/Athlete" in u for u in urls)
+
+
+def test_fetch_instagram_followers_from_socialblade_html():
+    html = '<div>1.2M Followers</div>'
+    assert fetch_instagram_followers_from_text(html) == 1_200_000
+
+
+def test_fetch_instagram_followers_socialblade_multiline():
+    md = "followers\n30,337\nfollowing\n1,165"
+    assert fetch_instagram_followers_from_text(md) == 30337
 
 
 def test_merge_handles():

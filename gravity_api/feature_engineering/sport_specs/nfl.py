@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from gravity_api.feature_engineering.sport_specs.cfb import _FOOTBALL_POSITIONS
 from gravity_api.feature_engineering.sport_specs._shared import (
-    ACHIEVEMENT_WEIGHTS,
+    ACHIEVEMENT_WEIGHTS_PRO_FOOTBALL,
     BRAND_METRICS,
     PROXIMITY_PRO_METRICS,
-    RISK_METRICS,
-    VELOCITY_METRICS,
+    RISK_PRO_METRICS,
+    VELOCITY_PRO_METRICS,
 )
 from gravity_api.feature_engineering.types import PositionProofSpec, SportFeatureSpec, StatWeight
 
@@ -27,10 +27,7 @@ _NFL_POSITIONS: tuple[PositionProofSpec, ...] = tuple(
         ),
         expected_games=17,
         achievement_weights={
-            **ACHIEVEMENT_WEIGHTS,
-            "pro_bowl": 0.7,
-            "all_pro": 1.2,
-            "super_bowl": 1.0,
+            **ACHIEVEMENT_WEIGHTS_PRO_FOOTBALL,
         },
     )
     for pg in _FOOTBALL_POSITIONS
@@ -44,8 +41,8 @@ NFL_SPEC = SportFeatureSpec(
     position_groups=_NFL_POSITIONS,
     brand_metrics=BRAND_METRICS,
     proximity_metrics=PROXIMITY_PRO_METRICS,
-    velocity_metrics=VELOCITY_METRICS,
-    risk_metrics=RISK_METRICS,
+    velocity_metrics=VELOCITY_PRO_METRICS,
+    risk_metrics=RISK_PRO_METRICS,
     min_games_for_proof_pctile=4,
     college_pro_bridge=True,
 )

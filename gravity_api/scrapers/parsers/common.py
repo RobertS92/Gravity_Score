@@ -5,13 +5,29 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_HANDLE_RE = re.compile(r"@([A-Za-z0-9._]{1,30})")
+_HANDLE_BLOCKLIST = frozenset(
+    {
+        "p",
+        "reel",
+        "reels",
+        "explore",
+        "accounts",
+        "popular",
+        "intent",
+        "share",
+        "home",
+        "stories",
+        "tv",
+        "about",
+    }
+)
 _FOLLOWERS_RE = re.compile(
     r"([\d,.]+)\s*(K|M|B)?\s*(followers|subscriber|subscribers)",
     re.IGNORECASE,
 )
 _MONEY_RE = re.compile(r"\$?\s*([\d,.]+)\s*([KMBkmb])?", re.IGNORECASE)
 _NUMBER_RE = re.compile(r"([\d,]+(?:\.\d+)?)")
+_HANDLE_RE = re.compile(r"@([A-Za-z0-9._]{1,30})")
 
 
 def parse_count(text: str | None) -> int | None:
@@ -58,7 +74,7 @@ def extract_handles(text: str) -> dict[str, str]:
             m = re.search(pat, lower if "ig:" not in pat else text, re.IGNORECASE)
             if m:
                 handle = m.group(1).strip().rstrip("/")
-                if handle not in {"p", "intent", "share", "home"}:
+                if handle.lower() not in _HANDLE_BLOCKLIST:
                     out[platform] = handle
                     break
     for m in _HANDLE_RE.finditer(text):

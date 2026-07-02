@@ -1,0 +1,78 @@
+{
+  "version": "1.1.0",
+  "updated_at": "2026-06-29",
+  "inference": {
+    "allow_ml_quality_models": false,
+    "allow_ml_quality_external_models": false,
+    "allow_value_proxy_ig_models": false,
+    "quality_fallback": "heuristic_components",
+    "beta_ranker_models": {
+      "gravity_athlete_cfb_value_v1": {
+        "stage": "beta",
+        "output_mode": "rank_only",
+        "suppress_dollar_calibration": true,
+        "min_spearman_for_rank": 0.50,
+        "notes": "Predict log1p(NIL) for ranking only; do not expose expm1 dollar bands until production gates pass."
+      }
+    }
+  },
+  "export": {
+    "cfb": {
+      "export_objectives": ["value_nil"],
+      "blocked_objectives": ["quality", "value_proxy_ig", "quality_external"]
+    }
+  },
+  "scrape": {
+    "gap_fill_mode": {
+      "event_type": "gap_fill",
+      "cli_flag": "--gap-fill",
+      "api_field": "gap_fill",
+      "description": "Run only scrapers needed for missing or placeholder IG/NIL/quality fields."
+    }
+  },
+  "production_gates": {
+    "gravity_athlete_cfb_value_v1": {
+      "mode": "rank_and_calibrate",
+      "required": {
+        "labeled_rows_min": 800,
+        "test_rows_min": 120,
+        "test_spearman_min": 0.65,
+        "test_mae_max": 0.14,
+        "val_test_mae_ratio_max": 1.35,
+        "temporal_fold_test_spearman_min": 0.55,
+        "temporal_fold_spearman_std_max": 0.12
+      },
+      "recommended": {
+        "nil_label_coverage_pct_min": 15.0,
+        "instagram_observed_pct_min": 25.0,
+        "test_spearman_min": 0.72
+      },
+      "unlock": "Remove suppress_dollar_calibration from beta_ranker_models"
+    },
+    "gravity_athlete_cfb_value_ig_v1": {
+      "mode": "rank_only",
+      "required": {
+        "labeled_rows_min": 400,
+        "test_rows_min": 60,
+        "test_spearman_min": 0.50,
+        "instagram_observed_pct_min": 25.0,
+        "instagram_placeholder_top_frac_max": 0.15
+      },
+      "unlock": "Set allow_value_proxy_ig_models true and remove value_proxy_ig from blocked_objectives"
+    },
+    "gravity_athlete_cfb_quality_v1": {
+      "mode": "inference",
+      "required": {
+        "labeled_rows_min": 300,
+        "test_rows_min": 45,
+        "test_spearman_min": 0.55,
+        "beats_heuristic_quality_min_delta": 0.05
+      },
+      "unlock": "Set allow_ml_quality_external_models true; target must be external_quality_score not proof_proxy"
+    }
+  },
+  "blocked_inference_models": {
+    "pattern": "*_quality_v1",
+    "reason": "proof_proxy target is self-supervised; use quality_external bundle when gates pass."
+  }
+}

@@ -259,6 +259,14 @@ class RunScrapersBody(BaseModel):
     scraper_keys: list[str] = Field(default_factory=list)
     persist: bool = True
     score_after: bool = True
+    gap_fill: bool = Field(
+        default=False,
+        description="When true, run only scrapers needed for missing/low-quality fields",
+    )
+    include_extended: bool | None = Field(
+        default=None,
+        description="Include extended scrapers in gap-fill resolution",
+    )
 
 
 class RosterSyncBody(BaseModel):
@@ -270,6 +278,27 @@ class RosterSyncBody(BaseModel):
     team_ids: list[str] = Field(default_factory=list, description="ESPN team ids")
     roster_season: str | None = None
     rescrape_transfers: bool = True
+
+
+@router.get("/gaps/{athlete_id}")
+async def athlete_scrape_gaps(
+    athlete_id: str,
+    db: asyncpg.Connection = Depends(get_db),
+    _: uuid.UUID = Depends(require_ops),
+):
+    """Preview data gaps and scrapers gap-fill mode would run (no scrape)."""
+    try:
+        uuid.UUID(athlete_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid athlete_id") from e
+    from gravity_api.scraper_registry.gap_fill import gap_fill_summary
+    from gravity_api.scrapers.orchestrator import build_context
+
+    try:
+        ctx = await build_context(db, athlete_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return gap_fill_summary(ctx)
 
 
 @router.post("/run/{athlete_id}")
@@ -290,10 +319,12 @@ async def run_athlete_scrapers(
         summary = await run_scrapers_for_athlete(
             db,
             athlete_id,
-            event_type=body.event_type,
+            event_type="gap_fill" if body.gap_fill else body.event_type,
             scraper_keys=body.scraper_keys or None,
             persist=body.persist,
             score_after=body.score_after,
+            gap_fill=body.gap_fill,
+            include_extended=body.include_extended,
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

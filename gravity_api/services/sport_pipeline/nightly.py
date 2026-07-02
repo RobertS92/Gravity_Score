@@ -41,6 +41,106 @@ class NightlySportResult:
     errors: list[str] = field(default_factory=list)
 
 
+async def fetch_gap_fill_athlete_ids(
+    conn: asyncpg.Connection,
+    *,
+    sport: str,
+    limit: int,
+) -> list[str]:
+    """Athletes missing critical scrape fields; active scorable players first."""
+    rows = await conn.fetch(
+        """SELECT a.id
+           FROM athletes a
+           LEFT JOIN LATERAL (
+             SELECT raw_data FROM raw_athlete_data
+             WHERE athlete_id = a.id ORDER BY scraped_at DESC NULLS LAST LIMIT 1
+           ) r ON TRUE
+           WHERE a.sport = $1
+             AND COALESCE(a.is_active, TRUE) = TRUE
+             AND a.espn_id IS NOT NULL
+             AND (
+               r.raw_data IS NULL
+               OR COALESCE(r.raw_data->>'instagram_handle', '') = ''
+               OR (
+                 COALESCE(r.raw_data->>'instagram_handle_source', r.raw_data->>'handle_source', '') <> 'user'
+                 AND COALESCE(r.raw_data->>'instagram_followers_observed', '0') <> '1'
+               )
+               OR (r.raw_data->>'instagram_followers')::float = 2500
+               OR COALESCE(r.raw_data->>'nil_valuation_observed', '0') <> '1'
+               OR COALESCE(r.raw_data->>'external_quality_score_observed', '0') <> '1'
+               OR NOT (
+                 COALESCE((r.raw_data->>'games_played_season')::float, 0) > 0
+                 OR (
+                   r.raw_data ? 'season_stats'
+                   AND jsonb_typeof(r.raw_data->'season_stats') = 'object'
+                   AND (SELECT COUNT(*) FROM jsonb_each(r.raw_data->'season_stats')) >= 3
+                 )
+               )
+             )
+           ORDER BY
+             CASE
+               WHEN COALESCE((r.raw_data->>'nil_rank_national')::float, 0) > 0
+               THEN (r.raw_data->>'nil_rank_national')::float
+               ELSE 999999
+             END ASC NULLS LAST,
+             COALESCE((r.raw_data->>'recruiting_stars')::float, 0) DESC NULLS LAST,
+             COALESCE((r.raw_data->>'instagram_followers')::float, 0) DESC NULLS LAST,
+             CASE
+               WHEN COALESCE(r.raw_data->>'nil_valuation_observed', '0') = '1'
+               THEN COALESCE((r.raw_data->>'nil_valuation')::float, 0)
+               ELSE 0
+             END DESC NULLS LAST,
+             CASE WHEN COALESCE((r.raw_data->>'games_played_season')::float, 0) > 0 THEN 0 ELSE 1 END,
+             r.raw_data IS NULL DESC,
+             a.updated_at DESC NULLS LAST
+           LIMIT $2""",
+        sport,
+        limit,
+    )
+    return [str(r["id"]) for r in rows]
+
+
+async def fetch_nil_priority_athlete_ids(
+    conn: asyncpg.Connection,
+    *,
+    sport: str,
+    limit: int,
+) -> list[str]:
+    """College athletes with high commercial signal but missing observed NIL."""
+    college_sports = frozenset({"cfb", "ncaab_mens", "ncaab_womens"})
+    if sport not in college_sports:
+        return []
+    rows = await conn.fetch(
+        """SELECT a.id
+           FROM athletes a
+           LEFT JOIN LATERAL (
+             SELECT raw_data FROM raw_athlete_data
+             WHERE athlete_id = a.id ORDER BY scraped_at DESC NULLS LAST LIMIT 1
+           ) r ON TRUE
+           WHERE a.sport = $1
+             AND COALESCE(a.is_active, TRUE) = TRUE
+             AND COALESCE(r.raw_data->>'nil_valuation_observed', '0') <> '1'
+             AND (
+               COALESCE((r.raw_data->>'recruiting_stars')::float, 0) >= 4
+               OR COALESCE((r.raw_data->>'nil_rank_national')::float, 0) > 0
+               OR COALESCE((r.raw_data->>'instagram_followers')::float, 0) >= 100000
+             )
+           ORDER BY
+             CASE
+               WHEN COALESCE((r.raw_data->>'nil_rank_national')::float, 0) > 0
+               THEN (r.raw_data->>'nil_rank_national')::float
+               ELSE 999999
+             END ASC NULLS LAST,
+             COALESCE((r.raw_data->>'recruiting_stars')::float, 0) DESC NULLS LAST,
+             COALESCE((r.raw_data->>'instagram_followers')::float, 0) DESC NULLS LAST,
+             a.updated_at DESC NULLS LAST
+           LIMIT $2""",
+        sport,
+        limit,
+    )
+    return [str(r["id"]) for r in rows]
+
+
 async def fetch_stale_athlete_ids(
     conn: asyncpg.Connection,
     *,
@@ -149,6 +249,7 @@ async def run_nightly_for_sport(
     rebuild_cohorts: bool = True,
     score: bool = True,
     pool: asyncpg.Pool | None = None,
+    gap_fill: bool = False,
 ) -> NightlySportResult:
     if concurrency is not None:
         scrape_concurrency = concurrency
@@ -159,9 +260,13 @@ async def run_nightly_for_sport(
         result.errors.append(f"Unknown sport: {sport}")
         return result
 
-    stale_ids = await fetch_stale_athlete_ids(conn, sport=sport, limit=athlete_limit)
+    stale_ids = (
+        await fetch_gap_fill_athlete_ids(conn, sport=sport, limit=athlete_limit)
+        if gap_fill
+        else await fetch_stale_athlete_ids(conn, sport=sport, limit=athlete_limit)
+    )
     result.stale_found = len(stale_ids)
-    logger.info("[%s] stale athletes: %d", sport, len(stale_ids))
+    logger.info("[%s] %s athletes: %d", sport, "gap-fill" if gap_fill else "stale", len(stale_ids))
 
     if not stale_ids:
         if rebuild_cohorts:
@@ -187,7 +292,12 @@ async def run_nightly_for_sport(
                     try:
                         async def work(task_conn: asyncpg.Connection) -> bool:
                             summary = await run_scrapers_for_athlete(
-                                task_conn, aid, score_after=False, persist=True
+                                task_conn,
+                                aid,
+                                event_type="gap_fill" if gap_fill else "scheduled_full",
+                                gap_fill=gap_fill,
+                                score_after=False,
+                                persist=True,
                             )
                             return summary.get("success_count", 0) > 0
 
@@ -249,6 +359,10 @@ async def run_nightly_all_sports(
     score_concurrency: int = 8,
     sports: tuple[str, ...] | None = None,
     sport_parallel: int = 1,
+    gap_fill: bool = False,
+    skip_scrape: bool = False,
+    skip_cohorts: bool = False,
+    skip_score: bool = False,
 ) -> dict[str, Any]:
     if concurrency is not None:
         scrape_concurrency = concurrency
@@ -256,15 +370,20 @@ async def run_nightly_all_sports(
 
     sport_list = sports or tuple(ALL_SPORT_PIPELINES.keys())
     results: dict[str, Any] = {}
+    dsn = get_settings().pg_dsn if sport_parallel > 1 else None
 
-    async def run_one(sp: str) -> tuple[str, dict[str, Any]]:
+    async def run_one(sp: str, *, sport_conn: asyncpg.Connection) -> tuple[str, dict[str, Any]]:
         logger.info("=== Nightly pipeline: %s ===", sp)
         r = await run_nightly_for_sport(
-            conn,
+            sport_conn,
             sport=sp,
             athlete_limit=athlete_limit_per_sport,
             scrape_concurrency=scrape_concurrency,
             score_concurrency=score_concurrency,
+            scrape=not skip_scrape,
+            rebuild_cohorts=not skip_cohorts,
+            score=not skip_score,
+            gap_fill=gap_fill,
         )
         payload = {
             "stale_found": r.stale_found,
@@ -277,16 +396,25 @@ async def run_nightly_all_sports(
         }
         return sp, payload
 
+    async def run_one_with_conn(sp: str) -> tuple[str, dict[str, Any]]:
+        if dsn:
+            sport_conn = await asyncpg.connect(dsn, command_timeout=120)
+            try:
+                return await run_one(sp, sport_conn=sport_conn)
+            finally:
+                await sport_conn.close()
+        return await run_one(sp, sport_conn=conn)
+
     if sport_parallel <= 1:
         for sport in sport_list:
-            sp, payload = await run_one(sport)
+            sp, payload = await run_one_with_conn(sport)
             results[sp] = payload
     else:
         sem = asyncio.Semaphore(sport_parallel)
 
         async def guarded(sp: str) -> tuple[str, dict[str, Any]]:
             async with sem:
-                return await run_one(sp)
+                return await run_one_with_conn(sp)
 
         pairs = await asyncio.gather(*[guarded(sp) for sp in sport_list])
         for sp, payload in pairs:

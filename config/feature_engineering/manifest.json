@@ -59,10 +59,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "RB": {
@@ -114,10 +111,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "WR": {
@@ -162,10 +156,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "TE": {
@@ -210,10 +201,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "OL": {
@@ -268,10 +256,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "DL": {
@@ -319,10 +304,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "LB": {
@@ -371,10 +353,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "DB": {
@@ -424,10 +403,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "K": {
@@ -475,10 +451,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         }
       },
@@ -515,10 +488,10 @@
       "risk_metrics": [
         "risk.injury_risk",
         "risk.availability",
-        "risk.transfer_portal",
         "risk.narrative",
         "risk.data_quality",
-        "risk.games_missed"
+        "risk.games_missed",
+        "risk.transfer_portal"
       ]
     },
     "ncaab_mens": {
@@ -576,10 +549,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "SG": {
@@ -625,10 +595,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "SF": {
@@ -673,10 +640,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "PF": {
@@ -721,10 +685,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "C": {
@@ -769,10 +730,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         }
       },
@@ -809,10 +767,10 @@
       "risk_metrics": [
         "risk.injury_risk",
         "risk.availability",
-        "risk.transfer_portal",
         "risk.narrative",
         "risk.data_quality",
-        "risk.games_missed"
+        "risk.games_missed",
+        "risk.transfer_portal"
       ]
     },
     "ncaab_womens": {
@@ -870,10 +828,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "SG": {
@@ -919,10 +874,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "SF": {
@@ -967,10 +919,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "PF": {
@@ -1015,10 +964,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "C": {
@@ -1063,10 +1009,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         }
       },
@@ -1103,10 +1046,10 @@
       "risk_metrics": [
         "risk.injury_risk",
         "risk.availability",
-        "risk.transfer_portal",
         "risk.narrative",
         "risk.data_quality",
-        "risk.games_missed"
+        "risk.games_missed",
+        "risk.transfer_portal"
       ]
     },
     "ncaa_baseball": {
@@ -1159,10 +1102,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "RP": {
@@ -1211,10 +1151,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "C": {
@@ -1264,10 +1201,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "IF": {
@@ -1322,10 +1256,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "OF": {
@@ -1378,10 +1309,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "UT": {
@@ -1428,10 +1356,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         }
       },
@@ -1466,10 +1391,10 @@
       "risk_metrics": [
         "risk.injury_risk",
         "risk.availability",
-        "risk.transfer_portal",
         "risk.narrative",
         "risk.data_quality",
-        "risk.games_missed"
+        "risk.games_missed",
+        "risk.transfer_portal"
       ]
     },
     "ncaa_volleyball": {
@@ -1522,10 +1447,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "MB": {
@@ -1571,10 +1493,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "S": {
@@ -1619,10 +1538,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "LIB": {
@@ -1665,10 +1581,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         },
         "OPP": {
@@ -1715,10 +1628,7 @@
             "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
-            "all_star": 0.8
+            "championship": 0.8
           }
         }
       },
@@ -1755,10 +1665,10 @@
       "risk_metrics": [
         "risk.injury_risk",
         "risk.availability",
-        "risk.transfer_portal",
         "risk.narrative",
         "risk.data_quality",
-        "risk.games_missed"
+        "risk.games_missed",
+        "risk.transfer_portal"
       ]
     },
     "nfl": {
@@ -1777,37 +1687,37 @@
           "performance_stats": [
             {
               "stat_key": "pass_yards",
-              "weight": 0.22,
+              "weight": 0.198,
               "direction": "higher"
             },
             {
               "stat_key": "pass_td",
-              "weight": 0.18,
+              "weight": 0.162,
               "direction": "higher"
             },
             {
               "stat_key": "passer_rating",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "qbr",
-              "weight": 0.15,
+              "weight": 0.135,
               "direction": "higher"
             },
             {
               "stat_key": "completion_pct",
-              "weight": 0.1,
+              "weight": 0.09000000000000001,
               "direction": "higher"
             },
             {
               "stat_key": "pass_int",
-              "weight": 0.1,
+              "weight": 0.09000000000000001,
               "direction": "lower"
             },
             {
               "stat_key": "rush_yards",
-              "weight": 0.05,
+              "weight": 0.045000000000000005,
               "direction": "higher"
             },
             {
@@ -1823,7 +1733,6 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
             "championship": 0.8,
@@ -1844,32 +1753,32 @@
           "performance_stats": [
             {
               "stat_key": "rush_yards",
-              "weight": 0.3,
+              "weight": 0.27,
               "direction": "higher"
             },
             {
               "stat_key": "rush_td",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "yards_per_carry",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "scrimmage_yards",
-              "weight": 0.15,
+              "weight": 0.135,
               "direction": "higher"
             },
             {
               "stat_key": "receptions",
-              "weight": 0.08,
+              "weight": 0.07200000000000001,
               "direction": "higher"
             },
             {
               "stat_key": "fumbles",
-              "weight": 0.07,
+              "weight": 0.06300000000000001,
               "direction": "lower"
             },
             {
@@ -1885,7 +1794,6 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
             "championship": 0.8,
@@ -1904,27 +1812,27 @@
           "performance_stats": [
             {
               "stat_key": "rec_yards",
-              "weight": 0.3,
+              "weight": 0.27,
               "direction": "higher"
             },
             {
               "stat_key": "receptions",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "rec_td",
-              "weight": 0.22,
+              "weight": 0.198,
               "direction": "higher"
             },
             {
               "stat_key": "yards_per_catch",
-              "weight": 0.18,
+              "weight": 0.162,
               "direction": "higher"
             },
             {
               "stat_key": "scrimmage_yards",
-              "weight": 0.1,
+              "weight": 0.09000000000000001,
               "direction": "higher"
             },
             {
@@ -1940,7 +1848,6 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
             "championship": 0.8,
@@ -1959,27 +1866,27 @@
           "performance_stats": [
             {
               "stat_key": "rec_yards",
-              "weight": 0.28,
+              "weight": 0.25200000000000006,
               "direction": "higher"
             },
             {
               "stat_key": "receptions",
-              "weight": 0.22,
+              "weight": 0.198,
               "direction": "higher"
             },
             {
               "stat_key": "rec_td",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "yards_per_catch",
-              "weight": 0.15,
+              "weight": 0.135,
               "direction": "higher"
             },
             {
               "stat_key": "blocks_grade",
-              "weight": 0.15,
+              "weight": 0.135,
               "direction": "higher"
             },
             {
@@ -1995,7 +1902,6 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
             "championship": 0.8,
@@ -2024,27 +1930,27 @@
           "performance_stats": [
             {
               "stat_key": "games_started",
-              "weight": 0.35,
+              "weight": 0.315,
               "direction": "higher"
             },
             {
               "stat_key": "pancakes",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "sacks_allowed",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "lower"
             },
             {
               "stat_key": "penalties",
-              "weight": 0.15,
+              "weight": 0.135,
               "direction": "lower"
             },
             {
               "stat_key": "team_rush_yards",
-              "weight": 0.1,
+              "weight": 0.09000000000000001,
               "direction": "higher"
             },
             {
@@ -2060,7 +1966,6 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
             "championship": 0.8,
@@ -2082,27 +1987,27 @@
           "performance_stats": [
             {
               "stat_key": "tackles",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "sacks",
-              "weight": 0.3,
+              "weight": 0.27,
               "direction": "higher"
             },
             {
               "stat_key": "tfl",
-              "weight": 0.25,
+              "weight": 0.225,
               "direction": "higher"
             },
             {
               "stat_key": "qb_hits",
-              "weight": 0.15,
+              "weight": 0.135,
               "direction": "higher"
             },
             {
               "stat_key": "forced_fumbles",
-              "weight": 0.1,
+              "weight": 0.09000000000000001,
               "direction": "higher"
             },
             {
@@ -2118,7 +2023,6 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
             "championship": 0.8,
@@ -2141,27 +2045,27 @@
           "performance_stats": [
             {
               "stat_key": "tackles",
-              "weight": 0.3,
+              "weight": 0.27,
               "direction": "higher"
             },
             {
               "stat_key": "tfl",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "sacks",
-              "weight": 0.15,
+              "weight": 0.135,
               "direction": "higher"
             },
             {
               "stat_key": "interceptions",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "passes_defended",
-              "weight": 0.15,
+              "weight": 0.135,
               "direction": "higher"
             },
             {
@@ -2177,7 +2081,6 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
             "championship": 0.8,
@@ -2201,27 +2104,27 @@
           "performance_stats": [
             {
               "stat_key": "tackles",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "interceptions",
-              "weight": 0.3,
+              "weight": 0.27,
               "direction": "higher"
             },
             {
               "stat_key": "passes_defended",
-              "weight": 0.25,
+              "weight": 0.225,
               "direction": "higher"
             },
             {
               "stat_key": "forced_fumbles",
-              "weight": 0.1,
+              "weight": 0.09000000000000001,
               "direction": "higher"
             },
             {
               "stat_key": "completion_pct_allowed",
-              "weight": 0.15,
+              "weight": 0.135,
               "direction": "lower"
             },
             {
@@ -2237,7 +2140,6 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
             "championship": 0.8,
@@ -2259,27 +2161,27 @@
           "performance_stats": [
             {
               "stat_key": "fg_pct",
-              "weight": 0.35,
+              "weight": 0.315,
               "direction": "higher"
             },
             {
               "stat_key": "fg_made",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "xp_pct",
-              "weight": 0.2,
+              "weight": 0.18000000000000002,
               "direction": "higher"
             },
             {
               "stat_key": "long_fg",
-              "weight": 0.15,
+              "weight": 0.135,
               "direction": "higher"
             },
             {
               "stat_key": "punt_avg",
-              "weight": 0.1,
+              "weight": 0.09000000000000001,
               "direction": "higher"
             },
             {
@@ -2295,7 +2197,6 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
             "championship": 0.8,
@@ -2331,16 +2232,16 @@
         "velocity.news_volume",
         "velocity.google_trends",
         "velocity.media_buzz",
-        "velocity.nil_valuation",
-        "velocity.deal_activity"
+        "velocity.contract_value",
+        "velocity.endorsement_momentum"
       ],
       "risk_metrics": [
         "risk.injury_risk",
         "risk.availability",
-        "risk.transfer_portal",
         "risk.narrative",
         "risk.data_quality",
-        "risk.games_missed"
+        "risk.games_missed",
+        "risk.contract_security"
       ]
     },
     "nba": {
@@ -2406,12 +2307,9 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
+            "championship": 1.0,
             "all_star": 1.0,
             "all_nba": 1.3
           }
@@ -2467,12 +2365,9 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
+            "championship": 1.0,
             "all_star": 1.0,
             "all_nba": 1.3
           }
@@ -2527,12 +2422,9 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
+            "championship": 1.0,
             "all_star": 1.0,
             "all_nba": 1.3
           }
@@ -2587,12 +2479,9 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
+            "championship": 1.0,
             "all_star": 1.0,
             "all_nba": 1.3
           }
@@ -2647,12 +2536,9 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
+            "championship": 1.0,
             "all_star": 1.0,
             "all_nba": 1.3
           }
@@ -2683,16 +2569,16 @@
         "velocity.news_volume",
         "velocity.google_trends",
         "velocity.media_buzz",
-        "velocity.nil_valuation",
-        "velocity.deal_activity"
+        "velocity.contract_value",
+        "velocity.endorsement_momentum"
       ],
       "risk_metrics": [
         "risk.injury_risk",
         "risk.availability",
-        "risk.transfer_portal",
         "risk.narrative",
         "risk.data_quality",
-        "risk.games_missed"
+        "risk.games_missed",
+        "risk.contract_security"
       ]
     },
     "wnba": {
@@ -2758,12 +2644,9 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
+            "championship": 1.0,
             "all_star": 1.0,
             "all_nba": 1.3
           }
@@ -2819,12 +2702,9 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
+            "championship": 1.0,
             "all_star": 1.0,
             "all_nba": 1.3
           }
@@ -2879,12 +2759,9 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
+            "championship": 1.0,
             "all_star": 1.0,
             "all_nba": 1.3
           }
@@ -2939,12 +2816,9 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
+            "championship": 1.0,
             "all_star": 1.0,
             "all_nba": 1.3
           }
@@ -2999,12 +2873,9 @@
           ],
           "recruiting_stats": [],
           "achievement_weights": {
-            "all_american": 1.0,
             "conference_honor": 0.4,
             "national_award": 1.5,
-            "championship": 0.8,
-            "pro_bowl": 0.6,
-            "all_pro": 1.0,
+            "championship": 1.0,
             "all_star": 1.0,
             "all_nba": 1.3
           }
@@ -3035,16 +2906,16 @@
         "velocity.news_volume",
         "velocity.google_trends",
         "velocity.media_buzz",
-        "velocity.nil_valuation",
-        "velocity.deal_activity"
+        "velocity.contract_value",
+        "velocity.endorsement_momentum"
       ],
       "risk_metrics": [
         "risk.injury_risk",
         "risk.availability",
-        "risk.transfer_portal",
         "risk.narrative",
         "risk.data_quality",
-        "risk.games_missed"
+        "risk.games_missed",
+        "risk.contract_security"
       ]
     }
   },

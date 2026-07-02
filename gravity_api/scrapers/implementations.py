@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import urllib.parse
 from datetime import datetime, timezone
 from typing import Any
 
@@ -19,7 +20,9 @@ from gravity_api.scrapers.clients.wikipedia import WikipediaClient
 from gravity_api.scrapers.db_context import get_scrape_db
 from gravity_api.scrapers.parsers.achievements import merge_espn_awards, parse_achievements_from_text
 from gravity_api.scrapers.parsers.common import parse_count, slugify_school
-from gravity_api.scrapers.parsers.nil import parse_nil_from_text, verify_nil_consensus
+from gravity_api.scrapers.parsers.nil import parse_nil_deals_from_text, parse_nil_from_text, verify_nil_consensus
+from gravity_api.scraper_registry.field_sufficiency import MIN_REAL_INSTAGRAM_FOLLOWERS, is_sufficient
+from gravity_api.scrapers.parsers.quality_label import apply_external_quality_fields
 from gravity_api.scrapers.parsers.opendorse import parse_opendorse_profile
 from gravity_api.scrapers.parsers.recruiting import parse_247_recruiting_profile
 from gravity_api.scrapers.parsers.roster import parse_roster_presence, parse_transfer_portal
@@ -27,10 +30,23 @@ from gravity_api.scrapers.parsers.sports_reference import (
     parse_sports_ref_honors,
     ref_domain_for_sport,
 )
+from gravity_api.scrapers.parsers.handle_discovery import (
+    apply_user_instagram_upload,
+    bio_matches_athlete,
+    extract_bio_from_page,
+    google_instagram_search_url,
+    google_site_search_url,
+    has_trusted_instagram_handle,
+    is_user_provided_instagram,
+    merge_non_instagram_handles,
+    passes_authenticity_gate,
+    resolve_instagram_fields,
+)
 from gravity_api.scrapers.parsers.social import (
     authenticity_score,
+    fetch_instagram_followers_from_text,
     handles_from_page,
-    merge_handle_sources,
+    instagram_aggregator_urls,
     parse_engagement_from_markdown,
 )
 from gravity_api.scrapers.parsers.site_search import (
@@ -47,11 +63,62 @@ class SocialHandleDiscoveryScraper(BaseMicroScraper):
     KEY_SUFFIX = "social_handle_discovery"
     SOURCE_KEY = "derived"
 
+    async def _fetch_source_markdown(
+        self, fc: FirecrawlClient, url: str, source: str
+    ) -> dict[str, str] | None:
+        try:
+            md = await fc.scrape_markdown(url)
+            if md:
+                return handles_from_page(md, source)
+        except Exception as e:
+            logger.debug("handle discovery %s failed: %s", source, e)
+        return None
+
+    async def _bio_verify_candidate(
+        self,
+        fc: FirecrawlClient,
+        handle: str,
+        ctx: AthleteScrapeContext,
+    ) -> tuple[bool, str]:
+        for url in instagram_aggregator_urls(handle):
+            try:
+                md = await fc.scrape_markdown(url)
+                bio = extract_bio_from_page(md)
+                if bio and bio_matches_athlete(
+                    bio,
+                    name=ctx.name,
+                    school=ctx.school or ctx.team,
+                    sport=ctx.sport,
+                    position=ctx.position,
+                ):
+                    return True, bio
+            except Exception as e:
+                logger.debug("bio verify failed for %s: %s", handle, e)
+        return False, ""
+
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        raw = ctx.existing_raw
+        if is_user_provided_instagram(raw) and raw.get("instagram_handle"):
+            fields = apply_user_instagram_upload(dict(raw))
+            return self._result(scraper_key, fields=fields, confidence=1.0)
+        if has_trusted_instagram_handle(raw):
+            return self._result(
+                scraper_key,
+                fields={
+                    "instagram_handle": raw.get("instagram_handle"),
+                    "instagram_handle_source": raw.get("instagram_handle_source")
+                    or raw.get("handle_source"),
+                    "handle_source": raw.get("handle_source"),
+                    "handle_confidence": raw.get("handle_confidence") or 0.9,
+                },
+                confidence=float(raw.get("handle_confidence") or 0.9),
+            )
+
         espn = EspnClient()
         fc = FirecrawlClient()
+        wiki = WikipediaClient()
         sources: list[dict[str, str]] = []
-        espn_id = ctx.espn_id or ctx.existing_raw.get("espn_id")
+        espn_id = ctx.espn_id or raw.get("espn_id")
         if not espn_id:
             espn_id = await espn.search_athlete(ctx.name, ctx.sport, team=ctx.school or ctx.team)
         if espn_id:
@@ -65,21 +132,69 @@ class SocialHandleDiscoveryScraper(BaseMicroScraper):
                 url = ident.get(url_key)
                 if url:
                     sources.append(handles_from_page(url + f"\n{platform}.com/", "espn"))
-        merged = merge_handle_sources(*sources)
-        has_primary_handles = bool(
-            merged.get("instagram_handle") or merged.get("twitter_handle")
-        )
-        if fc.enabled and ctx.school and not has_primary_handles:
-            try:
-                md = await fc.scrape_markdown(
-                    f"https://www.google.com/search?q={ctx.name.replace(' ', '+')}"
-                    f"+{slugify_school(ctx.school)}+instagram+twitter"
+
+        if fc.enabled:
+            school = ctx.school or ctx.team
+            search_jobs: list[tuple[str, str]] = [
+                (
+                    google_instagram_search_url(ctx.name, school, ctx.position),
+                    "google_instagram",
+                ),
+                (google_site_search_url(ctx.name, school, "247sports.com"), "247sports"),
+                (google_site_search_url(ctx.name, school, "on3.com"), "on3_nil"),
+            ]
+            if school:
+                q = urllib.parse.quote(f'"{ctx.name}" "{school}" roster instagram')
+                search_jobs.append(
+                    (f"https://www.google.com/search?q={q}", "team_roster")
                 )
-                sources.append(handles_from_page(md, "firecrawl_search"))
-                merged = merge_handle_sources(*sources)
-            except Exception as e:
-                logger.debug("handle discovery firecrawl: %s", e)
-        return self._result(scraper_key, fields=merged, confidence=float(merged.get("handle_confidence") or 0.5))
+            for url, source in search_jobs:
+                found = await self._fetch_source_markdown(fc, url, source)
+                if found:
+                    sources.append(found)
+
+        try:
+            title = await wiki.resolve_title(ctx.name)
+            if title:
+                extract = await wiki.fetch_page_extract(title)
+                if extract:
+                    sources.append(handles_from_page(extract, "wikipedia"))
+        except Exception as e:
+            logger.debug("wikipedia handle discovery: %s", e)
+
+        bio_by_handle: dict[str, str] = {}
+        ig_fields = resolve_instagram_fields(
+            sources,
+            name=ctx.name,
+            school=ctx.school or ctx.team,
+            sport=ctx.sport,
+            position=ctx.position,
+            bio_by_handle=bio_by_handle,
+        )
+
+        candidate = ig_fields.get("instagram_handle_candidate")
+        if candidate and not ig_fields.get("instagram_handle") and fc.enabled:
+            verified, bio = await self._bio_verify_candidate(fc, str(candidate), ctx)
+            if verified:
+                ig_fields["instagram_handle"] = candidate
+                ig_fields["instagram_handle_source"] = "bio_verified"
+                ig_fields["handle_source"] = "bio_verified"
+                ig_fields["instagram_handle_bio_verified"] = 1
+                ig_fields["instagram_bio"] = bio
+                ig_fields.pop("instagram_handle_candidate", None)
+                ig_fields.pop("instagram_handle_candidate_source", None)
+                ig_fields.pop("instagram_handle_candidate_sources", None)
+                ig_fields["handle_confidence"] = 0.78
+
+        other = merge_non_instagram_handles(*sources)
+        fields: dict[str, Any] = {**other, **ig_fields}
+        if ig_fields.get("instagram_handle_candidate") and not ig_fields.get("instagram_handle"):
+            fields.pop("instagram_handle", None)
+        return self._result(
+            scraper_key,
+            fields=fields,
+            confidence=float(fields.get("handle_confidence") or 0.5),
+        )
 
 
 class SocialEngagementInstagramScraper(BaseMicroScraper):
@@ -92,13 +207,16 @@ class SocialEngagementInstagramScraper(BaseMicroScraper):
         if not handle or not fc.enabled:
             return self._result(scraper_key, fields={}, error="missing handle or firecrawl")
         if (
-            ctx.existing_raw.get("instagram_followers")
+            is_sufficient(ctx.existing_raw, "instagram_followers")
             and ctx.existing_raw.get("instagram_engagement_rate")
         ):
             return self._result(
                 scraper_key,
                 fields={
                     "instagram_followers": ctx.existing_raw.get("instagram_followers"),
+                    "instagram_followers_observed": ctx.existing_raw.get(
+                        "instagram_followers_observed", 1
+                    ),
                     "instagram_engagement_rate": ctx.existing_raw.get(
                         "instagram_engagement_rate"
                     ),
@@ -141,31 +259,129 @@ class InstagramFollowersScraper(BaseMicroScraper):
     KEY_SUFFIX = "instagram_followers"
     SOURCE_KEY = "instagram"
 
+    async def _scrape_followers(self, handle: str, fc: FirecrawlClient) -> tuple[int | None, str | None]:
+        """Try aggregator mirrors first, then direct Instagram."""
+        last_error: str | None = None
+        for url in instagram_aggregator_urls(handle):
+            try:
+                md = await fc.scrape_markdown(url)
+                count = fetch_instagram_followers_from_text(md)
+                if count and count >= MIN_REAL_INSTAGRAM_FOLLOWERS:
+                    return count, None
+            except Exception as e:
+                last_error = str(e)
+                logger.debug("instagram scrape failed for %s: %s", url, e)
+        return None, last_error
+
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
-        handle = ctx.existing_raw.get("instagram_handle")
+        raw = ctx.existing_raw
+        handle = raw.get("instagram_handle")
+        if not handle and raw.get("instagram_handle_candidate"):
+            return self._result(
+                scraper_key,
+                fields={"instagram_handle_candidate": raw.get("instagram_handle_candidate")},
+                error="instagram handle not verified (candidate only)",
+                confidence=0.2,
+            )
+        if not has_trusted_instagram_handle(raw):
+            return self._result(
+                scraper_key,
+                fields={},
+                error="instagram handle not trusted",
+                confidence=0.2,
+            )
         fc = FirecrawlClient()
         fields: dict[str, Any] = {"instagram_handle": handle}
-        if not handle or not fc.enabled:
+        if not handle:
             return self._result(
                 scraper_key,
                 fields=fields,
-                error="missing handle or firecrawl" if not fc.enabled else None,
+                error="missing instagram_handle",
                 confidence=0.3,
             )
-        if handle and fc.enabled:
+        if is_sufficient(raw, "instagram_followers"):
+            return self._result(
+                scraper_key,
+                fields={
+                    "instagram_handle": handle,
+                    "instagram_followers": raw.get("instagram_followers"),
+                    "instagram_followers_observed": raw.get(
+                        "instagram_followers_observed", 1
+                    ),
+                    "instagram_handle_source": raw.get("instagram_handle_source"),
+                },
+                confidence=0.85,
+            )
+        if not fc.enabled:
+            return self._result(
+                scraper_key,
+                fields=fields,
+                error="firecrawl disabled",
+                confidence=0.3,
+            )
+        count, err = await self._scrape_followers(str(handle), fc)
+        bio_text = ""
+        page_md = ""
+        for url in instagram_aggregator_urls(str(handle)):
             try:
-                md = await fc.scrape_markdown(f"https://www.instagram.com/{handle.lstrip('@')}/")
-                count = parse_count(md)
-                if count:
-                    fields["instagram_followers"] = count
+                page_md = await fc.scrape_markdown(url)
+                bio_text = extract_bio_from_page(page_md)
+                if bio_text:
+                    break
+            except Exception:
+                continue
+        handle_source = str(
+            raw.get("instagram_handle_source") or raw.get("handle_source") or ""
+        )
+        ok, auth = passes_authenticity_gate(
+            handle=str(handle),
+            followers=count,
+            bio_text=bio_text,
+            name=ctx.name,
+            school=ctx.school or ctx.team,
+            sport=ctx.sport,
+            position=ctx.position,
+            handle_source=handle_source,
+        )
+        fields.update(auth)
+        if bio_text:
+            fields["instagram_bio"] = bio_text
+        if not ok and not is_user_provided_instagram(raw):
+            fields["instagram_followers"] = None
+            fields["instagram_followers_observed"] = 0
+            return self._result(
+                scraper_key,
+                fields=fields,
+                error=err or "authenticity gate failed",
+                confidence=0.25,
+            )
+        if count and count >= MIN_REAL_INSTAGRAM_FOLLOWERS:
+            fields["instagram_followers"] = count
+            fields["instagram_followers_observed"] = 1
+            try:
+                md = page_md or await fc.scrape_markdown(
+                    f"https://www.instagram.com/{str(handle).lstrip('@')}/"
+                )
                 eng = parse_engagement_from_markdown(md)
                 if eng.get("instagram_engagement_rate"):
                     fields["instagram_engagement_rate"] = eng["instagram_engagement_rate"]
                 if eng.get("posts_sampled"):
                     fields["posts_30d"] = eng.get("posts_sampled")
             except Exception as e:
-                return self._result(scraper_key, fields=fields, error=str(e))
-        return self._result(scraper_key, fields=fields, confidence=0.8 if fields.get("instagram_followers") else 0.3)
+                logger.debug("instagram engagement scrape: %s", e)
+            return self._result(scraper_key, fields=fields, confidence=0.82)
+        if is_user_provided_instagram(raw) and raw.get("instagram_followers"):
+            fields["instagram_followers"] = raw.get("instagram_followers")
+            fields["instagram_followers_observed"] = 1
+            return self._result(scraper_key, fields=fields, confidence=0.9)
+        fields["instagram_followers"] = None
+        fields["instagram_followers_observed"] = 0
+        return self._result(
+            scraper_key,
+            fields=fields,
+            error=err or "no follower count parsed",
+            confidence=0.3,
+        )
 
 
 class TiktokFollowersScraper(BaseMicroScraper):
@@ -261,10 +477,41 @@ class NilDealVerifiedScraper(BaseMicroScraper):
     KEY_SUFFIX = "nil_deal_verified"
     SOURCE_KEY = "verified_nil_deal"
 
+    async def _on3_markdown(self, ctx: AthleteScrapeContext, fc: FirecrawlClient) -> str | None:
+        slug = ctx.name.replace(" ", "-").lower()
+        urls = [
+            f"https://www.on3.com/nil/{slug}/",
+            f"https://www.google.com/search?q=site:on3.com/nil+{ctx.name.replace(' ', '+')}"
+            + (f"+{ctx.school.replace(' ', '+')}" if ctx.school else ""),
+        ]
+        for url in urls:
+            try:
+                md = await fc.scrape_markdown(url)
+                if md and ("nil" in md.lower() or "$" in md):
+                    return md
+            except Exception as e:
+                logger.debug("on3 fetch failed %s: %s", url, e)
+        return None
+
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        from gravity_api.scraper_registry.field_sufficiency import _observed
+
+        if is_sufficient(ctx.existing_raw, "nil_valuation") and _observed(
+            ctx.existing_raw, "nil_valuation"
+        ):
+            return self._result(
+                scraper_key,
+                fields={
+                    "nil_valuation": ctx.existing_raw.get("nil_valuation"),
+                    "nil_valuation_observed": ctx.existing_raw.get("nil_valuation_observed"),
+                    "nil_confidence": ctx.existing_raw.get("nil_confidence"),
+                    "nil_valuation_source": ctx.existing_raw.get("nil_valuation_source"),
+                },
+                confidence=float(ctx.existing_raw.get("nil_confidence") or 0.85),
+            )
         fc = FirecrawlClient()
         sources: list[dict[str, Any]] = []
-        if ctx.existing_raw.get("nil_valuation"):
+        if ctx.existing_raw.get("nil_valuation") and _observed(ctx.existing_raw, "nil_valuation"):
             sources.append(
                 {
                     "nil_valuation": ctx.existing_raw["nil_valuation"],
@@ -273,16 +520,24 @@ class NilDealVerifiedScraper(BaseMicroScraper):
                 }
             )
         if fc.enabled:
-            try:
-                md = await fc.scrape_markdown(
-                    f"https://www.on3.com/nil/{ctx.name.replace(' ', '-').lower()}/"
-                )
+            md = await self._on3_markdown(ctx, fc)
+            if md:
                 val = parse_nil_from_text(md)
                 if val:
                     sources.append({"nil_valuation": val, "source": "on3", "confidence": 0.92})
-            except Exception:
-                pass
+                deals = parse_nil_deals_from_text(md)
+                if deals:
+                    fields_deals = {"nil_deals": deals, "nil_deal_count": len(deals)}
+                else:
+                    fields_deals = {}
+            else:
+                fields_deals = {}
+        else:
+            fields_deals = {}
         verified = verify_nil_consensus(sources)
+        if verified.get("nil_valuation"):
+            verified["nil_valuation_observed"] = 1
+        verified.update(fields_deals)
         return self._result(
             scraper_key,
             fields=verified,
@@ -411,10 +666,23 @@ class SocialAuthenticityScraper(BaseMicroScraper):
     SOURCE_KEY = "model_derived"
 
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        raw = ctx.existing_raw
+        handle = raw.get("instagram_handle")
+        bio_ok = False
+        if handle:
+            bio_ok = bio_matches_athlete(
+                str(raw.get("instagram_bio") or ""),
+                name=ctx.name,
+                school=ctx.school or ctx.team,
+                sport=ctx.sport,
+                position=ctx.position,
+            )
         auth = authenticity_score(
-            handle=ctx.existing_raw.get("instagram_handle"),
-            followers=ctx.existing_raw.get("instagram_followers"),
-            linked_from_roster=bool(ctx.existing_raw.get("is_on_roster")),
+            handle=handle,
+            followers=raw.get("instagram_followers"),
+            linked_from_roster=bool(raw.get("is_on_roster")),
+            bio_text=str(raw.get("instagram_bio") or ""),
+            bio_matches_athlete=bio_ok or bool(raw.get("instagram_handle_bio_verified")),
         )
         return self._result(scraper_key, fields=auth, confidence=0.85)
 
@@ -483,6 +751,51 @@ class EspnStatsScraper(BaseMicroScraper):
     KEY_SUFFIX = "espn_stats"
     SOURCE_KEY = "espn"
 
+    def _needs_sports_ref_fallback(self, fields: dict[str, Any], sport: str) -> bool:
+        from gravity_api.scraper_registry.acceptance import _position_stat_count
+
+        if _position_stat_count(fields, sport) < 3:
+            return True
+        gp = fields.get("games_played_season") or fields.get("gp")
+        season = fields.get("season_stats")
+        if isinstance(season, dict):
+            gp = gp or season.get("games_played_season") or season.get("gp")
+        return gp is None or int(gp) <= 0
+
+    async def _sports_ref_fallback(
+        self, ctx: AthleteScrapeContext, fc: FirecrawlClient
+    ) -> dict[str, Any]:
+        from gravity_api.scrapers.parsers.sports_reference_stats import (
+            parse_sports_ref_stats_from_markdown,
+            sports_ref_google_search_url,
+            sports_ref_search_url,
+        )
+        from gravity_api.scrapers.parsers.stat_normalizer import merge_stat_layers
+
+        if ctx.sport not in {"nfl", "ncaab_mens", "ncaab_womens", "cfb"}:
+            return {}
+        urls = [sports_ref_search_url(ctx.name, ctx.sport, ctx.school or ctx.team)]
+        google_url = sports_ref_google_search_url(ctx.name, ctx.sport, ctx.school or ctx.team)
+        if google_url and google_url not in urls:
+            urls.append(google_url)
+        urls = [u for u in urls if u]
+        if not urls:
+            return {}
+        for url in urls:
+            try:
+                md = await fc.scrape_markdown(url)
+                parsed = parse_sports_ref_stats_from_markdown(ctx.sport, md)
+                if not parsed.get("season_stats"):
+                    continue
+                merged = merge_stat_layers(ctx.sport, current=parsed.get("season_stats"))
+                merged["stats_source"] = parsed.get("stats_source") or "sports_reference"
+                if parsed.get("stats_as_of"):
+                    merged["stats_as_of"] = parsed["stats_as_of"]
+                return merged
+            except Exception as e:
+                logger.debug("sports ref stats fallback %s: %s", url, e)
+        return {}
+
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
         espn = EspnClient()
         espn_id = ctx.espn_id or ctx.existing_raw.get("espn_id")
@@ -499,9 +812,27 @@ class EspnStatsScraper(BaseMicroScraper):
             history=stats.get("season_stats_history"),
             career=stats.get("career_stats"),
         )
-        if stats.get("stats_as_of"):
+        if self._needs_sports_ref_fallback(fields, ctx.sport):
+            fc = FirecrawlClient()
+            if fc.enabled:
+                fb = await self._sports_ref_fallback(ctx, fc)
+                if fb.get("season_stats"):
+                    sr_source = fb.get("stats_source") or "sports_reference"
+                    merged = merge_stat_layers(
+                        ctx.sport,
+                        current=fb.get("season_stats"),
+                        history=fields.get("season_stats_history"),
+                        career=fields.get("career_stats"),
+                    )
+                    fields = {**fields, **merged}
+                    fields["stats_source"] = sr_source
+                    if fb.get("stats_as_of"):
+                        fields["stats_as_of"] = fb["stats_as_of"]
+                    if fb.get("games_played_season"):
+                        fields["games_played_season"] = fb["games_played_season"]
+        if stats.get("stats_as_of") and not fields.get("stats_as_of"):
             fields["stats_as_of"] = stats["stats_as_of"]
-        if stats.get("stats_source"):
+        if stats.get("stats_source") and not fields.get("stats_source"):
             fields["stats_source"] = stats["stats_source"]
         if stats.get("season_id"):
             fields["season_id"] = stats["season_id"]
@@ -521,6 +852,7 @@ class EspnAwardsScraper(BaseMicroScraper):
             return self._result(scraper_key, fields={}, error="espn id missing")
         profile = await espn.get_athlete_profile(str(espn_id), ctx.sport)
         fields = merge_espn_awards(profile.get("awards") or [])
+        fields = apply_external_quality_fields(fields, ctx.existing_raw)
         return self._result(scraper_key, fields=fields, confidence=0.9)
 
 
@@ -1130,6 +1462,8 @@ for cls in ALL_SCRAPER_CLASSES:
 
 
 def get_scraper_impl(scraper_key: str) -> BaseMicroScraper | None:
+    if scraper_key.startswith("on3_nil"):
+        return _IMPLEMENTATIONS.get("nil_deal_verified")
     if site_suffix_for_key(scraper_key):
         return _IMPLEMENTATIONS.get("")
     for suffix, impl in _IMPLEMENTATIONS.items():

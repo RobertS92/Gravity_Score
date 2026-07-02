@@ -23,6 +23,7 @@ load_dotenv()
 
 import asyncpg
 
+from gravity_api.scraper_registry.acceptance_sports import ACCEPTANCE_SPORTS
 from gravity_api.services.sport_pipeline.nightly import run_nightly_all_sports, run_nightly_for_sport
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 async def main_async(
     *,
     sport: str | None,
+    sports: tuple[str, ...] | None,
     limit: int,
     concurrency: int | None,
     scrape_concurrency: int,
@@ -40,6 +42,7 @@ async def main_async(
     skip_scrape: bool,
     skip_cohorts: bool,
     skip_score: bool,
+    gap_fill: bool,
 ) -> None:
     dsn = os.environ.get("PG_DSN")
     if not dsn:
@@ -58,9 +61,13 @@ async def main_async(
                 scrape=not skip_scrape,
                 rebuild_cohorts=not skip_cohorts,
                 score=not skip_score,
+                gap_fill=gap_fill,
             )
             logger.info("Done %s: %s", sport, result)
         else:
+            sport_list = sports
+            if sport_list is None and gap_fill:
+                sport_list = ACCEPTANCE_SPORTS
             summary = await run_nightly_all_sports(
                 conn,
                 athlete_limit_per_sport=limit,
@@ -68,6 +75,11 @@ async def main_async(
                 scrape_concurrency=scrape_concurrency,
                 score_concurrency=score_concurrency,
                 sport_parallel=sport_parallel,
+                sports=sport_list,
+                gap_fill=gap_fill,
+                skip_scrape=skip_scrape,
+                skip_cohorts=skip_cohorts,
+                skip_score=skip_score,
             )
             logger.info("Nightly complete: %s", summary)
     finally:
@@ -76,7 +88,12 @@ async def main_async(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Nightly sport pipeline")
-    parser.add_argument("--sport", default=None, help="Single sport; default all 8")
+    parser.add_argument("--sport", default=None, help="Single sport; default all pipeline sports")
+    parser.add_argument(
+        "--sports",
+        default=None,
+        help="Comma-separated sports (e.g. cfb,nfl). With --gap-fill and no --sport, defaults to 6 acceptance sports.",
+    )
     parser.add_argument("--limit", type=int, default=100, help="Max stale athletes per sport")
     parser.add_argument("--concurrency", type=int, default=None, help="Override scrape+score concurrency")
     parser.add_argument(
@@ -97,10 +114,19 @@ def main() -> None:
     parser.add_argument("--skip-scrape", action="store_true")
     parser.add_argument("--skip-cohorts", action="store_true")
     parser.add_argument("--skip-score", action="store_true")
+    parser.add_argument(
+        "--gap-fill",
+        action="store_true",
+        help="Only scrape athletes with missing/placeholder IG, NIL, or quality fields",
+    )
     args = parser.parse_args()
+    sports: tuple[str, ...] | None = None
+    if args.sports:
+        sports = tuple(s.strip() for s in args.sports.split(",") if s.strip())
     asyncio.run(
         main_async(
             sport=args.sport,
+            sports=sports,
             limit=args.limit,
             concurrency=args.concurrency,
             scrape_concurrency=args.scrape_concurrency,
@@ -109,6 +135,7 @@ def main() -> None:
             skip_scrape=args.skip_scrape,
             skip_cohorts=args.skip_cohorts,
             skip_score=args.skip_score,
+            gap_fill=args.gap_fill,
         )
     )
 

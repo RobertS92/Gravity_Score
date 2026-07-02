@@ -41,45 +41,91 @@ PROXIMITY_BASEBALL_METRICS: tuple[MetricProfileSpec, ...] = (
     MetricProfileSpec("proximity.nil_valuation", "proximity", "nil_valuation", log_transform=True, mask_below_confidence=0.6),
 )
 
-VELOCITY_METRICS: tuple[MetricProfileSpec, ...] = (
+_VELOCITY_BASE: tuple[MetricProfileSpec, ...] = (
     MetricProfileSpec("velocity.proof_performance", "velocity", "proof.performance_index"),
     MetricProfileSpec("velocity.social_reach", "brand", "social_reach_total"),
     MetricProfileSpec("velocity.engagement", "brand", "engagement_quality"),
     MetricProfileSpec("velocity.news_volume", "brand", "news_count_30d"),
     MetricProfileSpec("velocity.google_trends", "brand", "google_trends_score"),
     MetricProfileSpec("velocity.media_buzz", "brand", "media_buzz_score"),
+)
+
+VELOCITY_COLLEGE_METRICS: tuple[MetricProfileSpec, ...] = _VELOCITY_BASE + (
     MetricProfileSpec("velocity.nil_valuation", "proximity", "nil_valuation", log_transform=True),
     MetricProfileSpec("velocity.deal_activity", "proximity", "nil_deal_count"),
 )
 
-RISK_METRICS: tuple[MetricProfileSpec, ...] = (
+VELOCITY_PRO_METRICS: tuple[MetricProfileSpec, ...] = _VELOCITY_BASE + (
+    MetricProfileSpec("velocity.contract_value", "proximity", "contract_aav", log_transform=True),
+    MetricProfileSpec("velocity.endorsement_momentum", "proximity", "endorsement_earnings", log_transform=True),
+)
+
+# Backward-compatible alias for college sports.
+VELOCITY_METRICS = VELOCITY_COLLEGE_METRICS
+
+_RISK_BASE: tuple[MetricProfileSpec, ...] = (
     MetricProfileSpec("risk.injury_risk", "risk", "injury_risk_score", invert_for_risk=True),
     MetricProfileSpec("risk.availability", "risk", "availability_rate"),
-    MetricProfileSpec("risk.transfer_portal", "risk", "transfer_portal_active"),
     MetricProfileSpec("risk.narrative", "risk", "controversy_count_30d"),
     MetricProfileSpec("risk.data_quality", "risk", "data_quality_score"),
     MetricProfileSpec("risk.games_missed", "risk", "games_missed_season"),
 )
 
+RISK_COLLEGE_METRICS: tuple[MetricProfileSpec, ...] = _RISK_BASE + (
+    MetricProfileSpec("risk.transfer_portal", "risk", "transfer_portal_active"),
+)
+
+RISK_PRO_METRICS: tuple[MetricProfileSpec, ...] = _RISK_BASE + (
+    MetricProfileSpec("risk.contract_security", "proximity", "contract_guaranteed_usd", log_transform=True),
+)
+
+RISK_METRICS = RISK_COLLEGE_METRICS
+
 COLLEGE_RECRUITING_KEYS = ("recruiting_stars", "recruiting_rank_national", "recruiting_rank_position")
-ACHIEVEMENT_WEIGHTS = {
+
+ACHIEVEMENT_WEIGHTS_COLLEGE = {
     "all_american": 1.0,
     "conference_honor": 0.4,
     "national_award": 1.5,
     "championship": 0.8,
-    "pro_bowl": 0.6,
-    "all_pro": 1.0,
-    "all_star": 0.8,
 }
+
+ACHIEVEMENT_WEIGHTS_PRO_FOOTBALL = {
+    "conference_honor": 0.4,
+    "national_award": 1.5,
+    "championship": 0.8,
+    "pro_bowl": 0.7,
+    "all_pro": 1.2,
+    "all_star": 0.8,
+    "super_bowl": 1.0,
+}
+
+ACHIEVEMENT_WEIGHTS_PRO_BASKETBALL = {
+    "conference_honor": 0.4,
+    "national_award": 1.5,
+    "championship": 1.0,
+    "all_star": 1.0,
+    "all_nba": 1.3,
+}
+
+# Backward-compatible alias for college sport specs.
+ACHIEVEMENT_WEIGHTS = ACHIEVEMENT_WEIGHTS_COLLEGE
 
 __all__ = [
     "ACHIEVEMENT_WEIGHTS",
+    "ACHIEVEMENT_WEIGHTS_COLLEGE",
+    "ACHIEVEMENT_WEIGHTS_PRO_BASKETBALL",
+    "ACHIEVEMENT_WEIGHTS_PRO_FOOTBALL",
     "BRAND_METRICS",
     "COLLEGE_RECRUITING_KEYS",
     "DEFAULT_PLATFORM_WEIGHTS",
     "PROXIMITY_BASEBALL_METRICS",
     "PROXIMITY_COLLEGE_METRICS",
     "PROXIMITY_PRO_METRICS",
+    "RISK_COLLEGE_METRICS",
     "RISK_METRICS",
+    "RISK_PRO_METRICS",
+    "VELOCITY_COLLEGE_METRICS",
     "VELOCITY_METRICS",
+    "VELOCITY_PRO_METRICS",
 ]

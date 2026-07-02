@@ -1,0 +1,19 @@
+# Railway Cron worker for gap-fill nightly scrapes (separate service from the web API).
+#
+# Dashboard setup:
+#   1. New service in the same project → name: gravity-api-nightly
+#   2. Root Directory = gravity_api
+#   3. Settings → Config file path = railway.nightly.toml
+#   4. Copy env vars from gravity_api (PG_DSN, FIRECRAWL_API_KEY, CFBD_*, etc.)
+#   5. Do NOT attach a public domain — this service runs and exits on schedule.
+#
+# Schedule: 3 AM UTC daily — gap-fill scrape + cohort rebuild + score for 6 acceptance sports.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+cronSchedule = "0 3 * * *"
+startCommand = "python -m gravity_api.jobs.nightly_pipeline --gap-fill --limit 200 --sport-parallel 2 --scrape-concurrency 3 --score-concurrency 8"
+restartPolicyType = "NEVER"

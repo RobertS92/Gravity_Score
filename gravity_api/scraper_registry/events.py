@@ -110,6 +110,8 @@ EVENT_SCRAPER_SUFFIXES: dict[str, list[str]] = {
         "ncaa_official_roster",
         "identity_consensus",
     ],
+    # Gap-fill: resolver picks scrapers dynamically from field gaps (see gap_fill.py).
+    "gap_fill": [],
 }
 
 # Suffixes that only apply to college athletes (blocked for pro tier).

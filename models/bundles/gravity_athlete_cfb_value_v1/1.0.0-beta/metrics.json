@@ -1,0 +1,26 @@
+{
+  "validation": {
+    "mae": 0.077,
+    "rmse": 0.1015,
+    "spearman": 0.8327,
+    "n": 69
+  },
+  "test": {
+    "mae": 0.1841,
+    "rmse": 0.2309,
+    "spearman": 0.5652,
+    "n": 70
+  },
+  "diagnostics": {
+    "source": "scripts/cfb_value_nil_diagnostics.py",
+    "labeled_rows": 461,
+    "augmentation_hurts_generalization": false,
+    "val_test_mae_ratio": 2.39,
+    "temporal_test_spearman_range": [0.5693, 0.8304],
+    "production_gate_status": "beta_rank_only"
+  },
+  "train_rows": 322,
+  "train_rows_aug": 839,
+  "val_rows": 69,
+  "test_rows": 70
+}

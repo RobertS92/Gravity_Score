@@ -145,10 +145,36 @@ async def run_athlete_pipeline(
         conn, athlete, snap, scraped, cohort_ctx, metric_histories
     )
 
+    from gravity_api.services.sport_pipeline.raw_stats_sync import (
+        apply_ass_enrichment_to_raw,
+        enrich_raw_from_athlete_season_stats,
+    )
+
+    ass_enrichment = await enrich_raw_from_athlete_season_stats(conn, athlete_id, sport)
+    raw = apply_ass_enrichment_to_raw(raw, ass_enrichment)
+
     manual = await load_manual_imputations(conn, athlete_id)
     apply_manual_imputations(raw, manual)
     apply_heuristic_imputations(raw, athlete)
     raw = enrich_raw_with_partnerships(raw)
+
+    commercial_viability: dict[str, Any] | None = None
+    from gravity_api.services.commercial_viability import (
+        COLLEGE_COMMERCIAL_SPORTS,
+        compute_college_commercial_viability,
+    )
+
+    if sport in COLLEGE_COMMERCIAL_SPORTS:
+        commercial_viability = await compute_college_commercial_viability(
+            conn, athlete_id, sport, raw
+        )
+        raw.update(
+            {
+                "commercial_viability_index": commercial_viability["commercial_viability_index"],
+                "commercial_viability_score": commercial_viability["commercial_viability_score"],
+                "nil_signal_source": commercial_viability["nil_signal_source"],
+            }
+        )
 
     engine = FeatureEngineeringEngine()
     snapshot = engine.build_snapshot(
@@ -168,6 +194,18 @@ async def run_athlete_pipeline(
         snapshot=snapshot,
         pipeline=pipeline,
     )
+
+    if commercial_viability and not score_data.get("dollar_p50_usd"):
+        score_data["dollar_p10_usd"] = commercial_viability["nil_dollar_p10"]
+        score_data["dollar_p50_usd"] = commercial_viability["nil_dollar_p50"]
+        score_data["dollar_p90_usd"] = commercial_viability["nil_dollar_p90"]
+        score_data.setdefault(
+            "dollar_confidence",
+            {
+                "source": commercial_viability["nil_signal_source"],
+                "quality": "moderate" if commercial_viability["nil_signal_source"] == "observed" else "low",
+            },
+        )
 
     await _persist_score_row(conn, athlete, score_data, raw, manual, pipeline.model_key)
     feature_result["score"] = {

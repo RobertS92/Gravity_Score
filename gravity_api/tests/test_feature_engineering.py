@@ -81,6 +81,40 @@ def test_pro_sports_have_college_bridge():
         assert get_sport_spec(sport).college_pro_bridge is False
 
 
+def test_college_vs_pro_metric_terminology():
+    for sport in ("cfb", "ncaab_mens", "ncaa_baseball"):
+        spec = get_sport_spec(sport)
+        velocity_keys = {m.metric_key for m in spec.velocity_metrics}
+        risk_keys = {m.metric_key for m in spec.risk_metrics}
+        assert "velocity.nil_valuation" in velocity_keys
+        assert "risk.transfer_portal" in risk_keys
+        assert "velocity.contract_value" not in velocity_keys
+        assert "risk.contract_security" not in risk_keys
+
+    for sport in ("nfl", "nba", "wnba"):
+        spec = get_sport_spec(sport)
+        velocity_keys = {m.metric_key for m in spec.velocity_metrics}
+        risk_keys = {m.metric_key for m in spec.risk_metrics}
+        assert "velocity.contract_value" in velocity_keys
+        assert "risk.contract_security" in risk_keys
+        assert "velocity.nil_valuation" not in velocity_keys
+        assert "risk.transfer_portal" not in risk_keys
+
+
+def test_nfl_achievement_weights_exclude_college_honors():
+    spec = get_sport_spec("nfl")
+    weights = spec.position_groups[0].achievement_weights
+    assert "all_american" not in weights
+    assert "pro_bowl" in weights
+
+
+def test_nba_achievement_weights_exclude_football_honors():
+    spec = get_sport_spec("nba")
+    weights = spec.position_groups[0].achievement_weights
+    assert "pro_bowl" not in weights
+    assert "all_nba" in weights
+
+
 def test_total_position_group_count():
     manifest = export_specs_json()
     total = sum(len(s["position_groups"]) for s in manifest["sports"].values())

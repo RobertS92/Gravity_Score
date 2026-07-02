@@ -1,36 +1,47 @@
-name: Nightly Sport Pipeline
+# Nightly pipeline scheduling moved to Railway Cron — see gravity_api/railway.nightly.toml
+#
+# Create a separate Railway service (gravity-api-nightly) with config path railway.nightly.toml.
+# Manual trigger only remains here for emergencies (hits the API, not the cron worker).
+
+name: Nightly Sport Pipeline (manual only)
 
 on:
-  schedule:
-    # 3 AM UTC — triggers gravity_api on Railway (after railway-service daily at 2 AM UTC)
-    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       sport:
-        description: "Optional single sport (cfb, nfl, ...); blank = all 8"
+        description: "Optional single sport (cfb, nfl, ...); blank = acceptance sports when gap_fill"
         required: false
         default: ""
       athlete_limit:
-        description: "Max stale athletes per sport"
+        description: "Max athletes per sport"
         required: false
         default: "100"
+      gap_fill:
+        description: "Gap-fill mode (missing IG/NIL/stats)"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 jobs:
   trigger-nightly:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Trigger nightly pipeline on Railway
+      - name: Trigger nightly pipeline on Railway API
         env:
           GRAVITY_API_URL: ${{ secrets.GRAVITY_API_URL }}
           GRAVITY_INTERNAL_API_KEY: ${{ secrets.GRAVITY_INTERNAL_API_KEY }}
           SPORT: ${{ github.event.inputs.sport }}
           LIMIT: ${{ github.event.inputs.athlete_limit || '100' }}
+          GAP_FILL: ${{ github.event.inputs.gap_fill || 'true' }}
         run: |
           set -euo pipefail
           API_URL="${GRAVITY_API_URL:-https://gravityscore-production.up.railway.app}"
           if [ -z "${GRAVITY_INTERNAL_API_KEY:-}" ]; then
-            echo "::error::GRAVITY_INTERNAL_API_KEY secret required (same value as gravity_api on Railway)"
+            echo "::error::GRAVITY_INTERNAL_API_KEY secret required"
             exit 1
           fi
 
@@ -39,8 +50,13 @@ jobs:
             sport_json="\"${SPORT}\""
           fi
 
+          gap_json="true"
+          if [ "${GAP_FILL:-true}" = "false" ]; then
+            gap_json="false"
+          fi
+
           payload=$(cat <<JSON
-          {"sport": ${sport_json}, "athlete_limit": ${LIMIT}, "scrape": true, "rebuild_cohorts": true, "score": true}
+          {"sport": ${sport_json}, "athlete_limit": ${LIMIT}, "scrape": true, "rebuild_cohorts": true, "score": true, "gap_fill": ${gap_json}}
           JSON
           )
 
@@ -53,7 +69,7 @@ jobs:
           cat /tmp/nightly_response.json
           echo
           if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
-            echo "Nightly pipeline started on Railway (HTTP $http_code)"
+            echo "Nightly pipeline completed on Railway (HTTP $http_code)"
             exit 0
           fi
           echo "::error::Nightly API trigger failed with HTTP $http_code"

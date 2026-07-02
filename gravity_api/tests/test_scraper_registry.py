@@ -98,3 +98,21 @@ def test_unique_scraper_keys():
     reg = build_registry()
     keys = [d.scraper_key for d in reg]
     assert len(keys) == len(set(keys))
+
+
+def test_pro_registry_excludes_college_feature_keys():
+    reg = build_registry()
+    nfl_keys = {k for d in reg if d.sport == "nfl" for k in d.feature_keys}
+    assert "nil_valuation" not in nfl_keys
+    assert "in_transfer_portal" not in nfl_keys
+    assert "recruiting_stars" not in nfl_keys
+    assert "heisman_finalist" not in nfl_keys
+    assert "contract_aav_usd" in nfl_keys
+
+
+def test_college_registry_excludes_pro_contract_keys():
+    reg = build_registry()
+    cfb_keys = {k for d in reg if d.sport == "cfb" for k in d.feature_keys}
+    assert "nil_valuation" in cfb_keys
+    assert "contract_aav_usd" not in cfb_keys
+    assert "endorsement_value_usd" not in cfb_keys

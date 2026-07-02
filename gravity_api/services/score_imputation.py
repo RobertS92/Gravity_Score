@@ -6,6 +6,8 @@ from typing import Any, Dict, Optional
 
 import asyncpg
 
+from gravity_api.scraper_registry.field_sufficiency import PLACEHOLDER_NUMBERS
+
 
 def _as_float(v: Any) -> Optional[float]:
     if v is None:
@@ -82,7 +84,12 @@ async def load_manual_imputations(
     return out
 
 
+from gravity_api.scrapers.parsers.handle_discovery import apply_user_instagram_upload
+
+
 def apply_manual_imputations(raw: Dict[str, Any], manual: Dict[str, Any]) -> list[str]:
+    if manual.get("instagram_handle"):
+        manual = apply_user_instagram_upload(dict(manual))
     applied: list[str] = []
     for field, value in manual.items():
         if value is None:
@@ -115,16 +122,22 @@ def apply_heuristic_imputations(raw: Dict[str, Any], athlete: asyncpg.Record) ->
     base = _sport_base_followers(sport)
 
     fabricated_social = False
-    if _as_float(raw.get("instagram_followers")) is None:
+    ig = _as_float(raw.get("instagram_followers"))
+    if ig is None or ig in PLACEHOLDER_NUMBERS:
+        if ig in PLACEHOLDER_NUMBERS:
+            applied.append("instagram_followers_placeholder_cleared")
         raw["instagram_followers"] = int(base * pos_mult)
+        raw["instagram_followers_observed"] = 0
         applied.append("instagram_followers")
         fabricated_social = True
     if _as_float(raw.get("twitter_followers")) is None:
         raw["twitter_followers"] = int(base * 0.45 * pos_mult)
+        raw["twitter_followers_observed"] = 0
         applied.append("twitter_followers")
         fabricated_social = True
     if _as_float(raw.get("tiktok_followers")) is None:
         raw["tiktok_followers"] = int(base * 0.65 * pos_mult)
+        raw["tiktok_followers_observed"] = 0
         applied.append("tiktok_followers")
         fabricated_social = True
     if _as_float(raw.get("news_count_30d")) is None:

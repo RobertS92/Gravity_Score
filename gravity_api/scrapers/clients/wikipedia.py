@@ -11,6 +11,7 @@ import httpx
 class WikipediaClient:
     WIKI_API = "https://en.wikipedia.org/w/api.php"
     PAGEVIEWS = "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user"
+    _HEADERS = {"User-Agent": "GravityScrapers/1.0 (contact: ops@gravityscore.com)"}
 
     async def resolve_title(self, name: str) -> str | None:
         params = {
@@ -20,7 +21,7 @@ class WikipediaClient:
             "namespace": 0,
             "format": "json",
         }
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with httpx.AsyncClient(timeout=20.0, headers=self._HEADERS) as client:
             resp = await client.get(self.WIKI_API, params=params)
             resp.raise_for_status()
             data = resp.json()
@@ -36,8 +37,8 @@ class WikipediaClient:
             f"{self.PAGEVIEWS}/{slug}/daily/"
             f"{start.strftime('%Y%m%d')}/{end.strftime('%Y%m%d')}"
         )
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.get(url, headers={"User-Agent": "GravityScrapers/1.0"})
+        async with httpx.AsyncClient(timeout=20.0, headers=self._HEADERS) as client:
+            resp = await client.get(url)
             if resp.status_code == 404:
                 return {"wikipedia_views_7d": 0, "wikipedia_views_30d": 0}
             resp.raise_for_status()
@@ -57,3 +58,23 @@ class WikipediaClient:
         if not title:
             return {}
         return await self.pageviews(title)
+
+    async def fetch_page_extract(self, title: str) -> str:
+        params = {
+            "action": "query",
+            "prop": "extracts",
+            "titles": title,
+            "explaintext": True,
+            "format": "json",
+        }
+        async with httpx.AsyncClient(timeout=20.0, headers=self._HEADERS) as client:
+            resp = await client.get(self.WIKI_API, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        pages = (data.get("query") or {}).get("pages") or {}
+        for page in pages.values():
+            if isinstance(page, dict):
+                extract = page.get("extract")
+                if extract:
+                    return str(extract)
+        return ""

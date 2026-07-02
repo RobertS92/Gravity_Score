@@ -13,6 +13,7 @@ name (e.g. "Texas") as `team_id`.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import date
 from typing import Literal, Optional
@@ -23,6 +24,77 @@ logger = logging.getLogger(__name__)
 
 
 ConferenceTier = Literal["power_5", "group_of_5", "fcs", "mid_major", "other"]
+
+# ESPN sometimes stores standing strings like "12th in ACC" on athlete rows.
+_STANDING_IN_RE = re.compile(
+    r"^\s*\d+(?:st|nd|rd|th)?\s+in\s+(.+)\s*$",
+    re.IGNORECASE,
+)
+_KNOWN_CONFERENCES = frozenset(
+    {
+        "acc",
+        "sec",
+        "big ten",
+        "big 12",
+        "pac-12",
+        "pac-10",
+        "aac",
+        "american",
+        "mountain west",
+        "mwc",
+        "sun belt",
+        "mac",
+        "c-usa",
+        "conference usa",
+        "wac",
+        "big east",
+        "a-10",
+        "atlantic 10",
+        "mvc",
+        "ivy",
+        "patriot",
+        "caa",
+        "big sky",
+        "southland",
+        "swac",
+        "meac",
+        "ovc",
+        "horizon",
+        "summit",
+        "maac",
+        "nec",
+        "asun",
+        "big south",
+        "southern",
+        "wcc",
+        "big west",
+        "nfl",
+        "afc",
+        "nfc",
+        "nba",
+        "wnba",
+    }
+)
+
+
+def normalize_conference_display(value: str | None) -> str | None:
+    """Normalize conference labels for acceptance and scoring."""
+    if not value or not str(value).strip():
+        return None
+    text = str(value).strip()
+    low = text.lower()
+    if low in {"", "conference", "unknown", "n/a"}:
+        return None
+    m = _STANDING_IN_RE.match(text)
+    if m:
+        text = m.group(1).strip()
+        low = text.lower()
+    # Title-case short acronyms (SEC, ACC) and known multi-word names.
+    if low in {"sec", "acc", "aac", "mac", "wac", "ovc", "caa", "nba", "wnba", "nfl"}:
+        return low.upper()
+    if low in _KNOWN_CONFERENCES:
+        return text.title() if " " in text else text.upper()
+    return text
 
 
 class ConferenceNotMappedError(ValueError):

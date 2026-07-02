@@ -35,6 +35,9 @@ EXTENDED_STATS: dict[str, tuple[str, ...]] = {
         "snap_pct",
     ),
     "nfl": (
+        "gp",
+        "gs",
+        "games_played_season",
         "pass_attempts",
         "pass_completions",
         "pass_cmp_pct",

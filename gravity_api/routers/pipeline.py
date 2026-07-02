@@ -23,6 +23,7 @@ class PipelineRunBody(BaseModel):
 
 class NightlyBody(BaseModel):
     sport: str | None = None
+    sports: list[str] | None = None
     athlete_limit: int = Field(100, ge=1, le=2000)
     concurrency: int | None = Field(None, ge=1, le=32)
     scrape_concurrency: int = Field(3, ge=1, le=32)
@@ -31,6 +32,7 @@ class NightlyBody(BaseModel):
     scrape: bool = True
     rebuild_cohorts: bool = True
     score: bool = True
+    gap_fill: bool = False
 
 
 class ExportCsvBody(BaseModel):
@@ -47,6 +49,7 @@ async def run_nightly_pipeline(
     _: None = Depends(_require_internal_key),
 ):
     """Per-sport stale scrape → cohort rebuild → BPXVR score (all 8 sports by default)."""
+    from gravity_api.scraper_registry.acceptance_sports import ACCEPTANCE_SPORTS
     from gravity_api.services.sport_pipeline.nightly import (
         run_nightly_all_sports,
         run_nightly_for_sport,
@@ -63,9 +66,11 @@ async def run_nightly_pipeline(
             scrape=body.scrape,
             rebuild_cohorts=body.rebuild_cohorts,
             score=body.score,
+            gap_fill=body.gap_fill,
         )
         return {
             "sport": result.sport,
+            "gap_fill": body.gap_fill,
             "stale_found": result.stale_found,
             "scraped_ok": result.scraped_ok,
             "scraped_fail": result.scraped_fail,
@@ -74,6 +79,10 @@ async def run_nightly_pipeline(
             "scored_fail": result.scored_fail,
             "errors": result.errors[:20],
         }
+
+    sports = tuple(body.sports) if body.sports else (
+        ACCEPTANCE_SPORTS if body.gap_fill else None
+    )
     return await run_nightly_all_sports(
         db,
         athlete_limit_per_sport=body.athlete_limit,
@@ -81,6 +90,11 @@ async def run_nightly_pipeline(
         scrape_concurrency=body.scrape_concurrency,
         score_concurrency=body.score_concurrency,
         sport_parallel=body.sport_parallel,
+        sports=sports,
+        gap_fill=body.gap_fill,
+        skip_scrape=not body.scrape,
+        skip_cohorts=not body.rebuild_cohorts,
+        skip_score=not body.score,
     )
 
 

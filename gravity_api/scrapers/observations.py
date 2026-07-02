@@ -11,6 +11,27 @@ import asyncpg
 from gravity_api.scrapers.types import ScraperResult
 
 
+def merge_scraper_fields(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
+    """Merge scraper output without wiping non-empty stats with empty payloads."""
+    out = dict(base)
+    for key, val in incoming.items():
+        if val is None or val == "":
+            continue
+        if key in ("season_stats", "season_stats_history", "career_stats") and isinstance(val, dict):
+            if not val:
+                continue
+            existing = out.get(key)
+            if isinstance(existing, dict):
+                merged = dict(existing)
+                merged.update({k: v for k, v in val.items() if v is not None and v != ""})
+                out[key] = merged
+            else:
+                out[key] = val
+            continue
+        out[key] = val
+    return out
+
+
 async def _source_id(conn: asyncpg.Connection, source_key: str) -> str | None:
     row = await conn.fetchrow(
         "SELECT id FROM gravity_data_sources WHERE source_key = $1 AND active = TRUE",
@@ -101,7 +122,7 @@ async def merge_raw_athlete_data(
                 merged = {}
         elif isinstance(raw, dict):
             merged = dict(raw)
-    merged.update(fields)
+    merged = merge_scraper_fields(merged, fields)
     merged["collection_timestamp"] = datetime.now(tz=timezone.utc).isoformat()
     await conn.execute(
         """INSERT INTO raw_athlete_data (

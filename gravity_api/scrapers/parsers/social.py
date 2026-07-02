@@ -7,6 +7,62 @@ from typing import Any
 
 from gravity_api.scrapers.parsers.common import extract_handles, parse_count
 
+_AGGREGATOR_URLS = (
+    "https://socialblade.com/instagram/user/{handle}",
+    "https://www.picuki.com/profile/{handle}",
+)
+
+MIN_REAL_INSTAGRAM_FOLLOWERS = 100
+
+_FOLLOWER_PATTERNS = (
+    re.compile(r"([\d,.]+)\s*(K|M|B)?\s*followers", re.IGNORECASE),
+    re.compile(r"followers\s*\n+\s*([\d,.]+)\s*(K|M|B)?", re.IGNORECASE),
+    re.compile(r"followers\s*\n+\s*([\d,.]+)", re.IGNORECASE),
+    re.compile(r'"edge_followed_by":\{"count":(\d+)', re.IGNORECASE),
+    re.compile(r'"follower_count":(\d+)', re.IGNORECASE),
+)
+
+
+def _followers_from_html(text: str) -> int | None:
+    if not text:
+        return None
+    normalized = text.replace(",", "")
+    for pat in _FOLLOWER_PATTERNS:
+        m = pat.search(normalized)
+        if not m:
+            continue
+        groups = m.groups()
+        if len(groups) >= 2 and groups[1]:
+            num = float(groups[0])
+            suffix = (groups[1] or "").upper()
+            mult = {"K": 1_000, "M": 1_000_000, "B": 1_000_000_000}.get(suffix, 1)
+            return int(num * mult)
+        try:
+            return int(float(groups[0]))
+        except (ValueError, TypeError):
+            continue
+    return None
+
+
+def fetch_instagram_followers_from_text(text: str) -> int | None:
+    """Parse follower count from Instagram or aggregator page markdown/html."""
+    count = _followers_from_html(text)
+    if count is None:
+        # Last resort: explicit followers phrase only (never generic numbers).
+        count = parse_count(text)
+    if count is None or count < MIN_REAL_INSTAGRAM_FOLLOWERS:
+        return None
+    return count
+
+
+def instagram_aggregator_urls(handle: str) -> list[str]:
+    clean = handle.lstrip("@").strip()
+    if not clean:
+        return []
+    return [u.format(handle=clean) for u in _AGGREGATOR_URLS] + [
+        f"https://www.instagram.com/{clean}/"
+    ]
+
 
 def parse_engagement_from_markdown(markdown: str) -> dict[str, Any]:
     likes = [int(x.replace(",", "")) for x in re.findall(r"([\d,]+)\s+likes?", markdown, re.I)]
@@ -36,6 +92,7 @@ def authenticity_score(
     verified: bool = False,
     linked_from_roster: bool = False,
     bio_text: str = "",
+    bio_matches_athlete: bool = False,
 ) -> dict[str, Any]:
     score = 0.35
     if verified:
@@ -43,6 +100,8 @@ def authenticity_score(
     if linked_from_roster:
         score += 0.2
     bio_lower = bio_text.lower()
+    if bio_matches_athlete:
+        score += 0.25
     if any(k in bio_lower for k in ("official", "athlete", "nil", "✓", "verified")):
         score += 0.1
     if followers and followers > 500:

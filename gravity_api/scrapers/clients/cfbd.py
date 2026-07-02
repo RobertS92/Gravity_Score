@@ -285,6 +285,9 @@ class CfbdClient:
                 path,
             )
             return []
+        if run_cap is not None and run_cap == 0:
+            logger.debug("CFBD disabled for this run (CFBD_MAX_CALLS_PER_RUN=0); skipping %s", path)
+            return []
         if run_cap is not None and run_cap > 0 and _cfbd_run_request_count >= run_cap:
             logger.warning(
                 "CFBD per-run request cap reached (%d/%d); skipping %s",

@@ -9,16 +9,15 @@ from typing import Any
 
 import numpy as np
 
-# Numeric keys extracted from raw_data / BPXVR flatten for ML
-DEFAULT_NUMERIC_KEYS = [
+PRO_SPORTS = frozenset({"nfl", "nba", "wnba"})
+
+SHARED_NUMERIC_KEYS = [
     "instagram_followers",
     "tiktok_followers",
     "twitter_followers",
     "youtube_subscribers",
     "google_trends_score",
     "news_count_30d",
-    "nil_valuation",
-    "nil_deal_count",
     "data_quality_score",
     "partnership_brand_score",
     "partnership_proof_boost",
@@ -30,23 +29,36 @@ DEFAULT_NUMERIC_KEYS = [
     "proximity_composite_pctile",
     "velocity_composite_pctile",
     "proof_performance_index_pctile",
-    "recruiting_stars",
-    "recruiting_rank_national",
     "games_played_season",
-    "roster_size",
-    "roster_value",
-    "roster_velocity",
-    "roster_stability",
-    "retention",
-    "performance",
-    "market_reach",
-    "nil_collective_budget_est",
-    "school_market_rank",
     "conference_media_index",
     "program_social_followers",
     "quality_score_prior",
     "gravity_score_prior",
 ]
+
+COLLEGE_NUMERIC_KEYS = [
+    "nil_valuation",
+    "nil_deal_count",
+    "recruiting_stars",
+    "recruiting_rank_national",
+    "nil_collective_budget_est",
+    "school_market_rank",
+]
+
+PRO_NUMERIC_KEYS = [
+    "contract_total_usd",
+    "contract_guaranteed_usd",
+    "contract_aav_usd",
+    "contract_aav",
+    "endorsement_value_usd",
+    "endorsement_earnings",
+    "total_earnings_usd",
+    "forbes_list_rank",
+    "fantasy_adp",
+]
+
+# Legacy default — college-oriented training exports.
+DEFAULT_NUMERIC_KEYS = SHARED_NUMERIC_KEYS + COLLEGE_NUMERIC_KEYS
 
 OBJECTIVE_EXCLUDE: dict[str, set[str]] = {
     "quality": {
@@ -57,20 +69,43 @@ OBJECTIVE_EXCLUDE: dict[str, set[str]] = {
         "partnership_brand_score",
         "nil_valuation",
         "program_social_followers",
+        "endorsement_value_usd",
+        "endorsement_earnings",
+        "contract_aav_usd",
     },
     "value": set(),
     "team_value": set(),
-    "team_quality": {"partnership_brand_score", "nil_valuation"},
+    "team_quality": {"partnership_brand_score", "nil_valuation", "contract_aav_usd"},
     "brand_sponsor": set(),
 }
+
+
+def league_for_sport(sport: str | None) -> str:
+    if sport and sport.lower() in PRO_SPORTS:
+        return "pro"
+    return "ncaa"
+
+
+def numeric_keys_for_league(league: str) -> list[str]:
+    if league == "pro":
+        return SHARED_NUMERIC_KEYS + PRO_NUMERIC_KEYS
+    return SHARED_NUMERIC_KEYS + COLLEGE_NUMERIC_KEYS
 
 
 def build_feature_manifest(
     objective: str = "value",
     extra_keys: list[str] | None = None,
+    *,
+    league: str | None = None,
+    sport: str | None = None,
 ) -> list[str]:
+    resolved_league = league or league_for_sport(sport)
     exclude = OBJECTIVE_EXCLUDE.get(objective, set())
-    keys = [k for k in DEFAULT_NUMERIC_KEYS if k not in exclude]
+    if resolved_league == "pro":
+        exclude = exclude | frozenset(COLLEGE_NUMERIC_KEYS)
+    else:
+        exclude = exclude | frozenset(PRO_NUMERIC_KEYS)
+    keys = [k for k in numeric_keys_for_league(resolved_league) if k not in exclude]
     if extra_keys:
         keys.extend(extra_keys)
     return sorted(set(keys))
@@ -112,7 +147,17 @@ class FeatureVectorizer:
 def _transform(key: str, val: float) -> float:
     if "followers" in key or "subscribers" in key or key.endswith("_reach"):
         return math.log1p(max(0.0, val))
-    if key in ("nil_valuation", "dollar_p50_usd") or "budget" in key:
+    if key in (
+        "nil_valuation",
+        "dollar_p50_usd",
+        "contract_total_usd",
+        "contract_guaranteed_usd",
+        "contract_aav_usd",
+        "contract_aav",
+        "endorsement_value_usd",
+        "endorsement_earnings",
+        "total_earnings_usd",
+    ) or "budget" in key:
         return math.log1p(max(0.0, val))
     return val
 

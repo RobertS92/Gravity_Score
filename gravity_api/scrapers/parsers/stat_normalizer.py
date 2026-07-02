@@ -275,8 +275,48 @@ def merge_stat_layers(
             elif normalized_career.get("gp") is not None:
                 fields["games_played_career"] = normalized_career["gp"]
     gp = normalized_current.get("games_played_season") or normalized_current.get("gp")
+    if gp is None:
+        history_blob = fields.get("season_stats_history")
+        if isinstance(history_blob, dict) and history_blob:
+            latest = history_blob[sorted(history_blob.keys(), reverse=True)[0]]
+            gp = latest.get("games_played_season") or latest.get("gp")
+    if gp is None and normalized_current:
+        stat_keys = all_stat_keys_for_sport(sport) - {"games_played_season", "gp"}
+        if sum(1 for k in stat_keys if normalized_current.get(k) is not None) >= 1:
+            gp = 1
     if gp is not None:
         fields["games_played_season"] = int(gp)
+    return finalize_stat_fields(sport, fields)
+
+
+def finalize_stat_fields(sport: str, fields: dict[str, Any]) -> dict[str, Any]:
+    """Sync gp ↔ games_played_season at top level and inside season_stats."""
+    if not fields:
+        return fields
+
+    season = fields.get("season_stats")
+    if not isinstance(season, dict):
+        season = {}
+
+    gp = (
+        fields.get("games_played_season")
+        or fields.get("gp")
+        or season.get("games_played_season")
+        or season.get("gp")
+    )
+    if gp is None:
+        return fields
+
+    gp_int = int(gp)
+    fields["games_played_season"] = gp_int
+    fields["gp"] = float(gp_int)
+
+    if season:
+        season = dict(season)
+        season["games_played_season"] = float(gp_int)
+        season["gp"] = float(gp_int)
+        fields["season_stats"] = season
+
     return fields
 
 
@@ -297,6 +337,7 @@ def flatten_raw_for_stats(raw: dict[str, Any], sport: str) -> dict[str, float]:
 
 
 __all__ = [
+    "finalize_stat_fields",
     "flatten_raw_for_stats",
     "merge_stat_layers",
     "normalize_espn_stats",

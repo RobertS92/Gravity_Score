@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from gravity_api.scraper_registry.sports import SPORTS
+from gravity_api.scraper_registry.league_features import filter_feature_keys_for_league
 from gravity_api.scraper_registry.templates import (
     ACHIEVEMENT_SPORTS,
     SHARED_SCRAPERS,
@@ -16,6 +17,10 @@ from gravity_api.scraper_registry.types import ScraperDefinition
 def _expand_template(sport: str, tpl: dict) -> ScraperDefinition:
     cfg = SPORTS[sport]
     suffix = tpl["suffix"]
+    feature_keys = filter_feature_keys_for_league(
+        tuple(tpl["feature_keys"]),
+        cfg["league_tier"],
+    )
     return ScraperDefinition(
         scraper_key=f"{suffix}_{sport}",
         display_name=f"{tpl['display']} ({cfg['display_name']})",
@@ -25,7 +30,7 @@ def _expand_template(sport: str, tpl: dict) -> ScraperDefinition:
         source=tpl["source"],
         source_type=tpl["source_type"],  # type: ignore[arg-type]
         description=tpl["description"],
-        feature_keys=tuple(tpl["feature_keys"]),
+        feature_keys=feature_keys,
         status=tpl.get("status", "planned"),  # type: ignore[arg-type]
         terminal_visible=cfg["terminal_visible"],
         required_for_scoring=bool(tpl.get("required_for_scoring", False)),
@@ -42,10 +47,12 @@ def _from_explicit(entry: dict) -> ScraperDefinition:
     if sport == "*":
         league_tier = "college"
         terminal_visible = True
+        feature_keys = tuple(entry["feature_keys"])
     else:
         cfg = SPORTS[sport]
         league_tier = cfg["league_tier"]
         terminal_visible = cfg["terminal_visible"]
+        feature_keys = filter_feature_keys_for_league(tuple(entry["feature_keys"]), league_tier)
 
     return ScraperDefinition(
         scraper_key=entry["scraper_key"],
@@ -56,7 +63,7 @@ def _from_explicit(entry: dict) -> ScraperDefinition:
         source=entry["source"],
         source_type=entry["source_type"],  # type: ignore[arg-type]
         description=entry["description"],
-        feature_keys=tuple(entry["feature_keys"]),
+        feature_keys=feature_keys,
         status=entry.get("status", "planned"),  # type: ignore[arg-type]
         terminal_visible=terminal_visible if sport != "*" else True,
         required_for_scoring=bool(entry.get("required_for_scoring", False)),

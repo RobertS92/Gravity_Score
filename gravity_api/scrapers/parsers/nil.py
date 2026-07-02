@@ -10,6 +10,28 @@ SUSPECT_BAND_LO = 5_000
 SUSPECT_BAND_HI = 500_000
 
 
+def parse_nil_deals_from_text(text: str) -> list[dict[str, Any]]:
+    """Extract individual NIL deal mentions from On3 / news markdown."""
+    import re
+
+    deals: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for m in re.finditer(
+        r"(?:deal|partnership|agreement)[^\n]{0,80}?(\$[\d,.]+[KMB]?)",
+        text,
+        re.I,
+    ):
+        amt = parse_money_usd(m.group(1))
+        if not amt or amt < 100:
+            continue
+        key = f"{amt:.0f}"
+        if key in seen:
+            continue
+        seen.add(key)
+        deals.append({"amount_usd": amt, "source": "on3_parse"})
+    return deals[:20]
+
+
 def parse_nil_from_text(text: str) -> float | None:
     for pat in (
         r"nil valuation[^\d$]*(\$[\d,.]+[KMB]?)",

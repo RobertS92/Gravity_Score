@@ -1,0 +1,15 @@
+{
+  "model_key": "gravity_athlete_cfb_value_v1",
+  "entity_type": "athlete",
+  "sport": "cfb",
+  "objective": "value",
+  "version": "1.0.0-beta",
+  "stage": "beta",
+  "output_mode": "rank_only",
+  "target": "target_log_nil_usd",
+  "trained_at": "2026-06-29T00:00:00+00:00",
+  "row_count": 839,
+  "labeled_rows_real": 461,
+  "source": "gravity_exports_eda_train_by_sport.ipynb",
+  "notes": "Beta ranker only. Dollar calibration suppressed until production gates in config/model_promotion_policy.json pass."
+}
