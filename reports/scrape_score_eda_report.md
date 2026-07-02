@@ -1,8 +1,8 @@
 # Scrape & Score EDA Report
 
-**Generated:** 2026-07-02 10:13 UTC
+**Generated:** 2026-07-02 15:01 UTC
 
-> Post gap-fill run (limit=500 per sport).
+> Post smoke test (100 CFB, HTTP-first, no Firecrawl).
 
 ## Executive summary
 
@@ -19,7 +19,7 @@ distribution across acceptance sports. Key health signals:
 
 | Sport | Active | Scraped | GP% | Stats≥3 | NIL obs | SR | Comm. score |
 |-------|--------|---------|-----|---------|---------|-----|-------------|
-| cfb | 6761 | 6761 | 1.5% | 5.9% | 1.6% | 0 | 7.4% |
+| cfb | 6761 | 6761 | 1.5% | 6.2% | 1.6% | 0 | 7.4% |
 | nfl | 2924 | 2924 | 8.1% | 50.4% | 0.0% | 0 | 0.0% |
 | nba | 535 | 535 | 1.9% | 99.6% | 0.4% | 0 | 0.0% |
 | ncaab_mens | 1042 | 1042 | 0.7% | 91.8% | 0.5% | 0 | 48.0% |
@@ -48,24 +48,24 @@ distribution across acceptance sports. Key health signals:
 
 ## CFB deep dive
 
-- **athlete_season_stats ≥3 but raw <3:** 457 (of 746 with ASS≥3)
+- **athlete_season_stats ≥3 but raw <3:** 453 (of 765 with ASS≥3)
 
 ### By position (n≥30)
 
 | Pos | N | GP% | Stats≥3 | NIL obs |
 |-----|---|-----|---------|---------|
-| OL | 1087 | 0.0% | 1.0% | 1.3% |
-| WR | 881 | 0.2% | 7.2% | 1.4% |
-| LB | 785 | 0.4% | 8.4% | 1.0% |
-| DB | 694 | 0.4% | 6.5% | 1.2% |
-| DL | 681 | 0.3% | 6.0% | 1.6% |
-| RB | 455 | 0.4% | 8.8% | 1.5% |
-| TE | 439 | 0.5% | 6.4% | 1.4% |
-| QB | 324 | 0.3% | 7.4% | 6.8% |
+| OL | 1087 | 0.0% | 1.3% | 1.3% |
+| WR | 881 | 0.2% | 7.5% | 1.4% |
+| LB | 785 | 0.5% | 8.5% | 1.0% |
+| DB | 694 | 0.4% | 6.8% | 1.2% |
+| DL | 681 | 0.3% | 6.9% | 1.6% |
+| RB | 455 | 0.4% | 9.5% | 1.5% |
+| TE | 439 | 0.5% | 6.6% | 1.4% |
+| QB | 324 | 0.3% | 7.7% | 6.8% |
 | S | 307 | 0.0% | 4.2% | 1.3% |
-| CB | 250 | 0.4% | 6.0% | 2.0% |
+| CB | 250 | 0.8% | 6.0% | 2.0% |
 | PK | 193 | 0.5% | 5.7% | 0.0% |
-| DE | 172 | 0.0% | 5.2% | 4.1% |
+| DE | 172 | 0.6% | 7.0% | 4.1% |
 | LS | 149 | 0.7% | 4.7% | 0.7% |
 | DT | 138 | 0.0% | 10.1% | 2.2% |
 | P | 114 | 0.0% | 6.1% | 0.9% |
@@ -108,7 +108,7 @@ distribution across acceptance sports. Key health signals:
 
 | Sport | GP Δ | Stats≥3 Δ | NIL obs Δ | Comm. score Δ | Near 77 Δ |
 |-------|------|-----------|-----------|---------------|-----------|
-| cfb | +0.1pp | +0.2pp | +1.5pp | +7.4pp | +0.3pp |
+| cfb | +0.1pp | +0.6pp | +1.5pp | +7.4pp | +0.3pp |
 | nfl | +6.9pp | +0.0pp | +0.0pp | +0.0pp | +0.6pp |
 | nba | +0.2pp | +0.0pp | +0.0pp | +0.0pp | -0.2pp |
 | ncaab_mens | +0.0pp | +0.0pp | +0.0pp | +48.0pp | +0.0pp |

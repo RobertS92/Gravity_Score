@@ -9,6 +9,9 @@ import logging
 from datetime import datetime, timezone
 
 import asyncpg
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from gravity_api.config import get_settings
 from gravity_api.scrapers.parsers.quality_label import compute_external_quality_score

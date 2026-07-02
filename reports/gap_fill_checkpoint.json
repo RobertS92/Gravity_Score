@@ -1,15 +1,5 @@
 {
   "completed_sports": {
-    "cfb": {
-      "stale_found": 500,
-      "scraped_ok": 500,
-      "scraped_fail": 0,
-      "cohort_baselines_written": 44,
-      "scored_ok": 500,
-      "scored_fail": 0,
-      "errors": [],
-      "finished_at": "2026-07-02T06:12:33.272166+00:00"
-    },
     "ncaab_mens": {
       "stale_found": 500,
       "scraped_ok": 500,
@@ -62,5 +52,5 @@
     }
   },
   "started_at": "2026-07-02T02:36:41.866897+00:00",
-  "finished_at": "2026-07-02T10:13:24.915629+00:00"
+  "finished_at": "2026-07-02T15:01:09.685814+00:00"
 }

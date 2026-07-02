@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-07-02T10:13:40.202791+00:00",
+  "generated_at": "2026-07-02T15:01:40.040704+00:00",
   "sports": {
     "cfb": {
       "scrape": {
         "active_n": 6761,
         "scraped": 6761,
-        "has_gp": 99,
-        "stats3": 397,
+        "has_gp": 102,
+        "stats3": 420,
         "nil_observed": 111,
         "nil_imputed_only": 382,
         "sr_source": 0,
         "ig_handle": 643,
         "has_commercial_score": 501,
-        "last_scraped": "2026-07-02 06:12:29.974891+00:00"
+        "last_scraped": "2026-07-02 15:01:07.331470+00:00"
       },
       "score": {
         "scored_n": 6717,
@@ -23,7 +23,7 @@
         "near_77": 59,
         "fallback_model": 4680,
         "has_dollar_p50": 4724,
-        "last_scored": "2026-07-02 06:12:32.919514+00:00",
+        "last_scored": "2026-07-02 15:01:09.120222+00:00",
         "models": [
           [
             "composite_fallback_v0",
@@ -213,7 +213,7 @@
     }
   },
   "cfb_ass_sync": {
-    "ass_has_3": 746,
-    "ass3_not_in_raw": 457
+    "ass_has_3": 765,
+    "ass3_not_in_raw": 453
   }
 }
