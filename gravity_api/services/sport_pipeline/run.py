@@ -173,7 +173,24 @@ async def run_athlete_pipeline(
                 "commercial_viability_index": commercial_viability["commercial_viability_index"],
                 "commercial_viability_score": commercial_viability["commercial_viability_score"],
                 "nil_signal_source": commercial_viability["nil_signal_source"],
+                "nil_dollar_p10_usd": commercial_viability["nil_dollar_p10"],
+                "nil_dollar_p50_usd": commercial_viability["nil_dollar_p50"],
+                "nil_dollar_p90_usd": commercial_viability["nil_dollar_p90"],
             }
+        )
+        from gravity_api.scrapers.observations import merge_raw_athlete_data
+
+        await merge_raw_athlete_data(
+            conn,
+            athlete_id=athlete_id,
+            fields={
+                "commercial_viability_index": commercial_viability["commercial_viability_index"],
+                "commercial_viability_score": commercial_viability["commercial_viability_score"],
+                "nil_signal_source": commercial_viability["nil_signal_source"],
+                "nil_dollar_p10_usd": commercial_viability["nil_dollar_p10"],
+                "nil_dollar_p50_usd": commercial_viability["nil_dollar_p50"],
+                "nil_dollar_p90_usd": commercial_viability["nil_dollar_p90"],
+            },
         )
 
     engine = FeatureEngineeringEngine()
