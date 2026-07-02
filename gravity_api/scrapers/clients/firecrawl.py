@@ -42,6 +42,52 @@ def firecrawl_globally_disabled() -> bool:
     )
 
 
+def _firecrawl_allowlist() -> frozenset[str] | None:
+    raw = os.environ.get("FIRECRAWL_ALLOW", "").strip()
+    if not raw:
+        return None
+    return frozenset(s.strip() for s in raw.split(",") if s.strip())
+
+
+def firecrawl_allowed_for(scraper_key: str) -> bool:
+    """Return True when Firecrawl may be used for this scraper key."""
+    if firecrawl_globally_disabled():
+        return False
+    allowlist = _firecrawl_allowlist()
+    if allowlist is None:
+        return True
+    key = scraper_key.lower()
+    for suffix in allowlist:
+        s = suffix.lower()
+        if key == s or key.endswith(f"_{s}") or s in key:
+            return True
+    return False
+
+
+async def fetch_page_text(url: str, *, scraper_key: str | None = None) -> str:
+    """Fetch page text via HTTP; optionally fall back to Firecrawl when allowed."""
+    from gravity_api.scrapers.clients.http_fetch import HttpFetchClient, html_to_markdownish
+
+    http = HttpFetchClient()
+    try:
+        html = await http.fetch_html(url)
+        if html and len(html) > 200:
+            return html_to_markdownish(html)
+    except Exception as exc:
+        logger.debug("http fetch failed %s: %s", url, exc)
+
+    if scraper_key and not firecrawl_allowed_for(scraper_key):
+        return ""
+    fc = FirecrawlClient()
+    if not fc.enabled:
+        return ""
+    try:
+        return await fc.scrape_markdown(url)
+    except Exception as exc:
+        logger.debug("firecrawl fetch failed %s: %s", url, exc)
+        return ""
+
+
 class FirecrawlClient:
     def __init__(self, api_key: str | None = None, *, timeout_s: float = 90.0):
         settings = get_settings()
@@ -54,6 +100,9 @@ class FirecrawlClient:
             return False
         key = (self.api_key or "").strip()
         return bool(key) and key not in _PLACEHOLDER_KEYS
+
+    def allowed_for(self, scraper_key: str) -> bool:
+        return self.enabled and firecrawl_allowed_for(scraper_key)
 
     async def scrape(
         self,

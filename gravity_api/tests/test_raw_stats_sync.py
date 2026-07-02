@@ -9,6 +9,20 @@ from gravity_api.services.sport_pipeline.raw_stats_sync import (
 )
 
 
+def test_apply_ass_enrichment_sparse_raw_takes_full_ass():
+    raw = {"pass_yards": 100.0, "season_stats": {"pass_yards": 100.0}}
+    enrichment = {
+        "season_stats": {"pass_yards": 2800.0, "gp": 12.0, "pass_td": 25.0, "rush_yards": 50.0},
+        "games_played_season": 12,
+    }
+    out = apply_ass_enrichment_to_raw(raw, enrichment)
+    assert out["pass_td"] == 25.0
+    assert out["rush_yards"] == 50.0
+    assert out["pass_yards"] == 100.0  # scraper value kept when richer path not sparse overwrite
+    assert out["games_played_season"] == 12
+    assert len(out["season_stats"]) >= 3
+
+
 def test_apply_ass_enrichment_fills_gaps_only():
     raw = {"pass_yards": 3200.0, "season_stats": {"pass_yards": 3200.0}}
     enrichment = {

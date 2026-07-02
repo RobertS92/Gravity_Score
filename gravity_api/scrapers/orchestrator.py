@@ -14,6 +14,7 @@ from gravity_api.scraper_registry import resolve_event_scraper_keys
 from gravity_api.scraper_registry.sports import SPORTS
 from gravity_api.scrapers.clients.espn import begin_espn_cache, clear_espn_cache
 from gravity_api.scrapers.clients.firecrawl import begin_scrape_cache, clear_scrape_cache
+from gravity_api.scrapers.clients.http_fetch import begin_http_cache, clear_http_cache
 from gravity_api.scrapers.db_context import begin_scrape_db, clear_scrape_db
 from gravity_api.scrapers.implementations import get_scraper_impl, load_program_context
 from gravity_api.scrapers.observations import merge_raw_athlete_data, merge_scraper_fields, persist_observations
@@ -185,6 +186,7 @@ async def run_scrapers_for_athlete(
     bootstrap_keys, parallel_keys, serial_keys = _partition_scraper_keys(keys, ctx.sport)
 
     begin_scrape_cache()
+    begin_http_cache()
     begin_espn_cache()
     try:
 
@@ -262,6 +264,7 @@ async def run_scrapers_for_athlete(
                 clear_scrape_db()
     finally:
         clear_scrape_cache()
+        clear_http_cache()
         clear_espn_cache()
         clear_scrape_db()
 
@@ -273,6 +276,10 @@ async def run_scrapers_for_athlete(
 
     ass_enrichment = await enrich_raw_from_athlete_season_stats(conn, athlete_id, ctx.sport)
     merged_fields = apply_ass_enrichment_to_raw(merged_fields, ass_enrichment)
+
+    from gravity_api.scrapers.parsers.stat_normalizer import finalize_stat_fields
+
+    merged_fields = finalize_stat_fields(ctx.sport, merged_fields)
 
     if persist and merged_fields != raw_before:
         await merge_raw_athlete_data(conn, athlete_id=athlete_id, fields=merged_fields)

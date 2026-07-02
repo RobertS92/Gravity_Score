@@ -477,16 +477,20 @@ class NilDealVerifiedScraper(BaseMicroScraper):
     KEY_SUFFIX = "nil_deal_verified"
     SOURCE_KEY = "verified_nil_deal"
 
-    async def _on3_markdown(self, ctx: AthleteScrapeContext, fc: FirecrawlClient) -> str | None:
+    async def _on3_markdown(self, ctx: AthleteScrapeContext, scraper_key: str) -> str | None:
+        from gravity_api.scrapers.clients.firecrawl import fetch_page_text
+
         slug = ctx.name.replace(" ", "-").lower()
         urls = [
             f"https://www.on3.com/nil/{slug}/",
-            f"https://www.google.com/search?q=site:on3.com/nil+{ctx.name.replace(' ', '+')}"
-            + (f"+{ctx.school.replace(' ', '+')}" if ctx.school else ""),
         ]
+        if ctx.school:
+            urls.append(
+                f"https://www.on3.com/nil/{slug}-{ctx.school.replace(' ', '-').lower()}/"
+            )
         for url in urls:
             try:
-                md = await fc.scrape_markdown(url)
+                md = await fetch_page_text(url, scraper_key=scraper_key)
                 if md and ("nil" in md.lower() or "$" in md):
                     return md
             except Exception as e:
@@ -509,7 +513,6 @@ class NilDealVerifiedScraper(BaseMicroScraper):
                 },
                 confidence=float(ctx.existing_raw.get("nil_confidence") or 0.85),
             )
-        fc = FirecrawlClient()
         sources: list[dict[str, Any]] = []
         if ctx.existing_raw.get("nil_valuation") and _observed(ctx.existing_raw, "nil_valuation"):
             sources.append(
@@ -519,21 +522,15 @@ class NilDealVerifiedScraper(BaseMicroScraper):
                     "confidence": 0.6,
                 }
             )
-        if fc.enabled:
-            md = await self._on3_markdown(ctx, fc)
-            if md:
-                val = parse_nil_from_text(md)
-                if val:
-                    sources.append({"nil_valuation": val, "source": "on3", "confidence": 0.92})
-                deals = parse_nil_deals_from_text(md)
-                if deals:
-                    fields_deals = {"nil_deals": deals, "nil_deal_count": len(deals)}
-                else:
-                    fields_deals = {}
-            else:
-                fields_deals = {}
-        else:
-            fields_deals = {}
+        fields_deals: dict[str, Any] = {}
+        md = await self._on3_markdown(ctx, scraper_key)
+        if md:
+            val = parse_nil_from_text(md)
+            if val:
+                sources.append({"nil_valuation": val, "source": "on3", "confidence": 0.92})
+            deals = parse_nil_deals_from_text(md)
+            if deals:
+                fields_deals = {"nil_deals": deals, "nil_deal_count": len(deals)}
         verified = verify_nil_consensus(sources)
         if verified.get("nil_valuation"):
             verified["nil_valuation_observed"] = 1
@@ -763,37 +760,41 @@ class EspnStatsScraper(BaseMicroScraper):
         return gp is None or int(gp) <= 0
 
     async def _sports_ref_fallback(
-        self, ctx: AthleteScrapeContext, fc: FirecrawlClient
+        self, ctx: AthleteScrapeContext, scraper_key: str
     ) -> dict[str, Any]:
+        from gravity_api.scrapers.parsers.sports_reference_stats import fetch_sports_ref_stats
+        from gravity_api.scrapers.parsers.stat_normalizer import merge_stat_layers
+        from gravity_api.scrapers.clients.firecrawl import fetch_page_text
         from gravity_api.scrapers.parsers.sports_reference_stats import (
             parse_sports_ref_stats_from_markdown,
             sports_ref_google_search_url,
             sports_ref_search_url,
         )
-        from gravity_api.scrapers.parsers.stat_normalizer import merge_stat_layers
 
         if ctx.sport not in {"nfl", "ncaab_mens", "ncaab_womens", "cfb"}:
             return {}
+
+        parsed = await fetch_sports_ref_stats(ctx.sport, ctx.name, ctx.school or ctx.team)
+        if parsed.get("season_stats"):
+            merged = merge_stat_layers(ctx.sport, current=parsed.get("season_stats"))
+            merged["stats_source"] = parsed.get("stats_source") or "sports_reference"
+            if parsed.get("stats_as_of"):
+                merged["stats_as_of"] = parsed["stats_as_of"]
+            return merged
+
         urls = [sports_ref_search_url(ctx.name, ctx.sport, ctx.school or ctx.team)]
         google_url = sports_ref_google_search_url(ctx.name, ctx.sport, ctx.school or ctx.team)
         if google_url and google_url not in urls:
             urls.append(google_url)
-        urls = [u for u in urls if u]
-        if not urls:
-            return {}
-        for url in urls:
-            try:
-                md = await fc.scrape_markdown(url)
-                parsed = parse_sports_ref_stats_from_markdown(ctx.sport, md)
-                if not parsed.get("season_stats"):
-                    continue
+        for url in [u for u in urls if u]:
+            md = await fetch_page_text(url, scraper_key=scraper_key)
+            parsed = parse_sports_ref_stats_from_markdown(ctx.sport, md)
+            if parsed.get("season_stats"):
                 merged = merge_stat_layers(ctx.sport, current=parsed.get("season_stats"))
                 merged["stats_source"] = parsed.get("stats_source") or "sports_reference"
                 if parsed.get("stats_as_of"):
                     merged["stats_as_of"] = parsed["stats_as_of"]
                 return merged
-            except Exception as e:
-                logger.debug("sports ref stats fallback %s: %s", url, e)
         return {}
 
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
@@ -813,23 +814,21 @@ class EspnStatsScraper(BaseMicroScraper):
             career=stats.get("career_stats"),
         )
         if self._needs_sports_ref_fallback(fields, ctx.sport):
-            fc = FirecrawlClient()
-            if fc.enabled:
-                fb = await self._sports_ref_fallback(ctx, fc)
-                if fb.get("season_stats"):
-                    sr_source = fb.get("stats_source") or "sports_reference"
-                    merged = merge_stat_layers(
-                        ctx.sport,
-                        current=fb.get("season_stats"),
-                        history=fields.get("season_stats_history"),
-                        career=fields.get("career_stats"),
-                    )
-                    fields = {**fields, **merged}
-                    fields["stats_source"] = sr_source
-                    if fb.get("stats_as_of"):
-                        fields["stats_as_of"] = fb["stats_as_of"]
-                    if fb.get("games_played_season"):
-                        fields["games_played_season"] = fb["games_played_season"]
+            fb = await self._sports_ref_fallback(ctx, scraper_key)
+            if fb.get("season_stats"):
+                sr_source = fb.get("stats_source") or "sports_reference"
+                merged = merge_stat_layers(
+                    ctx.sport,
+                    current=fb.get("season_stats"),
+                    history=fields.get("season_stats_history"),
+                    career=fields.get("career_stats"),
+                )
+                fields = {**fields, **merged}
+                fields["stats_source"] = sr_source
+                if fb.get("stats_as_of"):
+                    fields["stats_as_of"] = fb["stats_as_of"]
+                if fb.get("games_played_season"):
+                    fields["games_played_season"] = fb["games_played_season"]
         if stats.get("stats_as_of") and not fields.get("stats_as_of"):
             fields["stats_as_of"] = stats["stats_as_of"]
         if stats.get("stats_source") and not fields.get("stats_source"):

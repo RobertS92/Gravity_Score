@@ -9,6 +9,8 @@ import asyncpg
 from gravity_api.scrapers.parsers.stat_normalizer import finalize_stat_fields
 from gravity_api.services.sport_pipeline.season_stats import _current_season_year
 
+MIN_SEASON_STATS = 3
+
 
 def _is_empty(val: Any) -> bool:
     if val is None or val == "":
@@ -18,6 +20,16 @@ def _is_empty(val: Any) -> bool:
     if isinstance(val, (list, dict)) and len(val) == 0:
         return True
     return False
+
+
+def _count_numeric_season_stats(season: dict[str, Any] | None) -> int:
+    if not isinstance(season, dict):
+        return 0
+    return sum(
+        1
+        for v in season.values()
+        if v is not None and v != "" and not (isinstance(v, (int, float)) and v <= 0)
+    )
 
 
 def apply_ass_enrichment_to_raw(raw: dict[str, Any], enrichment: dict[str, Any]) -> dict[str, Any]:
@@ -31,21 +43,32 @@ def apply_ass_enrichment_to_raw(raw: dict[str, Any], enrichment: dict[str, Any])
     if not isinstance(raw_season, dict):
         raw_season = {}
 
+    sparse_raw = _count_numeric_season_stats(raw_season) < MIN_SEASON_STATS
+
     if isinstance(enrich_season, dict) and enrich_season:
-        merged_season = dict(raw_season)
-        for key, val in enrich_season.items():
-            if _is_empty(merged_season.get(key)) and not _is_empty(val):
-                merged_season[key] = val
+        if sparse_raw:
+            merged_season = dict(enrich_season)
+            for key, val in raw_season.items():
+                if not _is_empty(val):
+                    merged_season[key] = val
+        else:
+            merged_season = dict(raw_season)
+            for key, val in enrich_season.items():
+                if _is_empty(merged_season.get(key)) and not _is_empty(val):
+                    merged_season[key] = val
         if merged_season:
             out["season_stats"] = merged_season
             for key, val in merged_season.items():
-                if _is_empty(out.get(key)) and not _is_empty(val):
-                    out[key] = val
+                if sparse_raw or _is_empty(out.get(key)):
+                    if not _is_empty(val):
+                        out[key] = val
 
     for key, val in enrichment.items():
         if key == "season_stats":
             continue
-        if _is_empty(out.get(key)) and not _is_empty(val):
+        if sparse_raw and key == "games_played_season" and not _is_empty(out.get(key)):
+            continue
+        if (sparse_raw or _is_empty(out.get(key))) and not _is_empty(val):
             out[key] = val
 
     return out

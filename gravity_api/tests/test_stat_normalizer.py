@@ -131,6 +131,37 @@ def test_extract_season_history_from_split_categories():
     assert history["2024"]["passingYards"] == 2800
 
 
+def test_build_stats_bundle_merges_cfb_multi_category():
+    """CFB ESPN payloads split passing/rushing/receiving into separate categories."""
+    payload = {
+        "splits": {
+            "categories": [
+                {
+                    "name": "passing",
+                    "stats": [
+                        {"name": "passingYards", "value": 2800},
+                        {"name": "passingTouchdowns", "value": 22},
+                        {"name": "gamesPlayed", "value": 12},
+                    ],
+                },
+                {
+                    "name": "rushing",
+                    "stats": [
+                        {"name": "rushingYards", "value": 150},
+                        {"name": "rushingTouchdowns", "value": 2},
+                    ],
+                },
+            ]
+        },
+        "displaySeason": "2024",
+    }
+    bundle = build_stats_bundle(payload)
+    current = bundle["current"]
+    assert current.get("passingYards") == 2800
+    assert current.get("rushingYards") == 150
+    assert current.get("gamesPlayed") == 12
+
+
 def test_build_stats_bundle_includes_history():
     bundle = build_stats_bundle(
         {
