@@ -1,0 +1,211 @@
+{
+  "generated_at": "2026-07-02T02:29:17.735864+00:00",
+  "sports": {
+    "cfb": {
+      "scrape": {
+        "active_n": 6761,
+        "scraped": 6761,
+        "has_gp": 95,
+        "stats3": 384,
+        "nil_observed": 13,
+        "nil_imputed_only": 456,
+        "sr_source": 0,
+        "ig_handle": 518,
+        "has_commercial_score": 0,
+        "last_scraped": "2026-07-02 02:27:33.408696+00:00"
+      },
+      "score": {
+        "scored_n": 6717,
+        "avg_gravity": "61.45",
+        "std_gravity": "11.87",
+        "min_gravity": "43.08",
+        "max_gravity": "90.64",
+        "near_77": 42,
+        "fallback_model": 4565,
+        "has_dollar_p50": 4567,
+        "last_scored": "2026-07-02 02:28:46.213958+00:00",
+        "models": [
+          [
+            "composite_fallback_v0",
+            4565
+          ],
+          [
+            "gravity_athlete_v2",
+            2150
+          ],
+          [
+            "heuristic_cfb",
+            2
+          ]
+        ]
+      }
+    },
+    "nfl": {
+      "scrape": {
+        "active_n": 2924,
+        "scraped": 2924,
+        "has_gp": 37,
+        "stats3": 1473,
+        "nil_observed": 0,
+        "nil_imputed_only": 0,
+        "sr_source": 0,
+        "ig_handle": 169,
+        "has_commercial_score": 0,
+        "last_scraped": "2026-07-01 20:50:01.418775+00:00"
+      },
+      "score": {
+        "scored_n": 2888,
+        "avg_gravity": "77.12",
+        "std_gravity": "0.68",
+        "min_gravity": "41.91",
+        "max_gravity": "79.13",
+        "near_77": 1899,
+        "fallback_model": 2887,
+        "has_dollar_p50": 2888,
+        "last_scored": "2026-07-01 21:01:01.335183+00:00",
+        "models": [
+          [
+            "composite_fallback_v0",
+            2887
+          ],
+          [
+            "heuristic_nfl",
+            1
+          ]
+        ]
+      }
+    },
+    "nba": {
+      "scrape": {
+        "active_n": 535,
+        "scraped": 535,
+        "has_gp": 9,
+        "stats3": 533,
+        "nil_observed": 2,
+        "nil_imputed_only": 0,
+        "sr_source": 0,
+        "ig_handle": 163,
+        "has_commercial_score": 0,
+        "last_scraped": "2026-07-01 22:45:37.312362+00:00"
+      },
+      "score": {
+        "scored_n": 535,
+        "avg_gravity": "77.15",
+        "std_gravity": "0.52",
+        "min_gravity": "74.62",
+        "max_gravity": "84.76",
+        "near_77": 450,
+        "fallback_model": 535,
+        "has_dollar_p50": 535,
+        "last_scored": "2026-07-01 22:48:00.636448+00:00",
+        "models": [
+          [
+            "composite_fallback_v0",
+            535
+          ]
+        ]
+      }
+    },
+    "ncaab_mens": {
+      "scrape": {
+        "active_n": 1042,
+        "scraped": 1042,
+        "has_gp": 7,
+        "stats3": 957,
+        "nil_observed": 5,
+        "nil_imputed_only": 0,
+        "sr_source": 0,
+        "ig_handle": 163,
+        "has_commercial_score": 0,
+        "last_scraped": "2026-07-01 18:29:04.801160+00:00"
+      },
+      "score": {
+        "scored_n": 1042,
+        "avg_gravity": "77.30",
+        "std_gravity": "0.55",
+        "min_gravity": "74.15",
+        "max_gravity": "85.32",
+        "near_77": 1,
+        "fallback_model": 1042,
+        "has_dollar_p50": 1042,
+        "last_scored": "2026-07-01 18:31:22.421563+00:00",
+        "models": [
+          [
+            "composite_fallback_v0",
+            1042
+          ]
+        ]
+      }
+    },
+    "ncaab_womens": {
+      "scrape": {
+        "active_n": 847,
+        "scraped": 847,
+        "has_gp": 8,
+        "stats3": 814,
+        "nil_observed": 5,
+        "nil_imputed_only": 0,
+        "sr_source": 0,
+        "ig_handle": 151,
+        "has_commercial_score": 0,
+        "last_scraped": "2026-07-01 20:29:52.267960+00:00"
+      },
+      "score": {
+        "scored_n": 847,
+        "avg_gravity": "48.11",
+        "std_gravity": "8.45",
+        "min_gravity": "45.50",
+        "max_gravity": "77.38",
+        "near_77": 65,
+        "fallback_model": 67,
+        "has_dollar_p50": 72,
+        "last_scored": "2026-07-01 20:32:23.744754+00:00",
+        "models": [
+          [
+            "gravity_athlete_v2",
+            780
+          ],
+          [
+            "composite_fallback_v0",
+            67
+          ]
+        ]
+      }
+    },
+    "wnba": {
+      "scrape": {
+        "active_n": 199,
+        "scraped": 199,
+        "has_gp": 9,
+        "stats3": 194,
+        "nil_observed": 0,
+        "nil_imputed_only": 0,
+        "sr_source": 0,
+        "ig_handle": 77,
+        "has_commercial_score": 0,
+        "last_scraped": "2026-07-01 21:53:21.015907+00:00"
+      },
+      "score": {
+        "scored_n": 199,
+        "avg_gravity": "77.12",
+        "std_gravity": "0.34",
+        "min_gravity": "74.89",
+        "max_gravity": "80.56",
+        "near_77": 164,
+        "fallback_model": 199,
+        "has_dollar_p50": 199,
+        "last_scored": "2026-07-01 21:54:36.493374+00:00",
+        "models": [
+          [
+            "composite_fallback_v0",
+            199
+          ]
+        ]
+      }
+    }
+  },
+  "cfb_ass_sync": {
+    "ass_has_3": 477,
+    "ass3_not_in_raw": 201
+  }
+}

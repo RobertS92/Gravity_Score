@@ -22,6 +22,7 @@ import asyncpg
 ACCEPTANCE_SPORTS = ("cfb", "nfl", "nba", "ncaab_mens", "ncaab_womens", "wnba")
 COLLEGE_SPORTS = ("cfb", "ncaab_mens", "ncaab_womens")
 REPORT_PATH = ROOT / "reports" / "scrape_score_eda_report.md"
+BASELINE_JSON = ROOT / "reports" / "scrape_score_eda_report_baseline.json"
 
 
 def _pct(num: int | float, den: int | float) -> str:
@@ -355,6 +356,38 @@ async def build_report(conn: asyncpg.Connection, *, note: str = "") -> str:
         recs.append("Coverage and scoring metrics look healthy for acceptance sports.")
     for r in recs:
         lines.append(f"- {r}")
+
+    if BASELINE_JSON.exists():
+        try:
+            baseline = json.loads(BASELINE_JSON.read_text(encoding="utf-8"))
+            lines.extend(["", "## Delta vs baseline", ""])
+            lines.append("| Sport | GP Δ | Stats≥3 Δ | NIL obs Δ | Comm. score Δ | Near 77 Δ |")
+            lines.append("|-------|------|-----------|-----------|---------------|-----------|")
+            for sport in ACCEPTANCE_SPORTS:
+                b_scrape = (baseline.get("sports") or {}).get(sport, {}).get("scrape") or {}
+                b_score = (baseline.get("sports") or {}).get(sport, {}).get("score") or {}
+                cur_s = scrape_by_sport[sport]
+                cur_sc = score_by_sport[sport]
+                bn = b_scrape.get("active_n") or 1
+                cn = cur_s["active_n"] or 1
+
+                def _delta(cur: int, base: int, den: int) -> str:
+                    cp = 100.0 * cur / den
+                    bp = 100.0 * base / max(bn, 1)
+                    d = cp - bp
+                    sign = "+" if d >= 0 else ""
+                    return f"{sign}{d:.1f}pp"
+
+                lines.append(
+                    f"| {sport} | "
+                    f"{_delta(cur_s['has_gp'], b_scrape.get('has_gp', 0), cn)} | "
+                    f"{_delta(cur_s['stats3'], b_scrape.get('stats3', 0), cn)} | "
+                    f"{_delta(cur_s['nil_observed'], b_scrape.get('nil_observed', 0), cn)} | "
+                    f"{_delta(cur_s['has_commercial_score'], b_scrape.get('has_commercial_score', 0), cn)} | "
+                    f"{_delta(cur_sc['near_77'], b_score.get('near_77', 0), cur_sc['scored_n'] or 1)} |"
+                )
+        except (json.JSONDecodeError, OSError):
+            pass
 
     lines.extend(["", "---", "", f"_Report JSON snapshot: `reports/scrape_score_eda_report.json`_"])
     return "\n".join(lines) + "\n"
