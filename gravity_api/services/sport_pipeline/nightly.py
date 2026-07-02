@@ -141,6 +141,27 @@ async def fetch_nil_priority_athlete_ids(
     return [str(r["id"]) for r in rows]
 
 
+async def fetch_all_active_athlete_ids(
+    conn: asyncpg.Connection,
+    *,
+    sport: str,
+    limit: int,
+) -> list[str]:
+    """All active athletes with espn_id (for full rescore)."""
+    rows = await conn.fetch(
+        """SELECT a.id
+           FROM athletes a
+           WHERE a.sport = $1
+             AND COALESCE(a.is_active, TRUE) = TRUE
+             AND a.espn_id IS NOT NULL
+           ORDER BY a.updated_at DESC NULLS LAST
+           LIMIT $2""",
+        sport,
+        limit,
+    )
+    return [str(r["id"]) for r in rows]
+
+
 async def fetch_stale_athlete_ids(
     conn: asyncpg.Connection,
     *,
@@ -250,6 +271,9 @@ async def run_nightly_for_sport(
     score: bool = True,
     pool: asyncpg.Pool | None = None,
     gap_fill: bool = False,
+    rescore_all: bool = False,
+    scrape_stale_days: int = 7,
+    score_stale_days: int = 14,
 ) -> NightlySportResult:
     if concurrency is not None:
         scrape_concurrency = concurrency
@@ -260,13 +284,23 @@ async def run_nightly_for_sport(
         result.errors.append(f"Unknown sport: {sport}")
         return result
 
-    stale_ids = (
-        await fetch_gap_fill_athlete_ids(conn, sport=sport, limit=athlete_limit)
-        if gap_fill
-        else await fetch_stale_athlete_ids(conn, sport=sport, limit=athlete_limit)
-    )
+    if rescore_all:
+        stale_ids = await fetch_all_active_athlete_ids(conn, sport=sport, limit=athlete_limit)
+        mode = "rescore-all"
+    elif gap_fill:
+        stale_ids = await fetch_gap_fill_athlete_ids(conn, sport=sport, limit=athlete_limit)
+        mode = "gap-fill"
+    else:
+        stale_ids = await fetch_stale_athlete_ids(
+            conn,
+            sport=sport,
+            limit=athlete_limit,
+            scrape_stale_days=scrape_stale_days,
+            score_stale_days=score_stale_days,
+        )
+        mode = "stale"
     result.stale_found = len(stale_ids)
-    logger.info("[%s] %s athletes: %d", sport, "gap-fill" if gap_fill else "stale", len(stale_ids))
+    logger.info("[%s] %s athletes: %d", sport, mode, len(stale_ids))
 
     if not stale_ids:
         if rebuild_cohorts:
@@ -363,6 +397,9 @@ async def run_nightly_all_sports(
     skip_scrape: bool = False,
     skip_cohorts: bool = False,
     skip_score: bool = False,
+    rescore_all: bool = False,
+    scrape_stale_days: int = 7,
+    score_stale_days: int = 14,
 ) -> dict[str, Any]:
     if concurrency is not None:
         scrape_concurrency = concurrency
@@ -384,6 +421,9 @@ async def run_nightly_all_sports(
             rebuild_cohorts=not skip_cohorts,
             score=not skip_score,
             gap_fill=gap_fill,
+            rescore_all=rescore_all,
+            scrape_stale_days=scrape_stale_days,
+            score_stale_days=score_stale_days,
         )
         payload = {
             "stale_found": r.stale_found,

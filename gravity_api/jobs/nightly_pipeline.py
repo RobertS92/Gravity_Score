@@ -43,6 +43,9 @@ async def main_async(
     skip_cohorts: bool,
     skip_score: bool,
     gap_fill: bool,
+    rescore_all: bool,
+    scrape_stale_days: int,
+    score_stale_days: int,
 ) -> None:
     dsn = os.environ.get("PG_DSN")
     if not dsn:
@@ -62,6 +65,9 @@ async def main_async(
                 rebuild_cohorts=not skip_cohorts,
                 score=not skip_score,
                 gap_fill=gap_fill,
+                rescore_all=rescore_all,
+                scrape_stale_days=scrape_stale_days,
+                score_stale_days=score_stale_days,
             )
             logger.info("Done %s: %s", sport, result)
         else:
@@ -80,6 +86,9 @@ async def main_async(
                 skip_scrape=skip_scrape,
                 skip_cohorts=skip_cohorts,
                 skip_score=skip_score,
+                rescore_all=rescore_all,
+                scrape_stale_days=scrape_stale_days,
+                score_stale_days=score_stale_days,
             )
             logger.info("Nightly complete: %s", summary)
     finally:
@@ -119,6 +128,23 @@ def main() -> None:
         action="store_true",
         help="Only scrape athletes with missing/placeholder IG, NIL, or quality fields",
     )
+    parser.add_argument(
+        "--rescore-all",
+        action="store_true",
+        help="Select all active athletes with espn_id (ignores stale-day thresholds)",
+    )
+    parser.add_argument(
+        "--scrape-stale-days",
+        type=int,
+        default=7,
+        help="Rescrape athletes whose last scrape is older than this many days",
+    )
+    parser.add_argument(
+        "--score-stale-days",
+        type=int,
+        default=14,
+        help="Rescore athletes whose last score is older than this many days",
+    )
     args = parser.parse_args()
     sports: tuple[str, ...] | None = None
     if args.sports:
@@ -136,6 +162,9 @@ def main() -> None:
             skip_cohorts=args.skip_cohorts,
             skip_score=args.skip_score,
             gap_fill=args.gap_fill,
+            rescore_all=args.rescore_all,
+            scrape_stale_days=args.scrape_stale_days,
+            score_stale_days=args.score_stale_days,
         )
     )
 

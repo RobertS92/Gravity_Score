@@ -23,7 +23,9 @@ import asyncpg
 from gravity_api.scraper_registry.acceptance_sports import ACCEPTANCE_SPORTS
 from gravity_api.services.sport_pipeline.nightly import run_nightly_for_sport
 
-CHECKPOINT = ROOT / "reports" / "gap_fill_checkpoint.json"
+CHECKPOINT = Path(
+    os.environ.get("CHECKPOINT", str(ROOT / "reports" / "gap_fill_checkpoint.json"))
+)
 LOG_PATH = Path(os.environ.get("GAP_FILL_LOG", "/tmp/gap_fill_run.log"))
 
 
