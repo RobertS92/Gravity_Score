@@ -49,6 +49,22 @@ def test_commercial_viability_percentile_capped_1_to_99():
     assert result["nil_dollar_p50"] == pytest.approx(5_000_000.0)
 
 
+def test_commercial_viability_handles_json_string_raw_data():
+    async def run():
+        conn = AsyncMock()
+        conn.fetch = AsyncMock(
+            return_value=[
+                {"raw_data": '{"recruiting_stars": 3, "instagram_followers": 10000}'},
+                {"raw_data": {"recruiting_stars": 5, "instagram_followers": 500000}},
+            ]
+        )
+        raw = {"recruiting_stars": 4, "instagram_followers": 100_000}
+        return await compute_college_commercial_viability(conn, "a1", "cfb", raw)
+
+    result = asyncio.run(run())
+    assert 1 <= result["commercial_viability_score"] <= 99
+
+
 def test_commercial_viability_estimated_nil_when_unobserved():
     async def run():
         conn = AsyncMock()

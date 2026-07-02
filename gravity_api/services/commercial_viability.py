@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 from typing import Any
 
@@ -13,6 +14,20 @@ from gravity_api.services.csc_report_builder import cap_displayed_percentile
 from gravity_api.services.nil_valuation import nil_from_row, sanitize_nil_valuation_usd
 
 COLLEGE_COMMERCIAL_SPORTS = frozenset({"cfb", "ncaab_mens", "ncaab_womens"})
+
+
+def _parse_raw_data(raw_data: Any) -> dict[str, Any]:
+    if raw_data is None:
+        return {}
+    if isinstance(raw_data, dict):
+        return raw_data
+    if isinstance(raw_data, str):
+        try:
+            parsed = json.loads(raw_data)
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+    return {}
 
 
 def _coerce_float(val: Any) -> float:
@@ -93,7 +108,7 @@ async def compute_college_commercial_viability(
         sport,
     )
     cohort_indices = [
-        compute_commercial_viability_index({**dict(row["raw_data"] or {}), "sport": sport})
+        compute_commercial_viability_index({**_parse_raw_data(row["raw_data"]), "sport": sport})
         for row in cohort_rows
     ]
     raw_pctile = percentile_rank(cohort_indices, index)
