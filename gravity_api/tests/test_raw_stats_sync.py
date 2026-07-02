@@ -23,6 +23,18 @@ def test_apply_ass_enrichment_sparse_raw_takes_full_ass():
     assert len(out["season_stats"]) >= 3
 
 
+def test_apply_ass_enrichment_merges_full_ass_when_raw_sparse():
+    raw = {"season_stats": {"pass_yards": 3200.0}}
+    enrichment = {
+        "season_stats": {"pass_yards": 2800.0, "gp": 12.0, "pass_td": 25.0, "pass_int": 5.0},
+        "games_played_season": 12,
+    }
+    out = apply_ass_enrichment_to_raw(raw, enrichment)
+    assert out["pass_td"] == 25.0
+    assert out["pass_yards"] == 3200.0
+    assert out["season_stats"]["gp"] == 12.0
+
+
 def test_apply_ass_enrichment_fills_gaps_only():
     raw = {"pass_yards": 3200.0, "season_stats": {"pass_yards": 3200.0}}
     enrichment = {

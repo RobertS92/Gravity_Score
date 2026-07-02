@@ -9,7 +9,11 @@ import httpx
 
 from gravity_api.config import get_settings
 from gravity_api.feature_engineering.types import AthleteFeatureSnapshot
-from gravity_api.services.athlete_score_sync import _heuristic_score_from_raw
+from gravity_api.services.heuristic_gravity import compute_heuristic_gravity_v1
+from gravity_api.services.scoring_stack import (
+    apply_tier2_fallback_if_needed,
+    finalize_score_metadata,
+)
 from gravity_api.services.sport_pipeline.config import SportPipelineConfig, get_sport_pipeline_config
 from gravity_api.services.sport_pipeline.raw_payload import merge_raw_with_bpxvr
 from gravity_ml.brand.taxonomy import enrich_raw_with_partnerships
@@ -87,14 +91,15 @@ async def score_with_sport_model(
                     raise ValueError("ML response missing gravity_score")
                 payload.setdefault("model_version", model_version)
                 payload.setdefault("model_key", pipeline.model_key)
-                return payload
+                payload = apply_tier2_fallback_if_needed(
+                    payload, enriched, sport, snapshot=snapshot
+                )
+                return finalize_score_metadata(payload)
             except Exception as exc:
                 last_error = exc
                 logger.warning("ML score failed sport=%s endpoint=%s: %s", sport, endpoint, exc)
 
     logger.warning("Sport ML scoring failed for %s, heuristic fallback: %s", athlete_id, last_error)
-    fallback = _heuristic_score_from_raw(enriched, sport)
-    fallback["model_version"] = f"heuristic_{sport}"
+    fallback = compute_heuristic_gravity_v1(enriched, sport, snapshot=snapshot)
     fallback["model_key"] = pipeline.model_key
-    fallback["fallback_used"] = True
-    return fallback
+    return finalize_score_metadata(fallback)

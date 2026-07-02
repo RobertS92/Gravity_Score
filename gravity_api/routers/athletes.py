@@ -438,6 +438,25 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     athlete_dict["nil_valuation_percentile"] = (
         int(nil_percentile_row["pct"]) if nil_percentile_row and nil_percentile_row["pct"] is not None else None
     )
+
+    dc = latest_score.get("dollar_confidence")
+    if isinstance(dc, str):
+        import json as _json
+
+        try:
+            dc = _json.loads(dc)
+        except Exception:
+            dc = {}
+    if isinstance(dc, dict):
+        athlete_dict["score_tier"] = dc.get("score_tier")
+        athlete_dict["fallback_kind"] = dc.get("fallback_kind")
+
+    athlete_dict["commercial_viability_score"] = raw_signals.get("commercial_viability_score")
+    athlete_dict["commercial_viability_index"] = raw_signals.get("commercial_viability_index")
+    athlete_dict["nil_signal_source"] = raw_signals.get("nil_signal_source")
+    athlete_dict["nil_dollar_p10_usd"] = raw_signals.get("nil_dollar_p10_usd")
+    athlete_dict["nil_dollar_p50_usd"] = raw_signals.get("nil_dollar_p50_usd")
+    athlete_dict["nil_dollar_p90_usd"] = raw_signals.get("nil_dollar_p90_usd")
     athlete_dict["gravity_delta_30d"] = score_delta_30d(scores)
 
     score_history = [dict(s) for s in scores]

@@ -164,6 +164,27 @@ async def run_athlete_pipeline(
         compute_college_commercial_viability,
     )
 
+    from gravity_api.services.llm_gap_fill import (
+        is_llm_gap_fill_candidate,
+        llm_estimate_nil_commercial,
+    )
+    from gravity_api.services.scoring_stack import overlay_commercial_viability
+
+    llm_fields: dict[str, Any] = {}
+    if is_llm_gap_fill_candidate(raw, sport):
+        llm_fields = await llm_estimate_nil_commercial(
+            name=str(athlete.get("name") or ""),
+            sport=sport,
+            school=athlete.get("school"),
+            position=athlete.get("position"),
+            raw=raw,
+        )
+        if llm_fields:
+            raw.update({k: v for k, v in llm_fields.items() if v is not None})
+            from gravity_api.scrapers.observations import merge_raw_athlete_data
+
+            await merge_raw_athlete_data(conn, athlete_id=athlete_id, fields=llm_fields)
+
     if sport in COLLEGE_COMMERCIAL_SPORTS:
         commercial_viability = await compute_college_commercial_viability(
             conn, athlete_id, sport, raw
@@ -212,17 +233,7 @@ async def run_athlete_pipeline(
         pipeline=pipeline,
     )
 
-    if commercial_viability and not score_data.get("dollar_p50_usd"):
-        score_data["dollar_p10_usd"] = commercial_viability["nil_dollar_p10"]
-        score_data["dollar_p50_usd"] = commercial_viability["nil_dollar_p50"]
-        score_data["dollar_p90_usd"] = commercial_viability["nil_dollar_p90"]
-        score_data.setdefault(
-            "dollar_confidence",
-            {
-                "source": commercial_viability["nil_signal_source"],
-                "quality": "moderate" if commercial_viability["nil_signal_source"] == "observed" else "low",
-            },
-        )
+    score_data = overlay_commercial_viability(score_data, raw, commercial_viability, sport)
 
     await _persist_score_row(conn, athlete, score_data, raw, manual, pipeline.model_key)
     feature_result["score"] = {
@@ -230,6 +241,8 @@ async def run_athlete_pipeline(
         "model_key": score_data.get("model_key"),
         "model_version": score_data.get("model_version"),
         "fallback_used": score_data.get("fallback_used", False),
+        "fallback_kind": score_data.get("fallback_kind"),
+        "score_tier": score_data.get("score_tier"),
     }
     return feature_result
 
@@ -250,8 +263,16 @@ async def _persist_score_row(
         brand_g = brand_gravity_score(brand, vel, proof)
 
     shap = shap_values_from_ml(score_data)
-    imputed = {"manual": manual_fields, "heuristic": []}
+    heuristic_imputed = score_data.get("imputed_fields_heuristic") or []
+    imputed = {"manual": manual_fields, "heuristic": heuristic_imputed}
     dq = raw.get("data_quality_score")
+    dollar_conf = dict(score_data.get("dollar_confidence") or {})
+    if score_data.get("score_tier") is not None:
+        dollar_conf["score_tier"] = score_data.get("score_tier")
+    if score_data.get("fallback_kind"):
+        dollar_conf["fallback_kind"] = score_data.get("fallback_kind")
+    if score_data.get("replaced_model_version"):
+        dollar_conf["replaced_model_version"] = score_data.get("replaced_model_version")
 
     params = (
         athlete["id"],
@@ -266,7 +287,7 @@ async def _persist_score_row(
         score_data.get("dollar_p10_usd"),
         score_data.get("dollar_p50_usd"),
         score_data.get("dollar_p90_usd"),
-        json.dumps(score_data.get("dollar_confidence") or {}),
+        json.dumps(dollar_conf),
         None,
         float(brand_g),
         json.dumps(shap or {}),
@@ -340,7 +361,12 @@ async def _persist_score_row(
             float(score_data.get("confidence") or 0),
             float(dq or 0),
             bool(score_data.get("fallback_used")),
-            json.dumps({"pipeline": "sport_pipeline", "sport": athlete["sport"]}),
+            json.dumps({
+                "pipeline": "sport_pipeline",
+                "sport": athlete["sport"],
+                "score_tier": score_data.get("score_tier"),
+                "fallback_kind": score_data.get("fallback_kind"),
+            }),
         )
     except asyncpg.PostgresError:
         logger.debug("gravity_predictions insert skipped", exc_info=True)
