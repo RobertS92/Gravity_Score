@@ -26,7 +26,7 @@ def _cfg(sport: str, league: str, *, pro: bool = False) -> SportPipelineConfig:
     return SportPipelineConfig(
         sport=sport,
         league=league,
-        model_key=f"gravity_athlete_{sport}_v1",
+        model_key=f"gravity_athlete_{sport}_value_v1",
         model_version="1.0.0",
         ml_endpoint=f"/score/athlete/{sport}",
         fallback_endpoint="/score/athlete",
@@ -37,7 +37,17 @@ def _cfg(sport: str, league: str, *, pro: bool = False) -> SportPipelineConfig:
 
 
 ALL_SPORT_PIPELINES: dict[str, SportPipelineConfig] = {
-    "cfb": _cfg("cfb", "ncaa"),
+    "cfb": SportPipelineConfig(
+        sport="cfb",
+        league="ncaa",
+        model_key="gravity_athlete_cfb_value_v1",
+        model_version="1.1.0-beta",
+        ml_endpoint="/score/athlete/cfb",
+        fallback_endpoint="/score/athlete",
+        feature_schema_version=FEATURE_SCHEMA_VERSION,
+        terminal_visible=bool(SPORTS["cfb"].get("terminal_visible")),
+        college_pro_bridge=False,
+    ),
     "ncaab_mens": _cfg("ncaab_mens", "ncaa"),
     "ncaab_womens": _cfg("ncaab_womens", "ncaa"),
     "ncaa_baseball": _cfg("ncaa_baseball", "ncaa"),

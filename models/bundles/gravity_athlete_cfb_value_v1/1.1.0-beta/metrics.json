@@ -1,0 +1,23 @@
+{
+  "validation": {
+    "mae": 0.7123,
+    "rmse": 1.0181,
+    "pearson": 0.6745,
+    "spearman": 0.3406,
+    "n": 54
+  },
+  "test": {
+    "mae": 0.5037,
+    "rmse": 0.7223,
+    "pearson": 0.1308,
+    "spearman": 0.2379,
+    "n": 55
+  },
+  "train_rows": 504,
+  "val_rows": 54,
+  "test_rows": 55,
+  "training_source": "observed_nil_valuation",
+  "labeled_rows": 361,
+  "augmented": true,
+  "feature_count": 221
+}

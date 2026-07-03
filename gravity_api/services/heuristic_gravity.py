@@ -7,8 +7,8 @@ from typing import Any
 
 from gravity_api.feature_engineering.types import AthleteFeatureSnapshot
 from gravity_api.services.athlete_score_sync import brand_gravity_score
+from gravity_api.services.gravity_calibration import calibrate_gravity_score, compute_latent_gravity
 from gravity_api.services.nil_valuation import elite_signal_strength, nil_from_row
-from gravity_composite.composite import compute_gravity_raw
 
 SPORT_WEIGHTS: dict[str, dict[str, float]] = {
     "default": {"brand": 0.30, "proof": 0.35, "velocity": 0.15, "proximity": 0.10, "risk": 0.10},
@@ -118,30 +118,52 @@ def _confidence_from_signals(raw: dict[str, Any], snapshot: AthleteFeatureSnapsh
     return round(min(0.92, max(0.28, score)), 4)
 
 
-def compute_heuristic_gravity_v1(
+def compute_heuristic_latent_v1(
     raw: dict[str, Any],
     sport: str | None,
     *,
     snapshot: AthleteFeatureSnapshot | None = None,
-) -> dict[str, Any]:
-    """Weighted BPXVR-style fallback scorer; replaces flat composite ~77 clusters."""
+) -> tuple[float, dict[str, float]]:
+    """BPXVR components and rank-preserving latent G (pre-calibration)."""
     sport_key = (sport or "default").lower()
-    weights = SPORT_WEIGHTS.get(sport_key, SPORT_WEIGHTS["default"])
-
     brand = _brand_score(raw, snapshot)
     proof = _proof_score(raw, snapshot, sport_key)
     velocity = _velocity_score(raw, snapshot)
     proximity = _proximity_score(raw, snapshot)
     risk = _risk_score(raw, snapshot)
+    latent = compute_latent_gravity(brand, proof, proximity, velocity, risk, sport)
+    return latent, {
+        "brand": brand,
+        "proof": proof,
+        "proximity": proximity,
+        "velocity": velocity,
+        "risk": risk,
+    }
 
-    gravity = compute_gravity_raw(
-        brand=brand,
-        proof=proof,
-        proximity=proximity,
-        velocity=velocity,
-        risk=risk,
-        sport=sport,
-    )
+
+def compute_heuristic_gravity_v1(
+    raw: dict[str, Any],
+    sport: str | None,
+    *,
+    snapshot: AthleteFeatureSnapshot | None = None,
+    cohort_latent_scores: list[float] | None = None,
+) -> dict[str, Any]:
+    """Weighted BPXVR fallback with cohort-relative display calibration."""
+    sport_key = (sport or "default").lower()
+    latent, components = compute_heuristic_latent_v1(raw, sport, snapshot=snapshot)
+    brand = components["brand"]
+    proof = components["proof"]
+    velocity = components["velocity"]
+    proximity = components["proximity"]
+    risk = components["risk"]
+
+    if cohort_latent_scores is not None:
+        gravity, cohort_pctile = calibrate_gravity_score(
+            latent, cohort_latent_scores, sport_key, raw=raw
+        )
+    else:
+        gravity = latent
+        cohort_pctile = None
 
     confidence = _confidence_from_signals(raw, snapshot)
     nil_anchor = nil_from_row(raw) or _f(raw, "nil_valuation")
@@ -162,8 +184,20 @@ def compute_heuristic_gravity_v1(
     if not int(float(raw.get("nil_valuation_observed") or 0)) and nil_anchor:
         imputed.append("nil_valuation")
 
+    dollar_conf: dict[str, Any] = {
+        "source": "heuristic_gravity_v1",
+        "quality": dollar_quality,
+        "nil_anchored": bool(nil_anchor and nil_anchor > 0),
+    }
+    if cohort_latent_scores is not None:
+        dollar_conf["gravity_score_latent"] = round(latent, 4)
+        dollar_conf["gravity_cohort_percentile"] = cohort_pctile
+        dollar_conf["calibration_version"] = "1.0.0"
+
     return {
         "gravity_score": round(gravity, 4),
+        "gravity_score_latent": round(latent, 4),
+        "gravity_cohort_percentile": cohort_pctile,
         "brand_score": round(brand, 4),
         "proof_score": round(proof, 4),
         "proximity_score": round(proximity, 4),
@@ -177,14 +211,10 @@ def compute_heuristic_gravity_v1(
         "dollar_p10_usd": round(p50 * 0.6, 2),
         "dollar_p50_usd": round(p50, 2),
         "dollar_p90_usd": round(p50 * 1.8, 2),
-        "dollar_confidence": {
-            "source": "heuristic_gravity_v1",
-            "quality": dollar_quality,
-            "nil_anchored": bool(nil_anchor and nil_anchor > 0),
-        },
+        "dollar_confidence": dollar_conf,
         "brand_gravity_score": brand_gravity_score(brand, velocity, proof),
         "imputed_fields_heuristic": imputed,
     }
 
 
-__all__ = ["compute_heuristic_gravity_v1"]
+__all__ = ["compute_heuristic_gravity_v1", "compute_heuristic_latent_v1"]

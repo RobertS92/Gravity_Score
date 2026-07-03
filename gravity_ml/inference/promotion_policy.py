@@ -64,3 +64,34 @@ def is_blocked_inference_model(model_key: str) -> bool:
 def production_gates(model_key: str) -> dict[str, Any]:
     policy = load_promotion_policy()
     return dict((policy.get("production_gates") or {}).get(model_key) or {})
+
+
+def is_synthetic_training_manifest(manifest: dict[str, Any]) -> bool:
+    """Detect bootstrap/synthetic bundles that must not serve inference."""
+    if not manifest:
+        return True
+    source = str(manifest.get("training_source") or "").lower()
+    if source in ("synthetic", "synthetic_bootstrap", "bootstrap"):
+        return True
+    row_count = int(manifest.get("row_count") or 0)
+    if row_count == 200 and source != "observed_nil_valuation":
+        return True
+    return False
+
+
+def bundle_inference_allowed(
+    model_key: str,
+    *,
+    manifest: dict[str, Any] | None = None,
+    metrics: dict[str, Any] | None = None,
+) -> bool:
+    """Return False for blocked patterns or synthetic/untrained bundles."""
+    if is_blocked_inference_model(model_key):
+        return False
+    if manifest and is_synthetic_training_manifest(manifest):
+        return False
+    if metrics:
+        source = str(metrics.get("training_source") or "").lower()
+        if source in ("synthetic", "synthetic_bootstrap"):
+            return False
+    return True

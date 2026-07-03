@@ -258,8 +258,14 @@ async def main_async(args: argparse.Namespace) -> None:
             logger.warning("DB fetch failed, will use synthetic if allowed: %s", exc)
 
     if len(rows) < args.min_rows and args.allow_synthetic:
-        logger.info("Generating synthetic bootstrap rows for %s/%s", args.entity, args.sport)
-        rows = _synthetic_rows(args.entity, args.sport, args.objective)
+        logger.warning(
+            "Synthetic bootstrap DISABLED for promotion — need %d rows, got %d for %s/%s",
+            args.min_rows,
+            len(rows),
+            args.entity,
+            args.sport,
+        )
+        rows = []
     out = train_from_rows(
         rows,
         entity_type=args.entity,

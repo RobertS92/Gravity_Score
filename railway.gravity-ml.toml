@@ -1,7 +1,7 @@
 # Used by scripts/deploy_gravity_ml_railway.sh (copied to railway.toml during ML deploy).
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile.gravity-ml"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/health/ready"

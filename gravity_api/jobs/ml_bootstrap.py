@@ -111,6 +111,9 @@ async def main_async(args: argparse.Namespace) -> None:
     trained = 0
     for sport in sports:
         for objective in ("value", "quality"):
+            if objective == "value" and sport != "cfb":
+                logger.info("Skipping %s value — no real labels; use heuristic_gravity_v1", sport)
+                continue
             if _run_train("athlete", sport, objective, str(out), synthetic=args.synthetic, upload=args.upload_s3):
                 trained += 1
         if args.include_teams:
@@ -140,7 +143,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Bootstrap Gravity ML bundles")
     parser.add_argument("--sport", choices=SPORTS)
     parser.add_argument("--out", default="models/bundles")
-    parser.add_argument("--synthetic", action="store_true", help="Allow synthetic training if DB thin")
+    parser.add_argument(
+        "--synthetic",
+        action="store_true",
+        help="DEPRECATED — synthetic bootstrap no longer produces promotable bundles",
+    )
     parser.add_argument("--upload-s3", action="store_true")
     parser.add_argument("--register", action="store_true", help="Register bundles in gravity_model_registry")
     parser.add_argument("--stage", default="candidate", choices=["candidate", "shadow", "champion"])

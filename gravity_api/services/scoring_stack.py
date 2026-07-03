@@ -51,6 +51,7 @@ def apply_tier2_fallback_if_needed(
     sport: str,
     *,
     snapshot: AthleteFeatureSnapshot | None = None,
+    cohort_latent_scores: list[float] | None = None,
 ) -> dict[str, Any]:
     """Replace weak ML composite scores with heuristic_gravity_v1."""
     if fallback_scorer_name() != "heuristic_gravity_v1":
@@ -60,7 +61,9 @@ def apply_tier2_fallback_if_needed(
         out["score_tier"] = classify_score_tier(out)
         out.setdefault("fallback_kind", None if out["score_tier"] == 1 else "ml_composite")
         return out
-    heuristic = compute_heuristic_gravity_v1(raw, sport, snapshot=snapshot)
+    heuristic = compute_heuristic_gravity_v1(
+        raw, sport, snapshot=snapshot, cohort_latent_scores=cohort_latent_scores
+    )
     heuristic["model_key"] = score_data.get("model_key")
     heuristic["replaced_model_version"] = score_data.get("model_version")
     return heuristic

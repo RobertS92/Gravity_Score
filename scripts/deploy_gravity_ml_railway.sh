@@ -8,23 +8,16 @@ if ! command -v railway >/dev/null 2>&1; then
   exit 1
 fi
 
+STAGE="/tmp/gravity_ml_deploy_stage"
+bash scripts/stage_ml_deploy_bundle.sh "$STAGE"
+
 railway link -p gravity-ml -e production -s fdb7752c-cf01-4064-849c-94050093444a
 
-backup=""
-if [[ -f railway.toml ]]; then
-  backup="$(mktemp)"
-  cp railway.toml "$backup"
-fi
-cp railway.gravity-ml.toml railway.toml
-
-cleanup() {
-  if [[ -n "$backup" && -f "$backup" ]]; then
-    mv "$backup" railway.toml
-  fi
-}
-trap cleanup EXIT
-
-echo "Deploying gravity-ml from monorepo (Dockerfile.gravity-ml)..."
-railway up -d -c -m "Deploy monorepo gravity_ml with CFB bundle and sport routes"
+echo "Deploying gravity-ml staged bundle ($(du -sh "$STAGE" | cut -f1))..."
+(
+  cd "$STAGE"
+  railway link -p gravity-ml -e production -s fdb7752c-cf01-4064-849c-94050093444a
+  railway up -d -c --no-gitignore -m "Deploy gravity_ml sport value bundles with model weights"
+)
 
 echo "Done. Verify: curl https://gravity-ml-production.up.railway.app/health/ready"

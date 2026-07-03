@@ -14,5 +14,5 @@ data
 gravity-terminal/node_modules
 gravity-terminal/dist
 models/bundles/**/*.pkl
-!models/bundles/gravity_athlete_cfb_value_v1/**/model.pkl
+!models/bundles/gravity_athlete_*_value_v1/**/model.pkl
 *.log

@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 
+from gravity_composite.calibration import calibrate_display_score
 from gravity_composite.composite import (
     component_confidences_from_raw,
     compute_gravity_confidence_weighted,
@@ -180,7 +181,22 @@ def score_athlete(req: ScoreAthleteRequest) -> ScoreAthleteResponse:
             log_val = pred["primary"]
             if not rank_only:
                 dollar_p50 = max(25_000.0, math.expm1(log_val))
-            gravity = min(100.0, max(0.0, 20.0 + log_val * 8.5))
+                gravity = min(100.0, max(0.0, 20.0 + log_val * 8.5))
+            else:
+                # Beta rank-only bundles predict log1p(NIL) for ordering — not absolute G.
+                # Use feature-based composite for the displayed gravity score.
+                weights = get_composite_weights(sport)
+                confidences = component_confidences_from_raw(raw)
+                gravity = compute_gravity_confidence_weighted(
+                    brand=components["brand"],
+                    proof=components["proof"],
+                    proximity=components["proximity"],
+                    velocity=components["velocity"],
+                    risk=components["risk"],
+                    confidences=confidences,
+                    weights=weights,
+                    sport=sport,
+                )
             model_version = value_bundle.version
             fallback_used = False
 
@@ -210,6 +226,22 @@ def score_athlete(req: ScoreAthleteRequest) -> ScoreAthleteResponse:
 
     if quality is None:
         quality = _quality_from_components(components, raw, sport=sport)
+
+    cohort_latents = raw.get("cohort_latent_scores") or raw.get("_cohort_latent_scores")
+    g_latent = gravity
+    if cohort_latents and isinstance(cohort_latents, (list, tuple)) and len(cohort_latents) > 0:
+        gravity, cohort_pctile = calibrate_display_score(g_latent, cohort_latents)
+        if rank_only:
+            dollar_conf_extra = {
+                "gravity_score_latent": round(g_latent, 4),
+                "gravity_cohort_percentile": cohort_pctile,
+                "calibration_version": "1.0.0",
+            }
+        else:
+            dollar_conf_extra = {}
+    else:
+        cohort_pctile = None
+        dollar_conf_extra = {}
 
     market_val = _market_value_usd(raw, sport)
     if dollar_p50 is None:
@@ -246,6 +278,7 @@ def score_athlete(req: ScoreAthleteRequest) -> ScoreAthleteResponse:
         dollar_confidence={
             "source": "ml" if not fallback_used else "heuristic",
             "quality": "beta_rank_only" if rank_only else "moderate",
+            **dollar_conf_extra,
         },
         shap_values=shap_from_components(
             brand=components["brand"],

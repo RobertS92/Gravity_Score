@@ -1,9 +1,9 @@
 {
   "champions": {
-    "gravity_athlete_cfb_value_v1": "1.0.0"
+    "gravity_athlete_cfb_value_v1": "1.1.0-beta"
   },
   "retired": {
-    "note": "Athlete quality bundles and non-CFB value bundles removed from champion index until external labels and production gates pass."
+    "note": "Non-CFB value bundles removed \u2014 identical synthetic bootstrap weights saturated scores at 100. Re-enable per sport after real training passes production gates."
   },
-  "updated_at": "2026-06-29T00:00:00+00:00"
+  "updated_at": "2026-07-03T19:35:47.366428+00:00"
 }

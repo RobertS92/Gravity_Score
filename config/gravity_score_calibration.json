@@ -1,0 +1,31 @@
+{
+  "version": "1.0.0",
+  "description": "Cohort-relative display calibration: maps within-sport latent percentile to consumer-facing gravity score.",
+  "rationale": "Latent G from BPXVR composite preserves rank order within sport. Piecewise-linear knots shape the display distribution without per-athlete hardcoding: bulk IQR (p25-p75) targets 62-72, upper tier (p85-p97) 76-88, elite tail (p99+) 93-99. Knots are global; cohort percentiles are sport-specific.",
+  "global_knots": [
+    {"percentile": 0, "score": 52},
+    {"percentile": 10, "score": 58},
+    {"percentile": 25, "score": 62},
+    {"percentile": 50, "score": 67},
+    {"percentile": 75, "score": 72},
+    {"percentile": 85, "score": 76},
+    {"percentile": 92, "score": 82},
+    {"percentile": 97, "score": 88},
+    {"percentile": 99, "score": 93},
+    {"percentile": 100, "score": 99}
+  ],
+  "nil_anchor": {
+    "college_sports": ["cfb", "ncaab_mens", "ncaab_womens", "ncaa_baseball", "ncaa_volleyball"],
+    "log_nil_knots": [
+      {"log1p_usd": 10.0, "score": 58},
+      {"log1p_usd": 12.5, "score": 68},
+      {"log1p_usd": 14.5, "score": 78},
+      {"log1p_usd": 16.0, "score": 86},
+      {"log1p_usd": 17.5, "score": 93},
+      {"log1p_usd": 18.5, "score": 97}
+    ],
+    "elite_weight_min": 0.55,
+    "elite_weight_max": 1.0,
+    "rationale": "Observed NIL (nil_valuation_observed=1) anchors display floor via log(NIL) mapping. elite_weight scales floor by commercial signal strength so non-elite observed labels are not over-boosted."
+  }
+}

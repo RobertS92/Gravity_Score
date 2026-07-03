@@ -323,6 +323,10 @@ async def _persist_score_row(
         dollar_conf["win_impact_score"] = score_data.get("win_impact_score")
     if score_data.get("participation_index") is not None:
         dollar_conf["participation_index"] = score_data.get("participation_index")
+    if score_data.get("gravity_score_latent") is not None:
+        dollar_conf["gravity_score_latent"] = score_data.get("gravity_score_latent")
+    if score_data.get("gravity_cohort_percentile") is not None:
+        dollar_conf["gravity_cohort_percentile"] = score_data.get("gravity_cohort_percentile")
 
     params = (
         athlete["id"],

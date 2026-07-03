@@ -119,6 +119,19 @@ class BundleLoader:
         if not root.exists():
             return None
         bundle = ModelBundle(root, model_key, ver)
+        from gravity_ml.inference.promotion_policy import bundle_inference_allowed
+
+        if not bundle_inference_allowed(
+            model_key,
+            manifest=bundle.manifest,
+            metrics=bundle.metrics,
+        ):
+            logger.warning(
+                "Skipping non-promotable bundle %s/%s (synthetic or blocked)",
+                model_key,
+                ver,
+            )
+            return None
         self._cache[cache_key] = bundle
         return bundle
 

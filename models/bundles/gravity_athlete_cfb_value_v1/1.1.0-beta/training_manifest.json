@@ -1,0 +1,11 @@
+{
+  "model_key": "gravity_athlete_cfb_value_v1",
+  "entity_type": "athlete",
+  "sport": "cfb",
+  "objective": "value",
+  "version": "1.1.0-beta",
+  "trained_at": "2026-07-03T19:35:47.362698+00:00",
+  "row_count": 361,
+  "training_source": "observed_nil_valuation",
+  "label_target": "nil_valuation_usd"
+}
