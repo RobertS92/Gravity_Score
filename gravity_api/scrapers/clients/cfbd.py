@@ -175,6 +175,7 @@ def _map_cfbd_category_row(row: dict[str, Any]) -> dict[str, float]:
             "passer_rating": f("rating") or f("passerRating"),
             "qbr": f("qbr"),
             "games_played_season": f("games") or f("gamesPlayed"),
+            "games_started": f("gamesStarted") or f("started") or f("gs"),
         }
     elif category in ("rushing", "rush"):
         mapping = {
@@ -183,6 +184,7 @@ def _map_cfbd_category_row(row: dict[str, Any]) -> dict[str, float]:
             "rush_attempts": f("attempts") or f("rushingAttempts"),
             "yards_per_carry": f("yardsPerRush") or f("average"),
             "games_played_season": f("games") or f("gamesPlayed"),
+            "games_started": f("gamesStarted") or f("started") or f("gs"),
         }
     elif category in ("receiving", "rec"):
         mapping = {
@@ -192,6 +194,7 @@ def _map_cfbd_category_row(row: dict[str, Any]) -> dict[str, float]:
             "rec_targets": f("targets"),
             "yards_per_catch": f("yardsPerReception") or f("average"),
             "games_played_season": f("games") or f("gamesPlayed"),
+            "games_started": f("gamesStarted") or f("started") or f("gs"),
         }
     elif category in ("defensive", "defense"):
         mapping = {
@@ -203,6 +206,7 @@ def _map_cfbd_category_row(row: dict[str, Any]) -> dict[str, float]:
             "passes_defended": f("passesDefended") or f("pd"),
             "forced_fumbles": f("fumblesForced") or f("forcedFumbles"),
             "games_played_season": f("games") or f("gamesPlayed"),
+            "games_started": f("gamesStarted") or f("started") or f("gs"),
         }
     elif category in ("kicking", "kicker"):
         mapping = {
@@ -490,6 +494,44 @@ class CfbdClient:
             if isinstance(row, dict):
                 merged.update(_map_cfbd_category_row(row))
         return merged
+
+    async def team_record(
+        self,
+        *,
+        year: int,
+        team: str,
+    ) -> dict[str, Any] | None:
+        """Fetch team W-L-T for a season (regular season totals)."""
+        if not team:
+            return None
+        rows = await self._get("/records", {"year": year, "team": team})
+        if not isinstance(rows, list) or not rows:
+            return None
+        wins = losses = ties = 0
+        conf_w = conf_l = 0
+        team_name = team
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            team_name = str(row.get("team") or team_name)
+            wins += int(row.get("totalWins") or row.get("wins") or 0)
+            losses += int(row.get("totalLosses") or row.get("losses") or 0)
+            ties += int(row.get("totalTies") or row.get("ties") or 0)
+            conf_w += int(row.get("conferenceWins") or 0)
+            conf_l += int(row.get("conferenceLosses") or 0)
+        if wins + losses + ties == 0:
+            return None
+        total = wins + losses + ties
+        return {
+            "team": team_name,
+            "wins": wins,
+            "losses": losses,
+            "ties": ties,
+            "win_pct": round(wins / total, 4),
+            "conference_wins": conf_w,
+            "conference_losses": conf_l,
+            "season_year": year,
+        }
 
 
 __all__ = [

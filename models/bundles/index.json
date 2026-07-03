@@ -1,6 +1,6 @@
 {
   "champions": {
-    "gravity_athlete_cfb_value_v1": "1.0.0-beta"
+    "gravity_athlete_cfb_value_v1": "1.0.0"
   },
   "retired": {
     "note": "Athlete quality bundles and non-CFB value bundles removed from champion index until external labels and production gates pass."

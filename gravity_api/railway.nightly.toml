@@ -8,6 +8,8 @@
 #   5. Do NOT attach a public domain — this service runs and exits on schedule.
 #
 # Schedule: 3 AM UTC daily — gap-fill scrape + cohort rebuild + score for 6 acceptance sports.
+# Required env (copy from gravity_api): PG_DSN, ML_SERVICE_URL, ML_API_KEY, DISABLE_FIRECRAWL=1,
+#   FALLBACK_SCORER=heuristic_gravity_v1, CFBD_API_KEY (CFB stats fallback).
 
 [build]
 builder = "DOCKERFILE"

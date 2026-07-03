@@ -26,6 +26,7 @@ SCRAPER_PRIORITY: tuple[str, ...] = (
     "opendorse_profile",
     "espn_stats",
     "cfbd_api_stats",
+    "cfbd_team_record",
     "stats_freshness",
     "sports_ref_honors",
     "espn_awards",
@@ -144,6 +145,8 @@ def scrapers_for_gaps(
             f"national_awards_{sport}",
         ],
         "season_stats": [f"espn_stats_{sport}", "cfbd_api_stats_cfb"],
+        "team_win_pct": ["cfbd_team_record_cfb"],
+        "games_started": [f"espn_stats_{sport}", "cfbd_api_stats_cfb"],
     }
     for gap in gaps:
         for key in fallback.get(gap, []):

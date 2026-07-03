@@ -69,6 +69,7 @@ EVENT_SCRAPER_SUFFIXES: dict[str, list[str]] = {
         "espn_stats",
         "stats_freshness",
         "cfbd_api_stats_cfb",
+        "cfbd_team_record_cfb",
         "instagram_followers",
         "tiktok_followers",
         "twitter_followers",
@@ -236,6 +237,7 @@ def resolve_event_scraper_keys(
     # Keys that only apply to specific sports (skip wrong-sport suffix expansion).
     sport_exclusive_keys: dict[str, frozenset[str]] = {
         "cfbd_api_stats_cfb": frozenset({"cfb"}),
+        "cfbd_team_record_cfb": frozenset({"cfb"}),
         "kenpom_ncaab_mens": frozenset({"ncaab_mens"}),
         "her_hoop_stats_ncaab_womens": frozenset({"ncaab_womens"}),
         "perfect_game_recruiting_baseball": frozenset({"ncaa_baseball"}),

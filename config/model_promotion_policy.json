@@ -16,9 +16,9 @@
       }
     }
   },
-  "export": {
+    "export": {
     "cfb": {
-      "export_objectives": ["value_nil"],
+      "export_objectives": ["value_nil", "impact"],
       "blocked_objectives": ["quality", "value_proxy_ig", "quality_external"]
     }
   },

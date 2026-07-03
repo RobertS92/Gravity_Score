@@ -1,41 +1,45 @@
 {
-  "generated_at": "2026-07-02T15:01:40.040704+00:00",
+  "generated_at": "2026-07-02T23:36:51.475752+00:00",
   "sports": {
     "cfb": {
       "scrape": {
         "active_n": 6761,
         "scraped": 6761,
-        "has_gp": 102,
-        "stats3": 420,
-        "nil_observed": 111,
-        "nil_imputed_only": 382,
+        "has_gp": 130,
+        "stats3": 552,
+        "nil_observed": 252,
+        "nil_imputed_only": 241,
         "sr_source": 0,
         "ig_handle": 643,
-        "has_commercial_score": 501,
-        "last_scraped": "2026-07-02 15:01:07.331470+00:00"
+        "has_commercial_score": 6255,
+        "last_scraped": "2026-07-02 23:32:04.161501+00:00"
       },
       "score": {
-        "scored_n": 6717,
-        "avg_gravity": "62.42",
-        "std_gravity": "12.40",
-        "min_gravity": "41.05",
+        "scored_n": 6761,
+        "avg_gravity": "49.24",
+        "std_gravity": "12.52",
+        "min_gravity": "38.71",
         "max_gravity": "90.64",
-        "near_77": 59,
-        "fallback_model": 4680,
-        "has_dollar_p50": 4724,
-        "last_scored": "2026-07-02 15:01:09.120222+00:00",
+        "near_77": 50,
+        "fallback_model": 960,
+        "has_dollar_p50": 6761,
+        "last_scored": "2026-07-02 23:32:05.641667+00:00",
         "models": [
           [
-            "composite_fallback_v0",
-            4680
+            "heuristic_gravity_v1",
+            5757
           ],
           [
-            "gravity_athlete_v2",
-            1993
+            "composite_fallback_v0",
+            960
           ],
           [
             "heuristic_cfb",
-            44
+            42
+          ],
+          [
+            "gravity_athlete_v2",
+            2
           ]
         ]
       }
@@ -213,7 +217,7 @@
     }
   },
   "cfb_ass_sync": {
-    "ass_has_3": 765,
-    "ass3_not_in_raw": 453
+    "ass_has_3": 1998,
+    "ass3_not_in_raw": 1453
   }
 }

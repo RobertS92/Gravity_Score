@@ -21,7 +21,7 @@ from gravity_ml.train.regressor import train_regressor
 
 logger = logging.getLogger(__name__)
 
-OBJECTIVES = ("value", "quality", "team_value", "team_quality", "brand_sponsor")
+OBJECTIVES = ("value", "quality", "impact", "team_value", "team_quality", "brand_sponsor")
 
 
 def _default_target(objective: str, league: str) -> str:
@@ -29,6 +29,8 @@ def _default_target(objective: str, league: str) -> str:
         return "nil_valuation_usd" if league == "ncaa" else "contract_guaranteed_usd"
     if objective == "quality":
         return "quality_score"
+    if objective == "impact":
+        return "target_impact_score"
     if objective in ("team_value", "team_quality"):
         return "team_gravity_proxy"
     return "brand_gravity_proxy"

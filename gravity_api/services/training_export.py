@@ -23,6 +23,19 @@ RAW_NUMERIC_KEYS = (
     "recruiting_rank_national",
     "recruiting_rank_position",
     "games_played_season",
+    "games_started",
+    "gs_rate",
+    "participation_index",
+    "team_wins",
+    "team_losses",
+    "team_win_pct",
+    "team_win_pct_percentile",
+    "proof_residual_team",
+    "proof_x_participation",
+    "proof_x_weak_team",
+    "win_impact_score",
+    "win_impact_score_v0",
+    "impact_confidence",
     "partnership_brand_score",
     "partnership_proof_boost",
     "partnership_deal_count",
@@ -252,6 +265,10 @@ def build_training_row(
         grav = _safe_float(scores.get("gravity_score"))
         if grav is not None:
             row["target_gravity"] = grav
+        impact = _safe_float(scores.get("win_impact_score"))
+        if impact is not None:
+            row["target_impact_score"] = impact
+            row["win_impact_score"] = impact
 
     if labels:
         for k, col in (
@@ -273,6 +290,8 @@ def build_training_row(
                 row["target_log_nil_usd"] = math.log1p(tv)
             elif key == "quality_score":
                 row["target_quality"] = tv
+            elif key == "target_impact_score" or key == "win_impact_score":
+                row["target_impact_score"] = tv
 
     return row
 

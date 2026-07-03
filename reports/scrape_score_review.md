@@ -1,96 +1,75 @@
-# Scrape & Score Review — Full All-Sports Gap-Fill
+# Scrape & Score Review — Gap-Fill Run
 
-**Last updated:** 2026-07-02 15:56 UTC  
-**Orchestrator:** Running (pid in `/tmp/gap_fill_orchestrator.pid`) — waiting for in-flight CFB jobs
-
----
-
-## Pipeline status
-
-| Phase | Status | Log |
-|-------|--------|-----|
-| **Pre-flight CFB gap-fill** | In progress (`LIMIT=6761`, old checkpoint) | `/tmp/gap_fill_cfb_full.log` |
-| **Pre-flight CFB rescore** | In progress (`--skip-scrape`, heuristic) | `/tmp/cfb_rescore.log` |
-| **Phase A — full gap-fill** | Queued (orchestrator waiting) | `/tmp/gap_fill_all_sports_full.log` |
-| **Phase B — full rescore** | Pending | `/tmp/all_sports_rescore.log` |
-| **Phase C — EDA + labels** | Pending | auto after Phase B |
-
-**Checkpoint:** `reports/gap_fill_checkpoint_full_v2.json` (fresh; ignores prior 500-athlete batch)  
-**Results:** `reports/gap_fill_full_v2_results.json`
-
-### Launch / monitor
-
-```bash
-# Already running via:
-python3 scripts/spawn_full_acceptance_gap_fill.py
-
-# Monitor
-tail -f /tmp/gap_fill_all_sports_full.log
-cat /tmp/gap_fill_orchestrator.pid && ps -p $(cat /tmp/gap_fill_orchestrator.pid)
-```
-
-### Sport limits (Phase A + B)
-
-| Sport | Active DB | Limit |
-|-------|-----------|-------|
-| cfb | 6,761 | 7,000 |
-| nfl | 2,924 | 3,000 |
-| ncaab_mens | 1,042 | 1,100 |
-| ncaab_womens | 847 | 900 |
-| nba | 535 | 5,000 |
-| wnba | 199 | 250 |
-
-**Env:** `DISABLE_FIRECRAWL=1`, `FALLBACK_SCORER=heuristic_gravity_v1`, `SCRAPE_CONCURRENCY=2`, `SCORE_CONCURRENCY=8`
+**Last updated:** 2026-07-02 23:40 UTC  
+**Full CFB gap-fill:** Complete (user-confirmed; cohort **6761** active/scored in EDA). Durable log `/tmp/gap_fill_cfb_full.log` shows **6755** gap-fill IDs at start; `reports/gap_fill_checkpoint.json` is from the earlier multi-sport durable run (no separate CFB checkpoint row).
 
 ---
 
-## Prior 500-athlete batch (old checkpoint)
-
-| Sport | scraped_ok | scored_ok | failures |
-|-------|------------|-----------|----------|
-| ncaab_mens | 500 | 500 | 0 |
-| ncaab_womens | 500 | 500 | 0 |
-| nfl | 500 | 500 | 0 |
-| nba | 500 | 500 | 0 |
-| wnba | 199 | 199 | 0 |
-
-CFB full gap-fill (6761) still running separately.
-
----
-
-## Baseline EDA (pre full v2 run)
-
-| Sport | GP% | stats≥3 | NIL obs | heuristic | composite | ML |
-|-------|-----|---------|---------|-----------|-----------|-----|
-| cfb | 0.5% | 8.0% | 1.6% | 753 | 4,117 | 1,803 |
-| nfl | 7.3% | 50.4% | — | 0 | 2,887 | 0 |
-| ncaab_mens | 0.7% | 91.8% | 0.5% | 0 | 1,040 | 0 |
-| ncaab_womens | 0.9% | 96.1% | 0.6% | 0 | 64 | 742 |
-| nba | 1.9% | 99.6% | — | 0 | 535 | 0 |
-| wnba | 4.5% | 97.5% | — | 0 | 199 | 0 |
-
-**Training labels:** 123 nil_valuation_usd, 33 nil_deal_value_usd, 1,780 external_quality_score
-
----
-
-## Code changes (commit `0293b90`)
+## Latest code changes (commit `2d613f8`)
 
 | Area | Change |
 |------|--------|
-| **Orchestration** | `scripts/run_full_acceptance_gap_fill.py` — Phase A/B/C serial all-sports |
-| **Detached spawn** | `scripts/spawn_full_acceptance_gap_fill.py` — survives agent exit |
-| **Rescore-all** | `--rescore-all`, `--score-stale-days`, `--scrape-stale-days` on nightly_pipeline |
-| **Checkpoint env** | `CHECKPOINT=reports/gap_fill_checkpoint_full_v2.json` in durable runner |
+| **ESPN CFB** | Merge passing/rushing/receiving categories in `espn_stats.py` |
+| **Sports Reference** | httpx search → player page → HTML table parse (no Firecrawl) |
+| **HttpFetchClient** | Free HTTP fetch with per-athlete cache |
+| **Firecrawl gating** | `DISABLE_FIRECRAWL=1`, optional `FIRECRAWL_ALLOW=suffix,...` |
+| **On3 NIL** | Direct httpx to `on3.com/nil/{slug}/` first |
+| **ASS→raw** | Full ASS merge when raw has &lt;3 stats; never downgrade GP |
+| **Orchestrator** | `finalize_stat_fields` after ASS enrichment |
+| **Scoring stack** | `FALLBACK_SCORER=heuristic_gravity_v1` (Tier 2) on ML miss |
 
-**Tests:** 4 passed (`test_scoring_stack.py`)
+**Tests:** 35 passed (stat_normalizer, raw_stats_sync, sports_reference_stats, commercial_viability, gap_fill_scrape)
 
 ---
 
-## Blockers / notes
+## Post gap-fill rescore (skip-scrape)
 
-1. **Railway ML 404** — `/score/athlete/cfb` returns 404; CFB rescore falls back to generic endpoint then heuristic tier. Redeploy gravity-ml needed for sport-specific CFB ML.
-2. **CFB rescore in flight** — ~753/6761 already heuristic; rescore progressing (~1400 HTTP requests logged).
-3. **Runtime ETA** — Phase A ~6–12h (CFB scrape-heavy), Phase B ~4–8h (all sports rescore), Phase C ~5 min.
+```bash
+export PYTHONPATH=.
+export FALLBACK_SCORER=heuristic_gravity_v1
+python3 -m gravity_api.jobs.nightly_pipeline --sport cfb --limit 6761 --skip-scrape
+```
+
+| Metric | Result |
+|--------|--------|
+| Stale cohort | 5709 (50 scored in prior smoke run) |
+| Scored OK | **5704** |
+| Scored fail | **5** (Postgres `statement timeout`) |
+| Cohort baselines | 44 |
+| Log | `/tmp/cfb_rescore.log` |
+
+**Model mix (CFB, post-rescore):** `heuristic_gravity_v1` 5757, `composite_fallback_v0` 960, `heuristic_cfb` 42, `gravity_athlete_v2` 2 — fallback share **14.2%** (was ~69.7% composite-only pre-heuristic tier).
+
+---
+
+## Population metrics vs baseline (EDA `reports/scrape_score_eda_report.md`)
+
+| Metric | Baseline | Current | Δ |
+|--------|----------|---------|---|
+| CFB GP% | 1.4% | **1.9%** | +0.5pp |
+| CFB stats≥3 | 5.6% | **8.2%** | +2.5pp |
+| CFB NIL observed | 0.2% | **3.7%** | +3.6pp |
+| CFB commercial viability | 0% | **92.5%** | +92.5pp |
+| CFB near-77 / fallback scoring | — | 0.7% / **14.2%** | heuristic tier dominant |
+| SR sources (CFB) | 0 | 0 | — |
+| ASS≥3 not in raw (CFB) | 204 | **1453** (of 1998 ASS≥3) | sync gap persists |
+
+**Training labels ingested:** 264 NIL valuation (observed), 11 deal labels, 915 quality labels, 5 impact labels
+
+---
+
+## Artifacts refreshed
+
+- `reports/scrape_score_eda_report.md` / `.json` — note: *Post CFB full gap-fill + heuristic rescore.*
+- `reports/scrape_score_review.md` (this file)
+
+---
+
+## Still required (not code)
+
+1. **Redeploy gravity-ml on Railway** — `/score/athlete/cfb` still **404**; generic `/score/athlete` succeeds but sport endpoint needed for production CFB ML.
+2. **Verify CFBD_API_KEY** — `cfbd_api_stats_cfb` remains primary when ESPN sparse; SR httpx still **0** hits in EDA.
+3. **Re-score 5 timeout athletes** — IDs in `/tmp/cfb_rescore.log` (`501bebf6`, `0959ad68`, `881f1a4a`, `549702d2`, `e9a87ef8` prefixes).
 
 ---
 
@@ -101,4 +80,3 @@ CFB full gap-fill (6761) still running separately.
 - `d0374f4` — Durable serial gap-fill runner
 - `5845c3c` — Post gap-fill EDA results
 - `2d613f8` — HTTP-first scraping, ESPN multi-category, SR HTML parse, Firecrawl gating
-- `0293b90` — Full acceptance gap-fill orchestration and rescore-all CLI

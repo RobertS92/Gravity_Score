@@ -1039,6 +1039,63 @@ class CfbdStatsScraper(BaseMicroScraper):
         return self._result(scraper_key, fields={}, error=note)
 
 
+class CfbdTeamRecordScraper(BaseMicroScraper):
+    KEY_SUFFIX = "cfbd_team_record"
+    SOURCE_KEY = "cfbd"
+
+    async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        if ctx.sport != "cfb":
+            return self._result(scraper_key, fields={}, error="cfbd team record is cfb-only")
+        from gravity_api.scrapers.clients.cfbd import CfbdClient, cfbd_is_rate_limited
+        from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+
+        team = ctx.team or ctx.school
+        if not team:
+            return self._result(scraper_key, fields={}, error="no team/school on athlete")
+
+        client = CfbdClient()
+        if not client.enabled:
+            return self._result(scraper_key, fields={}, error="CFBD_API_KEY not configured")
+        if cfbd_is_rate_limited():
+            return self._result(scraper_key, fields={}, error="cfbd rate limited")
+
+        year = _current_season_year()
+        record = await client.team_record(year=year, team=team)
+        if not record:
+            existing = ctx.existing_raw
+            if existing.get("team_win_pct") is not None:
+                return self._result(scraper_key, fields={}, confidence=0.35)
+            return self._result(scraper_key, fields={}, error="team record not found")
+
+        fields = {
+            "team_wins": record["wins"],
+            "team_losses": record["losses"],
+            "team_ties": record["ties"],
+            "team_win_pct": record["win_pct"],
+            "team_record_observed": 1,
+            "team_record_source": "cfbd",
+            "season_year": year,
+        }
+        conn = get_scrape_db()
+        if conn:
+            from gravity_api.services.team_season_records import upsert_team_season_stats
+
+            await upsert_team_season_stats(
+                conn,
+                sport="cfb",
+                team_id=team,
+                season_year=year,
+                wins=int(record["wins"]),
+                losses=int(record["losses"]),
+                ties=int(record["ties"]),
+                team_name=str(record.get("team") or team),
+                conference_wins=int(record.get("conference_wins") or 0) or None,
+                conference_losses=int(record.get("conference_losses") or 0) or None,
+                source_key="cfbd",
+            )
+        return self._result(scraper_key, fields=fields, confidence=0.9)
+
+
 class SocialGrowthDeltaScraper(BaseMicroScraper):
     KEY_SUFFIX = "social_growth_delta"
     SOURCE_KEY = "derived"
@@ -1444,6 +1501,7 @@ ALL_SCRAPER_CLASSES: list[type[BaseMicroScraper]] = [
     CollegeExperienceProScraper,
     ProgramContextScraper,
     CfbdStatsScraper,
+    CfbdTeamRecordScraper,
     SocialGrowthDeltaScraper,
     NewsAggregateScraper,
     SpotracContractScraper,

@@ -29,6 +29,7 @@ from gravity_api.services.sport_pipeline.metric_history import (
     sync_metric_history_from_social,
 )
 from gravity_api.services.sport_pipeline.raw_payload import build_enriched_raw_payload
+from gravity_api.services.scoring_stack import finalize_score_metadata
 from gravity_api.services.sport_pipeline.score import score_with_sport_model
 from gravity_api.services.sport_pipeline.season_stats import upsert_season_stats_from_raw
 from gravity_ml.brand.taxonomy import enrich_raw_with_partnerships
@@ -158,6 +159,18 @@ async def run_athlete_pipeline(
     apply_heuristic_imputations(raw, athlete)
     raw = enrich_raw_with_partnerships(raw)
 
+    if sport == "cfb":
+        from gravity_api.services.team_season_records import enrich_raw_with_team_season
+
+        raw = await enrich_raw_with_team_season(
+            conn,
+            athlete_id=athlete_id,
+            sport=sport,
+            team_name=athlete.get("school") or raw.get("school"),
+            season_year=int(cohort_ctx["season_year"]),
+            raw=raw,
+        )
+
     commercial_viability: dict[str, Any] | None = None
     from gravity_api.services.commercial_viability import (
         COLLEGE_COMMERCIAL_SPORTS,
@@ -234,6 +247,38 @@ async def run_athlete_pipeline(
     )
 
     score_data = overlay_commercial_viability(score_data, raw, commercial_viability, sport)
+    score_data = finalize_score_metadata(score_data)
+
+    from gravity_api.services.win_impact import merge_win_impact_into_raw
+
+    raw = merge_win_impact_into_raw(raw, snapshot=snapshot, sport=sport)
+    score_data["win_impact_score"] = raw.get("win_impact_score")
+    score_data["participation_index"] = raw.get("participation_index")
+
+    from gravity_api.scrapers.observations import merge_raw_athlete_data
+
+    await merge_raw_athlete_data(
+        conn,
+        athlete_id=athlete_id,
+        fields={
+            k: raw[k]
+            for k in (
+                "win_impact_score",
+                "win_impact_score_v0",
+                "participation_index",
+                "gs_rate",
+                "team_wins",
+                "team_losses",
+                "team_win_pct",
+                "team_win_pct_percentile",
+                "proof_residual_team",
+                "proof_x_participation",
+                "proof_x_weak_team",
+                "impact_confidence",
+            )
+            if raw.get(k) is not None
+        },
+    )
 
     await _persist_score_row(conn, athlete, score_data, raw, manual, pipeline.model_key)
     feature_result["score"] = {
@@ -243,6 +288,7 @@ async def run_athlete_pipeline(
         "fallback_used": score_data.get("fallback_used", False),
         "fallback_kind": score_data.get("fallback_kind"),
         "score_tier": score_data.get("score_tier"),
+        "win_impact_score": score_data.get("win_impact_score"),
     }
     return feature_result
 
@@ -273,6 +319,10 @@ async def _persist_score_row(
         dollar_conf["fallback_kind"] = score_data.get("fallback_kind")
     if score_data.get("replaced_model_version"):
         dollar_conf["replaced_model_version"] = score_data.get("replaced_model_version")
+    if score_data.get("win_impact_score") is not None:
+        dollar_conf["win_impact_score"] = score_data.get("win_impact_score")
+    if score_data.get("participation_index") is not None:
+        dollar_conf["participation_index"] = score_data.get("participation_index")
 
     params = (
         athlete["id"],

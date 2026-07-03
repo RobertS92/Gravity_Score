@@ -140,17 +140,56 @@ async def ingest_external_quality_labels(conn: asyncpg.Connection) -> int:
     return count
 
 
+async def ingest_impact_labels(conn: asyncpg.Connection) -> int:
+    """Persist win_impact_score_v0 as training label for impact_v1 models."""
+    rows = await conn.fetch(
+        """
+        SELECT a.id AS athlete_id,
+               (r.raw_data->>'win_impact_score')::double precision AS win_impact_score,
+               r.scraped_at AS updated_at
+        FROM athletes a
+        JOIN LATERAL (
+          SELECT raw_data, scraped_at FROM raw_athlete_data
+          WHERE athlete_id = a.id ORDER BY scraped_at DESC NULLS LAST LIMIT 1
+        ) r ON TRUE
+        WHERE a.sport = 'cfb'
+          AND (r.raw_data->>'win_impact_score')::double precision > 0
+        """
+    )
+    count = 0
+    for row in rows:
+        await conn.execute(
+            """
+            INSERT INTO gravity_training_labels (
+              entity_type, entity_id, target_key, target_value,
+              label_start_at, available_at, confidence, verified, metadata
+            ) VALUES (
+              'athlete', $1, 'target_impact_score', $2,
+              $3, $3, 0.68, FALSE,
+              jsonb_build_object('source', 'win_impact_v0')
+            )
+            """,
+            row["athlete_id"],
+            float(row["win_impact_score"]),
+            row["updated_at"] or datetime.now(tz=timezone.utc),
+        )
+        count += 1
+    return count
+
+
 async def main_async(*, include_quality: bool = True) -> None:
     conn = await asyncpg.connect(get_settings().pg_dsn, statement_cache_size=0)
     try:
         deals = await ingest_nil_labels(conn)
         vals = await ingest_valuation_labels(conn)
         quality = await ingest_external_quality_labels(conn) if include_quality else 0
+        impact = await ingest_impact_labels(conn)
         logger.info(
-            "Ingested %d deal labels, %d valuation labels, %d quality labels",
+            "Ingested %d deal labels, %d valuation labels, %d quality labels, %d impact labels",
             deals,
             vals,
             quality,
+            impact,
         )
     finally:
         await conn.close()
