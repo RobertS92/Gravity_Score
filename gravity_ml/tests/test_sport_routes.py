@@ -54,6 +54,51 @@ def test_bpxvr_boosts_proof(sport: str):
     assert high >= base
 
 
+@pytest.mark.parametrize("sport", ["nfl", "cfb", "nba"])
+def test_proof_reflects_masked_performance_index(sport: str):
+    """When the cohort percentile is masked, proof must still track the raw
+    performance index (z-sum), so an elite performer outscores a scrub."""
+    common = {"instagram_followers": 20000, "news_count_30d": 6, "data_quality_score": 0.7}
+    elite = score_athlete(
+        ScoreAthleteRequest(
+            athlete_id="elite",
+            sport=sport,
+            raw_data={**common, "proof_performance_index_raw": 2.4},
+        )
+    ).proof_score
+    scrub = score_athlete(
+        ScoreAthleteRequest(
+            athlete_id="scrub",
+            sport=sport,
+            raw_data={**common, "proof_performance_index_raw": -2.2},
+        )
+    ).proof_score
+    assert elite > scrub + 20.0
+
+
+def test_proof_percentile_dominates_over_news_prior():
+    """A real within-position percentile should drive proof, not news/DQS."""
+    star = score_athlete(
+        ScoreAthleteRequest(
+            athlete_id="star",
+            sport="nfl",
+            raw_data={"news_count_30d": 0, "data_quality_score": 0.6,
+                      "proof_performance_index_pctile": 96.0},
+        )
+    ).proof_score
+    depth = score_athlete(
+        ScoreAthleteRequest(
+            athlete_id="depth",
+            sport="nfl",
+            raw_data={"news_count_30d": 0, "data_quality_score": 0.6,
+                      "proof_performance_index_pctile": 18.0},
+        )
+    ).proof_score
+    assert star > 80.0
+    assert depth < 45.0
+    assert star - depth > 45.0
+
+
 def test_sport_routes_registered():
     pytest.importorskip("fastapi")
     from gravity_ml.app import create_app

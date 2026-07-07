@@ -10,11 +10,29 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
 logger = logging.getLogger(__name__)
+
+
+def perf_index_to_score(index: float | None, *, slope: float = 1.1) -> float | None:
+    """Map an unbounded cohort z-sum performance index to a bounded 0–100 score.
+
+    The BPXVR proof "performance index" is a weighted sum of cohort z-scores
+    (typically in ~[-3, 3]), NOT a 0–100 value. Callers historically clamped it
+    directly, which collapsed every athlete to the 5–15 floor. A logistic keeps
+    it monotonic and bounded: z=0 -> 50, z=+2 -> ~90, z=-2 -> ~10.
+    """
+    if index is None:
+        return None
+    try:
+        idx = float(index)
+    except (TypeError, ValueError):
+        return None
+    return round(100.0 / (1.0 + math.exp(-slope * idx)), 4)
 
 _CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "gravity_composite_weights.json"
 

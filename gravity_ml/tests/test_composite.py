@@ -9,8 +9,20 @@ from gravity_composite.composite import (
     compute_gravity_raw,
     fit_weights_nonneg_least_squares,
     get_composite_weights,
+    perf_index_to_score,
     shap_from_components,
 )
+
+
+def test_perf_index_to_score_bounds_and_monotonic():
+    assert perf_index_to_score(None) is None
+    assert perf_index_to_score(0.0) == pytest.approx(50.0, abs=0.01)
+    # unbounded z-sum maps into (0, 100), monotonic increasing
+    seq = [perf_index_to_score(z) for z in (-3, -1, 0, 1, 3)]
+    assert all(0.0 < s < 100.0 for s in seq)
+    assert seq == sorted(seq)
+    # an elite z-sum must clearly outscore a poor one (the old code clamped both to ~5)
+    assert perf_index_to_score(2.5) - perf_index_to_score(-2.5) > 60.0
 
 
 def test_all_sport_weights_sum_to_one():

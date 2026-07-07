@@ -13,6 +13,7 @@ from gravity_composite.composite import (
     component_confidences_from_raw,
     compute_gravity_confidence_weighted,
     get_composite_weights,
+    perf_index_to_score,
     shap_from_components,
 )
 from gravity_ml.brand.taxonomy import (
@@ -114,10 +115,24 @@ def _components_from_raw(raw: dict[str, Any], sport: str) -> dict[str, float]:
     social_brand = min(100.0, max(15.0, 18.0 + math.log1p(reach) * 4.5 + trends * 0.18)) * sport_adj
     brand = blend_brand_with_partnerships(social_brand, _f(raw, "partnership_brand_score"))
 
-    proof = min(100.0, max(15.0, 25.0 + news * 1.5 + dqs * 22.0)) * sport_adj
-    pctile = raw.get("proof_composite_pctile") or raw.get("proof_performance_index_pctile")
+    # Weak news/DQS prior — only used to fill gaps, NOT to dominate real on-field signal.
+    proof_prior = min(100.0, max(15.0, 25.0 + news * 1.5 + dqs * 22.0)) * sport_adj
+    pctile = raw.get("proof_composite_pctile")
+    if pctile is None:
+        pctile = raw.get("proof_performance_index_pctile")
+    # z-sum performance index survives even when the cohort percentile is masked
+    # (small/absent cohort). Normalize it so proof still tracks performance.
+    perf_idx = raw.get("proof_composite_index")
+    if perf_idx is None:
+        perf_idx = raw.get("proof_performance_index_raw")
     if pctile is not None:
-        proof = 0.55 * proof + 0.45 * float(pctile)
+        # Real within-position percentile is the trustworthy on-field signal.
+        proof = 0.80 * float(pctile) + 0.20 * proof_prior
+    elif perf_idx is not None:
+        proof = 0.70 * (perf_index_to_score(perf_idx) or proof_prior) + 0.30 * proof_prior
+    else:
+        proof = proof_prior
+    proof = min(100.0, max(15.0, proof))
     proof = apply_proof_partnership_boost(proof, _f(raw, "partnership_proof_boost"))
 
     proximity = min(100.0, max(20.0, 30.0 + math.log1p(market_val) * 3.0 + trends * 0.25))

@@ -12,6 +12,7 @@ from gravity_api.config import get_settings
 from gravity_api.feature_engineering.types import AthleteFeatureSnapshot
 from gravity_api.services.cohort_latents import fetch_sport_cohort_latents
 from gravity_api.services.gravity_calibration import apply_calibration_to_score
+from gravity_api.services.heuristic_gravity import compute_heuristic_gravity_v1
 from gravity_api.services.scoring_stack import (
     apply_tier2_fallback_if_needed,
     finalize_score_metadata,

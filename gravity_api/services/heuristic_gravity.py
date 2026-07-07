@@ -9,6 +9,7 @@ from gravity_api.feature_engineering.types import AthleteFeatureSnapshot
 from gravity_api.services.athlete_score_sync import brand_gravity_score
 from gravity_api.services.gravity_calibration import calibrate_gravity_score, compute_latent_gravity
 from gravity_api.services.nil_valuation import elite_signal_strength, nil_from_row
+from gravity_composite.composite import perf_index_to_score
 
 SPORT_WEIGHTS: dict[str, dict[str, float]] = {
     "default": {"brand": 0.30, "proof": 0.35, "velocity": 0.15, "proximity": 0.10, "risk": 0.10},
@@ -29,15 +30,21 @@ def _f(raw: dict[str, Any], key: str, default: float = 0.0) -> float:
 
 
 def _block_index(snapshot: AthleteFeatureSnapshot | None, block: str) -> float | None:
+    """Return a 0–100 component score from a snapshot block.
+
+    composite_pctile is already 0–100. composite_index is an unbounded cohort
+    z-sum (only proof sets it) and must be normalized — returning it raw
+    previously clamped proof to the ~5 floor for every athlete.
+    """
     if snapshot is None:
         return None
     comp = getattr(snapshot, block, None)
     if comp is None:
         return None
-    if comp.composite_index is not None:
-        return float(comp.composite_index)
     if comp.composite_pctile is not None:
         return float(comp.composite_pctile)
+    if comp.composite_index is not None:
+        return perf_index_to_score(comp.composite_index)
     return None
 
 
