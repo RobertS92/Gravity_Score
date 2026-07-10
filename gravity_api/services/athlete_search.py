@@ -21,6 +21,8 @@ END
 
 _VALID_SORTS = {
     "gravity_score": "s.gravity_score",
+    "value_score": "s.value_score",
+    "quality_score": "s.quality_score",
     "brand_score": "s.brand_score",
     "proof_score": "s.proof_score",
     "proximity_score": "s.proximity_score",
@@ -115,7 +117,9 @@ async def search_athletes(
     query = f"""
         SELECT
             a.*,
-            s.gravity_score, s.brand_score, s.proof_score,
+            s.gravity_score, s.gravity_sport_percentile,
+            s.value_score, s.value_sport_percentile, s.value_score_source, s.quality_score,
+            s.brand_score, s.proof_score,
             s.proximity_score, s.velocity_score, {_INVERTED_RISK_SQL} AS risk_score,
             s.company_gravity_score, s.brand_gravity_score,
             s.dollar_p10_usd, s.dollar_p50_usd, s.dollar_p90_usd,
@@ -129,6 +133,7 @@ async def search_athletes(
                 {_OPTIONAL_NIL_VALUATION_SQL}
             ) AS nil_estimate,
             s.confidence, s.top_factors_up, s.top_factors_down,
+            s.dollar_confidence, s.model_version,
             s.calculated_at as score_date
         FROM athletes a
         LEFT JOIN LATERAL (
