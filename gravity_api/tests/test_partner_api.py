@@ -36,6 +36,10 @@ def test_format_partner_score_inverts_risk():
         {
             "athlete_id": FIXED_ATHLETE_ID,
             "gravity_score": 80,
+            "gravity_sport_percentile": 96,
+            "value_score": 91,
+            "value_sport_percentile": 98,
+            "value_score_source": "ml_value_v1",
             "brand_score": 70,
             "proof_score": 65,
             "proximity_score": 72,
@@ -45,12 +49,114 @@ def test_format_partner_score_inverts_risk():
             "model_version": "v2",
             "calculated_at": datetime(2026, 6, 1, tzinfo=timezone.utc),
             "dollar_p50_usd": 500000,
+            "dollar_confidence": {
+                "score_tier": 1,
+                "fallback_kind": None,
+                "gravity_source": "commercial_ml",
+            },
         }
     )
     assert out["gravity_score"] == 80.0
+    assert out["gravity_sport_percentile"] == 96.0
+    # Primary public field is impact_score; value_score kept as deprecated alias.
+    assert out["impact_score"] == 91.0
+    assert out["impact_sport_percentile"] == 98.0
+    assert out["impact_score_source"] == "ml_value_v1"
+    assert out["value_score"] == 91.0
+    assert out["value_sport_percentile"] == 98.0
+    assert out["value_score_source"] == "ml_value_v1"
     assert out["components"]["risk"] == 75.0
     assert out["nil_estimate_usd"]["p50"] == 500000.0
+    assert out["score_tier"] == 1
+    assert out["fallback_kind"] is None
+    assert out["fallback_used"] is False
+    assert out["gravity_source"] == "commercial_ml"
     assert "Powered by Gravity Score" in out["attribution"]["text"]
+
+
+def test_format_partner_score_reads_impact_from_dollar_confidence():
+    out = format_partner_score_row(
+        {
+            "athlete_id": FIXED_ATHLETE_ID,
+            "gravity_score": 80,
+            "brand_score": 70,
+            "proof_score": 65,
+            "proximity_score": 72,
+            "velocity_score": 88,
+            "risk_score": 25,
+            "dollar_confidence": {"win_impact_score": 91.5},
+        }
+    )
+    assert out["impact_score"] == 91.5
+    assert out["value_score"] == 91.5
+    assert out["impact_score_source"] == "win_impact_v0"
+
+
+def test_format_partner_score_exposes_mid_fallback_quality():
+    out = format_partner_score_row(
+        {
+            "athlete_id": FIXED_ATHLETE_ID,
+            "gravity_score": 62,
+            "value_score": 55,
+            "model_version": "heuristic_gravity_v1",
+            "dollar_confidence": {
+                "score_tier": 2,
+                "fallback_kind": "heuristic_gravity_v1",
+                "quality": "moderate",
+            },
+        }
+    )
+    assert out["score_tier"] == 2
+    assert out["fallback_kind"] == "heuristic_gravity_v1"
+    assert out["fallback_used"] is True
+    assert out["quality"] == "moderate"
+
+
+def test_format_partner_athlete_summary_exposes_impact_score():
+    out = format_partner_athlete_summary(
+        {
+            "id": FIXED_ATHLETE_ID,
+            "name": "Test Athlete",
+            "school": "Texas",
+            "sport": "cfb",
+            "gravity_score": 77,
+            "value_score": 88.5,
+            "value_sport_percentile": 94,
+            "value_score_source": "win_impact_v1_additive",
+            "risk_score": 80,
+        }
+    )
+    assert out["athlete_id"] == FIXED_ATHLETE_ID
+    assert out["name"] == "Test Athlete"
+    assert out["impact_score"] == 88.5
+    assert out["impact_sport_percentile"] == 94.0
+    assert out["impact_score_source"] == "win_impact_v1_additive"
+    assert out["value_score"] == 88.5
+
+
+def test_format_score_history_point_exposes_impact_score():
+    from gravity_api.services.partner_api import format_score_history_point
+
+    out = format_score_history_point(
+        {
+            "gravity_score": 70,
+            "value_score": 82,
+            "value_sport_percentile": 90,
+            "value_score_source": "ml_value_v1",
+            "brand_score": 60,
+            "proof_score": 60,
+            "proximity_score": 60,
+            "velocity_score": 60,
+            "risk_score": 30,
+            "confidence": 0.7,
+            "calculated_at": datetime(2026, 6, 1, tzinfo=timezone.utc),
+        }
+    )
+    assert out["impact_score"] == 82.0
+    assert out["impact_sport_percentile"] == 90.0
+    assert out["impact_score_source"] == "ml_value_v1"
+    assert out["value_score"] == 82.0
+    assert out["components"]["risk"] == 70.0
 
 
 def test_format_partner_athlete_summary_shape():
@@ -66,6 +172,8 @@ def test_format_partner_athlete_summary_shape():
     )
     assert out["athlete_id"] == FIXED_ATHLETE_ID
     assert out["name"] == "Test Athlete"
+    assert out["impact_score"] is None
+    assert out["value_score"] is None
 
 
 def test_format_partner_athlete_detail_includes_score():
@@ -135,6 +243,10 @@ def test_partner_latest_score_success():
         return_value={
             "athlete_id": FIXED_ATHLETE_ID,
             "gravity_score": 85,
+            "gravity_sport_percentile": 92,
+            "value_score": 88,
+            "value_sport_percentile": 95,
+            "value_score_source": "ml_value_v1",
             "brand_score": 80,
             "proof_score": 70,
             "proximity_score": 75,
@@ -156,4 +268,8 @@ def test_partner_latest_score_success():
     assert r.status_code == 200
     body = r.json()
     assert body["gravity_score"] == 85.0
+    assert body["impact_score"] == 88.0
+    assert body["impact_sport_percentile"] == 95.0
+    assert body["impact_score_source"] == "ml_value_v1"
+    assert body["value_score"] == 88.0  # deprecated alias
     assert body["components"]["risk"] == 80.0

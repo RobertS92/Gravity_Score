@@ -1,8 +1,18 @@
 # Gravity Partner API — Developer guide (Ecosystem OS)
 
-This document is for **Ecosystem OS developers** who need to display **Gravity Scores** for athletes on their sites or apps.
+This document is for **Ecosystem OS developers** who need to display **Gravity Scores** and **Impact Scores** for athletes on their sites or apps.
 
 You read **precomputed scores** from Gravity’s API. You do **not** run scoring or need Gravity Terminal login.
+
+### Score semantics
+
+| Field | Display name | Meaning |
+|-------|--------------|---------|
+| `gravity_score` | **Gravity Score** | Commercial / market value |
+| `impact_score` | **Impact Score** | Winning impact (on-field / on-court contribution) |
+| `value_score` | *(deprecated alias)* | Same as `impact_score` — prefer `impact_score` for new integrations |
+
+Optional companions: `impact_sport_percentile`, `impact_score_source` (and deprecated `value_*` mirrors).
 
 ---
 
@@ -133,6 +143,13 @@ Authorization: Bearer {GRAVITY_PARTNER_API_KEY}
 {
   "athlete_id": "00000000-0000-4000-8000-000000000001",
   "gravity_score": 87.4,
+  "gravity_sport_percentile": 96.0,
+  "impact_score": 91.2,
+  "impact_sport_percentile": 98.0,
+  "impact_score_source": "ml_value_v1",
+  "value_score": 91.2,
+  "value_sport_percentile": 98.0,
+  "value_score_source": "ml_value_v1",
   "components": {
     "brand": 82.1,
     "proof": 75.0,
@@ -147,6 +164,11 @@ Authorization: Bearer {GRAVITY_PARTNER_API_KEY}
   },
   "confidence": 0.78,
   "model_version": "athlete_v2",
+  "score_tier": 1,
+  "fallback_kind": null,
+  "fallback_used": false,
+  "quality": null,
+  "gravity_source": "commercial_ml",
   "calculated_at": "2026-06-28T12:00:00Z",
   "attribution": {
     "text": "Powered by Gravity Score",
@@ -155,6 +177,22 @@ Authorization: Bearer {GRAVITY_PARTNER_API_KEY}
   }
 }
 ```
+
+`gravity_score` is commercial/market value. `impact_score` is winning impact (primary public field; `value_score` is a deprecated alias for one release).
+
+### Score quality (high / mid / low)
+
+Partners should label Gravity Score confidence from scoring-stack metadata:
+
+| Field | Meaning |
+|-------|---------|
+| `score_tier` | `1` = production model (**high**); `2` = mid fallback; `3+` = low |
+| `fallback_kind` | e.g. `heuristic_gravity_v1`, `ml_composite` (**mid**); `commercial_viability`, `composite_fallback` (**low**) |
+| `fallback_used` | `false` when model-scored |
+| `quality` | Partner dollar-confidence quality (`low`, `moderate`, `beta_rank_only`, …) |
+| `gravity_source` | e.g. `commercial_ml`, `commercial_viability`, `commercial_bpxvr` |
+| `model_version` | Bundle / scorer version string |
+| `confidence` | 0–1 numeric confidence (fallback when tier fields absent) |
 
 `components.risk` is a **safety-style** score (higher = safer), not raw internal risk.
 
@@ -206,7 +244,7 @@ Response shape:
 
 ```json
 {
-  "athletes": [ { "athlete_id", "name", "school", "gravity_score", "components", ... } ],
+  "athletes": [ { "athlete_id", "name", "school", "gravity_score", "impact_score", "components", ... } ],
   "total": 42,
   "returned": 10,
   "offset": 0,
@@ -281,7 +319,8 @@ app.get("/api/gravity/search", async (req, res) => {
 
 ```javascript
 const score = await fetch(`/api/gravity/score/${athleteId}`).then((r) => r.json());
-// Display score.gravity_score and score.attribution
+// Display score.gravity_score (commercial) and score.impact_score (winning impact)
+// plus score.attribution
 ```
 
 ---
@@ -336,11 +375,12 @@ Error body is usually JSON: `{ "detail": "..." }`.
 
 ## 11. Attribution (required)
 
-When showing a Gravity Score publicly:
+When showing Gravity scores publicly:
 
 - Show text: **Powered by Gravity Score**
 - Link to: https://gravityscore.ai
 - Optional: link `attribution.profile_url` to the athlete on Gravity
+- Label **Gravity Score** for `gravity_score` and **Impact Score** for `impact_score`
 
 ---
 

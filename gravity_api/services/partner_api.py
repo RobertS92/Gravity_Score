@@ -64,12 +64,107 @@ def attribution_block(athlete_id: str | None = None) -> dict[str, str]:
     return out
 
 
+def _parse_dollar_confidence(raw: object) -> dict[str, Any]:
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        import json
+
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _impact_score_fields(data: dict[str, Any]) -> dict[str, Any]:
+    """Public Impact Score fields (winning impact) plus deprecated value_* aliases.
+
+    Internal storage remains ``value_score``. Partner-facing primary name is
+    ``impact_score`` / Impact Score. Gravity Score stays commercial.
+
+    Also accepts ``win_impact_score`` on the row or inside ``dollar_confidence``
+    so partners still get Impact before/without the value_score column backfill.
+    """
+    dc = _parse_dollar_confidence(data.get("dollar_confidence"))
+    impact = _float_or_none(
+        data.get("value_score")
+        if data.get("value_score") is not None
+        else data.get("win_impact_score")
+        if data.get("win_impact_score") is not None
+        else dc.get("win_impact_score")
+        if dc.get("win_impact_score") is not None
+        else dc.get("value_score")
+    )
+    impact_pct = _float_or_none(
+        data.get("value_sport_percentile")
+        if data.get("value_sport_percentile") is not None
+        else dc.get("value_sport_percentile")
+    )
+    impact_source = (
+        data.get("value_score_source")
+        or dc.get("value_score_source")
+        or ("win_impact_v0" if impact is not None and data.get("value_score") is None else None)
+    )
+    return {
+        "impact_score": impact,
+        "impact_sport_percentile": impact_pct,
+        "impact_score_source": impact_source,
+        # Deprecated aliases — prefer impact_* for new integrations.
+        "value_score": impact,
+        "value_sport_percentile": impact_pct,
+        "value_score_source": impact_source,
+    }
+
+
+def _score_quality_fields(data: dict[str, Any]) -> dict[str, Any]:
+    """Expose scoring-stack quality so partners can label high / mid / low.
+
+    - score_tier 1 + no fallback → model (high)
+    - mid fallbacks (heuristic_gravity_v1, ml_composite, …) → mid
+    - low fallbacks (commercial_viability, composite_fallback, …) → low
+    """
+    dc = _parse_dollar_confidence(data.get("dollar_confidence"))
+    score_tier = data.get("score_tier")
+    if score_tier is None:
+        score_tier = dc.get("score_tier")
+    try:
+        score_tier_int = int(score_tier) if score_tier is not None else None
+    except (TypeError, ValueError):
+        score_tier_int = None
+
+    fallback_kind = data.get("fallback_kind")
+    if fallback_kind is None:
+        fallback_kind = dc.get("fallback_kind")
+
+    fallback_used = data.get("fallback_used")
+    if fallback_used is None and score_tier_int is not None:
+        fallback_used = score_tier_int != 1
+    if fallback_used is None and fallback_kind is not None:
+        fallback_used = True
+
+    quality = data.get("quality") or dc.get("quality")
+    gravity_source = data.get("gravity_source") or dc.get("gravity_source")
+
+    return {
+        "score_tier": score_tier_int,
+        "fallback_kind": fallback_kind,
+        "fallback_used": bool(fallback_used) if fallback_used is not None else None,
+        "quality": quality,
+        "gravity_source": gravity_source,
+    }
+
+
 def format_partner_score_row(row: asyncpg.Record | dict[str, Any]) -> dict[str, Any]:
     data = dict(row)
     athlete_id = str(data.get("athlete_id") or data.get("id") or "")
     return {
         "athlete_id": athlete_id,
+        # Gravity = commercial / market value; Impact = winning impact.
         "gravity_score": _float_or_none(data.get("gravity_score")),
+        "gravity_sport_percentile": _float_or_none(data.get("gravity_sport_percentile")),
+        **_impact_score_fields(data),
         "components": {
             "brand": _float_or_none(data.get("brand_score")),
             "proof": _float_or_none(data.get("proof_score")),
@@ -84,6 +179,7 @@ def format_partner_score_row(row: asyncpg.Record | dict[str, Any]) -> dict[str, 
         },
         "confidence": _float_or_none(data.get("confidence")),
         "model_version": data.get("model_version"),
+        **_score_quality_fields(data),
         "calculated_at": _iso_dt(data.get("calculated_at")),
         "attribution": attribution_block(athlete_id),
     }
@@ -100,6 +196,8 @@ def format_partner_athlete_summary(row: asyncpg.Record | dict[str, Any]) -> dict
         "sport": data.get("sport"),
         "position": data.get("position"),
         "gravity_score": _float_or_none(data.get("gravity_score")),
+        "gravity_sport_percentile": _float_or_none(data.get("gravity_sport_percentile")),
+        **_impact_score_fields(data),
         "components": {
             "brand": _float_or_none(data.get("brand_score")),
             "proof": _float_or_none(data.get("proof_score")),
@@ -111,6 +209,8 @@ def format_partner_athlete_summary(row: asyncpg.Record | dict[str, Any]) -> dict
             "p50": _float_or_none(data.get("dollar_p50_usd") or data.get("nil_estimate")),
         },
         "confidence": _float_or_none(data.get("confidence")),
+        "model_version": data.get("model_version"),
+        **_score_quality_fields(data),
         "calculated_at": _iso_dt(data.get("score_date") or data.get("calculated_at")),
         "attribution": attribution_block(athlete_id),
     }
@@ -143,6 +243,8 @@ def format_score_history_point(row: asyncpg.Record | dict[str, Any]) -> dict[str
     data = dict(row)
     return {
         "gravity_score": _float_or_none(data.get("gravity_score")),
+        "gravity_sport_percentile": _float_or_none(data.get("gravity_sport_percentile")),
+        **_impact_score_fields(data),
         "components": {
             "brand": _float_or_none(data.get("brand_score")),
             "proof": _float_or_none(data.get("proof_score")),

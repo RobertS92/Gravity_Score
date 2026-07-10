@@ -33,6 +33,72 @@ from gravity_api.services.partner_sports import fetch_partner_sport_catalog, res
 
 router = APIRouter()
 
+# Prefer value/impact columns when migrated; fall back so older DBs still serve Gravity.
+_SCORE_SELECT_FULL = """
+    SELECT athlete_id, gravity_score, gravity_sport_percentile,
+           value_score, value_sport_percentile, value_score_source,
+           brand_score, proof_score,
+           proximity_score, velocity_score, risk_score,
+           confidence, model_version, calculated_at,
+           dollar_p10_usd, dollar_p50_usd, dollar_p90_usd,
+           dollar_confidence
+    FROM athlete_gravity_scores
+    WHERE athlete_id = $1
+    ORDER BY calculated_at DESC
+    LIMIT 1
+"""
+
+_SCORE_SELECT_LEGACY = """
+    SELECT athlete_id, gravity_score,
+           brand_score, proof_score,
+           proximity_score, velocity_score, risk_score,
+           confidence, model_version, calculated_at,
+           dollar_p10_usd, dollar_p50_usd, dollar_p90_usd,
+           dollar_confidence
+    FROM athlete_gravity_scores
+    WHERE athlete_id = $1
+    ORDER BY calculated_at DESC
+    LIMIT 1
+"""
+
+_HISTORY_SELECT_FULL = """
+    SELECT gravity_score, gravity_sport_percentile,
+           value_score, value_sport_percentile, value_score_source,
+           brand_score, proof_score,
+           proximity_score, velocity_score, risk_score,
+           confidence, calculated_at, dollar_confidence
+    FROM athlete_gravity_scores
+    WHERE athlete_id = $1
+    ORDER BY calculated_at DESC
+    LIMIT $2
+"""
+
+_HISTORY_SELECT_LEGACY = """
+    SELECT gravity_score, brand_score, proof_score,
+           proximity_score, velocity_score, risk_score,
+           confidence, calculated_at, dollar_confidence
+    FROM athlete_gravity_scores
+    WHERE athlete_id = $1
+    ORDER BY calculated_at DESC
+    LIMIT $2
+"""
+
+
+async def _fetch_latest_score_row(db: asyncpg.Connection, athlete_id: str) -> asyncpg.Record | None:
+    try:
+        return await db.fetchrow(_SCORE_SELECT_FULL, athlete_id)
+    except asyncpg.UndefinedColumnError:
+        return await db.fetchrow(_SCORE_SELECT_LEGACY, athlete_id)
+
+
+async def _fetch_score_history(
+    db: asyncpg.Connection, athlete_id: str, weeks: int
+) -> list[asyncpg.Record]:
+    try:
+        return await db.fetch(_HISTORY_SELECT_FULL, athlete_id, weeks)
+    except asyncpg.UndefinedColumnError:
+        return await db.fetch(_HISTORY_SELECT_LEGACY, athlete_id, weeks)
+
 
 class CreatePartnerKeyBody(BaseModel):
     partner_name: str = Field(..., min_length=1, max_length=200)
@@ -162,78 +228,68 @@ async def partner_resolve_athlete(
     }
 
 
-@router.get("/athletes/{athlete_id}")
+@router.get(
+    "/athletes/{athlete_id}",
+    summary="Athlete profile + latest scores",
+    response_description=(
+        "Athlete profile with nested score payload including gravity_score "
+        "(commercial) and impact_score (winning impact)."
+    ),
+)
 async def partner_get_athlete(
     athlete_id: str,
     db: asyncpg.Connection = Depends(get_db),
     partner: PartnerContext = Depends(require_partner),
 ):
+    """Athlete profile with latest Gravity Score and Impact Score."""
     require_scope(partner, "scores:read")
     athlete = await db.fetchrow("SELECT * FROM athletes WHERE id = $1", athlete_id)
     if not athlete:
         raise HTTPException(status_code=404, detail="Athlete not found")
-    latest = await db.fetchrow(
-        """SELECT athlete_id, gravity_score, brand_score, proof_score,
-                  proximity_score, velocity_score, risk_score,
-                  confidence, model_version, calculated_at,
-                  dollar_p10_usd, dollar_p50_usd, dollar_p90_usd
-           FROM athlete_gravity_scores
-           WHERE athlete_id = $1
-           ORDER BY calculated_at DESC
-           LIMIT 1""",
-        athlete_id,
-    )
+    latest = await _fetch_latest_score_row(db, athlete_id)
     return format_partner_athlete_detail(athlete, latest)
 
 
-@router.get("/scores/{athlete_id}")
+@router.get(
+    "/scores/{athlete_id}",
+    summary="Latest Gravity + Impact scores",
+    response_description=(
+        "Latest precomputed scores. gravity_score is commercial/market value; "
+        "impact_score is winning impact (alias of internal value_score)."
+    ),
+)
 async def partner_latest_score(
     athlete_id: str,
     db: asyncpg.Connection = Depends(get_db),
     partner: PartnerContext = Depends(require_partner),
 ):
+    """Latest Gravity Score (commercial) and Impact Score (winning impact)."""
     require_scope(partner, "scores:read")
     exists = await db.fetchval("SELECT 1 FROM athletes WHERE id = $1", athlete_id)
     if not exists:
         raise HTTPException(status_code=404, detail="Athlete not found")
-    row = await db.fetchrow(
-        """SELECT athlete_id, gravity_score, brand_score, proof_score,
-                  proximity_score, velocity_score, risk_score,
-                  confidence, model_version, calculated_at,
-                  dollar_p10_usd, dollar_p50_usd, dollar_p90_usd
-           FROM athlete_gravity_scores
-           WHERE athlete_id = $1
-           ORDER BY calculated_at DESC
-           LIMIT 1""",
-        athlete_id,
-    )
+    row = await _fetch_latest_score_row(db, athlete_id)
     if not row:
         raise HTTPException(status_code=404, detail="No score for athlete")
     return format_partner_score_row(row)
 
 
-@router.get("/athletes/{athlete_id}/score-history")
+@router.get(
+    "/athletes/{athlete_id}/score-history",
+    summary="Score history (Gravity + Impact)",
+)
 async def partner_score_history(
     athlete_id: str,
     weeks: int = Query(default=12, le=52),
     db: asyncpg.Connection = Depends(get_db),
     partner: PartnerContext = Depends(require_partner),
 ):
+    """Historical Gravity and Impact scores for charts."""
     require_scope(partner, "scores:read")
     exists = await db.fetchval("SELECT 1 FROM athletes WHERE id = $1", athlete_id)
     if not exists:
         raise HTTPException(status_code=404, detail="Athlete not found")
-    rows = await db.fetch(
-        """SELECT gravity_score, brand_score, proof_score,
-                  proximity_score, velocity_score, risk_score,
-                  confidence, calculated_at
-           FROM athlete_gravity_scores
-           WHERE athlete_id = $1
-           ORDER BY calculated_at DESC
-           LIMIT $2""",
-        athlete_id,
-        weeks,
-    )
+    rows = await _fetch_score_history(db, athlete_id, weeks)
     return {
         "athlete_id": athlete_id,
         "history": [format_score_history_point(r) for r in rows],
