@@ -113,14 +113,16 @@ function buildFallbackReport(
       range_high: rangeHigh,
       tier_tag: benchmark != null && benchmark >= 150000 ? 'High-tier' : benchmark != null && benchmark >= 50000 ? 'Mid-tier' : 'Developing-tier',
       confidence_tag: confidenceTag,
+      range_note: null,
+      peer_range_applicable: true,
     },
     explanation: {
-      executive_summary: `${subject} carries a Total NIL Value Benchmark of ${formatNilValue(benchmark)} with a working range of ${formatNilValue(rangeLow)} to ${formatNilValue(rangeHigh)} for roster planning context.`,
+      executive_summary: `${subject} carries a Total NIL Value Benchmark of ${formatNilValue(benchmark)} with a recommended deal range of ${formatNilValue(rangeLow)} to ${formatNilValue(rangeHigh)} for roster planning context.`,
       key_value_drivers: drivers,
       driver_takeaway: `${subject}'s benchmark is most sensitive to brand and exposure signals, while proof depth and risk profile moderate upside confidence.`,
     },
     validation: {
-      market_context: `Market context (${athlete?.conference ?? 'Conference n/a'} ${athlete?.position ?? 'Position n/a'}): range ${formatNilValue(marketLow)} – ${formatNilValue(marketHigh)}; median ${formatNilValue(marketMedian)}.`,
+      market_context: `Peer market context (${athlete?.conference ?? 'Conference n/a'} ${athlete?.position ?? 'Position n/a'}): peer market range ${formatNilValue(marketLow)} – ${formatNilValue(marketHigh)}; median ${formatNilValue(marketMedian)}.`,
       comparable_tier: `Comparable athletes with similar role and signal profile.`,
       example_comparables: rows.slice(0, 5),
       takeaway: `${subject}'s benchmark sits within the current comparable market envelope and should be used as a planning reference, not a single-point guarantee.`,
@@ -181,6 +183,9 @@ function normalizeReport(
     range_high: report.value?.range_high ?? fallback.value.range_high,
     tier_tag: report.value?.tier_tag ?? fallback.value.tier_tag,
     confidence_tag: report.value?.confidence_tag ?? fallback.value.confidence_tag,
+    range_note: report.value?.range_note ?? fallback.value.range_note ?? null,
+    peer_range_applicable:
+      report.value?.peer_range_applicable ?? fallback.value.peer_range_applicable ?? true,
   }
   const explanation: CscExplanationSection = {
     executive_summary: withDefaultText(report.explanation?.executive_summary, legacyExec),
@@ -585,13 +590,20 @@ function ValueSection({
   const showLowDataChip =
     lowCohortData === true || (cohortFallbackStep != null && cohortFallbackStep >= 2)
   const showCohortFitChip = cohortFit === 'edge' || cohortFit === 'poor'
+  const peerRangeApplicable = value.peer_range_applicable !== false
+  const showOutlierNote = !peerRangeApplicable || cohortFit === 'poor'
+  const rangeNote =
+    value.range_note ||
+    (showOutlierNote
+      ? 'Outlier profile — peer cohort range is not applicable for deal construction. Displayed band is a deal-construction range around this athlete\'s benchmark.'
+      : null)
   return (
     <div className={styles.section}>
       <div className={styles.sectionTitle}>Total NIL Value Benchmark</div>
       <div className={styles.valueHero}>{formatNilValue(value.total_benchmark)}</div>
       <div className={styles.guidelineCaption}>
-        Market benchmark — guideline, not target. Use range &amp; comparables
-        for deal construction.
+        Market benchmark — guideline, not target. Use the recommended deal range
+        &amp; comparables for deal construction.
       </div>
       <div className={styles.bandLabels}>
         <span>{bandEndpoints.low}</span>
@@ -601,6 +613,7 @@ function ValueSection({
         <div className={styles.bandMarker} style={{ left: `${plotPct}%` }} title={athleteName} />
       </div>
       <p className={styles.subMuted}>{rangeText}</p>
+      {rangeNote && <p className={styles.prose}>{rangeNote}</p>}
       <div className={styles.tagRow}>
         {value.tier_tag && (
           <span className={`${styles.tagChip} ${tierTagClass(value.tier_tag)}`}>
@@ -628,9 +641,13 @@ function ValueSection({
         {showCohortFitChip && (
           <span
             className={`${styles.tagChip} ${styles.tagCohortFit}`}
-            title="Cohort fit is weak; percentile statistics may be suppressed."
+            title={
+              cohortFit === 'poor'
+                ? 'Outlier — peer cohort range is not applicable for deal construction.'
+                : 'Cohort fit is weak; percentile statistics may be suppressed.'
+            }
           >
-            COHORT FIT: {cohortFit?.toUpperCase()}
+            {cohortFit === 'poor' ? 'OUTLIER — PEER RANGE N/A' : `COHORT FIT: ${cohortFit?.toUpperCase()}`}
           </span>
         )}
       </div>

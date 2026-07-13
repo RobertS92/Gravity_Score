@@ -732,3 +732,94 @@ def test_csc_band_overrides_widen_range_when_provided():
     # Metadata records the override so audits know the range was widened.
     assert report["metadata"].get("csc_band_low_pct") == 0.05
     assert report["metadata"].get("csc_band_high_pct") == 0.95
+
+
+def test_hero_deal_range_always_brackets_benchmark():
+    """Point estimate must sit inside the recommended deal range."""
+    score = _base_score()
+    score["dollar_p50_usd"] = 21_900_000
+    score["dollar_p10_usd"] = 4_500_000
+    score["dollar_p90_usd"] = 4_600_000
+    athlete = _base_athlete()
+    athlete["nil_valuation_raw"] = 21_900_000
+    athlete["name"] = "Arch Manning"
+    db = _FakeDb(
+        athlete=athlete,
+        latest_score=score,
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    benchmark = report["value"]["total_benchmark"]
+    lo = report["value"]["range_low"]
+    hi = report["value"]["range_high"]
+    assert benchmark is not None and lo is not None and hi is not None
+    assert lo <= benchmark <= hi
+
+
+def test_outlier_value_section_marks_peer_range_not_applicable():
+    """Elite outlier: Value section uses athlete deal band + explicit note."""
+    score = _base_score()
+    score["dollar_p50_usd"] = 21_900_000
+    score["dollar_p10_usd"] = 4_500_000
+    score["dollar_p90_usd"] = 4_600_000
+    # Tiny peer cohort so fit is poor and step-4 retry cannot rescue.
+    tiny_cohort = [
+        {
+            "id": f"a{i}",
+            "name": f"A{i}",
+            "dollar_p50_usd": 20_000 + i * 2_000,
+            "velocity_score": 40,
+        }
+        for i in range(1, 8)
+    ]
+    athlete = _base_athlete()
+    athlete["nil_valuation_raw"] = 21_900_000
+    athlete["name"] = "Arch Manning"
+    athlete["school"] = None
+    db = _FakeDb(
+        athlete=athlete,
+        latest_score=score,
+        cohort_rows_by_call=[tiny_cohort, tiny_cohort, tiny_cohort],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    assert report["metadata"]["cohort_fit"] == "poor"
+    assert report["value"]["peer_range_applicable"] is False
+    assert report["value"]["range_note"]
+    assert "peer cohort range is not applicable" in report["value"]["range_note"].lower()
+    assert "Peer Market Context" in report["validation"]["market_context"]
+    benchmark = report["value"]["total_benchmark"]
+    assert report["value"]["range_low"] <= benchmark <= report["value"]["range_high"]
+
+
+def test_driver_interpretation_fallback_quality_in_report(monkeypatch):
+    """With LLM disabled, driver Interpretation must still be actionable."""
+    monkeypatch.setenv("CSC_REPORT_LLM_ENABLED", "0")
+    athlete = _base_athlete()
+    athlete["name"] = "Arch Manning"
+    athlete["instagram_followers"] = 1_200_000
+    db = _DbWithSignals(
+        athlete=athlete,
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+        raw_data={
+            "instagram_followers": 1_200_000,
+            "twitter_followers": None,
+            "tiktok_followers": None,
+            "instagram_engagement_rate": 5.5,
+        },
+        snapshot={
+            "instagram_followers": 1_200_000,
+            "twitter_followers": None,
+            "tiktok_followers": None,
+            "instagram_engagement_rate": 5.5,
+        },
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    brand = next(
+        d for d in report["explanation"]["key_value_drivers"] if d["label"] == "Brand Strength"
+    )
+    explanation = brand["explanation"]
+    assert "Arch Manning" in explanation
+    assert "Instagram" in explanation
+    assert explanation != "Brand Strength leads the SEC QBs cohort."
+    assert len(explanation.split(".")) >= 3

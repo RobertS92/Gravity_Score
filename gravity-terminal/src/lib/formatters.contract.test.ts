@@ -18,12 +18,14 @@ describe('formatNilValue', () => {
   })
 
   it('formats ranges with consistent K/M policy', () => {
-    expect(formatNilRange(35_000, 1_200_000)).toBe('RANGE: $35.0K – $1.2M')
+    expect(formatNilRange(35_000, 1_200_000)).toBe(
+      'RECOMMENDED DEAL RANGE: $35.0K – $1.2M',
+    )
   })
 
   it('shows distinct endpoints when M rounding would collapse a narrow band', () => {
     expect(formatNilRangeAligned(4_530_000, 4_520_000, 4_540_000)).toBe(
-      'RANGE: $4520.0K – $4540.0K',
+      'RECOMMENDED DEAL RANGE: $4520.0K – $4540.0K',
     )
   })
 
@@ -34,8 +36,10 @@ describe('formatNilValue', () => {
     expect(isNilRangeEstimate(100_000, 250_000)).toBe(false)
   })
 
-  it('keeps the range label when the band is meaningfully wide', () => {
-    expect(formatNilRangeAligned(100_000, 80_000, 120_000)).toBe('RANGE: $80.0K – $120.0K')
+  it('keeps the deal-range label when the band is meaningfully wide', () => {
+    expect(formatNilRangeAligned(100_000, 80_000, 120_000)).toBe(
+      'RECOMMENDED DEAL RANGE: $80.0K – $120.0K',
+    )
   })
 })
 

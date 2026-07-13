@@ -1,0 +1,115 @@
+{
+  "schema_version": "brand_heritage_v1",
+  "description": "Curated sports surname/name-equity signals for CSC Brand Strength interpretation. Only high-confidence heritage brands — avoid common surnames that would false-positive.",
+  "surnames": {
+    "manning": {
+      "label": "Manning family legacy",
+      "prose_fragment": "Manning family brand equity — one of the most recognized surnames in American football",
+      "insight": "surname heritage supplies national recognition and trust transfer that pure follower metrics understate",
+      "tier": "iconic",
+      "sports": ["CFB", "NFL"]
+    },
+    "mahomes": {
+      "label": "Mahomes family legacy",
+      "prose_fragment": "Mahomes family brand equity tied to elite QB pedigree and national recognition",
+      "insight": "family-name recognition amplifies commercial pull beyond measured social reach alone",
+      "tier": "elite",
+      "sports": ["CFB", "NFL", "MLB"]
+    },
+    "griffin": {
+      "label": "Griffin family legacy",
+      "prose_fragment": "Griffin family athletic brand equity",
+      "insight": "family athletic pedigree adds recognition beyond the athlete's own measured channels",
+      "tier": "notable",
+      "sports": ["CFB", "NFL", "NBA"]
+    },
+    "harbaugh": {
+      "label": "Harbaugh family legacy",
+      "prose_fragment": "Harbaugh family football brand equity",
+      "insight": "coaching-and-playing family recognition strengthens market familiarity",
+      "tier": "notable",
+      "sports": ["CFB", "NFL"]
+    },
+    "kelly": {
+      "label": "Kelly family legacy",
+      "prose_fragment": "Kelly family athletic brand equity",
+      "insight": "multi-generation athletic recognition supports broader consumer familiarity",
+      "tier": "notable",
+      "sports": ["CFB", "NFL", "NHL"],
+      "require_exact_first_names": ["chad", "josh", "casey"]
+    },
+    "williams": {
+      "label": "Williams tennis legacy",
+      "prose_fragment": "Williams family tennis brand equity",
+      "insight": "global family tennis recognition is a primary brand asset",
+      "tier": "iconic",
+      "sports": ["WTA", "ATP", "TENNIS"],
+      "require_exact_first_names": ["serena", "venus"]
+    },
+    "woods": {
+      "label": "Woods golf legacy",
+      "prose_fragment": "Woods family golf brand equity",
+      "insight": "golf family-name recognition carries outsized commercial meaning",
+      "tier": "iconic",
+      "sports": ["GOLF", "PGA"],
+      "require_exact_first_names": ["tiger", "charlie"]
+    },
+    "griffey": {
+      "label": "Griffey baseball legacy",
+      "prose_fragment": "Griffey family baseball brand equity",
+      "insight": "multi-generation MLB surname recognition compounds personal brand strength",
+      "tier": "iconic",
+      "sports": ["MLB", "BASEBALL"]
+    },
+    "bonds": {
+      "label": "Bonds baseball legacy",
+      "prose_fragment": "Bonds family baseball brand equity",
+      "insight": "family MLB pedigree adds recognition weight beyond current platform metrics",
+      "tier": "elite",
+      "sports": ["MLB", "BASEBALL"]
+    },
+    "ripken": {
+      "label": "Ripken baseball legacy",
+      "prose_fragment": "Ripken family baseball brand equity",
+      "insight": "iconic baseball surname recognition remains a durable commercial asset",
+      "tier": "iconic",
+      "sports": ["MLB", "BASEBALL"]
+    },
+    "unitas": {
+      "label": "Unitas football legacy",
+      "prose_fragment": "Unitas family football brand equity",
+      "insight": "historic QB surname recognition still carries brand meaning",
+      "tier": "notable",
+      "sports": ["CFB", "NFL"]
+    },
+    "namath": {
+      "label": "Namath football legacy",
+      "prose_fragment": "Namath family football brand equity",
+      "insight": "historic star-QB surname recognition supports premium brand familiarity",
+      "tier": "notable",
+      "sports": ["CFB", "NFL"]
+    },
+    "elway": {
+      "label": "Elway football legacy",
+      "prose_fragment": "Elway family football brand equity",
+      "insight": "elite QB surname recognition strengthens commercial familiarity",
+      "tier": "elite",
+      "sports": ["CFB", "NFL"]
+    },
+    "montana": {
+      "label": "Montana football legacy",
+      "prose_fragment": "Montana family football brand equity",
+      "insight": "iconic QB surname recognition remains a durable brand asset",
+      "tier": "iconic",
+      "sports": ["CFB", "NFL"]
+    },
+    "brady": {
+      "label": "Brady football legacy",
+      "prose_fragment": "Brady family football brand equity",
+      "insight": "elite QB surname recognition amplifies commercial pull",
+      "tier": "iconic",
+      "sports": ["CFB", "NFL"],
+      "require_exact_first_names": ["tom", "john"]
+    }
+  }
+}

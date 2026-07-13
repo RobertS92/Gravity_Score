@@ -14,6 +14,10 @@ export interface CscValueSection {
   range_high: number | null
   tier_tag?: string | null
   confidence_tag?: string | null
+  /** Outlier / deal-band note shown under the hero range. */
+  range_note?: string | null
+  /** False when peer cohort range is not applicable for deal construction. */
+  peer_range_applicable?: boolean | null
 }
 
 export interface CscDriverSignal {

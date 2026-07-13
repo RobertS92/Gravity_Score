@@ -216,6 +216,7 @@ async def generate_driver_explanation(
     position_group: str,
     cohort_label: str,
     fallback: str,
+    evidence_summary: str = "",
 ) -> LlmResult:
     return await generate_prose(
         surface="driver",
@@ -225,10 +226,12 @@ async def generate_driver_explanation(
             "signal_level": signal_level,
             "position_group": position_group,
             "cohort_label": cohort_label,
+            "evidence_summary": evidence_summary
+            or "Limited structured evidence available; use cohort positioning.",
         },
         fallback=fallback,
-        min_sentences=1,
-        max_sentences=2,
+        min_sentences=2,
+        max_sentences=4,
     )
 
 

@@ -124,10 +124,21 @@ export async function downloadCscPdf(
     const rangeHigh = value?.range_high ?? athlete.dollar_p90_usd ?? athlete.nil_range_high
     line(nilFmt(benchmark), 30, true, '#d29922')
     line(formatNilRangeAligned(benchmark, rangeLow, rangeHigh), 10, false, '#8b949e')
+    if (value?.range_note) {
+      writeWrapped(value.range_note, 8, '#8b949e', 11)
+    } else if (value?.peer_range_applicable === false) {
+      writeWrapped(
+        'Outlier profile — peer cohort range is not applicable for deal construction.',
+        8,
+        '#8b949e',
+        11,
+      )
+    }
     const tagBits: string[] = []
     if (value?.tier_tag) tagBits.push(value.tier_tag)
     if (value?.confidence_tag) tagBits.push(value.confidence_tag)
     if (conferenceTierLabelText) tagBits.push(conferenceTierLabelText)
+    if (value?.peer_range_applicable === false) tagBits.push('OUTLIER — PEER RANGE N/A')
     if (tagBits.length) {
       line(`TAGS: ${tagBits.join(' · ')}`, 8, false, '#6e7681')
     }

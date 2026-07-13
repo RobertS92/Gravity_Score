@@ -84,7 +84,7 @@ export function formatNilRangeAligned(
   const lowValue = parseFiniteNumber(low)
   const highValue = parseFiniteNumber(high)
   if (lowValue == null || highValue == null) {
-    return `RANGE: ${EM} \u2013 ${EM}`
+    return `RECOMMENDED DEAL RANGE: ${EM} \u2013 ${EM}`
   }
   // Collapse to a single ESTIMATE label when the range is effectively flat
   // (within $250 difference). Mirrors backend `range_quality == "estimate"`
@@ -94,7 +94,7 @@ export function formatNilRangeAligned(
     return `ESTIMATE: ${formatNilValue(center)}`
   }
   const { low: lowStr, high: highStr } = formatNilBandEndpoints(benchmark, low, high)
-  return `RANGE: ${lowStr} \u2013 ${highStr}`
+  return `RECOMMENDED DEAL RANGE: ${lowStr} \u2013 ${highStr}`
 }
 
 export function isNilRangeEstimate(
@@ -114,7 +114,7 @@ export function formatNilRange(low: number | null | undefined, high: number | nu
   const highValue = parseFiniteNumber(high)
   const lowDisplay = lowValue == null ? EM : formatNilValue(lowValue)
   const highDisplay = highValue == null ? EM : formatNilValue(highValue)
-  return `RANGE: ${lowDisplay} \u2013 ${highDisplay}`
+  return `RECOMMENDED DEAL RANGE: ${lowDisplay} \u2013 ${highDisplay}`
 }
 
 export function formatInteger(n: number | null | undefined): string {

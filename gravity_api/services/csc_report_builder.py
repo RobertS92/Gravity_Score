@@ -24,6 +24,7 @@ from gravity_api.services.csc_report_rollout import (
     ReportRolloutState,
     load_report_rollout_state,
 )
+from gravity_api.services.brand_heritage import detect_brand_heritage
 from gravity_api.services.model_health import classify_model_version
 from gravity_api.services.nil_valuation import elite_signal_strength, nil_from_row
 from gravity_api.services.position_group_match import derive_position_group, position_aliases_for_group
@@ -413,6 +414,856 @@ def _supporting_signals_for_driver(
             },
         ]
     return []
+
+
+def _fmt_followers_prose(value: Optional[float]) -> Optional[str]:
+    """Whole-number follower phrasing safe for decimal-score prose validators."""
+    if value is None:
+        return None
+    n = float(value)
+    if n >= 1_000_000:
+        millions = max(1, int(round(n / 1_000_000)))
+        return "1 million" if millions == 1 else f"{millions} million"
+    if n >= 1_000:
+        return f"{int(round(n / 1_000))}K"
+    return str(int(round(n)))
+
+
+_DRIVER_ACTIONABILITY: dict[str, str] = {
+    "Brand Strength": (
+        "This level of visibility makes the athlete especially attractive for "
+        "awareness campaigns, national brand launches, and premium consumer partnerships."
+    ),
+    "Market Proof": (
+        "Verified market activity strengthens collective and brand negotiation posture "
+        "for cash, hybrid, and performance-tied deal structures."
+    ),
+    "Exposure": (
+        "Elevated exposure supports time-sensitive activations around high-leverage "
+        "moments, product launches, and regional-to-national awareness pushes."
+    ),
+    "Momentum": (
+        "Momentum informs timing — rising profiles favor shorter exclusive windows "
+        "and faster deal cycles before market pricing resets."
+    ),
+    "Commercial Readiness": (
+        "Commercial readiness signals how quickly the athlete can execute deliverables "
+        "for brand campaigns without heavy production overhead."
+    ),
+    "Risk": (
+        "Risk posture should shape contract protections, morals clauses, and "
+        "whether partners prioritize shorter-term or heavily contingent structures."
+    ),
+}
+
+
+def _join_prose_clauses(parts: list[str]) -> str:
+    clean = [p for p in parts if p]
+    if not clean:
+        return "limited available signal coverage"
+    if len(clean) == 1:
+        return clean[0]
+    if len(clean) == 2:
+        return f"{clean[0]} and {clean[1]}"
+    return f"{', '.join(clean[:-1])}, and {clean[-1]}"
+
+
+def _brand_strength_actionability(
+    *,
+    owned_platforms: int,
+    has_earned: bool,
+    has_context: bool,
+    has_heritage: bool,
+    signal: str,
+) -> str:
+    """Tailor commercial guidance to the brand-signal mix, not a static blurb."""
+    if signal == "Low" and not has_heritage:
+        return (
+            "Until owned reach and earned demand deepen, partners should favor "
+            "local or category-test activations rather than national brand launches."
+        )
+    if has_heritage and (owned_platforms >= 1 or has_earned):
+        return (
+            "Family-name recognition compounds owned and earned reach — partners get "
+            "immediate cultural shorthand and trust transfer that follower counts alone "
+            "understate, which fits awareness campaigns, national launches, and premium "
+            "consumer partnerships."
+        )
+    if has_heritage:
+        return (
+            "Even before full platform coverage lands, heritage name equity supports "
+            "selective national awareness and halo partnerships that lean on recognition "
+            "and trust transfer."
+        )
+    if owned_platforms >= 2 and has_earned:
+        return (
+            "That blend of multi-platform owned reach and earned attention supports "
+            "national brand launches, always-on consumer campaigns, and premium "
+            "partnerships that need both audience scale and cultural relevance."
+        )
+    if owned_platforms == 1 and has_earned:
+        return (
+            "Even with brand equity concentrated on one primary social channel, the "
+            "earned-media and search overlay makes him especially attractive for "
+            "awareness campaigns, national launches, and premium consumer partnerships "
+            "that can lean on recognition beyond a single feed."
+        )
+    if owned_platforms >= 1 and not has_earned:
+        return (
+            "With brand value currently led by owned social, the strongest near-term "
+            "fits are creator-style awareness, product seeding, and always-on consumer "
+            "partnerships, while partners should treat broader media reach as still "
+            "maturing until more platform and demand data arrive."
+        )
+    if has_earned or has_context:
+        return (
+            "Recognition and market context still support selective awareness and "
+            "halo partnerships, but deal construction should stay disciplined until "
+            "owned-audience coverage is more complete."
+        )
+    return _DRIVER_ACTIONABILITY["Brand Strength"]
+
+
+def _brand_strength_bundle(
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+    *,
+    signal: str,
+    athlete_name: str = "",
+) -> dict[str, str]:
+    """Multi-layer Brand Strength evidence: heritage + owned + earned + context.
+
+    Brand interpretation must not collapse to a single Instagram line when other
+    brand-relevant signals exist (family name equity, news, search, wiki,
+    school/conference).
+    """
+    name = (
+        athlete_name
+        or _text_or_fallback(athlete_d.get("name"), "")
+    )
+    sport = _text_or_fallback(athlete_d.get("sport"), "")
+    heritage = detect_brand_heritage(name, sport=sport or None)
+
+    ig, tw, tt, engagement = _driver_signal_inputs(athlete_d, latest_dict)
+    news = _first_number(athlete_d.get("news_mentions_30d"))
+    wiki = _first_number(athlete_d.get("wikipedia_page_views_30d"))
+    trends = _first_number(athlete_d.get("google_trends_score"))
+    combined = _first_number(athlete_d.get("social_combined_reach"))
+    school = _text_or_fallback(athlete_d.get("school"), "")
+    conference = _text_or_fallback(athlete_d.get("conference"), "")
+    position = _text_or_fallback(
+        athlete_d.get("position_group") or athlete_d.get("position"), ""
+    )
+
+    owned_bits: list[str] = []
+    missing_platforms: list[str] = []
+    ig_t = _fmt_followers_prose(ig)
+    tt_t = _fmt_followers_prose(tt)
+    tw_t = _fmt_followers_prose(tw)
+    if ig_t:
+        owned_bits.append(f"an Instagram audience of {ig_t}")
+    else:
+        missing_platforms.append("Instagram")
+    if tt_t:
+        owned_bits.append(f"a TikTok audience of {tt_t}")
+    else:
+        missing_platforms.append("TikTok")
+    if tw_t:
+        owned_bits.append(f"an X audience of {tw_t}")
+    else:
+        missing_platforms.append("X")
+
+    eng_bit = ""
+    if engagement is not None and engagement > 0:
+        if engagement >= 5:
+            eng_bit = "strong engagement quality"
+        elif engagement >= 2:
+            eng_bit = "solid engagement quality"
+        else:
+            eng_bit = "modest engagement quality"
+
+    owned_platforms = len(owned_bits)
+    if owned_platforms == 0:
+        owned_clause = "limited measured owned-social coverage"
+    elif owned_platforms == 1:
+        owned_clause = (
+            f"a concentrated owned channel — {owned_bits[0]}"
+            + (f" with {eng_bit}" if eng_bit else "")
+        )
+    else:
+        owned_clause = (
+            f"owned reach across {_join_prose_clauses(owned_bits)}"
+            + (f", with {eng_bit}" if eng_bit else "")
+        )
+        if combined and combined >= 1_000_000:
+            combined_t = _fmt_followers_prose(combined)
+            if combined_t:
+                owned_clause += f" (about {combined_t} combined)"
+
+    earned_bits: list[str] = []
+    if news is not None:
+        earned_bits.append(f"{_news_visibility_label(news).lower()} recent news visibility")
+    if wiki is not None:
+        earned_bits.append(f"{_wiki_activity_label(wiki).lower()} Wikipedia demand")
+    if trends is not None:
+        earned_bits.append(f"{_trends_label(trends).lower()} search interest")
+    has_earned = bool(earned_bits)
+    earned_clause = _join_prose_clauses(earned_bits) if earned_bits else ""
+
+    context_bits: list[str] = []
+    if school and school != "N/A":
+        context_bits.append(school)
+    if conference and conference != "N/A" and position and position != "N/A":
+        context_bits.append(f"{conference} {position} stage")
+    elif conference and conference != "N/A":
+        context_bits.append(f"{conference} stage")
+    elif position and position != "N/A":
+        context_bits.append(f"{position} visibility")
+    has_context = bool(context_bits)
+    if len(context_bits) >= 2:
+        context_clause = f"{context_bits[0]} ({' / '.join(context_bits[1:])})"
+    elif context_bits:
+        context_clause = context_bits[0]
+    else:
+        context_clause = ""
+
+    has_heritage = heritage is not None
+    heritage_fragment = heritage["prose_fragment"] if heritage else ""
+    heritage_insight = heritage["insight"] if heritage else ""
+
+    # Insight: heritage is a primary brand pillar when present.
+    if has_heritage and owned_platforms >= 1 and has_earned:
+        insight = (
+            f"{heritage_insight}; owned reach is reinforced by {earned_clause}, "
+            "so this is not a one-platform or followers-only brand story"
+        )
+    elif has_heritage and owned_platforms >= 1:
+        insight = (
+            f"{heritage_insight}, and measured owned social remains concentrated "
+            "while additional platform coverage catches up"
+        )
+    elif has_heritage:
+        insight = heritage_insight
+    elif owned_platforms == 1 and has_earned:
+        insight = (
+            "brand equity is not Instagram-only — owned reach is reinforced by "
+            f"{earned_clause}"
+        )
+    elif owned_platforms >= 2 and has_earned:
+        insight = (
+            "brand equity is diversified across owned social and earned demand, "
+            f"including {earned_clause}"
+        )
+    elif owned_platforms >= 1 and not has_earned:
+        insight = (
+            "brand equity is currently led by owned social, with earned-media and "
+            "search overlays still thin in the available data"
+        )
+    elif has_earned:
+        insight = (
+            f"brand recognition is showing up more in earned demand ({earned_clause}) "
+            "than in fully measured owned-social coverage"
+        )
+    else:
+        insight = (
+            "available brand signals are still sparse, so interpretation leans on "
+            "cohort positioning until platform and demand coverage improves"
+        )
+
+    # Sentence-1 stack: heritage first when present, then owned + context.
+    evidence_parts: list[str] = []
+    if heritage_fragment:
+        evidence_parts.append(heritage_fragment)
+    evidence_parts.append(owned_clause)
+    if context_clause:
+        evidence_parts.append(f"{context_clause} market context")
+    evidence = _join_prose_clauses(evidence_parts)
+
+    gap_parts: list[str] = []
+    if missing_platforms:
+        if len(missing_platforms) == 1:
+            gap_parts.append(f"{missing_platforms[0]} audience data is unavailable")
+        else:
+            gap_parts.append(
+                f"{' and '.join(missing_platforms[:2])} audience data are unavailable"
+            )
+    if news is None and wiki is None and trends is None:
+        gap_parts.append("earned-media and search overlays are incomplete")
+    if gap_parts:
+        gaps = "While " + (", and ".join(gap_parts) if len(gap_parts) > 1 else gap_parts[0])
+    else:
+        gaps = ""
+
+    return {
+        "evidence": evidence,
+        "gaps": gaps,
+        "insight": insight,
+        "actionability": _brand_strength_actionability(
+            owned_platforms=owned_platforms,
+            has_earned=has_earned,
+            has_context=has_context,
+            has_heritage=has_heritage,
+            signal=signal,
+        ),
+    }
+
+
+def _exposure_bundle(
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+    *,
+    signal: str,
+) -> dict[str, str]:
+    news = _first_number(athlete_d.get("news_mentions_30d"))
+    wiki = _first_number(athlete_d.get("wikipedia_page_views_30d"))
+    trends = _first_number(athlete_d.get("google_trends_score"))
+    proximity = _first_number(latest_dict.get("proximity_score"))
+    school = _text_or_fallback(athlete_d.get("school"), "")
+    conference = _text_or_fallback(athlete_d.get("conference"), "")
+
+    present: list[str] = []
+    missing: list[str] = []
+    if news is not None:
+        present.append(f"{_news_visibility_label(news).lower()} news visibility")
+    else:
+        missing.append("news mentions")
+    if wiki is not None:
+        present.append(f"{_wiki_activity_label(wiki).lower()} Wikipedia demand")
+    else:
+        missing.append("Wikipedia activity")
+    if trends is not None:
+        present.append(f"{_trends_label(trends).lower()} search interest")
+    else:
+        missing.append("search interest")
+    if proximity is not None:
+        if proximity >= 70:
+            present.append("high proximity to leverage moments")
+        elif proximity >= 40:
+            present.append("moderate proximity to leverage moments")
+        else:
+            present.append("limited proximity to leverage moments")
+
+    context_bits: list[str] = []
+    if school and school != "N/A":
+        context_bits.append(school)
+    if conference and conference != "N/A":
+        context_bits.append(f"{conference} media market")
+    if context_bits:
+        present.append(_join_prose_clauses(context_bits) + " context")
+
+    strong_earned = sum(
+        1
+        for v, thresh in ((news, 20), (wiki, 50_000), (trends, 60))
+        if v is not None and v >= thresh
+    )
+    if strong_earned >= 2:
+        insight = (
+            "exposure is broad-based across earned media and demand channels, "
+            "not a single-spike story"
+        )
+        action = (
+            "That profile supports time-sensitive national activations, launch windows, "
+            "and campaigns that need cultural heat in addition to owned audience."
+        )
+    elif strong_earned == 1 or (news is not None or trends is not None):
+        insight = (
+            "exposure is present but uneven — one or two demand channels are carrying "
+            "most of the visibility signal"
+        )
+        action = (
+            "Partners should time campaigns to the strongest visibility windows and "
+            "avoid assuming continuous national heat from a single channel."
+        )
+    else:
+        insight = (
+            "earned exposure is thin in the available data, so visibility may be more "
+            "roster- and schedule-dependent than media-driven"
+        )
+        action = (
+            "Until news and search demand deepen, favor regional or event-tied activations "
+            "over national always-on awareness buys."
+        )
+    if signal == "Low":
+        action = (
+            "Low exposure means partners should anchor deals to owned social and "
+            "guaranteed deliverables rather than ambient media lift."
+        )
+
+    gaps = ""
+    if missing:
+        gaps = (
+            f"While {missing[0]} data is unavailable"
+            if len(missing) == 1
+            else f"While {' and '.join(missing[:2])} data are unavailable"
+        )
+    return {
+        "evidence": _join_prose_clauses(present) if present else "limited exposure coverage",
+        "gaps": gaps,
+        "insight": insight,
+        "actionability": action,
+    }
+
+
+def _market_proof_bundle(
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+    *,
+    signal: str,
+) -> dict[str, str]:
+    deals = int(_first_number(athlete_d.get("verified_deals_count")) or 0)
+    proof = _first_number(latest_dict.get("proof_score"))
+    brand = _first_number(latest_dict.get("brand_score"))
+    conference = _text_or_fallback(athlete_d.get("conference"), "")
+    school = _text_or_fallback(athlete_d.get("school"), "")
+    nil_delta = _first_number(athlete_d.get("nil_valuation_delta_30d"))
+
+    present: list[str] = []
+    missing: list[str] = []
+    if deals > 0:
+        present.append(f"{deals} verified deal{'s' if deals != 1 else ''} on file")
+    else:
+        missing.append("verified deals")
+    if proof is not None:
+        if proof >= 70:
+            present.append("strong modeled market-proof signal")
+        elif proof >= 40:
+            present.append("moderate modeled market-proof signal")
+        else:
+            present.append("developing modeled market-proof signal")
+    if brand is not None and brand >= 70:
+        present.append("high brand score supporting monetization potential")
+    if conference and conference != "N/A":
+        present.append(f"{conference} market context")
+    elif school and school != "N/A":
+        present.append(f"{school} market context")
+    if nil_delta is not None and abs(nil_delta) >= 5_000:
+        direction = "rising" if nil_delta > 0 else "softening"
+        present.append(f"{direction} recent NIL trajectory")
+
+    if deals >= 3:
+        insight = (
+            "market proof is transaction-backed — multiple verified deals reduce "
+            "reliance on modeled value alone"
+        )
+        action = (
+            "That proof depth strengthens negotiation posture for cash and hybrid "
+            "structures and supports using comps as live pricing anchors."
+        )
+    elif deals >= 1:
+        insight = (
+            "some verified deal activity exists, but proof depth is still thin enough "
+            "that comps and cohort context matter"
+        )
+        action = (
+            "Use the verified activity as a floor signal, then widen deal construction "
+            "with cohort comps rather than treating one deal as a full market clear."
+        )
+    else:
+        insight = (
+            "market proof is mostly model- and cohort-inferred because verified deal "
+            "history is sparse"
+        )
+        action = (
+            "Keep terms flexible and comps-led until more verified transactions land; "
+            "avoid over-indexing on a single modeled point estimate."
+        )
+    if signal == "Low":
+        action = (
+            "Low market proof argues for conservative pricing, milestone structures, "
+            "and stronger verification requirements before scaling spend."
+        )
+
+    gaps = ""
+    if missing:
+        gaps = f"While {missing[0]} data is unavailable"
+    return {
+        "evidence": _join_prose_clauses(present) if present else "limited market-proof coverage",
+        "gaps": gaps,
+        "insight": insight,
+        "actionability": action,
+    }
+
+
+def _momentum_bundle(
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+    *,
+    signal: str,
+) -> dict[str, str]:
+    vel = _first_number(latest_dict.get("velocity_score"))
+    nil_delta = _first_number(athlete_d.get("nil_valuation_delta_30d"))
+    grav_delta = _first_number(athlete_d.get("gravity_delta_30d"))
+    news = _first_number(athlete_d.get("news_mentions_30d"))
+    trends = _first_number(athlete_d.get("google_trends_score"))
+
+    present: list[str] = []
+    missing: list[str] = []
+    if vel is not None:
+        if vel >= 70:
+            present.append("high velocity versus peers")
+        elif vel >= 40:
+            present.append("steady velocity versus peers")
+        else:
+            present.append("soft velocity versus peers")
+    else:
+        missing.append("velocity")
+    if nil_delta is not None and abs(nil_delta) >= 1_000:
+        direction = "rising" if nil_delta > 0 else "softening"
+        present.append(f"{direction} 30-day NIL trajectory")
+    elif nil_delta is None:
+        missing.append("30-day NIL trajectory")
+    if grav_delta is not None and abs(grav_delta) >= 1:
+        direction = "rising" if grav_delta > 0 else "softening"
+        present.append(f"{direction} 30-day Gravity trajectory")
+    if news is not None and news >= 5:
+        present.append(f"{_news_visibility_label(news).lower()} recent news flow")
+    if trends is not None and trends >= 35:
+        present.append(f"{_trends_label(trends).lower()} search interest")
+
+    rising = (nil_delta is not None and nil_delta > 0) or (grav_delta is not None and grav_delta > 0) or (
+        vel is not None and vel >= 70
+    )
+    softening = (nil_delta is not None and nil_delta < 0) or (grav_delta is not None and grav_delta < 0) or (
+        vel is not None and vel < 40
+    )
+    if rising and not softening:
+        insight = (
+            "momentum is constructive — multiple trajectory signals point up, which "
+            "usually compresses the window before market pricing resets"
+        )
+        action = (
+            "Favor shorter exclusive windows and faster close cycles; delay risks "
+            "paying a higher clearing price as peer comps catch up."
+        )
+    elif softening and not rising:
+        insight = (
+            "momentum is cooling — recent trajectory signals suggest less urgency for "
+            "rush pricing"
+        )
+        action = (
+            "Use the softer tape to negotiate patience on exclusivity and to stage "
+            "spend against clearer performance or visibility milestones."
+        )
+    else:
+        insight = (
+            "momentum is mixed — some channels are moving while others are flat, so "
+            "timing should be selective rather than blanket-aggressive"
+        )
+        action = (
+            "Structure optionality around the strongest rising signals and avoid "
+            "locking long exclusives on the weaker legs of the profile."
+        )
+    if signal == "Low":
+        action = (
+            "Low momentum favors waiting for a clearer catalyst before paying "
+            "acceleration premiums."
+        )
+
+    gaps = ""
+    if missing:
+        gaps = (
+            f"While {missing[0]} data is unavailable"
+            if len(missing) == 1
+            else f"While {' and '.join(missing[:2])} data are unavailable"
+        )
+    return {
+        "evidence": _join_prose_clauses(present) if present else "limited momentum coverage",
+        "gaps": gaps,
+        "insight": insight,
+        "actionability": action,
+    }
+
+
+def _commercial_readiness_bundle(
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+    *,
+    signal: str,
+) -> dict[str, str]:
+    ig, _tw, _tt, engagement = _driver_signal_inputs(athlete_d, latest_dict)
+    reach = _fmt_followers_prose(_first_number(athlete_d.get("social_combined_reach")) or ig)
+    deals = int(_first_number(athlete_d.get("verified_deals_count")) or 0)
+    dq = _first_number(athlete_d.get("data_quality_score"))
+    inactive = bool(athlete_d.get("roster_inactive"))
+
+    present: list[str] = []
+    missing: list[str] = []
+    if reach:
+        present.append(f"combined reach of {reach}")
+    else:
+        missing.append("combined reach")
+    if engagement is not None and engagement > 0:
+        if engagement >= 5:
+            present.append("strong engagement quality")
+        elif engagement >= 2:
+            present.append("solid engagement quality")
+        else:
+            present.append("modest engagement quality")
+    else:
+        missing.append("engagement")
+    if deals > 0:
+        present.append(f"{deals} deal{'s' if deals != 1 else ''} on file")
+    else:
+        missing.append("deal history")
+    if dq is not None:
+        pct = int(round(dq * 100)) if dq <= 1 else int(round(dq))
+        present.append(f"data quality around {pct} percent")
+    present.append("inactive roster status" if inactive else "active roster status")
+
+    ready = (engagement is not None and engagement >= 2) and bool(reach) and not inactive
+    if ready and deals > 0:
+        insight = (
+            "commercial readiness looks execution-ready — reach, engagement, and prior "
+            "deal history suggest the athlete can carry deliverables without heavy lift"
+        )
+        action = (
+            "That supports faster creative cycles, multi-deliverable packages, and "
+            "partners who need reliable turnaround on campaign assets."
+        )
+    elif ready:
+        insight = (
+            "audience and engagement are workable, but thin deal history means "
+            "onboarding and production process still need proving"
+        )
+        action = (
+            "Start with clear scopes and short first packages to validate turnaround "
+            "before expanding into always-on retainers."
+        )
+    elif inactive:
+        insight = (
+            "roster inactivity is a practical drag on commercial readiness even when "
+            "audience metrics look solid"
+        )
+        action = (
+            "Prioritize compliance review and availability confirmation before locking "
+            "appearance-heavy or season-tied deliverables."
+        )
+    else:
+        insight = (
+            "commercial readiness is still forming — gaps in reach, engagement, or "
+            "deal history raise execution friction"
+        )
+        action = (
+            "Keep packages simple, production-light, and contingent on confirmed "
+            "content capacity until readiness signals improve."
+        )
+    if signal == "Low":
+        action = (
+            "Low commercial readiness argues for agency-assisted production or "
+            "lighter organic deliverables rather than complex multi-platform campaigns."
+        )
+
+    gaps = ""
+    if missing:
+        gaps = (
+            f"While {missing[0]} data is unavailable"
+            if len(missing) == 1
+            else f"While {' and '.join(missing[:2])} data are unavailable"
+        )
+    return {
+        "evidence": _join_prose_clauses(present) if present else "limited readiness coverage",
+        "gaps": gaps,
+        "insight": insight,
+        "actionability": action,
+    }
+
+
+def _risk_bundle(
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+    *,
+    signal: str,
+) -> dict[str, str]:
+    """Note: `signal` is already inverted (High = low risk / clean posture)."""
+    inactive = bool(athlete_d.get("roster_inactive"))
+    risk = _first_number(latest_dict.get("risk_score"))
+    conf = latest_dict.get("dollar_confidence")
+    conf_label = None
+    if isinstance(conf, dict):
+        conf_label = conf.get("dollar_confidence_label")
+    conf_label = _text_or_fallback(conf_label, "")
+
+    present: list[str] = []
+    missing: list[str] = []
+    present.append("inactive roster status" if inactive else "active roster status")
+    if risk is not None:
+        level = _signal_level(risk, invert=True)
+        present.append(f"{level.lower()} modeled risk posture")
+    else:
+        missing.append("risk score")
+    if conf_label and conf_label != "N/A":
+        present.append(f"{conf_label} valuation confidence")
+
+    if inactive:
+        insight = (
+            "roster inactivity is the dominant operational risk — it can impair "
+            "eligibility, availability, and campaign timing"
+        )
+        action = (
+            "Require roster/eligibility confirmation, shorten terms, and lean on "
+            "morals and availability clauses before scaling spend."
+        )
+    elif signal == "High":
+        insight = (
+            "risk posture looks clean relative to peers, which supports more "
+            "confident multi-deliverable packaging"
+        )
+        action = (
+            "Standard protections still apply, but partners can prioritize upside "
+            "structures over heavy contingency loading."
+        )
+    elif signal == "Low":
+        insight = (
+            "elevated risk signals argue for defensive deal construction even when "
+            "brand or exposure look strong"
+        )
+        action = (
+            "Use stronger morals clauses, shorter terms, and milestone gating so "
+            "commercial upside is not over-committed against operational uncertainty."
+        )
+    else:
+        insight = (
+            "risk is manageable but not negligible — enough uncertainty remains to "
+            "shape term length and contingency design"
+        )
+        action = (
+            "Balance commercial ambition with standard protections and avoid "
+            "long exclusives without review triggers."
+        )
+
+    gaps = ""
+    if missing:
+        gaps = f"While {missing[0]} data is unavailable"
+    return {
+        "evidence": _join_prose_clauses(present),
+        "gaps": gaps,
+        "insight": insight,
+        "actionability": action,
+    }
+
+
+def _driver_evidence_bundle(
+    label: str,
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+    *,
+    signal: str = "Moderate",
+    athlete_name: str = "",
+) -> dict[str, str]:
+    """Concrete evidence + gap notes for driver interpretation (LLM + fallback)."""
+    if label == "Brand Strength":
+        return _brand_strength_bundle(
+            athlete_d,
+            latest_dict,
+            signal=signal,
+            athlete_name=athlete_name,
+        )
+    if label == "Exposure":
+        return _exposure_bundle(athlete_d, latest_dict, signal=signal)
+    if label == "Market Proof":
+        return _market_proof_bundle(athlete_d, latest_dict, signal=signal)
+    if label == "Momentum":
+        return _momentum_bundle(athlete_d, latest_dict, signal=signal)
+    if label == "Commercial Readiness":
+        return _commercial_readiness_bundle(athlete_d, latest_dict, signal=signal)
+    if label == "Risk":
+        return _risk_bundle(athlete_d, latest_dict, signal=signal)
+
+    return {
+        "evidence": "limited available signal coverage",
+        "gaps": "",
+        "insight": "",
+        "actionability": (
+            "Use this driver alongside peer context when structuring NIL conversations."
+        ),
+    }
+
+
+_DRIVER_PEER_NOUN: dict[str, str] = {
+    "Brand Strength": "personal brands",
+    "Exposure": "exposure profiles",
+    "Market Proof": "market-proof profiles",
+    "Momentum": "momentum profiles",
+    "Commercial Readiness": "commercially ready profiles",
+    "Risk": "risk postures",
+}
+
+
+def _peer_verb_for_driver(label: str, signal: str) -> str:
+    if label == "Risk":
+        return {
+            "High": "places him among the cleanest risk postures in",
+            "Moderate": "tracks him near typical risk levels in",
+            "Low": "leaves him with elevated operational risk versus",
+        }.get(signal, "tracks him within")
+    peer_noun = _DRIVER_PEER_NOUN.get(label, "profiles")
+    return {
+        "High": f"places him among the strongest {peer_noun} in",
+        "Moderate": f"tracks him near the middle of",
+        "Low": f"leaves him trailing typical {peer_noun} in",
+    }.get(signal, "tracks him within")
+
+
+def build_driver_interpretation_fallback(
+    *,
+    athlete_name: str,
+    label: str,
+    signal: str,
+    cohort_label: str,
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+) -> str:
+    """High-quality deterministic Interpretation copy (same bar as LLM target)."""
+    bundle = _driver_evidence_bundle(
+        label, athlete_d, latest_dict, signal=signal, athlete_name=athlete_name
+    )
+    peer_verb = _peer_verb_for_driver(label, signal)
+
+    label_l = label.lower()
+    first = f"{athlete_name}'s {label_l} is built from {bundle['evidence']}."
+    insight = (bundle.get("insight") or "").strip()
+    if bundle["gaps"] and insight:
+        second = (
+            f"{bundle['gaps']}, {insight}. That profile still {peer_verb} "
+            f"the {cohort_label} market."
+        )
+    elif bundle["gaps"]:
+        second = (
+            f"{bundle['gaps']}, the available {label_l} picture still {peer_verb} "
+            f"the {cohort_label} market."
+        )
+    elif insight:
+        second = (
+            f"{insight[0].upper()}{insight[1:]}. That profile {peer_verb} "
+            f"the {cohort_label} market."
+        )
+    else:
+        second = f"That {label_l} profile {peer_verb} the {cohort_label} market."
+    return f"{first} {second} {bundle['actionability']}"
+
+
+def _driver_evidence_summary_for_prompt(
+    label: str,
+    athlete_d: Mapping[str, Any],
+    latest_dict: Mapping[str, Any],
+    *,
+    signal: str = "Moderate",
+    athlete_name: str = "",
+) -> str:
+    bundle = _driver_evidence_bundle(
+        label,
+        athlete_d,
+        latest_dict,
+        signal=signal,
+        athlete_name=athlete_name,
+    )
+    parts = [f"Evidence: {bundle['evidence']}."]
+    if bundle.get("insight"):
+        parts.append(f"Key insight: {bundle['insight']}.")
+    if bundle["gaps"]:
+        parts.append(f"Data gaps: {bundle['gaps']}.")
+    parts.append(f"Actionability guide: {bundle['actionability']}")
+    return " ".join(parts)
 
 
 def _cap_confidence(level: str, *, max_level: str | None = None, min_level: str | None = None) -> str:
@@ -924,11 +1775,13 @@ def validate_range(
     p25: Optional[float] = None,
     p75: Optional[float] = None,
 ) -> tuple[Optional[float], Optional[float], str]:
-    """Sanity-check the displayed range; fall back to P25/P75 when too wide.
+    """Sanity-check the displayed deal-construction range; tighten when too wide.
 
-    The spec defines `range_quality = "wide"` when (p90 - p10) > benchmark.
-    When wide, we collapse to the interquartile band (P25/P75) if available
-    so the report doesn't surface a band wider than the central estimate.
+    The hero band is a deal-construction range around *this athlete*, not a
+    peer market distribution. The spec defines `range_quality = "wide"` when
+    (p90 - p10) > benchmark. When wide, prefer the interquartile band only if
+    it still brackets the athlete benchmark; otherwise tighten symmetrically
+    around the benchmark so the point estimate never sits outside the band.
     """
     if benchmark is None or p10 is None or p90 is None:
         return p10, p90, "normal"
@@ -937,11 +1790,13 @@ def validate_range(
         return p10, p90, "normal"
     if spread <= benchmark:
         return p10, p90, "normal"
-    if p25 is not None and p75 is not None:
+    if (
+        p25 is not None
+        and p75 is not None
+        and float(p25) <= float(benchmark) <= float(p75)
+    ):
         return p25, p75, "wide"
-    # No interquartile fallback available: tighten symmetrically around
-    # the benchmark to a +/- 30% band so the report still ships a band
-    # that fits the spec's "narrower than benchmark" expectation.
+    # Peer IQR missing or excludes the athlete: tighten around the benchmark.
     band = benchmark * 0.30
     return max(0.0, benchmark - band), benchmark + band, "wide"
 
@@ -959,12 +1814,13 @@ def range_incoherent_with_benchmark(
     The mismatch confuses users because the range looks "actionable" but
     contradicts the number above it.
 
-    Three failure modes are flagged:
+    Four failure modes are flagged:
 
     1. ``hi < benchmark * 0.5`` — range entirely below the benchmark.
     2. ``lo > benchmark * 2.0`` — range entirely above the benchmark.
     3. ``(hi - lo) < benchmark * 0.05`` — collapsed model band whose width
        is <5% of the benchmark, regardless of where the band sits.
+    4. ``benchmark < lo or benchmark > hi`` — point estimate outside the band.
     """
     if benchmark is None or lo is None or hi is None:
         return False
@@ -976,7 +1832,67 @@ def range_incoherent_with_benchmark(
         return True
     if (float(hi) - float(lo)) < benchmark * 0.05:
         return True
+    if float(benchmark) < float(lo) or float(benchmark) > float(hi):
+        return True
     return False
+
+
+def ensure_benchmark_within_range(
+    benchmark: Optional[float],
+    lo: Optional[float],
+    hi: Optional[float],
+    *,
+    min_spread_ratio: float = 0.20,
+) -> tuple[Optional[float], Optional[float]]:
+    """Expand endpoints so ``lo <= benchmark <= hi`` with a usable deal width.
+
+    Never moves the benchmark to fit a bad band — the hero number is the
+    source of truth and the deal-construction range must bracket it.
+    """
+    if benchmark is None or lo is None or hi is None:
+        return lo, hi
+    b = float(benchmark)
+    new_lo = float(lo)
+    new_hi = float(hi)
+    if new_lo > new_hi:
+        new_lo, new_hi = new_hi, new_lo
+
+    min_half = max(500.0, abs(b) * (min_spread_ratio / 2.0))
+    if b < new_lo:
+        gap = new_lo - b
+        new_lo = b
+        new_hi = max(new_hi, b + max(gap, min_half * 2.0))
+    elif b > new_hi:
+        gap = b - new_hi
+        new_hi = b
+        new_lo = min(new_lo, max(0.0, b - max(gap, min_half * 2.0)))
+
+    # Guarantee a minimum deal-construction width once containment holds.
+    if new_hi - new_lo < max(1_000.0, abs(b) * min_spread_ratio):
+        half = max(500.0, abs(b) * (min_spread_ratio / 2.0))
+        if (b - new_lo) < half:
+            new_lo = max(0.0, b - half)
+        if (new_hi - b) < half:
+            new_hi = b + half
+    return new_lo, new_hi
+
+
+def deal_construction_band(
+    benchmark: float,
+    *,
+    downside: float = 0.30,
+    upside: float = 0.40,
+) -> tuple[float, float]:
+    """Athlete-anchored deal-construction band around a point estimate."""
+    lo = max(0.0, float(benchmark) * (1.0 - downside))
+    hi = float(benchmark) * (1.0 + upside)
+    return lo, hi
+
+
+OUTLIER_VALUE_RANGE_NOTE = (
+    "Outlier profile — peer cohort range is not applicable for deal construction. "
+    "Displayed band is a deal-construction range around this athlete's benchmark."
+)
 
 
 def cap_displayed_percentile(
@@ -1017,21 +1933,22 @@ def _build_market_context_text(
         # spec mandates that percentile and median be suppressed in favor
         # of an explicit "exceeds peer cohort distribution" framing.
         return (
-            f"Peer Reference ({label})\n"
-            "Athlete's valuation exceeds the peer cohort distribution. "
+            f"Peer Market Context ({label})\n"
+            "Outlier profile — peer cohort range is not applicable for deal "
+            "construction. Athlete valuation exceeds the peer cohort distribution. "
             "Standard percentile statistics are not applicable; refer to the "
             "Comparable Athletes section for peer reference.\n"
             f"Based on athletes scored in the last {window_days} days"
         )
     if fallback_step >= 3:
         return (
-            f"Market Context ({label})\n"
-            f"Range: {_format_nil_value(p10)} – {_format_nil_value(p90)}\n"
+            f"Peer Market Context ({label})\n"
+            f"Peer market range: {_format_nil_value(p10)} – {_format_nil_value(p90)}\n"
             f"Based on athletes scored in the last {window_days} days (absolute methodology)."
         )
     return (
-        f"Market Context ({label})\n"
-        f"Range: {_format_nil_value(p10)} – {_format_nil_value(p90)}\n"
+        f"Peer Market Context ({label})\n"
+        f"Peer market range: {_format_nil_value(p10)} – {_format_nil_value(p90)}\n"
         f"Median: {_format_nil_value(p50)}\n"
         f"Based on athletes scored in the last {window_days} days"
     )
@@ -1349,23 +2266,25 @@ async def build_csc_report_json(
     ):
         use_nil_band = True
     if use_nil_band:
-        spread = 0.4
-        raw_lo = athlete_raw_nil * (1.0 - spread)
-        raw_hi = athlete_raw_nil * (1.0 + spread * 2.0)
+        # Athlete-anchored deal-construction band around the point estimate.
+        raw_lo, raw_hi = deal_construction_band(float(athlete_raw_nil))
     elif athlete_raw_nil is not None and athlete_raw_nil > 10_000:
         if raw_lo is None or raw_hi is None or raw_lo == raw_hi:
-            spread = 0.35
-            raw_lo = athlete_raw_nil * (1.0 - spread)
-            raw_hi = athlete_raw_nil * (1.0 + spread * 2.0)
+            raw_lo, raw_hi = deal_construction_band(float(athlete_raw_nil), downside=0.35, upside=0.50)
     if raw_lo is None or raw_hi is None:
         if benchmark is not None:
-            band = max(benchmark * 0.2, 25_000.0)
-            raw_lo = max(0.0, benchmark - band) if raw_lo is None else raw_lo
-            raw_hi = benchmark + band if raw_hi is None else raw_hi
+            raw_lo, raw_hi = (
+                deal_construction_band(float(benchmark), downside=0.20, upside=0.20)
+                if raw_lo is None and raw_hi is None
+                else (
+                    max(0.0, float(benchmark) * 0.8) if raw_lo is None else raw_lo,
+                    float(benchmark) * 1.2 if raw_hi is None else raw_hi,
+                )
+            )
 
     # Range sanity: when the model-derived P10/P90 band is wider than the
-    # benchmark itself, fall back to the interquartile band (P25/P75) so
-    # the report doesn't surface an actionable-looking range that isn't.
+    # benchmark itself, tighten to an IQR (only if it brackets the athlete)
+    # or a symmetric deal-construction band around the benchmark.
     lo, hi, range_quality = validate_range(
         benchmark,
         raw_lo,
@@ -1374,10 +2293,8 @@ async def build_csc_report_json(
         p75=_first_number(cohort_stats.get("p75")),
     )
     if use_nil_band and benchmark is not None:
-        if lo is None or hi is None or float(hi) < benchmark * 0.25:
-            spread = 0.4
-            lo = benchmark * (1.0 - spread)
-            hi = benchmark * (1.0 + spread * 2.0)
+        if lo is None or hi is None or range_incoherent_with_benchmark(benchmark, lo, hi):
+            lo, hi = deal_construction_band(float(benchmark))
             range_quality = "normal"
 
     # csc_band_low_pct / csc_band_high_pct override the displayed band when
@@ -1419,6 +2336,9 @@ async def build_csc_report_json(
             lo = max(0.0, mid - half)
             hi = mid + half
             range_quality = "estimate"
+
+    # Hard invariant: hero deal-construction range must bracket the benchmark.
+    lo, hi = ensure_benchmark_within_range(benchmark, lo, hi)
 
     raw_percentile_rank = (
         None
@@ -1469,6 +2389,21 @@ async def build_csc_report_json(
         if cohort_fit_label == "poor":
             percentile_rank = None
             percentile_override_text = None
+
+    # Outlier Value-section handling: peer IQR is not the deal-construction
+    # surface. Re-anchor the hero band around the athlete benchmark and stamp
+    # an explicit note so the UI can separate peer market context from the
+    # athlete deal range.
+    value_range_note: Optional[str] = None
+    peer_range_applicable = True
+    if cohort_fit_label == "poor" and benchmark is not None:
+        peer_range_applicable = False
+        value_range_note = OUTLIER_VALUE_RANGE_NOTE
+        if range_incoherent_with_benchmark(benchmark, lo, hi):
+            lo, hi = deal_construction_band(float(benchmark))
+            range_quality = "normal"
+        lo, hi = ensure_benchmark_within_range(benchmark, lo, hi)
+
     scoring_history_days = None
     history_start = await db.fetchval(
         """SELECT MIN(calculated_at)
@@ -1688,7 +2623,7 @@ async def build_csc_report_json(
     fallback_executive_parts = [
         (
             f"{name} carries a Total NIL Value Benchmark of {benchmark_text} "
-            f"with a recommended range of {range_text}."
+            f"with a recommended deal range of {range_text}."
         ),
         (
             f"In {conference_f} {pos_group}s, this profile sits in {percentile_text}, "
@@ -1721,14 +2656,8 @@ async def build_csc_report_json(
     )
     executive_summary = executive_result.text
 
-    # Deterministic per-driver fallback prose — qualitative, no decimals, no
-    # formula constants per the prompt's forbidden-term list.
-    def _driver_fallback(label: str, signal: str) -> str:
-        verb = {"High": "leads", "Moderate": "holds steady against", "Low": "lags"}.get(
-            signal, "tracks"
-        )
-        return f"{label} {verb} the {cohort_label} cohort."
-
+    # Deterministic per-driver Interpretation — evidence + peer meaning +
+    # actionability (same quality bar as the LLM target).
     raw_driver_rows = [
         ("Brand Strength", _signal_level(brand_score)),
         ("Market Proof", _signal_level(proof_score)),
@@ -1739,13 +2668,24 @@ async def build_csc_report_json(
     ]
     key_value_drivers: list[dict[str, Any]] = []
     for label, signal in raw_driver_rows:
-        fallback = _driver_fallback(label, signal)
+        fallback = build_driver_interpretation_fallback(
+            athlete_name=name,
+            label=label,
+            signal=signal,
+            cohort_label=cohort_label,
+            athlete_d=athlete_d,
+            latest_dict=latest_dict,
+        )
+        evidence_summary = _driver_evidence_summary_for_prompt(
+            label, athlete_d, latest_dict, signal=signal, athlete_name=name
+        )
         driver_result = await generate_driver_explanation(
             athlete_name=name,
             driver_label=label,
             signal_level=signal,
             position_group=pos_group,
             cohort_label=cohort_label,
+            evidence_summary=evidence_summary,
             fallback=fallback,
         )
         key_value_drivers.append(
@@ -1886,6 +2826,8 @@ async def build_csc_report_json(
             "range_high": hi,
             "tier_tag": tier_selected,
             "confidence_tag": f"{confidence_level} Confidence",
+            "range_note": value_range_note,
+            "peer_range_applicable": peer_range_applicable,
         },
         "explanation": {
             "executive_summary": executive_summary,

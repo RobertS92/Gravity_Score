@@ -3,7 +3,8 @@
 These prompts are intentionally explicit about the four content surfaces:
 
   1. EXECUTIVE_SUMMARY_PROMPT  – 4–6 sentence narrative for Section 2a.
-  2. DRIVER_PROMPT             – 1–2 sentences per key value driver row.
+  2. DRIVER_PROMPT             – 2–3 sentences per key value driver Interpretation
+                                 (evidence + peer meaning + actionability).
   3. VALUE_INTERPRETATION_PROMPT – Validation takeaway (Section 3c).
   4. CONFIDENCE_RATIONALE_PROMPT / RISK_RATIONALE_PROMPT
                                 – One-line `confidence_note` / `risk_note`.
@@ -35,14 +36,15 @@ You write the 2026 Gravity Score CSC athlete valuation report Executive Summary.
 
 Audience: athletic department GM / collective ops lead. Your prose must be
 specific to this athlete and avoid generic disclaimers. Reference the
-benchmark, the recommended range, the cohort positioning, and the single
-strongest driver. When confidence is not High, surface the primary
-uncertainty in one sentence.
+benchmark, the recommended deal range (which brackets the benchmark), the
+cohort positioning, and the single strongest driver. When confidence is not
+High, surface the primary uncertainty in one sentence.
 
 Hard constraints — output must satisfy ALL of these:
   - 4 to 6 sentences, no bullets, no headings.
   - Use the athlete's name at least once.
   - Format dollar values with the unit already used in `benchmark_text`.
+  - Call the band a "recommended deal range" (not a peer market range).
   - DO NOT mention the internal model name, the exposure formula constants,
     SHAP values, raw component scores, or any number with a decimal in the
     range 0.0–9.9.
@@ -56,21 +58,43 @@ Return only the prose. No JSON. No preamble."""
 
 
 DRIVER_PROMPT = """\
-You write the one-sentence explanation that sits next to a single Key Value
-Driver row in the Gravity Score CSC report.
+You write the Interpretation paragraph for a single Key Value Driver row in the
+Gravity Score CSC report. Match the quality of an expert NIL analyst brief —
+specific, evidence-backed, and actionable for athletic department / collective ops.
 
 Driver: {driver_label}
 Signal: {signal_level}
 Athlete: {athlete_name}
 Position: {position_group}
 Cohort: {cohort_label}
+Evidence bundle: {evidence_summary}
+
+Write 2 to 3 sentences that cover ALL of the following beats:
+  1. Evidence — synthesize the strongest available signals for {athlete_name}
+     for THIS driver. For Brand Strength include family/name heritage when
+     present, owned social, earned demand, and school/conference context.
+     For Exposure use news/search/Wikipedia/proximity. For Market Proof use
+     verified deals and comps context. For Momentum use velocity and 30-day
+     trajectories. For Commercial Readiness use reach/engagement/deal history/
+     roster status. For Risk use roster status and modeled risk posture.
+     Never reduce the driver to a generic peer-rank line. If platforms or
+     fields are unavailable, say so.
+  2. Peer meaning / key insight — what the mix means commercially (e.g. concentrated
+     owned audience vs diversified brand equity) and how it positions the athlete
+     in the {cohort_label} market at a {signal_level} signal.
+  3. Actionability — why this matters for deal construction (campaign types,
+     timing, contract posture, or partnership fit), tailored to the signal mix.
 
 Hard constraints — output must satisfy ALL of these:
-  - 1 to 2 sentences.
-  - Explain why this driver lands at {signal_level} relative to peers.
-  - DO NOT cite raw decimal scores; talk in qualitative terms.
+  - 2 to 4 sentences. No bullets, no headings.
+  - Use {athlete_name} at least once.
+  - DO NOT cite raw decimal component scores (e.g. 81.2). Prefer whole-number
+    follower counts ("750K", "1 million") or qualitative engagement language.
   - DO NOT mention SHAP, BPXVR, exposure formulas, or any system internals.
   - Avoid hedge phrases ('it appears that', 'we believe', 'might be').
+  - Do not write a generic peer-only line like "Brand Strength leads the cohort."
+  - Do not imply the brand is Instagram-only when news, search, Wikipedia,
+    school, or conference context is present in the evidence bundle.
 
 Return only the prose."""
 
