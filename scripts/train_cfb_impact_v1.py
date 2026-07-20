@@ -28,9 +28,10 @@ logger = logging.getLogger(__name__)
 
 
 async def fetch_cfb_training_rows(limit: int | None = None) -> list[dict]:
-    conn = await asyncpg.connect(get_settings().pg_dsn, statement_cache_size=0)
+    conn = await asyncpg.connect(get_settings().pg_dsn, statement_cache_size=0, timeout=90, command_timeout=600)
     rows_out: list[dict] = []
     try:
+        await conn.execute("SET statement_timeout = 0")
         sql = """
             SELECT a.id, a.name, a.school, a.position, a.sport,
                    r.raw_data, r.scraped_at,
@@ -42,7 +43,7 @@ async def fetch_cfb_training_rows(limit: int | None = None) -> list[dict]:
             ) r ON TRUE
             LEFT JOIN LATERAL (
               SELECT features FROM gravity_feature_snapshots
-              WHERE entity_id = a.id::text ORDER BY as_of DESC NULLS LAST LIMIT 1
+              WHERE entity_id::text = a.id::text ORDER BY as_of DESC NULLS LAST LIMIT 1
             ) s ON TRUE
             WHERE a.sport = 'cfb' AND COALESCE(a.is_active, TRUE) = TRUE
             ORDER BY r.scraped_at DESC NULLS LAST
@@ -90,7 +91,9 @@ async def fetch_cfb_training_rows(limit: int | None = None) -> list[dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train CFB impact_v1 bundle")
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--version", default="1.0.0-beta")
+    parser.add_argument("--version", default="1.0.0")
+    parser.add_argument("--min-spearman", type=float, default=0.50)
+    parser.add_argument("--no-promote", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
 
@@ -98,8 +101,6 @@ def main() -> None:
     if len(rows) < 30:
         raise SystemExit(f"Need >=30 labeled rows, got {len(rows)}")
     logger.info("Training impact_v1 on %d CFB rows", len(rows))
-
-    from gravity_ml.train.train_champion import train_from_rows
 
     out_dir = train_from_rows(
         rows,
@@ -112,6 +113,35 @@ def main() -> None:
     if not out_dir:
         raise SystemExit("Training failed — insufficient rows after split")
     logger.info("Bundle written: %s", out_dir)
+
+    metrics_path = Path(out_dir) / "metrics.json"
+    gate_sp = 0.0
+    if metrics_path.exists():
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        # train_from_rows emits validation metrics; prefer test when present.
+        gate_sp = float(
+            (metrics.get("test") or {}).get("spearman")
+            or (metrics.get("validation") or {}).get("spearman")
+            or (metrics.get("validation") or {}).get("pearson")
+            or 0.0
+        )
+        logger.info("holdout Spearman/Pearson=%.4f (gate=%.2f)", gate_sp, args.min_spearman)
+
+    if args.no_promote:
+        logger.info("--no-promote set; not updating champions")
+        return
+    if gate_sp < args.min_spearman:
+        logger.warning("NOT promoted: holdout %.4f below gate %.2f", gate_sp, args.min_spearman)
+        return
+
+    index_path = ROOT / "models" / "bundles" / "index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8")) if index_path.exists() else {"champions": {}}
+    index.setdefault("champions", {})["gravity_athlete_cfb_impact_v1"] = args.version
+    from datetime import datetime, timezone
+
+    index["updated_at"] = datetime.now(tz=timezone.utc).isoformat()
+    index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+    logger.info("PROMOTED gravity_athlete_cfb_impact_v1 -> %s", args.version)
 
 
 if __name__ == "__main__":

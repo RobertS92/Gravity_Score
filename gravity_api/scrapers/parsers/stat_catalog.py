@@ -37,6 +37,7 @@ EXTENDED_STATS: dict[str, tuple[str, ...]] = {
     "nfl": (
         "gp",
         "gs",
+        "games_started",
         "games_played_season",
         "pass_attempts",
         "pass_completions",
@@ -61,6 +62,8 @@ EXTENDED_STATS: dict[str, tuple[str, ...]] = {
     "ncaab_mens": (
         "min",
         "gp",
+        "games_started",
+        "gs",
         "fgm",
         "fga",
         "fg_pct",
@@ -85,6 +88,8 @@ EXTENDED_STATS: dict[str, tuple[str, ...]] = {
     "ncaab_womens": (
         "min",
         "gp",
+        "games_started",
+        "gs",
         "fgm",
         "fga",
         "fg_pct",
@@ -106,6 +111,8 @@ EXTENDED_STATS: dict[str, tuple[str, ...]] = {
     "nba": (
         "min",
         "gp",
+        "games_started",
+        "gs",
         "fgm",
         "fga",
         "fg_pct",
@@ -134,6 +141,8 @@ EXTENDED_STATS: dict[str, tuple[str, ...]] = {
     "wnba": (
         "min",
         "gp",
+        "games_started",
+        "gs",
         "fgm",
         "fga",
         "fg_pct",
@@ -236,6 +245,9 @@ def all_stat_keys_for_sport(sport: str) -> frozenset[str]:
     keys.update(EXTENDED_STATS.get(sport, ()))
     keys.add("games_played_season")
     keys.add("games_played_career")
+    keys.add("games_started")
+    keys.add("gs")
+    keys.add("gp")
     return frozenset(keys)
 
 

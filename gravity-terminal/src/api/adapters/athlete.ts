@@ -61,7 +61,22 @@ export function mapSport(raw: unknown): Sport | string | null {
   if (s === 'cfb') return 'CFB'
   if (s === 'mcbb' || s === 'ncaab_mens') return 'NCAAB'
   if (s === 'wcbb' || s === 'ncaab_womens') return 'NCAAWB'
+  if (s === 'nba') return 'NBA'
+  if (s === 'nfl') return 'NFL'
+  if (s === 'wnba') return 'WNBA'
   return raw as string
+}
+
+function impactScore(row: Record<string, unknown> | undefined): number | null {
+  return num(row?.impact_score) ?? num(row?.value_score)
+}
+
+function impactPercentile(row: Record<string, unknown> | undefined): number | null {
+  return num(row?.impact_sport_percentile) ?? num(row?.value_sport_percentile)
+}
+
+function impactSource(row: Record<string, unknown> | undefined): string | null {
+  return str(row?.impact_score_source ?? row?.value_score_source)
 }
 
 function heightWeightFromDb(row: Record<string, unknown>) {
@@ -234,6 +249,14 @@ export function mapAthleteFromBundle(b: AthleteDetailBundle): AthleteRecord {
     height,
     weight,
     gravity_score: g,
+    gravity_sport_percentile: num(latest?.gravity_sport_percentile) ?? num(a.gravity_sport_percentile),
+    impact_score: impactScore(latest) ?? impactScore(a),
+    impact_sport_percentile: impactPercentile(latest) ?? impactPercentile(a),
+    impact_score_source: impactSource(latest) ?? impactSource(a),
+    value_score: impactScore(latest) ?? impactScore(a),
+    value_sport_percentile: impactPercentile(latest) ?? impactPercentile(a),
+    value_score_source: impactSource(latest) ?? impactSource(a),
+    quality_score: num(latest?.quality_score) ?? num(a.quality_score),
     company_gravity_score: num(latest?.company_gravity_score),
     brand_gravity_score: num(latest?.brand_gravity_score),
     gravity_tier: tierFromScore(g),
@@ -342,6 +365,14 @@ export function mapWatchlistAthleteRow(row: Record<string, unknown>): AthleteRec
     school: str(row.school),
     sport: mapSport(row.sport),
     gravity_score: num(row.gravity_score),
+    gravity_sport_percentile: num(row.gravity_sport_percentile),
+    impact_score: impactScore(row),
+    impact_sport_percentile: impactPercentile(row),
+    impact_score_source: impactSource(row),
+    value_score: impactScore(row),
+    value_sport_percentile: impactPercentile(row),
+    value_score_source: impactSource(row),
+    quality_score: num(row.quality_score),
     company_gravity_score: num(row.company_gravity_score),
     brand_gravity_score: num(row.brand_gravity_score),
     brand_score: num(row.brand_score),
@@ -389,6 +420,14 @@ export function mapSearchRowToAthlete(row: Record<string, unknown>): AthleteReco
     position: str(row.position),
     sport: mapSport(row.sport),
     gravity_score: num(row.gravity_score),
+    gravity_sport_percentile: num(row.gravity_sport_percentile),
+    impact_score: impactScore(row),
+    impact_sport_percentile: impactPercentile(row),
+    impact_score_source: impactSource(row),
+    value_score: impactScore(row),
+    value_sport_percentile: impactPercentile(row),
+    value_score_source: impactSource(row),
+    quality_score: num(row.quality_score),
     company_gravity_score: num(row.company_gravity_score),
     brand_gravity_score: num(row.brand_gravity_score),
     brand_score: num(row.brand_score),

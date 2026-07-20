@@ -22,6 +22,7 @@ END
 _VALID_SORTS = {
     "gravity_score": "s.gravity_score",
     "value_score": "s.value_score",
+    "impact_score": "s.value_score",
     "quality_score": "s.quality_score",
     "brand_score": "s.brand_score",
     "proof_score": "s.proof_score",
@@ -30,6 +31,17 @@ _VALID_SORTS = {
     "risk_score": _INVERTED_RISK_SQL,
     "name": "a.name",
 }
+
+
+def _with_impact_aliases(row: dict[str, Any]) -> dict[str, Any]:
+    """Public Impact Score aliases for internal value_score (winning impact)."""
+    if "value_score" in row:
+        row["impact_score"] = row.get("value_score")
+    if "value_sport_percentile" in row:
+        row["impact_sport_percentile"] = row.get("value_sport_percentile")
+    if "value_score_source" in row:
+        row["impact_score_source"] = row.get("value_score_source")
+    return row
 
 
 async def search_athletes(
@@ -98,7 +110,9 @@ async def search_athletes(
         params.append(max_risk)
         idx += 1
     if exclude_inactive:
-        conditions.append("(a.is_active IS TRUE)")
+        conditions.append(
+            "(a.is_active IS TRUE AND a.roster_status IN ('active_on_roster', 'transferred'))"
+        )
     if roster_verified_within_days is not None:
         conditions.append(
             f"(a.roster_verified_at IS NOT NULL AND a.roster_verified_at >= "
@@ -163,4 +177,8 @@ async def search_athletes(
         ) c
     """
     total = await db.fetchval(count_sql, *params[:-2])
-    return {"athletes": [dict(r) for r in rows], "total": total, "returned": len(rows)}
+    return {
+        "athletes": [_with_impact_aliases(dict(r)) for r in rows],
+        "total": total,
+        "returned": len(rows),
+    }

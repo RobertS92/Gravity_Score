@@ -1,10 +1,23 @@
 {
   "validation": {
-    "mae": 3.938,
-    "rmse": 3.9973,
-    "pearson": 0.2404
+    "mae": 0.6811,
+    "rmse": 0.9002,
+    "pearson": 0.7719,
+    "spearman": 0.8343,
+    "n": 69
   },
-  "train_rows": 140,
-  "val_rows": 30,
-  "test_rows": 30
+  "test": {
+    "mae": 0.6446,
+    "rmse": 0.8498,
+    "pearson": 0.8776,
+    "spearman": 0.8946,
+    "n": 69
+  },
+  "train_rows": 640,
+  "val_rows": 69,
+  "test_rows": 69,
+  "training_source": "observed_salary_annual",
+  "labeled_rows": 458,
+  "augmented": true,
+  "feature_count": 140
 }

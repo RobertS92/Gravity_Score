@@ -9,7 +9,15 @@ import numpy as np
 
 from gravity_ml.inference.vectorizer import FeatureVectorizer, build_feature_manifest, stacked_features
 
-VALUE_NIL_LEAK_TOKENS = ("nil_valuation", "nil_deal", "log1p_nil")
+VALUE_NIL_LEAK_TOKENS = (
+    "nil_valuation",
+    "nil_deal",
+    "log1p_nil",
+    "contract_aav",
+    "contract_apy",
+    "salary_annual",
+    "observed_market_value",
+)
 META_SKIP = frozenset({
     "entity_id",
     "entity_type",

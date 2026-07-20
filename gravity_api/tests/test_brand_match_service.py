@@ -59,9 +59,18 @@ def test_weights_shift_to_engagement_when_prioritized():
     assert focused["brand"] < normal["brand"]
 
 
-def test_low_budget_filters_out_overpriced_candidate():
+def test_brand_match_budget_filter_uses_activation_price_not_annual_benchmark():
     brief = _brief(budget=200000)
-    row = _row(dollar_p50_usd=300001)
+    row = _row(dollar_p50_usd=2_000_000)
+    weights = _calc_weights(brief)
+    out = _score_candidate(row, brief, weights)
+    assert out is not None
+    assert out["deal_range_high"] < row["dollar_p50_usd"]
+
+
+def test_low_budget_filters_out_activation_overpriced_candidate():
+    brief = _brief(budget=50_000)
+    row = _row(position="QB", dollar_p50_usd=21_900_000, brand_score=96, risk_score=10)
     weights = _calc_weights(brief)
     assert _score_candidate(row, brief, weights) is None
 

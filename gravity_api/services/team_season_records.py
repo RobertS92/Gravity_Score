@@ -1,15 +1,22 @@
-"""Team season win/loss records — CFBD and DB persistence."""
+"""Team season win/loss records — CFBD (CFB), ESPN (pro/other), DB persistence."""
 
 from __future__ import annotations
 
+import json
+import os
 import logging
 import re
-from datetime import datetime, timezone
 from typing import Any
 
 import asyncpg
 
 logger = logging.getLogger(__name__)
+
+# Sports that can resolve team W-L via ESPN core record API.
+ESPN_TEAM_RECORD_SPORTS = frozenset(
+    {"nfl", "nba", "wnba", "ncaab_mens", "ncaab_womens", "ncaa_baseball", "ncaa_volleyball"}
+)
+TEAM_RECORD_SPORTS = frozenset({"cfb"}) | ESPN_TEAM_RECORD_SPORTS
 
 
 def normalize_team_id(name: str | None) -> str:
@@ -62,7 +69,7 @@ async def upsert_team_season_stats(
         conference_wins,
         conference_losses,
         source_key,
-        metadata or {},
+        json.dumps(metadata or {}),
     )
 
 
@@ -152,6 +159,8 @@ async def ensure_team_season_from_cfbd(
     row = await fetch_team_season_stats(conn, sport=sport, team_id=team_id, season_year=season_year)
     if row:
         return row
+    if os.environ.get("TEAM_RECORD_REMOTE_FETCH_DISABLED", "").lower() in ("1", "true", "yes"):
+        return None
     if sport != "cfb":
         return None
     from gravity_api.scrapers.clients.cfbd import CfbdClient, cfbd_is_rate_limited
@@ -180,6 +189,127 @@ async def ensure_team_season_from_cfbd(
     return await fetch_team_season_stats(conn, sport=sport, team_id=team_id, season_year=season_year)
 
 
+async def ensure_team_season_from_espn(
+    conn: asyncpg.Connection,
+    *,
+    sport: str,
+    team_name: str,
+    season_year: int,
+    espn_team_id: str | None = None,
+) -> asyncpg.Record | None:
+    """Load team record from DB or fetch once from ESPN core API and cache."""
+    team_id = normalize_team_id(team_name)
+    row = await fetch_team_season_stats(conn, sport=sport, team_id=team_id, season_year=season_year)
+    if row:
+        return row
+    if os.environ.get("TEAM_RECORD_REMOTE_FETCH_DISABLED", "").lower() in ("1", "true", "yes"):
+        return None
+    if sport not in ESPN_TEAM_RECORD_SPORTS:
+        return None
+    from gravity_api.scrapers.clients.espn import EspnClient
+
+    client = EspnClient()
+    # Prefer completed prior season when current year has no/partial record.
+    years_to_try = [season_year]
+    if season_year - 1 not in years_to_try:
+        years_to_try.append(season_year - 1)
+
+    record = None
+    used_year = season_year
+    for year in years_to_try:
+        record = await client.fetch_team_season_record(
+            sport,
+            season_year=year,
+            team_name=team_name,
+            espn_team_id=espn_team_id,
+        )
+        if record and (record["wins"] + record["losses"]) > 0:
+            used_year = year
+            break
+        record = None
+
+    if not record:
+        return None
+
+    # Always cache under the requested season_year for scoring-anchor lookups,
+    # and also under the ESPN season year when they differ.
+    meta = {
+        "espn_team_id": record.get("espn_team_id"),
+        "summary": record.get("summary"),
+        "espn_season_year": used_year,
+        "season_type": record.get("season_type"),
+    }
+    await upsert_team_season_stats(
+        conn,
+        sport=sport,
+        team_id=team_id,
+        season_year=season_year,
+        wins=int(record["wins"]),
+        losses=int(record["losses"]),
+        ties=int(record.get("ties") or 0),
+        team_name=team_name,
+        source_key="espn",
+        metadata=meta,
+    )
+    if used_year != season_year:
+        await upsert_team_season_stats(
+            conn,
+            sport=sport,
+            team_id=team_id,
+            season_year=used_year,
+            wins=int(record["wins"]),
+            losses=int(record["losses"]),
+            ties=int(record.get("ties") or 0),
+            team_name=team_name,
+            source_key="espn",
+            metadata=meta,
+        )
+    return await fetch_team_season_stats(conn, sport=sport, team_id=team_id, season_year=season_year)
+
+
+async def ensure_team_season(
+    conn: asyncpg.Connection,
+    *,
+    sport: str,
+    team_name: str,
+    season_year: int,
+    espn_team_id: str | None = None,
+) -> asyncpg.Record | None:
+    """Resolve team W-L from cache, CFBD (CFB), or ESPN (pro/college non-CFB)."""
+    team_id = normalize_team_id(team_name)
+    row = await fetch_team_season_stats(conn, sport=sport, team_id=team_id, season_year=season_year)
+    if row:
+        return row
+    if sport == "cfb":
+        return await ensure_team_season_from_cfbd(
+            conn, sport=sport, team_name=team_name, season_year=season_year
+        )
+    return await ensure_team_season_from_espn(
+        conn,
+        sport=sport,
+        team_name=team_name,
+        season_year=season_year,
+        espn_team_id=espn_team_id,
+    )
+
+
+def _resolve_games_started_for_link(raw: dict[str, Any], sport: str) -> int | None:
+    gs = raw.get("games_started") or raw.get("gs")
+    if gs is not None:
+        try:
+            return int(float(gs))
+        except (TypeError, ValueError):
+            pass
+    # Mirror win_impact NFL skill inference so athlete_team_seasons stays consistent.
+    if (sport or "").lower() == "nfl":
+        from gravity_api.services.win_impact import resolve_games_started
+
+        inferred, _obs = resolve_games_started(raw, sport=sport)
+        if inferred > 0:
+            return int(inferred)
+    return None
+
+
 async def enrich_raw_with_team_season(
     conn: asyncpg.Connection,
     *,
@@ -188,15 +318,21 @@ async def enrich_raw_with_team_season(
     team_name: str | None,
     season_year: int,
     raw: dict[str, Any],
+    espn_team_id: str | None = None,
 ) -> dict[str, Any]:
     """Attach team win/loss context and persist athlete-team-season row."""
-    if sport != "cfb" or not team_name:
+    if sport not in TEAM_RECORD_SPORTS or not team_name:
         return raw
     team_id = normalize_team_id(team_name)
     row = await fetch_team_season_stats(conn, sport=sport, team_id=team_id, season_year=season_year)
     if row is None and raw.get("team_win_pct") is None:
-        row = await ensure_team_season_from_cfbd(
-            conn, sport=sport, team_name=team_name, season_year=season_year
+        row = await ensure_team_season(
+            conn,
+            sport=sport,
+            team_name=team_name,
+            season_year=season_year,
+            espn_team_id=espn_team_id
+            or (str(raw.get("espn_team_id")) if raw.get("espn_team_id") else None),
         )
     out = dict(raw)
     if row:
@@ -212,17 +348,25 @@ async def enrich_raw_with_team_season(
                 win_pct=float(row["win_pct"]),
             )
         out["team_record_observed"] = 1
+        out["team_record_source"] = str(row.get("source_key") or "pipeline")
 
     gp = raw.get("games_played_season") or raw.get("gp")
-    gs = raw.get("games_started") or raw.get("gs")
     try:
         gp_i = int(float(gp)) if gp is not None else None
     except (TypeError, ValueError):
         gp_i = None
-    try:
-        gs_i = int(float(gs)) if gs is not None else None
-    except (TypeError, ValueError):
-        gs_i = None
+
+    # Surface inferred NFL skill starts into scoring raw when ASS lacked them.
+    if (sport or "").lower() == "nfl" and not (out.get("games_started") or out.get("gs")):
+        from gravity_api.services.win_impact import resolve_games_started
+
+        inferred, observed = resolve_games_started(out, sport=sport)
+        if inferred > 0 and not observed:
+            out["games_started"] = int(inferred)
+            out["gs"] = float(inferred)
+            out["games_started_inferred"] = 1
+
+    gs_i = _resolve_games_started_for_link(out, sport)
 
     if team_id:
         await upsert_athlete_team_season(
@@ -237,3 +381,18 @@ async def enrich_raw_with_team_season(
             source_key=str(raw.get("stats_source") or "pipeline"),
         )
     return out
+
+
+__all__ = [
+    "ESPN_TEAM_RECORD_SPORTS",
+    "TEAM_RECORD_SPORTS",
+    "enrich_raw_with_team_season",
+    "ensure_team_season",
+    "ensure_team_season_from_cfbd",
+    "ensure_team_season_from_espn",
+    "fetch_team_season_stats",
+    "normalize_team_id",
+    "team_win_pct_percentile",
+    "upsert_athlete_team_season",
+    "upsert_team_season_stats",
+]

@@ -668,6 +668,56 @@
   line-height: 1.5;
 }
 
+.dealScopeField {
+  display: grid;
+  grid-template-columns: auto minmax(180px, 320px);
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin: 10px 0 12px;
+  font-family: var(--font-data);
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.dealScopeField select {
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-raised, #111820);
+  color: var(--text-primary);
+  font: inherit;
+  padding: 7px 28px 7px 9px;
+}
+
+.dealGuidanceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+.dealGuidanceCard {
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 8px 10px;
+}
+
+.dealGuidanceLabel {
+  font-family: var(--font-data);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.dealGuidanceValue {
+  font-family: var(--font-data);
+  font-size: 14px;
+  color: var(--accent-amber);
+}
+
 /* Fallback banner displayed when metadata.model_status === 'fallback'. */
 .fallbackBanner {
   border: 1px solid var(--accent-red, #ef5b5b);

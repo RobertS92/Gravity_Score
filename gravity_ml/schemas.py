@@ -25,6 +25,9 @@ class ScoreAthleteResponse(BaseModel):
     model_version: str
     gravity_score: float
     quality_score: Optional[float] = None
+    # Winning impact (Value Score). Distinct from commercial gravity_score.
+    value_score: Optional[float] = None
+    value_score_source: Optional[str] = None
     brand_score: float
     proof_score: float
     proximity_score: float

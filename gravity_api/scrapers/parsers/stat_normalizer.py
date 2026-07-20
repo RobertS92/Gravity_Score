@@ -60,7 +60,9 @@ def _alias_table() -> dict[str, dict[str, tuple[str, ...]]]:
         "pass_attempts": ("passingAttempts", "ATT", "passAtt", "Pass Att"),
         "pass_completions": ("completions", "CMP", "passCmp", "Pass Cmp"),
         "completion_pct": ("completionPct", "CMP%", "Comp %", "completionPercentage"),
-        "passer_rating": ("passerRating", "RTG", "Rating", "pass rating"),
+        # ESPN exposes the standard 0-158.3 passer rating as "QBRating"; "ESPNQBRating"
+        # is a different cumulative points metric (can be 50k+) and must NOT be used.
+        "passer_rating": ("QBRating", "passerRating", "RTG", "Rating", "pass rating"),
         "qbr": ("QBR", "qbr", "adjQBR"),
         "pass_yards_per_attempt": ("yardsPerPassAttempt", "YPA", "Avg"),
         "pass_long": ("longPass", "longPassing", "Long"),
@@ -105,7 +107,7 @@ def _alias_table() -> dict[str, dict[str, tuple[str, ...]]]:
     basketball = {
         "pts": ("points", "PTS", "Pts", "pointsPerGame", "PPG"),
         "ast": ("assists", "AST", "Ast", "assistsPerGame"),
-        "reb": ("rebounds", "REB", "Reb", "reboundsPerGame", "RPG"),
+        "reb": ("totalRebounds", "rebounds", "REB", "Reb"),
         "oreb": ("offensiveRebounds", "OR", "OREB"),
         "dreb": ("defensiveRebounds", "DR", "DREB"),
         "stl": ("steals", "STL", "Stl"),
@@ -126,6 +128,7 @@ def _alias_table() -> dict[str, dict[str, tuple[str, ...]]]:
         "min": ("minutes", "MIN", "Min", "minutesPerGame"),
         "gp": ("gamesPlayed", "GP", "G"),
         "games_played_season": ("gamesPlayed", "GP", "G"),
+        "games_started": ("gamesStarted", "GS", "starts"),
         "double_doubles": ("doubleDouble", "doubleDoubles", "DD"),
         "triple_doubles": ("tripleDouble", "tripleDoubles", "TD"),
         "per": ("playerEfficiencyRating", "PER"),
@@ -225,13 +228,15 @@ def normalize_espn_stats(sport: str, raw_stats: dict[str, Any]) -> dict[str, flo
     out: dict[str, float] = {}
     for raw_key, raw_val in raw_stats.items():
         norm = _normalize_key(str(raw_key))
+        # Exact normalized-alias match ONLY. A previous substring fallback
+        # (`alias_norm in norm or norm in alias_norm`) caused severe
+        # miscategorization: short aliases like "td"/"tot"/"int"/"rating"
+        # matched inside unrelated ESPN fields (passingFirstDowns→pass_td,
+        # netTotalYards→tackles, interceptionPct→pass_int, ESPNQBRating→
+        # passer_rating), assigning wildly wrong values. The alias tables
+        # already include ESPN's camelCase names, so exact matching keeps the
+        # real fields and simply drops unknown ones instead of corrupting.
         canonical = lookup.get(norm)
-        if not canonical:
-            # camelCase ESPN names: passingYards → passingyards
-            for alias_norm, can in lookup.items():
-                if alias_norm in norm or norm in alias_norm:
-                    canonical = can
-                    break
         if not canonical:
             continue
         val = parse_stat_value(raw_val)
@@ -290,44 +295,129 @@ def merge_stat_layers(
 
 
 def finalize_stat_fields(sport: str, fields: dict[str, Any]) -> dict[str, Any]:
-    """Sync gp ↔ games_played_season at top level and inside season_stats."""
+    """Sync gp ↔ games_played_season and gs ↔ games_started at top level + season_stats."""
     if not fields:
         return fields
 
     season = fields.get("season_stats")
-    if not isinstance(season, dict):
-        season = {}
+    season_out = dict(season) if isinstance(season, dict) else {}
 
     gp = (
         fields.get("games_played_season")
         or fields.get("gp")
-        or season.get("games_played_season")
-        or season.get("gp")
+        or season_out.get("games_played_season")
+        or season_out.get("gp")
     )
-    if gp is None:
-        return fields
+    gs = (
+        fields.get("games_started")
+        or fields.get("gs")
+        or season_out.get("games_started")
+        or season_out.get("gs")
+    )
 
-    gp_int = int(gp)
-    fields["games_played_season"] = gp_int
-    fields["gp"] = float(gp_int)
+    if gp is not None:
+        gp_int = int(gp)
+        fields["games_played_season"] = gp_int
+        fields["gp"] = float(gp_int)
+        season_out["games_played_season"] = float(gp_int)
+        season_out["gp"] = float(gp_int)
 
-    if season:
-        season = dict(season)
-        season["games_played_season"] = float(gp_int)
-        season["gp"] = float(gp_int)
-        fields["season_stats"] = season
+    if gs is not None:
+        gs_int = int(gs)
+        fields["games_started"] = gs_int
+        fields["gs"] = float(gs_int)
+        season_out["games_started"] = float(gs_int)
+        season_out["gs"] = float(gs_int)
+
+    if season_out and (gp is not None or gs is not None or season):
+        fields["season_stats"] = season_out
 
     return fields
 
 
+# Legacy scrape payloads stored sport-prefixed counting stats (cfb_passing_yards)
+# instead of canonical proof keys (pass_yards). Promote them so feature engineering
+# and win-impact see the same fields as modern ESPN/Sports-Reference scrapes.
+_LEGACY_PREFIXED_STAT_MAP: dict[str, dict[str, str]] = {
+    "cfb": {
+        "cfb_games_played": "games_played_season",
+        "cfb_games_started": "games_started",
+        "cfb_passing_yards": "pass_yards",
+        "cfb_passing_tds": "pass_td",
+        "cfb_passer_rating": "passer_rating",
+        "cfb_pass_attempts": "pass_attempts",
+        "cfb_pass_completions": "pass_completions",
+        "cfb_completion_pct": "completion_pct",
+        "cfb_interceptions": "pass_int",
+        "cfb_rushing_yards": "rush_yards",
+        "cfb_rushing_tds": "rush_td",
+        "cfb_rush_attempts": "rush_attempts",
+        "cfb_receiving_yards": "rec_yards",
+        "cfb_receiving_tds": "rec_td",
+        "cfb_receptions": "receptions",
+        "cfb_tackles": "tackles",
+        "cfb_sacks": "sacks",
+        "cfb_ints_def": "interceptions",
+        "cfb_passes_defended": "passes_defended",
+        "cfb_forced_fumbles": "forced_fumbles",
+        "cfb_tfl": "tfl",
+    },
+    "nfl": {
+        "nfl_games_played": "games_played_season",
+        "nfl_games_started": "games_started",
+        "nfl_passing_yards": "pass_yards",
+        "nfl_passing_tds": "pass_td",
+        "nfl_passer_rating": "passer_rating",
+        "nfl_interceptions": "pass_int",
+        "nfl_rushing_yards": "rush_yards",
+        "nfl_rushing_tds": "rush_td",
+        "nfl_receiving_yards": "rec_yards",
+        "nfl_receiving_tds": "rec_td",
+        "nfl_receptions": "receptions",
+        "nfl_tackles": "tackles",
+        "nfl_sacks": "sacks",
+        "nfl_ints_def": "interceptions",
+        "nfl_passes_defended": "passes_defended",
+    },
+}
+
+
+def promote_legacy_prefixed_stats(raw: dict[str, Any], sport: str) -> dict[str, Any]:
+    """Copy sport-prefixed legacy stats onto canonical keys without clobbering."""
+    mapping = _LEGACY_PREFIXED_STAT_MAP.get((sport or "").lower())
+    if not mapping or not raw:
+        return raw
+
+    out = dict(raw)
+    season = out.get("season_stats")
+    season_out = dict(season) if isinstance(season, dict) else {}
+
+    for legacy_key, canonical in mapping.items():
+        if out.get(canonical) not in (None, ""):
+            continue
+        val = out.get(legacy_key)
+        if val in (None, ""):
+            val = season_out.get(legacy_key)
+        parsed = parse_stat_value(val)
+        if parsed is None:
+            continue
+        out[canonical] = parsed
+        season_out.setdefault(canonical, parsed)
+
+    if season_out:
+        out["season_stats"] = season_out
+    return finalize_stat_fields(sport, out)
+
+
 def flatten_raw_for_stats(raw: dict[str, Any], sport: str) -> dict[str, float]:
     """Collect all numeric stats from top-level raw and nested season_stats."""
+    promoted = promote_legacy_prefixed_stats(raw, sport)
     out: dict[str, float] = {}
-    nested = raw.get("season_stats")
+    nested = promoted.get("season_stats")
     if isinstance(nested, dict):
         out.update(normalize_espn_stats(sport, nested))
     for key in all_stat_keys_for_sport(sport):
-        val = raw.get(key)
+        val = promoted.get(key)
         if val is None and isinstance(nested, dict):
             val = nested.get(key)
         parsed = parse_stat_value(val)
@@ -342,4 +432,5 @@ __all__ = [
     "merge_stat_layers",
     "normalize_espn_stats",
     "parse_stat_value",
+    "promote_legacy_prefixed_stats",
 ]

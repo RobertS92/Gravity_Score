@@ -464,3 +464,121 @@ class EspnClient:
         if isinstance(standalone, str) and standalone.strip():
             return standalone.strip()
         return None
+
+    async def resolve_team_id(self, sport: str, team_name: str) -> str | None:
+        """Map a team display name to ESPN team id via the league teams list."""
+        sport = normalize_sport(sport)
+        league = SITE_LEAGUE_PATH.get(sport)
+        if not league or not team_name:
+            return None
+        needle = " ".join(str(team_name).lower().split())
+        url = f"https://site.api.espn.com/apis/site/v2/sports/{league}/teams?limit=100"
+        data = await self._get(url)
+        best: tuple[int, str] | None = None
+        for block in data.get("sports") or []:
+            for league_obj in block.get("leagues") or []:
+                for wrap in league_obj.get("teams") or []:
+                    team = wrap.get("team") or wrap
+                    tid = str(team.get("id") or "").strip()
+                    if not tid:
+                        continue
+                    candidates = [
+                        str(team.get("displayName") or ""),
+                        str(team.get("name") or ""),
+                        str(team.get("shortDisplayName") or ""),
+                        str(team.get("abbreviation") or ""),
+                        str(team.get("nickname") or ""),
+                        str(team.get("location") or ""),
+                    ]
+                    for cand in candidates:
+                        norm = " ".join(cand.lower().split())
+                        if not norm:
+                            continue
+                        if needle == norm:
+                            return tid
+                        if needle in norm or norm in needle:
+                            score = min(len(needle), len(norm))
+                            if best is None or score > best[0]:
+                                best = (score, tid)
+        return best[1] if best else None
+
+    async def fetch_team_season_record(
+        self,
+        sport: str,
+        *,
+        season_year: int,
+        team_name: str | None = None,
+        espn_team_id: str | None = None,
+        season_type: int | None = None,
+    ) -> dict[str, Any] | None:
+        """Fetch overall W-L from ESPN core team record endpoint.
+
+        Returns ``{wins, losses, ties, win_pct, espn_team_id, summary}`` or None.
+        """
+        sport = normalize_sport(sport)
+        league = CORE_LEAGUE_PATH.get(sport)
+        if not league:
+            return None
+        tid = str(espn_team_id or "").strip() or None
+        if not tid and team_name:
+            tid = await self.resolve_team_id(sport, team_name)
+        if not tid:
+            return None
+
+        # Prefer regular season. Football=2, basketball=2; try 2 then 3.
+        type_candidates = [season_type] if season_type is not None else [2, 3]
+        for stype in type_candidates:
+            if stype is None:
+                continue
+            path = f"seasons/{int(season_year)}/types/{int(stype)}/teams/{tid}/record"
+            data = await self._get_core(sport, path)
+            items = data.get("items") if isinstance(data, dict) else None
+            if not items:
+                continue
+            overall = None
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                if str(item.get("name") or "").lower() == "overall" or str(
+                    item.get("type") or ""
+                ).lower() in {"total", "overall"}:
+                    overall = item
+                    break
+            overall = overall or (items[0] if isinstance(items[0], dict) else None)
+            if not overall:
+                continue
+            stats = {
+                str(s.get("name")): s.get("value")
+                for s in (overall.get("stats") or [])
+                if isinstance(s, dict) and s.get("name")
+            }
+            wins = stats.get("wins")
+            losses = stats.get("losses")
+            ties = stats.get("ties") or stats.get("OTTies") or 0
+            win_pct = stats.get("winPercent") or overall.get("value")
+            if wins is None and losses is None:
+                summary = str(overall.get("summary") or overall.get("displayValue") or "")
+                if "-" in summary:
+                    parts = summary.replace("–", "-").split("-")
+                    try:
+                        wins = float(parts[0])
+                        losses = float(parts[1])
+                    except (TypeError, ValueError, IndexError):
+                        continue
+            if wins is None or losses is None:
+                continue
+            w_i, l_i = int(float(wins)), int(float(losses))
+            t_i = int(float(ties or 0))
+            total = w_i + l_i + t_i
+            pct = float(win_pct) if win_pct is not None else (w_i / total if total else None)
+            return {
+                "wins": w_i,
+                "losses": l_i,
+                "ties": t_i,
+                "win_pct": round(pct, 4) if pct is not None else None,
+                "espn_team_id": tid,
+                "summary": str(overall.get("summary") or f"{w_i}-{l_i}"),
+                "season_type": int(stype),
+                "season_year": int(season_year),
+            }
+        return None

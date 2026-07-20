@@ -30,6 +30,7 @@ from gravity_api.services.sport_pipeline.metric_history import (
 )
 from gravity_api.services.sport_pipeline.raw_payload import build_enriched_raw_payload
 from gravity_api.services.scoring_stack import finalize_score_metadata
+from gravity_api.services.sport_percentiles import refresh_sport_percentiles
 from gravity_api.services.sport_pipeline.score import score_with_sport_model
 from gravity_api.services.sport_pipeline.season_stats import upsert_season_stats_from_raw
 from gravity_ml.brand.taxonomy import enrich_raw_with_partnerships
@@ -158,17 +159,35 @@ async def run_athlete_pipeline(
     apply_manual_imputations(raw, manual)
     apply_heuristic_imputations(raw, athlete)
     raw = enrich_raw_with_partnerships(raw)
+    from gravity_api.services.market_value_anchor import enrich_raw_with_market_value_anchor
 
-    if sport == "cfb":
-        from gravity_api.services.team_season_records import enrich_raw_with_team_season
+    raw = await enrich_raw_with_market_value_anchor(conn, athlete_id, sport, raw)
 
+    from gravity_api.services.team_season_records import (
+        TEAM_RECORD_SPORTS,
+        enrich_raw_with_team_season,
+    )
+
+    if sport in TEAM_RECORD_SPORTS:
+        team_name = (
+            athlete.get("team")
+            or athlete.get("current_team")
+            or athlete.get("school")
+            or raw.get("team")
+            or raw.get("school")
+        )
         raw = await enrich_raw_with_team_season(
             conn,
             athlete_id=athlete_id,
             sport=sport,
-            team_name=athlete.get("school") or raw.get("school"),
+            team_name=team_name,
             season_year=int(cohort_ctx["season_year"]),
             raw=raw,
+            espn_team_id=(
+                str(raw.get("espn_team_id"))
+                if raw.get("espn_team_id")
+                else None
+            ),
         )
 
     commercial_viability: dict[str, Any] | None = None
@@ -247,13 +266,25 @@ async def run_athlete_pipeline(
     )
 
     score_data = overlay_commercial_viability(score_data, raw, commercial_viability, sport)
-    score_data = finalize_score_metadata(score_data)
+    score_data = finalize_score_metadata(score_data, raw=raw, sport=sport)
 
     from gravity_api.services.win_impact import merge_win_impact_into_raw
 
     raw = merge_win_impact_into_raw(raw, snapshot=snapshot, sport=sport)
     score_data["win_impact_score"] = raw.get("win_impact_score")
     score_data["participation_index"] = raw.get("participation_index")
+    # Value Score = winning impact. Prefer impact ML from score_athlete when present;
+    # otherwise use win_impact_v0 heuristic. Always keep v0 for audit.
+    ml_value = score_data.get("value_score")
+    if ml_value is not None and score_data.get("value_score_source"):
+        score_data["win_impact_score"] = float(ml_value)
+        raw["win_impact_score"] = float(ml_value)
+        raw["value_score"] = float(ml_value)
+        raw["value_score_source"] = score_data.get("value_score_source")
+    else:
+        score_data["value_score"] = raw.get("value_score") or raw.get("win_impact_score")
+        score_data["value_score_source"] = raw.get("value_score_source") or "win_impact_v0"
+    score_data["impact_confidence"] = raw.get("impact_confidence")
 
     from gravity_api.scrapers.observations import merge_raw_athlete_data
 
@@ -265,6 +296,8 @@ async def run_athlete_pipeline(
             for k in (
                 "win_impact_score",
                 "win_impact_score_v0",
+                "value_score",
+                "value_score_source",
                 "participation_index",
                 "gs_rate",
                 "team_wins",
@@ -283,11 +316,14 @@ async def run_athlete_pipeline(
     await _persist_score_row(conn, athlete, score_data, raw, manual, pipeline.model_key)
     feature_result["score"] = {
         "gravity_score": score_data.get("gravity_score"),
+        "value_score": score_data.get("value_score"),
+        "value_score_source": score_data.get("value_score_source"),
         "model_key": score_data.get("model_key"),
         "model_version": score_data.get("model_version"),
         "fallback_used": score_data.get("fallback_used", False),
         "fallback_kind": score_data.get("fallback_kind"),
         "score_tier": score_data.get("score_tier"),
+        "gravity_source": score_data.get("gravity_source"),
         "win_impact_score": score_data.get("win_impact_score"),
     }
     return feature_result
@@ -313,6 +349,13 @@ async def _persist_score_row(
     imputed = {"manual": manual_fields, "heuristic": heuristic_imputed}
     dq = raw.get("data_quality_score")
     dollar_conf = dict(score_data.get("dollar_confidence") or {})
+    if score_data.get("value_score") is None and raw.get("value_score") is not None:
+        score_data["value_score"] = raw.get("value_score")
+        score_data["value_score_source"] = raw.get("value_score_source") or "win_impact_v1_additive"
+    if score_data.get("win_impact_score") is None and raw.get("win_impact_score") is not None:
+        score_data["win_impact_score"] = raw.get("win_impact_score")
+    if score_data.get("impact_confidence") is None and raw.get("impact_confidence") is not None:
+        score_data["impact_confidence"] = raw.get("impact_confidence")
     if score_data.get("score_tier") is not None:
         dollar_conf["score_tier"] = score_data.get("score_tier")
     if score_data.get("fallback_kind"):
@@ -321,12 +364,24 @@ async def _persist_score_row(
         dollar_conf["replaced_model_version"] = score_data.get("replaced_model_version")
     if score_data.get("win_impact_score") is not None:
         dollar_conf["win_impact_score"] = score_data.get("win_impact_score")
+    if score_data.get("value_score") is not None:
+        dollar_conf["value_score"] = score_data.get("value_score")
+        dollar_conf["value_score_source"] = score_data.get("value_score_source") or "win_impact_v0"
     if score_data.get("participation_index") is not None:
         dollar_conf["participation_index"] = score_data.get("participation_index")
     if score_data.get("gravity_score_latent") is not None:
         dollar_conf["gravity_score_latent"] = score_data.get("gravity_score_latent")
     if score_data.get("gravity_cohort_percentile") is not None:
         dollar_conf["gravity_cohort_percentile"] = score_data.get("gravity_cohort_percentile")
+    dollar_conf.setdefault("score_objective", score_data.get("score_objective") or "commercial")
+    if score_data.get("gravity_source"):
+        dollar_conf["gravity_source"] = score_data.get("gravity_source")
+    if score_data.get("impact_confidence") is not None:
+        dollar_conf["impact_confidence"] = score_data.get("impact_confidence")
+    if score_data.get("gravity_sport_percentile") is not None:
+        dollar_conf["gravity_sport_percentile"] = score_data.get("gravity_sport_percentile")
+    if score_data.get("value_sport_percentile") is not None:
+        dollar_conf["value_sport_percentile"] = score_data.get("value_sport_percentile")
 
     params = (
         athlete["id"],
@@ -379,15 +434,35 @@ async def _persist_score_row(
             """UPDATE athlete_gravity_scores SET
                  quality_score = $2,
                  partnership_brand_score = $3,
-                 partnership_top_brands = $4::jsonb
+                 partnership_top_brands = $4::jsonb,
+                 value_score = $5,
+                 value_score_source = $6,
+                 impact_confidence = $7
                WHERE athlete_id = $1""",
             athlete["id"],
             score_data.get("quality_score"),
             score_data.get("partnership_brand_score"),
             json.dumps(score_data.get("partnership_top_brands") or []),
+            score_data.get("value_score"),
+            score_data.get("value_score_source") or "win_impact_v0",
+            score_data.get("impact_confidence"),
         )
     except asyncpg.PostgresError:
-        logger.debug("quality/partnership columns not available yet", exc_info=True)
+        logger.debug("quality/value_score columns not available yet", exc_info=True)
+        try:
+            await conn.execute(
+                """UPDATE athlete_gravity_scores SET
+                     quality_score = $2,
+                     partnership_brand_score = $3,
+                     partnership_top_brands = $4::jsonb
+                   WHERE athlete_id = $1""",
+                athlete["id"],
+                score_data.get("quality_score"),
+                score_data.get("partnership_brand_score"),
+                json.dumps(score_data.get("partnership_top_brands") or []),
+            )
+        except asyncpg.PostgresError:
+            logger.debug("quality/partnership columns not available yet", exc_info=True)
 
     try:
         await conn.execute(
@@ -411,6 +486,7 @@ async def _persist_score_row(
                 "velocity": score_data.get("velocity_score"),
                 "risk": score_data.get("risk_score"),
                 "quality": score_data.get("quality_score"),
+                "value": score_data.get("value_score"),
             }),
             float(score_data.get("confidence") or 0),
             float(dq or 0),
@@ -420,7 +496,12 @@ async def _persist_score_row(
                 "sport": athlete["sport"],
                 "score_tier": score_data.get("score_tier"),
                 "fallback_kind": score_data.get("fallback_kind"),
+                "score_objective": score_data.get("score_objective") or "commercial",
+                "gravity_source": score_data.get("gravity_source"),
+                "value_score_source": score_data.get("value_score_source"),
             }),
         )
     except asyncpg.PostgresError:
         logger.debug("gravity_predictions insert skipped", exc_info=True)
+
+    await refresh_sport_percentiles(conn, [str(athlete["id"])])

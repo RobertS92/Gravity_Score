@@ -10,6 +10,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Process-wide pickle cache so concurrent scorers do not each re-read model.pkl.
+_MODEL_FILE_CACHE: dict[str, Any] = {}
+
 
 class ModelBundle:
     def __init__(self, root: Path, model_key: str, version: str) -> None:
@@ -42,6 +45,11 @@ class ModelBundle:
         if self._model is not None:
             return self._model
         path = self.model_path
+        cache_key = str(path.resolve())
+        cached = _MODEL_FILE_CACHE.get(cache_key)
+        if cached is not None:
+            self._model = cached
+            return self._model
         if path.suffix == ".pt":
             import torch
 
@@ -62,6 +70,7 @@ class ModelBundle:
                     self._model = pickle.load(fh)
         else:
             raise ValueError(f"Unsupported model format: {path.suffix}")
+        _MODEL_FILE_CACHE[cache_key] = self._model
         logger.info("Loaded model %s/%s from %s", self.model_key, self.version, path)
         return self._model
 

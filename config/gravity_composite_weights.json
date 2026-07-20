@@ -1,87 +1,87 @@
 {
-  "schema_version": "gravity_composite_v1",
-  "description": "Constrained linear composite G = wB*B + wP*P + wX*X + wV*V + wR*(100-R). Positive weights sum to 1.0. Calibrate via jobs/calibrate_composite_weights.py.",
+  "schema_version": "gravity_composite_v2_commercial",
+  "description": "Commercial Gravity Score: G = wB*B + wP*P + wX*X + wV*V + wR*(100-R). Proof is retained for explainability but de-weighted — on-field winning impact lives in value_score (win_impact). Positive weights sum to 1.0.",
   "global_default": {
-    "brand": 0.28,
-    "proof": 0.24,
-    "proximity": 0.18,
-    "velocity": 0.2,
-    "risk": 0.1,
-    "provenance": "delphi_prior_v1",
-    "rationale": "Brand/social drives deal discovery; Proof drives performance premium; Proximity sets market ceiling; Velocity captures momentum pricing; Risk applies availability discount."
+    "brand": 0.4,
+    "proof": 0.05,
+    "proximity": 0.35,
+    "velocity": 0.15,
+    "risk": 0.05,
+    "provenance": "commercial_remap_v1",
+    "rationale": "Gravity = commercial/market value. Brand + Proximity dominate; Velocity captures momentum pricing; Proof is explanatory only (5%); Risk is a light availability discount. Winning impact is value_score."
   },
   "sports": {
     "cfb": {
-      "brand": 0.3,
-      "proof": 0.24,
-      "proximity": 0.22,
-      "velocity": 0.18,
-      "risk": 0.06,
-      "provenance": "sport_prior_v1",
-      "rationale": "CFB NIL is reach- and market-heavy; transfer/injury risk moderate vs pro."
+      "brand": 0.4,
+      "proof": 0.05,
+      "proximity": 0.35,
+      "velocity": 0.15,
+      "risk": 0.05,
+      "provenance": "commercial_remap_v1",
+      "rationale": "CFB NIL is reach- and market-heavy; Proof demoted to quality/value_score."
     },
     "ncaab_mens": {
-      "brand": 0.28,
-      "proof": 0.26,
-      "proximity": 0.18,
-      "velocity": 0.2,
-      "risk": 0.08,
-      "provenance": "sport_prior_v1",
-      "rationale": "March momentum + proof (tournament) spike; moderate NIL vs CFB."
+      "brand": 0.38,
+      "proof": 0.05,
+      "proximity": 0.32,
+      "velocity": 0.18,
+      "risk": 0.07,
+      "provenance": "commercial_remap_v1",
+      "rationale": "March momentum (velocity) + brand/NIL; Proof demoted."
     },
     "ncaab_womens": {
-      "brand": 0.3,
-      "proof": 0.26,
-      "proximity": 0.16,
-      "velocity": 0.2,
-      "risk": 0.08,
-      "provenance": "sport_prior_v1",
-      "rationale": "Growing social reach; proof from tournament visibility."
+      "brand": 0.4,
+      "proof": 0.05,
+      "proximity": 0.3,
+      "velocity": 0.18,
+      "risk": 0.07,
+      "provenance": "commercial_remap_v1",
+      "rationale": "Growing social reach; commercial-first Gravity."
     },
     "ncaa_baseball": {
-      "brand": 0.18,
-      "proof": 0.38,
-      "proximity": 0.12,
-      "velocity": 0.22,
-      "risk": 0.1,
-      "provenance": "sport_prior_v1",
-      "rationale": "Performance/draft stock dominant; NIL immature."
+      "brand": 0.35,
+      "proof": 0.08,
+      "proximity": 0.3,
+      "velocity": 0.2,
+      "risk": 0.07,
+      "provenance": "commercial_remap_v1",
+      "rationale": "NIL immature — brand/velocity carry commercial G; draft stock stays in value_score."
     },
     "ncaa_volleyball": {
-      "brand": 0.32,
-      "proof": 0.28,
-      "proximity": 0.14,
+      "brand": 0.42,
+      "proof": 0.05,
+      "proximity": 0.28,
       "velocity": 0.18,
-      "risk": 0.08,
-      "provenance": "sport_prior_v1",
-      "rationale": "Social-heavy women's sport; AVCA proof signal."
+      "risk": 0.07,
+      "provenance": "commercial_remap_v1",
+      "rationale": "Social-heavy women's sport; commercial Gravity."
     },
     "nfl": {
-      "brand": 0.26,
-      "proof": 0.3,
-      "proximity": 0.2,
-      "velocity": 0.16,
-      "risk": 0.08,
-      "provenance": "sport_prior_v1",
-      "rationale": "Proof/EPA + contract proximity; brand from national reach."
+      "brand": 0.38,
+      "proof": 0.05,
+      "proximity": 0.38,
+      "velocity": 0.12,
+      "risk": 0.07,
+      "provenance": "commercial_remap_v1",
+      "rationale": "Contract proximity + national brand; Proof demoted (value_score = win impact)."
     },
     "nba": {
-      "brand": 0.32,
-      "proof": 0.28,
-      "proximity": 0.18,
-      "velocity": 0.16,
+      "brand": 0.42,
+      "proof": 0.05,
+      "proximity": 0.35,
+      "velocity": 0.12,
       "risk": 0.06,
-      "provenance": "sport_prior_v1",
-      "rationale": "Global brand + stat proof; endorsement market mature."
+      "provenance": "commercial_remap_v1",
+      "rationale": "Global brand + endorsement market; commercial Gravity."
     },
     "wnba": {
-      "brand": 0.3,
-      "proof": 0.3,
-      "proximity": 0.16,
-      "velocity": 0.18,
-      "risk": 0.06,
-      "provenance": "sport_prior_v1",
-      "rationale": "Brand + proof balanced; smaller market vs NBA."
+      "brand": 0.4,
+      "proof": 0.05,
+      "proximity": 0.32,
+      "velocity": 0.16,
+      "risk": 0.07,
+      "provenance": "commercial_remap_v1",
+      "rationale": "Brand-led commercial Gravity; smaller market vs NBA."
     }
   }
 }

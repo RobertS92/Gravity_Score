@@ -80,7 +80,7 @@ export function MainHeader({
             <button
               type="button"
               className={styles.explainerToggle}
-              aria-label="How is this calculated?"
+              aria-label="How is Gravity Score calculated?"
               aria-expanded={explainerOpen}
               onClick={() => setExplainerOpen((v) => !v)}
             >
@@ -101,25 +101,33 @@ export function MainHeader({
             <div className={styles.explainerPopover} role="dialog" aria-label="Gravity Score formula">
               <div className={styles.explainerTitle}>HOW THIS IS CALCULATED</div>
               <p className={styles.explainerBody}>
-                Gravity Score is a 0–100 composite of five inputs that the
-                GravityNet model weights for each athlete cohort:
+                Gravity Score is commercial / market value (0–100): brand reach,
+                market proximity (NIL / contracts), and momentum — not on-field
+                winning impact. Winning impact is Impact Score.
               </p>
               <ul className={styles.explainerList}>
                 <li><strong>Brand</strong> — followers · engagement · IG · TikTok · X</li>
-                <li><strong>Proof</strong> — verified NIL deals · publicly reported deal value</li>
-                <li><strong>Exposure</strong> — news · search · Wikipedia · proximity to spotlight</li>
-                <li><strong>Velocity</strong> — 30-day deltas across the inputs above</li>
-                <li><strong>Risk</strong> — roster status · model confidence · data quality</li>
+                <li><strong>Proximity</strong> — NIL / contract market ceiling</li>
+                <li><strong>Velocity</strong> — 30-day commercial momentum</li>
+                <li><strong>Risk</strong> — availability · data quality discount</li>
+                <li><strong>Proof</strong> — explanatory only (on-field signal lives in Value)</li>
               </ul>
               <p className={styles.explainerFooter}>
-                Weights vary by sport &amp; position group. Top SHAP drivers
-                appear below in the breakdown. Fallback model: heuristic
-                weights (see Settings → Weighting).
+                NFL/NBA use commercial ML champions when available; college may
+                use commercial viability. Impact Score is separate (winning impact).
               </p>
             </div>
           )}
         </div>
         <div className={styles.scoreBlock}>
+          <span className={styles.scoreLabel}>IMPACT SCORE</span>
+          <span className={styles.tier} title="Winning impact: proof × participation × team context">
+            {athlete.impact_score != null
+              ? athlete.impact_score.toFixed(1)
+              : athlete.value_score != null
+                ? athlete.value_score.toFixed(1)
+                : '\u2014'}
+          </span>
           <span className={styles.scoreLabel}>TIER</span>
           <span className={styles.tier}>{athlete.gravity_tier ?? '\u2014'}</span>
           <span className={styles.scoreLabel}>PCT</span>

@@ -813,6 +813,41 @@ class EspnStatsScraper(BaseMicroScraper):
             history=stats.get("season_stats_history"),
             career=stats.get("career_stats"),
         )
+        # ESPN NFL athlete stats never include gamesStarted. For skill positions
+        # with GP, persist gs=gp so win_impact / ASS see real starter participation.
+        if ctx.sport == "nfl" and not (fields.get("games_started") or fields.get("gs")):
+            from gravity_api.services.win_impact import resolve_games_started
+
+            probe = {
+                **fields,
+                "position": ctx.position or fields.get("position"),
+                "position_group": fields.get("position_group"),
+            }
+            inferred, observed = resolve_games_started(probe, sport="nfl", position=ctx.position)
+            if inferred > 0 and not observed:
+                fields["games_started"] = int(inferred)
+                fields["gs"] = float(inferred)
+                fields["games_started_inferred"] = 1
+                season = fields.get("season_stats")
+                if isinstance(season, dict):
+                    season = dict(season)
+                    season["games_started"] = float(inferred)
+                    season["gs"] = float(inferred)
+                    fields["season_stats"] = season
+                history = fields.get("season_stats_history")
+                if isinstance(history, dict):
+                    patched_hist: dict[str, dict] = {}
+                    for year, blob in history.items():
+                        if not isinstance(blob, dict):
+                            continue
+                        row = dict(blob)
+                        if not (row.get("games_started") or row.get("gs")):
+                            gp = row.get("games_played_season") or row.get("gp")
+                            if gp:
+                                row["games_started"] = float(gp)
+                                row["gs"] = float(gp)
+                        patched_hist[str(year)] = row
+                    fields["season_stats_history"] = patched_hist
         if self._needs_sports_ref_fallback(fields, ctx.sport):
             fb = await self._sports_ref_fallback(ctx, scraper_key)
             if fb.get("season_stats"):

@@ -1,0 +1,31 @@
+{
+  "feature_names": [
+    "all_american_count",
+    "data_quality_score",
+    "games_played_season",
+    "games_started",
+    "games_started_observed",
+    "gp_observed",
+    "gs_rate",
+    "impact_confidence",
+    "national_awards_count",
+    "participation_index",
+    "proof_composite_index",
+    "proof_composite_pctile",
+    "proof_performance_index_pctile",
+    "proof_residual_team",
+    "proof_x_participation",
+    "proof_x_weak_team",
+    "recruiting_outperformance",
+    "recruiting_rank_national",
+    "recruiting_stars",
+    "seasons_with_gp",
+    "team_losses",
+    "team_record_observed",
+    "team_win_pct",
+    "team_win_pct_percentile",
+    "team_wins",
+    "velocity_composite_pctile",
+    "velocity_proof_yoy"
+  ]
+}

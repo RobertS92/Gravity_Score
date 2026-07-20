@@ -11,11 +11,13 @@ from gravity_api.services.gravity_calibration import calibrate_gravity_score, co
 from gravity_api.services.nil_valuation import elite_signal_strength, nil_from_row
 from gravity_composite.composite import perf_index_to_score
 
+# Legacy unused dict — live weights come from config/gravity_composite_weights.json
+# (commercial remap: Brand/Proximity dominate; Proof demoted to explainability).
 SPORT_WEIGHTS: dict[str, dict[str, float]] = {
-    "default": {"brand": 0.30, "proof": 0.35, "velocity": 0.15, "proximity": 0.10, "risk": 0.10},
-    "cfb": {"brand": 0.30, "proof": 0.35, "velocity": 0.15, "proximity": 0.10, "risk": 0.10},
-    "ncaab_mens": {"brand": 0.32, "proof": 0.33, "velocity": 0.15, "proximity": 0.10, "risk": 0.10},
-    "ncaab_womens": {"brand": 0.32, "proof": 0.33, "velocity": 0.15, "proximity": 0.10, "risk": 0.10},
+    "default": {"brand": 0.40, "proof": 0.05, "velocity": 0.15, "proximity": 0.35, "risk": 0.05},
+    "cfb": {"brand": 0.40, "proof": 0.05, "velocity": 0.15, "proximity": 0.35, "risk": 0.05},
+    "ncaab_mens": {"brand": 0.38, "proof": 0.05, "velocity": 0.18, "proximity": 0.32, "risk": 0.07},
+    "ncaab_womens": {"brand": 0.40, "proof": 0.05, "velocity": 0.18, "proximity": 0.30, "risk": 0.07},
 }
 
 
@@ -27,6 +29,19 @@ def _f(raw: dict[str, Any], key: str, default: float = 0.0) -> float:
         return float(val)
     except (TypeError, ValueError):
         return default
+
+
+def _quality_from_heuristic(components: dict[str, float], raw: dict[str, Any], sport: str) -> float:
+    """On-field quality — Proof-heavy; separate from commercial Gravity."""
+    proof = components["proof"]
+    perf = _f(raw, "proof_composite_pctile") or _f(raw, "proof_performance_index_pctile") or proof
+    stability = 100.0 - components["risk"] * 0.5
+    recruiting = _f(raw, "recruiting_stars") * 20.0
+    if sport in ("nfl", "nba", "wnba"):
+        q = 0.58 * perf + 0.28 * proof + 0.14 * stability
+    else:
+        q = 0.55 * perf + 0.25 * proof + 0.12 * recruiting + 0.08 * stability
+    return max(0.0, min(100.0, q))
 
 
 def _block_index(snapshot: AthleteFeatureSnapshot | None, block: str) -> float | None:
@@ -191,10 +206,13 @@ def compute_heuristic_gravity_v1(
     if not int(float(raw.get("nil_valuation_observed") or 0)) and nil_anchor:
         imputed.append("nil_valuation")
 
+    quality = _quality_from_heuristic(components, raw, sport_key)
     dollar_conf: dict[str, Any] = {
         "source": "heuristic_gravity_v1",
         "quality": dollar_quality,
         "nil_anchored": bool(nil_anchor and nil_anchor > 0),
+        "score_objective": "commercial",
+        "gravity_source": "commercial_bpxvr",
     }
     if cohort_latent_scores is not None:
         dollar_conf["gravity_score_latent"] = round(latent, 4)
@@ -210,11 +228,14 @@ def compute_heuristic_gravity_v1(
         "proximity_score": round(proximity, 4),
         "velocity_score": round(velocity, 4),
         "risk_score": round(risk, 4),
+        "quality_score": round(quality, 4),
         "confidence": confidence,
         "model_version": "heuristic_gravity_v1",
         "fallback_used": True,
         "fallback_kind": "heuristic_gravity_v1",
         "score_tier": 2,
+        "score_objective": "commercial",
+        "gravity_source": "commercial_bpxvr",
         "dollar_p10_usd": round(p50 * 0.6, 2),
         "dollar_p50_usd": round(p50, 2),
         "dollar_p90_usd": round(p50 * 1.8, 2),

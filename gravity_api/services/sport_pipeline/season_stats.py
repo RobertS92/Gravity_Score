@@ -83,26 +83,48 @@ async def upsert_season_stats_from_raw(
         return count
 
     current_year = season_year or _current_season_year()
-    current_stats = flatten_raw_for_stats(raw, sport)
-    written += await _write_season(
-        current_stats,
-        current_year,
-        source_key=str(raw.get("stats_source") or "scraper"),
-    )
 
     history = raw.get("season_stats_history")
+
+    # First, persist every real per-season row under its actual year (used for
+    # feature engineering: trajectories, peaks, recent-form). Skip current_year
+    # itself — that slot is reserved for the scoring "anchor" written last so it
+    # is authoritative and never overwritten by an in-progress partial season.
+    history_years: dict[int, dict[str, float]] = {}
     if isinstance(history, dict):
         for season_label, season_blob in history.items():
             if not isinstance(season_blob, dict):
                 continue
             year = _parse_season_year(season_label, fallback=current_year)
             normalized = flatten_raw_for_stats({"season_stats": season_blob}, sport)
-            if normalized:
+            if not normalized:
+                continue
+            history_years[year] = normalized
+            if year != current_year:
                 written += await _write_season(
                     normalized,
                     year,
                     source_key=str(raw.get("stats_source") or "espn_history"),
                 )
+
+    # The scoring anchor (current_year row) must be a single clean season. Use
+    # the latest COMPLETED season (year < current_year) when available — pros in
+    # the offseason have no games in current_year, and the flattened top-level
+    # scalars can carry career-cumulative leakage (e.g. games_played = career
+    # total). Fall back to any real season, then to flattened scalars.
+    anchor_stats: dict[str, float] | None = None
+    completed = [y for y in history_years if y < current_year]
+    if completed:
+        anchor_stats = history_years[max(completed)]
+    elif history_years:
+        anchor_stats = history_years[max(history_years)]
+
+    current_stats = anchor_stats or flatten_raw_for_stats(raw, sport)
+    written += await _write_season(
+        current_stats,
+        current_year,
+        source_key=str(raw.get("stats_source") or "scraper"),
+    )
 
     return written
 

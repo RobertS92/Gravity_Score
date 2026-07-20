@@ -1,0 +1,9 @@
+{
+  "model_key": "gravity_athlete_cfb_impact_v1",
+  "entity_type": "athlete",
+  "sport": "cfb",
+  "objective": "impact",
+  "version": "1.0.0",
+  "trained_at": "2026-07-09T15:40:00.447531+00:00",
+  "row_count": 2000
+}

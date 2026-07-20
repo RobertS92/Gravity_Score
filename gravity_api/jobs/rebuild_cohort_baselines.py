@@ -14,6 +14,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -88,26 +89,28 @@ async def rebuild_for_cohort(
         )
         written += 1
 
-    # Performance index baseline
-    athletes = await conn.fetch(
-        """SELECT DISTINCT athlete_id FROM athlete_season_stats
+    # Performance index baseline. Fetch the whole cohort's stats in ONE query
+    # and group per athlete in Python — the previous per-athlete query loop was
+    # an N+1 that made a full rebuild take many minutes to hours.
+    cohort_rows = await conn.fetch(
+        """SELECT athlete_id, stat_key, stat_value FROM athlete_season_stats
            WHERE sport = $1 AND position_group = $2 AND season_year = $3""",
         sport,
         position_group,
         season_year,
     )
+    per_athlete: dict[Any, dict[str, float]] = {}
+    per_stat_values: dict[str, list[float]] = {k: [] for k in stat_keys}
+    for r in cohort_rows:
+        key = str(r["stat_key"])
+        val = float(r["stat_value"])
+        per_athlete.setdefault(r["athlete_id"], {})[key] = val
+        if key in per_stat_values:
+            per_stat_values[key].append(val)
+
     means: dict[str, float] = {}
     stds: dict[str, float] = {}
-    for stat_key in stat_keys:
-        rows = await conn.fetch(
-            """SELECT stat_value FROM athlete_season_stats
-               WHERE sport = $1 AND position_group = $2 AND season_year = $3 AND stat_key = $4""",
-            sport,
-            position_group,
-            season_year,
-            stat_key,
-        )
-        vals = [float(r["stat_value"]) for r in rows]
+    for stat_key, vals in per_stat_values.items():
         if vals:
             d = baseline_distribution(vals)
             if d["mean"] is not None:
@@ -116,15 +119,7 @@ async def rebuild_for_cohort(
                 stds[stat_key] = max(float(d["std"]), 1e-6)
 
     indices: list[float] = []
-    for row in athletes:
-        stats_rows = await conn.fetch(
-            """SELECT stat_key, stat_value FROM athlete_season_stats
-               WHERE athlete_id = $1 AND sport = $2 AND season_year = $3""",
-            row["athlete_id"],
-            sport,
-            season_year,
-        )
-        season_stats = {r["stat_key"]: float(r["stat_value"]) for r in stats_rows}
+    for season_stats in per_athlete.values():
         idx = compute_performance_index(
             sport=sport,
             position_group=position_group,

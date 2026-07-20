@@ -1,9 +1,15 @@
 {
   "champions": {
-    "gravity_athlete_cfb_value_v1": "1.1.0-beta"
+    "gravity_athlete_cfb_value_v1": "1.1.0-beta",
+    "gravity_athlete_nfl_value_v1": "1.0.0",
+    "gravity_athlete_nba_value_v1": "1.0.0"
   },
   "retired": {
-    "note": "Non-CFB value bundles removed \u2014 identical synthetic bootstrap weights saturated scores at 100. Re-enable per sport after real training passes production gates."
+    "note": "Non-CFB value bundles removed \u2014 identical synthetic bootstrap weights saturated scores at 100. Re-enable per sport after real training passes production gates.",
+    "gravity_athlete_cfb_impact_v1": {
+      "version": "1.0.0",
+      "reason": "Trained on win_impact_v0 floor labels (participation/proof missing). Retrain after raw_payload season-stat flatten."
+    }
   },
-  "updated_at": "2026-07-03T19:35:47.366428+00:00"
+  "updated_at": "2026-07-09T15:44:20.620419+00:00"
 }

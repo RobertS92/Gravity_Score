@@ -189,6 +189,16 @@ class CscValueOut(BaseModel):
     total_benchmark: float | None = None
     range_low: float | None = None
     range_high: float | None = None
+    annual_nil_benchmark: float | None = None
+    activation_deal_low: float | None = None
+    activation_deal_mid: float | None = None
+    activation_deal_high: float | None = None
+    season_partnership_low: float | None = None
+    season_partnership_high: float | None = None
+    deal_confidence: str | None = None
+    deal_uncertainty: str | None = None
+    deal_pricing_method: str | None = None
+    deal_pricing_basis: str | None = None
     tier_tag: str | None = None
     confidence_tag: str | None = None
 

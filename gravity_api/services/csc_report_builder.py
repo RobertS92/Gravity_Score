@@ -25,6 +25,9 @@ from gravity_api.services.csc_report_rollout import (
     load_report_rollout_state,
 )
 from gravity_api.services.brand_heritage import detect_brand_heritage
+from gravity_api.services.athlete_eligibility import live_eligibility_reason
+from gravity_api.services.deal_pricing import price_standard_activation
+from gravity_api.services.deal_scope_pricing import DEAL_SCOPES, price_all_deal_scopes
 from gravity_api.services.model_health import classify_model_version
 from gravity_api.services.nil_valuation import elite_signal_strength, nil_from_row
 from gravity_api.services.position_group_match import derive_position_group, position_aliases_for_group
@@ -1978,6 +1981,11 @@ async def build_csc_report_json(
     if not athlete:
         raise ValueError("athlete not found")
     athlete_d = dict(athlete)
+    eligibility_block = live_eligibility_reason(athlete_d)
+    if eligibility_block:
+        raise ValueError(
+            f"Live pricing unavailable: {eligibility_block}. Refresh the authoritative roster before generating a report."
+        )
 
     report_dt = datetime.now(tz=UTC)
     name = _text_or_fallback(athlete_d.get("name"), "Selected athlete")
@@ -2040,6 +2048,9 @@ async def build_csc_report_json(
     band_high_pct = params.get("csc_band_high_pct")
 
     report_focus = (params.get("report_focus") or "overall").lower()
+    selected_deal_scope = str(params.get("deal_scope") or "standard_activation")
+    if selected_deal_scope not in DEAL_SCOPES:
+        raise ValueError(f"unsupported deal_scope: {selected_deal_scope}")
 
     # ---------------- PHASE 2: DATA HYDRATION ----------------
     latest = await db.fetchrow(
@@ -2489,9 +2500,17 @@ async def build_csc_report_json(
     )
     comparable_sets_computed_at = None
     comparables_analysis: List[Dict[str, Any]] = []
+    deal_pricing_comparables: List[Dict[str, Any]] = []
     for c in comp_rows:
         d = dict(c)
         comp_nil = _first_number(d.get("deal_value"), d.get("dollar_p50_usd"))
+        deal_pricing_comparables.append(
+            {
+                "deal_value": _first_number(d.get("deal_value")),
+                "dollar_p50_usd": _first_number(d.get("dollar_p50_usd")),
+                "nil_valuation_consensus": comp_nil,
+            }
+        )
         comparables_analysis.append(
             {
                 "athlete_id": str(d["id"]),
@@ -2569,6 +2588,80 @@ async def build_csc_report_json(
     elif len(comparables_analysis) < 3:
         comparable_state = "sparse"
 
+    deal_pricing = price_standard_activation(
+        annual_benchmark=benchmark,
+        model_p50=model_p50,
+        cohort_stats=cohort_stats,
+        comparables=deal_pricing_comparables,
+        sport=sport_f,
+        position_group=pos_group,
+        brand_score=brand_score,
+        proof_score=proof_score,
+        exposure_score=exposure_score,
+        velocity_score=velocity_score,
+        risk_score=risk_score,
+        model_confidence=model_confidence,
+        verified_deals_count=verified_deals_count,
+        cohort_fit=cohort_fit_label,
+        market_view=market_view,
+    )
+    transaction_counts: dict[str, int] = {}
+    calibrations: dict[str, dict[str, Any]] = {}
+    try:
+        count_rows = await db.fetch(
+            """SELECT deal_scope::text AS deal_scope, COUNT(*)::int AS n
+               FROM verified_deal_transactions
+               WHERE retracted_at IS NULL
+               GROUP BY deal_scope"""
+        )
+        transaction_counts = {str(row["deal_scope"]): int(row["n"]) for row in count_rows}
+        calibration_rows = await db.fetch(
+            """SELECT DISTINCT ON (deal_scope) deal_scope::text AS deal_scope,
+                      model_version, validation_transactions, target_coverage,
+                      empirical_coverage, median_absolute_percentage_error,
+                      log_residual_lower, log_residual_upper, evaluated_through
+               FROM deal_model_calibrations
+               ORDER BY deal_scope, evaluated_through DESC, created_at DESC"""
+        )
+        calibrations = {str(row["deal_scope"]): dict(row) for row in calibration_rows}
+    except Exception:
+        # Migration rollout is backward compatible. The output remains visibly
+        # uncalibrated until governed evidence tables are available.
+        transaction_counts = {}
+        calibrations = {}
+    scoped_deal_pricing = price_all_deal_scopes(
+        annual_benchmark=benchmark,
+        signals={
+            "brand_score": brand_score,
+            "proof_score": proof_score,
+            "exposure_score": exposure_score,
+            "velocity_score": velocity_score,
+            "risk_score": risk_score,
+        },
+        transaction_counts=transaction_counts,
+        calibrations=calibrations,
+    )
+    selected_scope_estimate = scoped_deal_pricing[selected_deal_scope]
+    # From here forward, `lo`/`hi` are transaction-level activation guidance,
+    # not the annual NIL benchmark uncertainty band. This deliberately retires
+    # the old "range must bracket benchmark" invariant for user-facing deal
+    # construction.
+    if (
+        deal_pricing.activation_deal_low is not None
+        and deal_pricing.activation_deal_high is not None
+    ):
+        lo = selected_scope_estimate["low"]
+        hi = selected_scope_estimate["high"]
+        range_quality = "normal" if selected_scope_estimate["calibrated"] else "estimate"
+        value_range_note = (
+            (
+                "Recommended range is priced for a standard 4-6 week brand activation. "
+                if selected_deal_scope == "standard_activation"
+                else f"Recommended range is priced for {selected_scope_estimate['label'].lower()}. "
+            )
+            + "It is intentionally separate from the annual NIL market benchmark."
+        )
+
     base_confidence = _signal_level((model_confidence or 0.5) * 100.0)
     confidence_level = compute_final_confidence(
         base_confidence,
@@ -2623,13 +2716,16 @@ async def build_csc_report_json(
     fallback_executive_parts = [
         (
             f"{name} carries a Total NIL Value Benchmark of {benchmark_text} "
-            f"with a recommended deal range of {range_text}."
+            f"with standard activation guidance of {range_text}."
         ),
         (
             f"In {conference_f} {pos_group}s, this profile sits in {percentile_text}, "
             f"led by {top_driver.lower()}."
         ),
-        f"The benchmark reflects current cohort positioning and verified market activity.",
+        (
+            "The benchmark reflects annual market positioning; the activation range "
+            "is priced separately using deliverable-level deal economics."
+        ),
     ]
     if confidence_level != "High":
         fallback_executive_parts.append(
@@ -2812,10 +2908,10 @@ async def build_csc_report_json(
     )
 
     detail_methodology = (
-        "Component-based valuation model with cohort-relative market context. "
+        "Component-based annual valuation with separate activation-level deal pricing. "
         f"Season state={season_state}, cohort window={90 if cohort_fallback_step >= 2 else cohort_window_days} days. "
         f"Exposure formula version={exposure_formula['version']}; "
-        "tier methodology=tier_v2 with phased rollout."
+        f"deal methodology={deal_pricing.method}; tier methodology=tier_v2 with phased rollout."
     )
 
     # ---------------- PHASE 5+7: RENDER + RETURN ----------------
@@ -2824,6 +2920,24 @@ async def build_csc_report_json(
             "total_benchmark": benchmark,
             "range_low": lo,
             "range_high": hi,
+            "annual_nil_benchmark": deal_pricing.annual_nil_benchmark,
+            "activation_deal_low": scoped_deal_pricing["standard_activation"]["low"],
+            "activation_deal_mid": scoped_deal_pricing["standard_activation"]["mid"],
+            "activation_deal_high": scoped_deal_pricing["standard_activation"]["high"],
+            "season_partnership_low": deal_pricing.season_partnership_low,
+            "season_partnership_high": deal_pricing.season_partnership_high,
+            "deal_confidence": selected_scope_estimate["confidence"],
+            "deal_uncertainty": (
+                f"Measured on {selected_scope_estimate['validation_transactions']} later transactions; "
+                f"median absolute error={selected_scope_estimate['median_absolute_percentage_error']:.0%}."
+                if selected_scope_estimate["calibrated"]
+                and selected_scope_estimate["median_absolute_percentage_error"] is not None
+                else "Uncalibrated prior: historical error is not yet sufficient to claim confidence."
+            ),
+            "deal_pricing_method": selected_scope_estimate["model_version"],
+            "deal_pricing_basis": selected_scope_estimate["basis"],
+            "selected_deal_scope": selected_deal_scope,
+            "deal_scopes": scoped_deal_pricing,
             "tier_tag": tier_selected,
             "confidence_tag": f"{confidence_level} Confidence",
             "range_note": value_range_note,
@@ -2923,6 +3037,13 @@ async def build_csc_report_json(
             ),
             "cohort_fit": cohort_fit_label,
             "range_quality": range_quality,
+            "deal_pricing_method": selected_scope_estimate["model_version"],
+            "deal_pricing_confidence": selected_scope_estimate["confidence"],
+            "deal_pricing_comparable_deal_count": deal_pricing.comparable_deal_count,
+            "deal_pricing_cohort_size": deal_pricing.cohort_size,
+            "selected_deal_scope": selected_deal_scope,
+            "deal_scope_calibrated": bool(selected_scope_estimate["calibrated"]),
+            "deal_scope_readiness": selected_scope_estimate["readiness"],
             # Echo back the analyst/simple-mode knobs that shaped this run so
             # the UI can show users which preset produced the report and so
             # ops can debug "why does X look different today" answers.

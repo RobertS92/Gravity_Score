@@ -1,4 +1,4 @@
-export type Sport = 'CFB' | 'NCAAB' | 'NCAAWB'
+export type Sport = 'CFB' | 'NCAAB' | 'NCAAWB' | 'NBA' | 'NFL' | 'WNBA'
 export type ClassYear = 'FR' | 'SO' | 'JR' | 'SR' | 'GS'
 export type GravityTier = 'ELITE' | 'BREAKOUT' | 'ESTABLISHING' | 'DEVELOPING'
 
@@ -41,6 +41,22 @@ export interface AthleteRecord {
   height?: string | null
   weight?: string | null
   gravity_score?: number | null
+  /** Rank of global Gravity within the athlete's sport (1–99). */
+  gravity_sport_percentile?: number | null
+  /** Commercial / market value (Gravity). Distinct from Impact. */
+  /** Winning impact (Impact Score). `value_score` is the legacy storage/API alias. */
+  impact_score?: number | null
+  /** Rank of Impact within the athlete's sport (1–99). */
+  impact_sport_percentile?: number | null
+  impact_score_source?: string | null
+  /** @deprecated Prefer impact_score. */
+  value_score?: number | null
+  /** @deprecated Prefer impact_sport_percentile. */
+  value_sport_percentile?: number | null
+  /** @deprecated Prefer impact_score_source. */
+  value_score_source?: string | null
+  /** On-field quality (proof-heavy); not commercial Gravity. */
+  quality_score?: number | null
   /** Program / school Gravity (TeamGravityNet) at latest score */
   company_gravity_score?: number | null
   /** Brand-market composite (brand + velocity + proof emphasis) */

@@ -7,11 +7,48 @@ export interface CscReportComparablesRow extends ComparableRecord {
 }
 
 export type CscSignalLevel = 'High' | 'Moderate' | 'Low'
+export type DealScope =
+  | 'standard_activation'
+  | 'season_partnership'
+  | 'collective_package'
+  | 'group_licensing'
+  | 'revenue_sharing'
+
+export interface ScopedDealEstimate {
+  scope: DealScope
+  label: string
+  low: number | null
+  mid: number | null
+  high: number | null
+  model_version: string
+  calibrated: boolean
+  confidence: 'High' | 'Moderate' | 'Low' | 'Uncalibrated'
+  basis: string
+  qualified_transactions: number
+  validation_transactions: number
+  empirical_coverage: number | null
+  target_coverage: number | null
+  median_absolute_percentage_error: number | null
+  evaluated_through: string | null
+  readiness: 'insufficient_data' | 'pilot' | 'production'
+}
 
 export interface CscValueSection {
   total_benchmark: number | null
   range_low: number | null
   range_high: number | null
+  annual_nil_benchmark?: number | null
+  activation_deal_low?: number | null
+  activation_deal_mid?: number | null
+  activation_deal_high?: number | null
+  season_partnership_low?: number | null
+  season_partnership_high?: number | null
+  deal_confidence?: string | null
+  deal_uncertainty?: string | null
+  deal_pricing_method?: string | null
+  deal_pricing_basis?: string | null
+  selected_deal_scope?: DealScope
+  deal_scopes?: Partial<Record<DealScope, ScopedDealEstimate>>
   tier_tag?: string | null
   confidence_tag?: string | null
   /** Outlier / deal-band note shown under the hero range. */
@@ -152,6 +189,9 @@ export interface CscReportMetadata {
   report_version?: 'v2' | 'v3' | null
   report_rollout_phase?: string | null
   conference_mapping_status?: 'mapped' | 'stored_fallback' | 'school_fallback' | 'unmapped' | null
+  selected_deal_scope?: DealScope
+  deal_scope_calibrated?: boolean
+  deal_scope_readiness?: 'insufficient_data' | 'pilot' | 'production'
 }
 
 export interface CscReportJson {
@@ -203,6 +243,7 @@ export interface CscReportParams {
   /** Simple-mode preset passed to API for narrative/comparable emphasis. */
   market_view?: CscMarketView
   report_focus?: CscReportFocus
+  deal_scope?: DealScope
 }
 
 export interface BrandMatchBrief {

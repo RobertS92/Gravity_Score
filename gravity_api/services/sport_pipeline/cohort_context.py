@@ -68,25 +68,29 @@ async def load_cohort_stat_distributions(
     means: dict[str, float] = {}
     stds: dict[str, float] = {}
     value_lists: dict[str, list[float]] = {}
+    if not stat_keys:
+        return means, stds, value_lists
 
-    for stat_key in stat_keys:
-        rows = await conn.fetch(
-            """SELECT stat_value FROM athlete_season_stats
-               WHERE sport = $1 AND position_group = $2 AND season_year = $3
-                 AND stat_key = $4""",
-            sport,
-            position_group,
-            season_year,
-            stat_key,
-        )
-        values = [float(r["stat_value"]) for r in rows]
-        if values:
-            value_lists[stat_key] = values
-            dist = baseline_distribution(values)
-            if dist["mean"] is not None:
-                means[stat_key] = float(dist["mean"])
-            if dist["std"] is not None:
-                stds[stat_key] = float(dist["std"]) if float(dist["std"]) > 0 else 1.0
+    rows = await conn.fetch(
+        """SELECT stat_key, stat_value FROM athlete_season_stats
+           WHERE sport = $1 AND position_group = $2 AND season_year = $3
+             AND stat_key = ANY($4::text[])""",
+        sport,
+        position_group,
+        season_year,
+        list(stat_keys),
+    )
+    for r in rows:
+        key = str(r["stat_key"])
+        value_lists.setdefault(key, []).append(float(r["stat_value"]))
+    for stat_key, values in value_lists.items():
+        if not values:
+            continue
+        dist = baseline_distribution(values)
+        if dist["mean"] is not None:
+            means[stat_key] = float(dist["mean"])
+        if dist["std"] is not None:
+            stds[stat_key] = float(dist["std"]) if float(dist["std"]) > 0 else 1.0
 
     return means, stds, value_lists
 
@@ -111,23 +115,22 @@ async def load_cohort_performance_indices(
     if not means:
         return []
 
-    athletes = await conn.fetch(
-        """SELECT DISTINCT athlete_id FROM athlete_season_stats
-           WHERE sport = $1 AND position_group = $2 AND season_year = $3""",
+    rows = await conn.fetch(
+        """SELECT athlete_id, stat_key, stat_value FROM athlete_season_stats
+           WHERE sport = $1 AND position_group = $2 AND season_year = $3
+             AND stat_key = ANY($4::text[])""",
         sport,
         position_group,
         season_year,
+        list(stat_keys),
     )
+    by_athlete: dict[Any, dict[str, float]] = {}
+    for row in rows:
+        bucket = by_athlete.setdefault(row["athlete_id"], {})
+        bucket[str(row["stat_key"])] = float(row["stat_value"])
+
     indices: list[float] = []
-    for row in athletes:
-        stats_rows = await conn.fetch(
-            """SELECT stat_key, stat_value FROM athlete_season_stats
-               WHERE athlete_id = $1 AND sport = $2 AND season_year = $3""",
-            row["athlete_id"],
-            sport,
-            season_year,
-        )
-        season_stats = {r["stat_key"]: float(r["stat_value"]) for r in stats_rows}
+    for season_stats in by_athlete.values():
         idx = compute_performance_index(
             sport=sport,
             position_group=position_group,

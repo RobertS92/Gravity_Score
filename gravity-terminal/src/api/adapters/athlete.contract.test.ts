@@ -48,6 +48,42 @@ describe('athlete adapters', () => {
     expect(rec.nil_valuation_consensus).toBe(100000)
   })
 
+  it('maps NBA Impact aliases from detail and search payloads', () => {
+    const detail = mapAthleteFromBundle({
+      athlete: {
+        id: 'nba1',
+        name: 'NBA Star',
+        sport: 'nba',
+        impact_score: 88.4,
+        impact_sport_percentile: 97,
+        impact_score_source: 'win_impact_v1_additive',
+      },
+      score_history: [
+        {
+          calculated_at: '2026-07-10T00:00:00Z',
+          gravity_score: 85.5,
+        },
+      ],
+    })
+    expect(detail.sport).toBe('NBA')
+    expect(detail.impact_score).toBe(88.4)
+    expect(detail.value_score).toBe(88.4)
+    expect(detail.impact_sport_percentile).toBe(97)
+
+    const search = mapSearchRowToAthlete({
+      id: 'nba2',
+      name: 'NBA Search Star',
+      sport: 'nba',
+      gravity_score: 95.7,
+      impact_score: 91.2,
+      impact_sport_percentile: 99,
+    })
+    expect(search.sport).toBe('NBA')
+    expect(search.impact_score).toBe(91.2)
+    expect(search.value_score).toBe(91.2)
+    expect(search.impact_sport_percentile).toBe(99)
+  })
+
   it('maps score history', () => {
     const pts = mapScoreHistoryFromApi([
       { calculated_at: '2025-01-02T00:00:00Z', gravity_score: 81 },

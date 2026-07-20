@@ -4,6 +4,8 @@
   "sport": "nba",
   "objective": "value",
   "version": "1.0.0",
-  "trained_at": "2026-06-22T16:56:06.227424+00:00",
-  "row_count": 200
+  "trained_at": "2026-07-09T15:20:17.117264+00:00",
+  "row_count": 458,
+  "training_source": "observed_salary_annual",
+  "label_target": "salary_annual_usd"
 }

@@ -30,8 +30,13 @@ from gravity_api.services.score_imputation import (
 from gravity_api.services.heuristic_gravity import compute_heuristic_gravity_v1, compute_heuristic_latent_v1
 from gravity_api.services.sport_pipeline.config import get_sport_pipeline_config
 from gravity_api.services.sport_pipeline.run import _persist_score_row
+from gravity_api.services.sport_pipeline.raw_stats_sync import (
+    apply_ass_enrichment_to_raw,
+    enrich_raw_from_athlete_season_stats,
+)
 from gravity_api.services.sport_pipeline.score import score_with_sport_model
 from gravity_api.services.scoring_stack import finalize_score_metadata
+from gravity_api.services.win_impact import merge_win_impact_into_raw
 from gravity_ml.brand.taxonomy import enrich_raw_with_partnerships
 
 logger = logging.getLogger("fast_ml_rescore")
@@ -121,6 +126,8 @@ async def _score_one(
                 manual = await load_manual_imputations(conn, athlete_id)
                 apply_manual_imputations(raw, manual)
                 apply_heuristic_imputations(raw, athlete)
+                ass_enrichment = await enrich_raw_from_athlete_season_stats(conn, athlete_id, sport)
+                raw = apply_ass_enrichment_to_raw(raw, ass_enrichment)
                 raw = enrich_raw_with_partnerships(raw)
 
                 if mode == "heuristic":
@@ -137,7 +144,7 @@ async def _score_one(
                         snapshot=None,
                         pipeline=pipeline,
                     )
-                score_data = finalize_score_metadata(score_data)
+                score_data = finalize_score_metadata(score_data, raw=raw, sport=sport)
                 if mode == "ml" and score_data.get("fallback_used"):
                     return False, f"fallback model={score_data.get('model_version')}"
                 if mode == "ml":
@@ -148,6 +155,16 @@ async def _score_one(
                         return False, f"ml mode only enabled for cfb, got {sport}"
                 if mode == "heuristic" and score_data.get("model_version") != "heuristic_gravity_v1":
                     return False, f"unexpected version={score_data.get('model_version')}"
+
+                raw = merge_win_impact_into_raw(raw, snapshot=None, sport=sport)
+                score_data.setdefault("win_impact_score", raw.get("win_impact_score"))
+                score_data.setdefault("value_score", raw.get("value_score") or raw.get("win_impact_score"))
+                score_data.setdefault(
+                    "value_score_source",
+                    raw.get("value_score_source") or "win_impact_v1_additive",
+                )
+                score_data.setdefault("impact_confidence", raw.get("impact_confidence"))
+                score_data.setdefault("participation_index", raw.get("participation_index"))
 
                 await _persist_score_row(conn, athlete, score_data, raw, manual, pipeline.model_key)
                 return True, None

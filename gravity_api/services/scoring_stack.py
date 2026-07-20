@@ -7,6 +7,7 @@ from typing import Any
 
 from gravity_api.feature_engineering.types import AthleteFeatureSnapshot
 from gravity_api.services.commercial_viability import COLLEGE_COMMERCIAL_SPORTS
+from gravity_api.services.global_scores import calibrate_global_commercial_score
 from gravity_api.services.heuristic_gravity import compute_heuristic_gravity_v1
 
 FLAT_CLUSTER_LO = 76.85
@@ -69,40 +70,115 @@ def apply_tier2_fallback_if_needed(
     return heuristic
 
 
+def _uses_commercial_ml(score_data: dict[str, Any]) -> bool:
+    """True when Gravity was produced by a non-rank-only commercial value ML bundle."""
+    if score_data.get("fallback_used"):
+        return False
+    dc = score_data.get("dollar_confidence") or {}
+    if str(dc.get("quality") or "") == "beta_rank_only":
+        return False
+    if str(score_data.get("gravity_source") or "") == "commercial_ml":
+        return True
+    mv = str(score_data.get("model_version") or "").lower()
+    if "heuristic" in mv or "composite" in mv:
+        return False
+    # Champion commercial ML (NFL/NBA) sets fallback_used=False and emits dollar bands.
+    return score_data.get("dollar_p50_usd") is not None and not score_data.get("fallback_used")
+
+
 def overlay_commercial_viability(
     score_data: dict[str, Any],
     raw: dict[str, Any],
     commercial_viability: dict[str, Any] | None,
     sport: str,
 ) -> dict[str, Any]:
-    """Tier 3: attach CV fields; backfill dollar bands when ML/heuristic omitted them."""
+    """Attach CV fields; for college, promote CV → Gravity when commercial ML is unavailable.
+
+    Gravity Score = commercial/market value. College sports without a production
+    commercial champion use commercial_viability_score as G (not BPXVR blend).
+    """
     if sport not in COLLEGE_COMMERCIAL_SPORTS or not commercial_viability:
-        return score_data
+        out = dict(score_data)
+        dc = dict(out.get("dollar_confidence") or {})
+        dc.setdefault("score_objective", "commercial")
+        if not dc.get("gravity_source"):
+            dc["gravity_source"] = (
+                "commercial_ml" if _uses_commercial_ml(out) else "commercial_bpxvr"
+            )
+        out["dollar_confidence"] = dc
+        out.setdefault("score_objective", "commercial")
+        out.setdefault("gravity_source", dc["gravity_source"])
+        return out
+
     out = dict(score_data)
     dc = dict(out.get("dollar_confidence") or {})
-    dc["commercial_viability_score"] = commercial_viability.get("commercial_viability_score")
+    cv_score = commercial_viability.get("commercial_viability_score")
+    dc["commercial_viability_score"] = cv_score
     dc["commercial_viability_index"] = commercial_viability.get("commercial_viability_index")
+    dc["commercial_viability_percentile"] = commercial_viability.get("commercial_viability_percentile")
+    dc["commercial_nil_market_floor"] = commercial_viability.get("commercial_nil_market_floor")
     dc["nil_signal_source"] = commercial_viability.get("nil_signal_source")
-    out["dollar_confidence"] = dc
-    if not out.get("dollar_p50_usd"):
-        out["dollar_p10_usd"] = commercial_viability.get("nil_dollar_p10")
-        out["dollar_p50_usd"] = commercial_viability.get("nil_dollar_p50")
-        out["dollar_p90_usd"] = commercial_viability.get("nil_dollar_p90")
-        out.setdefault(
-            "dollar_confidence",
-            {
-                "source": commercial_viability.get("nil_signal_source"),
-                "quality": "moderate"
+    dc["score_objective"] = "commercial"
+
+    if not _uses_commercial_ml(out) and cv_score is not None:
+        # College commercial Gravity: CV percentile is the display score.
+        out["gravity_score"] = float(cv_score)
+        dc["gravity_source"] = "commercial_viability"
+        out["gravity_source"] = "commercial_viability"
+        out["score_tier"] = 2
+        out["fallback_kind"] = "commercial_viability"
+        # Prefer CV NIL bands when ML suppressed dollars (rank-only) or omitted them.
+        if not out.get("dollar_p50_usd") or str(dc.get("quality") or "") == "beta_rank_only":
+            out["dollar_p10_usd"] = commercial_viability.get("nil_dollar_p10")
+            out["dollar_p50_usd"] = commercial_viability.get("nil_dollar_p50")
+            out["dollar_p90_usd"] = commercial_viability.get("nil_dollar_p90")
+            dc["quality"] = (
+                "moderate"
                 if commercial_viability.get("nil_signal_source") == "observed"
-                else "low",
-            },
+                else "low"
+            )
+            dc["source"] = commercial_viability.get("nil_signal_source") or "commercial_viability"
+    else:
+        dc["gravity_source"] = "commercial_ml" if _uses_commercial_ml(out) else dc.get(
+            "gravity_source", "commercial_bpxvr"
         )
+        out.setdefault("gravity_source", dc["gravity_source"])
+        if not out.get("dollar_p50_usd"):
+            out["dollar_p10_usd"] = commercial_viability.get("nil_dollar_p10")
+            out["dollar_p50_usd"] = commercial_viability.get("nil_dollar_p50")
+            out["dollar_p90_usd"] = commercial_viability.get("nil_dollar_p90")
+
+    out["dollar_confidence"] = dc
+    out.setdefault("score_objective", "commercial")
     return out
 
 
-def finalize_score_metadata(score_data: dict[str, Any]) -> dict[str, Any]:
+def finalize_score_metadata(
+    score_data: dict[str, Any],
+    *,
+    raw: dict[str, Any] | None = None,
+    sport: str | None = None,
+) -> dict[str, Any]:
     out = dict(score_data)
+    if raw is not None and sport and out.get("gravity_source") != "commercial_viability":
+        global_score, calibration = calibrate_global_commercial_score(out, raw, sport)
+        out["gravity_score"] = global_score
+        out["global_commercial_calibration"] = calibration
     out["score_tier"] = classify_score_tier(out)
+    out.setdefault("score_objective", "commercial")
+    dc = dict(out.get("dollar_confidence") or {})
+    dc.setdefault("score_objective", "commercial")
+    if out.get("global_commercial_calibration"):
+        dc["global_commercial_calibration"] = out["global_commercial_calibration"]
+    if not out.get("gravity_source"):
+        if _uses_commercial_ml(out):
+            out["gravity_source"] = "commercial_ml"
+        elif "heuristic" in str(out.get("model_version") or "").lower():
+            out["gravity_source"] = "commercial_bpxvr"
+        else:
+            out["gravity_source"] = dc.get("gravity_source") or "commercial_bpxvr"
+    dc.setdefault("gravity_source", out["gravity_source"])
+    out["dollar_confidence"] = dc
     if out["score_tier"] == 1:
         out.setdefault("fallback_used", False)
         out.setdefault("fallback_kind", None)

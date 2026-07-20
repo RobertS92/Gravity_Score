@@ -1,0 +1,28 @@
+{
+  "dataset_id": "public_collective_stress_2026_07_20",
+  "target_scope": "reported_collective_or_roster_package",
+  "source_url": "https://aart.assembly.ca.gov/system/files/2026-05/nil-legislative-brief.pdf",
+  "source_warning": "The source states that figures are based on media reporting and may not be accurate. This is an external stress test, not contract-verified ground truth.",
+  "cases": [
+    {"athlete": "Carson Beck", "sport": "CFB", "position_group": "QB", "annual_valuation_usd": 4300000, "reported_low_usd": 3000000, "reported_high_usd": 4000000, "source_page": 11},
+    {"athlete": "Jeremiah Smith", "sport": "CFB", "position_group": "WR", "annual_valuation_usd": 4200000, "reported_low_usd": 1000000, "reported_high_usd": 2000000, "source_page": 11},
+    {"athlete": "Garrett Nussmeier", "sport": "CFB", "position_group": "QB", "annual_valuation_usd": 3700000, "reported_low_usd": 2000000, "reported_high_usd": 2000000, "source_page": 11},
+    {"athlete": "LaNorris Sellers", "sport": "CFB", "position_group": "QB", "annual_valuation_usd": 3700000, "reported_low_usd": 2000000, "reported_high_usd": 2000000, "source_page": 11},
+    {"athlete": "DJ Lagway", "sport": "CFB", "position_group": "QB", "annual_valuation_usd": 3700000, "reported_low_usd": 2000000, "reported_high_usd": 2000000, "source_page": 11},
+    {"athlete": "Cade Klubnik", "sport": "CFB", "position_group": "QB", "annual_valuation_usd": 3400000, "reported_low_usd": 1500000, "reported_high_usd": 1500000, "source_page": 11},
+    {"athlete": "Drew Allar", "sport": "CFB", "position_group": "QB", "annual_valuation_usd": 3100000, "reported_low_usd": 1500000, "reported_high_usd": 1500000, "source_page": 11},
+    {"athlete": "Sam Leavitt", "sport": "CFB", "position_group": "QB", "annual_valuation_usd": 3100000, "reported_low_usd": 1500000, "reported_high_usd": 1500000, "source_page": 11},
+    {"athlete": "Bryce Underwood", "sport": "CFB", "position_group": "QB", "annual_valuation_usd": 3000000, "reported_low_usd": 1500000, "reported_high_usd": 1500000, "source_page": 11},
+    {"athlete": "AJ Dybantsa", "sport": "MBB", "position_group": "F", "annual_valuation_usd": 4100000, "reported_low_usd": 7000000, "reported_high_usd": 7000000, "source_page": 12},
+    {"athlete": "JT Toppin", "sport": "MBB", "position_group": "F", "annual_valuation_usd": 2800000, "reported_low_usd": 4000000, "reported_high_usd": 4000000, "source_page": 12},
+    {"athlete": "Yaxel Lendeborg", "sport": "MBB", "position_group": "F", "annual_valuation_usd": 2300000, "reported_low_usd": 3000000, "reported_high_usd": 3000000, "source_page": 12},
+    {"athlete": "Boogie Fland", "sport": "MBB", "position_group": "G", "annual_valuation_usd": 2100000, "reported_low_usd": 2000000, "reported_high_usd": 2000000, "source_page": 12},
+    {"athlete": "Donovan Dent", "sport": "MBB", "position_group": "G", "annual_valuation_usd": 2000000, "reported_low_usd": 3000000, "reported_high_usd": 3000000, "source_page": 12},
+    {"athlete": "Jayden Quaintance", "sport": "MBB", "position_group": "F", "annual_valuation_usd": 1900000, "reported_low_usd": 2000000, "reported_high_usd": 2000000, "source_page": 12},
+    {"athlete": "Cameron Boozer", "sport": "MBB", "position_group": "F", "annual_valuation_usd": 1800000, "reported_low_usd": 1500000, "reported_high_usd": 1500000, "source_page": 12},
+    {"athlete": "Darryn Peterson", "sport": "MBB", "position_group": "G", "annual_valuation_usd": 1600000, "reported_low_usd": 1000000, "reported_high_usd": 1000000, "source_page": 12},
+    {"athlete": "Braden Smith", "sport": "MBB", "position_group": "G", "annual_valuation_usd": 1600000, "reported_low_usd": 1000000, "reported_high_usd": 1000000, "source_page": 12},
+    {"athlete": "Milos Uzan", "sport": "MBB", "position_group": "G", "annual_valuation_usd": 1500000, "reported_low_usd": 1000000, "reported_high_usd": 1000000, "source_page": 12},
+    {"athlete": "Aaliyah Chavez", "sport": "WBB", "position_group": "G", "annual_valuation_usd": 755000, "reported_low_usd": 1500000, "reported_high_usd": 1500000, "source_page": 13}
+  ]
+}

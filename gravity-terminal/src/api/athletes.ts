@@ -10,6 +10,7 @@ import {
   mapComparablesFromBundle,
   mapFeedEvents,
   mapScoreHistoryFromApi,
+  mapSearchRowToAthlete,
   type AthleteDetailBundle,
 } from './adapters/athlete'
 import { apiGet } from './client'
@@ -81,17 +82,7 @@ function normalizeSearchFull(raw: unknown): AthleteRecord[] {
     const id = (r.athlete_id ?? r.id) as string | undefined
     const name = r.name as string | undefined
     if (!id || !name) continue
-    out.push({
-      athlete_id: id,
-      name,
-      position: (r.position as string) ?? null,
-      school: (r.school as string) ?? null,
-      conference: (r.conference as string) ?? null,
-      sport: (r.sport as string) ?? null,
-      gravity_score: r.gravity_score != null ? Number(r.gravity_score) : null,
-      proof_score: r.proof_score != null ? Number(r.proof_score) : null,
-      dollar_p50_usd: r.dollar_p50_usd != null ? Number(r.dollar_p50_usd) : null,
-    })
+    out.push(mapSearchRowToAthlete(r))
   }
   return out
 }

@@ -141,7 +141,13 @@ class FeatureEngineeringEngine:
         if isinstance(cohort_index_values, list):
             cohort_index_values = [float(v) for v in cohort_index_values]
 
-        games_played = int(raw.get("games_played_season") or 0)
+        games_played = int(
+            raw.get("games_played_season")
+            or raw.get("gp")
+            or (flat_stats or {}).get("games_played_season")
+            or (flat_stats or {}).get("gp")
+            or 0
+        )
         proof_card = build_proof_profile_card(
             performance_index=perf_index,
             index_history=index_history,

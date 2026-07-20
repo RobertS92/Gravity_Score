@@ -12,6 +12,7 @@ import type {
   CscReportJson,
   CscValidationSection,
   CscValueSection,
+  DealScope,
 } from '../../types/reports'
 import {
   DEAL_STRUCTURE_GROUPS,
@@ -111,6 +112,17 @@ function buildFallbackReport(
       total_benchmark: benchmark,
       range_low: rangeLow,
       range_high: rangeHigh,
+      annual_nil_benchmark: benchmark,
+      activation_deal_low: rangeLow,
+      activation_deal_mid:
+        rangeLow != null && rangeHigh != null ? (rangeLow + rangeHigh) / 2 : null,
+      activation_deal_high: rangeHigh,
+      season_partnership_low: null,
+      season_partnership_high: null,
+      deal_confidence: confidenceLevel,
+      deal_uncertainty: null,
+      deal_pricing_method: 'legacy_fallback',
+      deal_pricing_basis: 'Fallback report uses existing model band; regenerate report for activation-level deal pricing.',
       tier_tag: benchmark != null && benchmark >= 150000 ? 'High-tier' : benchmark != null && benchmark >= 50000 ? 'Mid-tier' : 'Developing-tier',
       confidence_tag: confidenceTag,
       range_note: null,
@@ -181,6 +193,27 @@ function normalizeReport(
     total_benchmark: report.value?.total_benchmark ?? fallback.value.total_benchmark,
     range_low: report.value?.range_low ?? fallback.value.range_low,
     range_high: report.value?.range_high ?? fallback.value.range_high,
+    annual_nil_benchmark:
+      report.value?.annual_nil_benchmark ?? report.value?.total_benchmark ?? fallback.value.annual_nil_benchmark,
+    activation_deal_low:
+      report.value?.activation_deal_low ?? report.value?.range_low ?? fallback.value.activation_deal_low,
+    activation_deal_mid:
+      report.value?.activation_deal_mid ??
+      (report.value?.range_low != null && report.value?.range_high != null
+        ? (report.value.range_low + report.value.range_high) / 2
+        : fallback.value.activation_deal_mid),
+    activation_deal_high:
+      report.value?.activation_deal_high ?? report.value?.range_high ?? fallback.value.activation_deal_high,
+    season_partnership_low:
+      report.value?.season_partnership_low ?? fallback.value.season_partnership_low ?? null,
+    season_partnership_high:
+      report.value?.season_partnership_high ?? fallback.value.season_partnership_high ?? null,
+    deal_confidence: report.value?.deal_confidence ?? fallback.value.deal_confidence ?? null,
+    deal_uncertainty: report.value?.deal_uncertainty ?? fallback.value.deal_uncertainty ?? null,
+    deal_pricing_method: report.value?.deal_pricing_method ?? fallback.value.deal_pricing_method ?? null,
+    deal_pricing_basis: report.value?.deal_pricing_basis ?? fallback.value.deal_pricing_basis ?? null,
+    selected_deal_scope: report.value?.selected_deal_scope,
+    deal_scopes: report.value?.deal_scopes,
     tier_tag: report.value?.tier_tag ?? fallback.value.tier_tag,
     confidence_tag: report.value?.confidence_tag ?? fallback.value.confidence_tag,
     range_note: report.value?.range_note ?? fallback.value.range_note ?? null,
@@ -242,6 +275,9 @@ function normalizeReport(
     low_cohort_data: report.metadata?.low_cohort_data ?? fallback.metadata.low_cohort_data,
     athlete_benchmark_percentile_in_cohort:
       report.metadata?.athlete_benchmark_percentile_in_cohort ?? fallback.metadata.athlete_benchmark_percentile_in_cohort,
+    selected_deal_scope: report.metadata?.selected_deal_scope,
+    deal_scope_calibrated: report.metadata?.deal_scope_calibrated,
+    deal_scope_readiness: report.metadata?.deal_scope_readiness,
   }
   return {
     value,
@@ -580,11 +616,26 @@ function ValueSection({
   cohortFit?: 'good' | 'edge' | 'poor' | null
   lowCohortData?: boolean | null
 }) {
-  const rangeText = formatNilRangeAligned(value.total_benchmark, value.range_low, value.range_high)
+  const scopeOptions = value.deal_scopes ?? {}
+  const [selectedScope, setSelectedScope] = useState<DealScope>(
+    value.selected_deal_scope ?? 'standard_activation',
+  )
+  useEffect(() => {
+    setSelectedScope(value.selected_deal_scope ?? 'standard_activation')
+  }, [value.selected_deal_scope, value.deal_scopes])
+  const scoped = scopeOptions[selectedScope]
+  const activationLow = scoped?.low ?? value.activation_deal_low ?? value.range_low
+  const activationMid =
+    scoped?.mid ?? value.activation_deal_mid ??
+    (activationLow != null && (scoped?.high ?? value.activation_deal_high ?? value.range_high) != null
+      ? (activationLow + ((scoped?.high ?? value.activation_deal_high ?? value.range_high) as number)) / 2
+      : null)
+  const activationHigh = scoped?.high ?? value.activation_deal_high ?? value.range_high
+  const rangeText = formatNilRangeAligned(activationMid, activationLow, activationHigh)
   const bandEndpoints = formatNilBandEndpoints(
-    value.total_benchmark,
-    value.range_low,
-    value.range_high,
+    activationMid,
+    activationLow,
+    activationHigh,
   )
   const confTierLabel = conferenceTierLabel(conferenceTier)
   const showLowDataChip =
@@ -599,11 +650,37 @@ function ValueSection({
       : null)
   return (
     <div className={styles.section}>
-      <div className={styles.sectionTitle}>Total NIL Value Benchmark</div>
+      <div className={styles.sectionTitle}>Annual NIL Value Benchmark</div>
       <div className={styles.valueHero}>{formatNilValue(value.total_benchmark)}</div>
       <div className={styles.guidelineCaption}>
-        Market benchmark — guideline, not target. Use the recommended deal range
-        &amp; comparables for deal construction.
+        Annual market benchmark — not a transaction price. Choose the commercial
+        scope before using the guidance below.
+      </div>
+      {Object.keys(scopeOptions).length > 0 && (
+        <label className={styles.dealScopeField}>
+          <span>Deal scope</span>
+          <select value={selectedScope} onChange={(event) => setSelectedScope(event.target.value as DealScope)}>
+            {Object.values(scopeOptions).filter(Boolean).map((estimate) => (
+              <option key={estimate!.scope} value={estimate!.scope}>{estimate!.label}</option>
+            ))}
+          </select>
+        </label>
+      )}
+      <div className={styles.dealGuidanceGrid}>
+        <div className={styles.dealGuidanceCard}>
+          <div className={styles.dealGuidanceLabel}>{scoped?.label ?? 'Standard activation'} Mid</div>
+          <div className={styles.dealGuidanceValue}>{formatNilValue(activationMid)}</div>
+        </div>
+        <div className={styles.dealGuidanceCard}>
+          <div className={styles.dealGuidanceLabel}>Evidence readiness</div>
+          <div className={styles.dealGuidanceValue}>
+            {scoped ? `${scoped.qualified_transactions}/100 · ${scoped.readiness.replace('_', ' ')}` : '—'}
+          </div>
+        </div>
+        <div className={styles.dealGuidanceCard}>
+          <div className={styles.dealGuidanceLabel}>Deal Confidence</div>
+          <div className={styles.dealGuidanceValue}>{scoped?.confidence ?? value.deal_confidence ?? '—'}</div>
+        </div>
       </div>
       <div className={styles.bandLabels}>
         <span>{bandEndpoints.low}</span>
@@ -613,6 +690,7 @@ function ValueSection({
         <div className={styles.bandMarker} style={{ left: `${plotPct}%` }} title={athleteName} />
       </div>
       <p className={styles.subMuted}>{rangeText}</p>
+      {(scoped?.basis ?? value.deal_pricing_basis) && <p className={styles.prose}>{scoped?.basis ?? value.deal_pricing_basis}</p>}
       {rangeNote && <p className={styles.prose}>{rangeNote}</p>}
       <div className={styles.tagRow}>
         {value.tier_tag && (

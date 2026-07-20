@@ -11,7 +11,7 @@ from gravity_api.services.nil_valuation import nil_from_row, sanitize_nil_valuat
 from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 
 router = APIRouter()
-ROSTER_FRESHNESS_DAYS = 14
+ROSTER_FRESHNESS_DAYS = 21
 
 
 def _invert_risk(v: object) -> float | None:
@@ -21,6 +21,17 @@ def _invert_risk(v: object) -> float | None:
         return max(0.0, min(100.0, 100.0 - float(v)))
     except (TypeError, ValueError):
         return None
+
+
+def _with_impact_aliases(row: dict) -> dict:
+    """Public Impact Score aliases for internal value_score (winning impact)."""
+    if "value_score" in row:
+        row["impact_score"] = row.get("value_score")
+    if "value_sport_percentile" in row:
+        row["impact_sport_percentile"] = row.get("value_sport_percentile")
+    if "value_score_source" in row:
+        row["impact_score_source"] = row.get("value_score_source")
+    return row
 
 
 @router.get("")
@@ -66,12 +77,11 @@ async def search_athletes(
         min_brand=min_brand,
         max_risk=max_risk,
         exclude_inactive=True,
-        # Direct name lookup is a discovery action, not a current-roster
-        # leaderboard. Keep active athletes searchable even when roster
-        # verification is older than the leaderboard freshness window.
-        roster_verified_within_days=(
-            None if (q and q.strip()) or include_stale_roster else ROSTER_FRESHNESS_DAYS
-        ),
+        # Live discovery is current-roster only. Historical/departed athletes
+        # remain in storage for audit and model evaluation but do not appear in
+        # customer search unless an explicit administrative stale-roster query
+        # is requested.
+        roster_verified_within_days=(None if include_stale_roster else ROSTER_FRESHNESS_DAYS),
         sort_by=sort_by,
         sort_dir=sort_dir,
         limit=limit,
@@ -86,7 +96,9 @@ async def get_score_history(
     db: asyncpg.Connection = Depends(get_db),
 ):
     rows = await db.fetch(
-        """SELECT gravity_score, brand_score, proof_score,
+        """SELECT gravity_score, gravity_sport_percentile,
+                  value_score, value_sport_percentile, value_score_source,
+                  brand_score, proof_score,
                   proximity_score, velocity_score, (100.0 - risk_score) AS risk_score,
                   confidence, calculated_at
            FROM athlete_gravity_scores
@@ -96,7 +108,7 @@ async def get_score_history(
         athlete_id,
         weeks,
     )
-    return {"history": [dict(r) for r in rows]}
+    return {"history": [_with_impact_aliases(dict(r)) for r in rows]}
 
 
 async def _fetch_comparables(db: asyncpg.Connection, athlete_id: str):
@@ -352,7 +364,9 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     # Merge latest gravity_scores fields
     latest_score = dict(scores[0]) if scores else {}
     for score_field in (
-        "gravity_score", "brand_score", "proof_score", "proximity_score",
+        "gravity_score", "gravity_sport_percentile",
+        "value_score", "value_sport_percentile", "value_score_source", "quality_score",
+        "impact_confidence", "brand_score", "proof_score", "proximity_score",
         "velocity_score", "risk_score", "confidence", "model_version",
         "dollar_p10_usd", "dollar_p50_usd", "dollar_p90_usd",
         "dollar_confidence", "shap_values", "top_factors_up", "top_factors_down",
@@ -361,6 +375,7 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
             athlete_dict[score_field] = latest_score[score_field]
     if athlete_dict.get("risk_score") is not None:
         athlete_dict["risk_score"] = _invert_risk(athlete_dict.get("risk_score"))
+    _with_impact_aliases(athlete_dict)
 
     athlete_dict["score_date"] = latest_score.get("calculated_at")
 
@@ -459,7 +474,7 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     athlete_dict["nil_dollar_p90_usd"] = raw_signals.get("nil_dollar_p90_usd")
     athlete_dict["gravity_delta_30d"] = score_delta_30d(scores)
 
-    score_history = [dict(s) for s in scores]
+    score_history = [_with_impact_aliases(dict(s)) for s in scores]
     for row in score_history:
         if row.get("risk_score") is not None:
             row["risk_score"] = _invert_risk(row.get("risk_score"))

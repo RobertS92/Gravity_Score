@@ -7,6 +7,7 @@ from typing import Any, Optional
 import asyncpg
 
 from gravity_api.feature_engineering.types import AthleteFeatureSnapshot
+from gravity_api.scrapers.parsers.stat_normalizer import promote_legacy_prefixed_stats
 from gravity_api.services.athlete_score_sync import athlete_to_raw_data
 
 
@@ -74,6 +75,7 @@ async def build_enriched_raw_payload(
     metric_histories: dict[str, list[float]],
 ) -> dict[str, Any]:
     raw = athlete_to_raw_data(athlete, snap, scraped_raw=scraped_raw)
+    raw = promote_legacy_prefixed_stats(raw, str(athlete["sport"] or ""))
     if cohort_context.get("cohort_stat_means"):
         raw["cohort_stat_means"] = cohort_context["cohort_stat_means"]
         raw["cohort_stat_stds"] = cohort_context["cohort_stat_stds"]
@@ -85,22 +87,38 @@ async def build_enriched_raw_payload(
         safe = metric_key.split(".")[-1]
         raw[f"{safe}_history"] = values
 
-    # Prior-year performance index from season stats history
-    prior_rows = await conn.fetch(
+    # Flatten current + prior season stats into raw so proof/win-impact see
+    # games_played, counting stats, etc. (not only nested season_stats blobs).
+    season_rows = await conn.fetch(
         """SELECT season_year, stat_key, stat_value
            FROM athlete_season_stats
            WHERE athlete_id = $1 AND sport = $2
-           ORDER BY season_year DESC
-           LIMIT 50""",
+           ORDER BY season_year DESC""",
         athlete["id"],
         athlete["sport"],
     )
-    if prior_rows:
+    if season_rows:
         by_season: dict[int, dict[str, float]] = {}
-        for r in prior_rows:
-            by_season.setdefault(int(r["season_year"]), {})[r["stat_key"]] = float(r["stat_value"])
+        for r in season_rows:
+            by_season.setdefault(int(r["season_year"]), {})[str(r["stat_key"])] = float(r["stat_value"])
         seasons = sorted(by_season.keys())
+        # Prefer the scoring-anchor year (max), then latest completed.
+        anchor_year = max(seasons)
+        for key, val in by_season[anchor_year].items():
+            raw.setdefault(key, val)
+        raw.setdefault("season_stats", by_season[anchor_year])
+        # Alias sync so win_impact / participation always see both key forms.
+        gp = raw.get("games_played_season") or raw.get("gp")
+        if gp is not None:
+            raw.setdefault("games_played_season", gp)
+            raw.setdefault("gp", float(gp))
+        gs = raw.get("games_started") or raw.get("gs")
+        if gs is not None:
+            raw.setdefault("games_started", gs)
+            raw.setdefault("gs", float(gs))
         if len(seasons) >= 2:
-            raw["proof.performance_index_history"] = list(by_season.values())  # simplified history
+            raw["proof.performance_index_history"] = [
+                by_season[y] for y in seasons[-4:]
+            ]
 
     return raw

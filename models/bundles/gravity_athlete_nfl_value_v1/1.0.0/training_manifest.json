@@ -4,6 +4,8 @@
   "sport": "nfl",
   "objective": "value",
   "version": "1.0.0",
-  "trained_at": "2026-06-22T16:56:05.280171+00:00",
-  "row_count": 200
+  "trained_at": "2026-07-09T15:19:41.798152+00:00",
+  "row_count": 2794,
+  "training_source": "observed_contract_apy",
+  "label_target": "contract_apy_usd"
 }

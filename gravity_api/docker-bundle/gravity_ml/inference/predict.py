@@ -84,11 +84,92 @@ def _predict_from_bundle(bundle, raw: dict[str, Any]) -> dict[str, float] | None
 
 PRO_SPORTS = frozenset({"nfl", "nba", "wnba"})
 
+_COMMERCIAL_USD_KNOTS: dict[str, tuple[tuple[float, float], ...]] = {
+    "nfl": (
+        (250_000.0, 35.0), (750_000.0, 45.0), (1_500_000.0, 52.0),
+        (3_000_000.0, 58.0), (6_000_000.0, 64.0), (12_000_000.0, 70.0),
+        (20_000_000.0, 75.0), (25_000_000.0, 79.0), (45_000_000.0, 87.0),
+        (64_000_000.0, 93.0), (80_000_000.0, 96.0),
+    ),
+    "nba": (
+        (500_000.0, 35.0), (1_000_000.0, 40.0), (3_000_000.0, 48.0),
+        (8_000_000.0, 58.0), (15_000_000.0, 67.0), (25_000_000.0, 75.0),
+        (40_000_000.0, 84.0), (55_000_000.0, 91.0), (70_000_000.0, 95.0),
+    ),
+}
+_DEFAULT_COMMERCIAL_USD_KNOTS = _COMMERCIAL_USD_KNOTS["nfl"]
+
+
+def commercial_gravity_from_log_usd(log_val: float, sport: str = "nfl") -> float:
+    """Map log1p(market USD) to a conservative 0–96 commercial score."""
+    x = float(log_val)
+    knots = tuple(
+        (math.log1p(usd), score)
+        for usd, score in _COMMERCIAL_USD_KNOTS.get(sport, _DEFAULT_COMMERCIAL_USD_KNOTS)
+    )
+    if x <= knots[0][0]:
+        return knots[0][1]
+    if x >= knots[-1][0]:
+        return knots[-1][1]
+    for (x0, y0), (x1, y1) in zip(knots, knots[1:]):
+        if x <= x1:
+            if x1 <= x0:
+                return y1
+            t = (x - x0) / (x1 - x0)
+            return y0 + t * (y1 - y0)
+    return knots[-1][1]
+
+
+def _commercial_market_score(
+    predicted_log_usd: float,
+    raw: dict[str, Any],
+    sport: str,
+) -> tuple[float, float, dict[str, Any]]:
+    predicted_usd = max(25_000.0, math.expm1(float(predicted_log_usd)))
+    effective_log = float(predicted_log_usd)
+    metadata: dict[str, Any] = {
+        "predicted_market_value_usd": round(predicted_usd, 2),
+        "market_anchor_used": False,
+    }
+    observed_usd = _f(raw, "observed_market_value_usd")
+    if observed_usd > 0:
+        confidence = min(1.0, max(0.0, _f(raw, "observed_market_value_confidence", 0.8)))
+        anchor_weight = min(0.95, max(0.80, 0.70 + 0.25 * confidence))
+        effective_log = (
+            anchor_weight * math.log1p(observed_usd)
+            + (1.0 - anchor_weight) * float(predicted_log_usd)
+        )
+        metadata.update(
+            {
+                "market_anchor_used": True,
+                "observed_market_value_usd": round(observed_usd, 2),
+                "observed_market_value_type": raw.get("observed_market_value_type"),
+                "observed_market_value_source": raw.get("observed_market_value_source"),
+                "market_anchor_weight": round(anchor_weight, 4),
+            }
+        )
+    effective_usd = max(25_000.0, math.expm1(effective_log))
+    score = commercial_gravity_from_log_usd(effective_log, sport)
+
+    # Brand attention is a bounded secondary commercial signal. It may separate
+    # similarly paid stars but can never turn an ordinary contract into 90+.
+    reach = _trusted_social_reach(raw)
+    wiki_views = _f(raw, "wikipedia_views_30d")
+    if reach > 0 or wiki_views > 0:
+        attention = max(
+            math.log1p(reach) / math.log1p(5_000_000.0) if reach > 0 else 0.0,
+            math.log1p(wiki_views) / math.log1p(1_000_000.0) if wiki_views > 0 else 0.0,
+        )
+        score += min(2.0, max(0.0, attention * 2.0))
+    metadata["effective_market_value_usd"] = round(effective_usd, 2)
+    return min(96.0, max(30.0, score)), effective_usd, metadata
+
 
 def _market_value_usd(raw: dict[str, Any], sport: str) -> float:
     """Primary dollar anchor: NIL for college, contract/endorsement for pro."""
     if sport in PRO_SPORTS:
         return max(
+            _f(raw, "observed_market_value_usd"),
             _f(raw, "contract_aav_usd"),
             _f(raw, "contract_aav"),
             _f(raw, "contract_guaranteed_usd"),
@@ -99,9 +180,32 @@ def _market_value_usd(raw: dict[str, Any], sport: str) -> float:
     return _f(raw, "nil_valuation")
 
 
+_TRUSTED_SOCIAL_AUTH_FLOOR = 70.0
+
+
+def _social_audience_is_trusted(raw: dict[str, Any]) -> bool:
+    verified = raw.get("social_account_verified")
+    if verified is True or verified == 1:
+        return True
+    if isinstance(verified, str) and verified.strip().lower() in {"1", "true", "yes", "y"}:
+        return True
+    auth = _f(raw, "social_authenticity_score")
+    return auth >= _TRUSTED_SOCIAL_AUTH_FLOOR
+
+
+def _trusted_social_reach(raw: dict[str, Any]) -> float:
+    """Follower reach usable for commercial brand. Drop untrusted team handles."""
+    ig = _f(raw, "instagram_followers")
+    tt = _f(raw, "tiktok_followers")
+    tw = _f(raw, "twitter_followers")
+    if _social_audience_is_trusted(raw):
+        return ig + tt + tw
+    return ig
+
+
 def _components_from_raw(raw: dict[str, Any], sport: str) -> dict[str, float]:
     raw = enrich_raw_with_partnerships(raw)
-    reach = _f(raw, "instagram_followers") + _f(raw, "tiktok_followers") + _f(raw, "twitter_followers")
+    reach = _trusted_social_reach(raw)
     trends = _f(raw, "google_trends_score", 50.0)
     news = _f(raw, "news_count_30d")
     dqs = _f(raw, "data_quality_score", 0.72)
@@ -185,6 +289,7 @@ def score_athlete(req: ScoreAthleteRequest) -> ScoreAthleteResponse:
     gravity = None
     quality = None
     dollar_p50 = None
+    commercial_metadata: dict[str, Any] = {}
 
     value_bundle = loader.resolve(value_key) or loader.resolve(f"gravity_athlete_{sport}_v1")
     beta_cfg = beta_ranker_config(value_key) if value_bundle else None
@@ -195,8 +300,9 @@ def score_athlete(req: ScoreAthleteRequest) -> ScoreAthleteResponse:
         if pred:
             log_val = pred["primary"]
             if not rank_only:
-                dollar_p50 = max(25_000.0, math.expm1(log_val))
-                gravity = min(100.0, max(0.0, 20.0 + log_val * 8.5))
+                gravity, dollar_p50, commercial_metadata = _commercial_market_score(
+                    log_val, raw, sport
+                )
             else:
                 # Beta rank-only bundles predict log1p(NIL) for ordering — not absolute G.
                 # Use feature-based composite for the displayed gravity score.
@@ -244,19 +350,26 @@ def score_athlete(req: ScoreAthleteRequest) -> ScoreAthleteResponse:
 
     cohort_latents = raw.get("cohort_latent_scores") or raw.get("_cohort_latent_scores")
     g_latent = gravity
-    if cohort_latents and isinstance(cohort_latents, (list, tuple)) and len(cohort_latents) > 0:
+    if (
+        cohort_latents
+        and isinstance(cohort_latents, (list, tuple))
+        and len(cohort_latents) > 0
+        and (fallback_used or rank_only)
+    ):
         gravity, cohort_pctile = calibrate_display_score(g_latent, cohort_latents)
-        if rank_only:
-            dollar_conf_extra = {
-                "gravity_score_latent": round(g_latent, 4),
-                "gravity_cohort_percentile": cohort_pctile,
-                "calibration_version": "1.0.0",
-            }
-        else:
-            dollar_conf_extra = {}
+        dollar_conf_extra = {
+            "gravity_score_latent": round(g_latent, 4),
+            "gravity_cohort_percentile": cohort_pctile,
+            "calibration_version": "1.0.0",
+        }
     else:
         cohort_pctile = None
         dollar_conf_extra = {}
+        if not fallback_used and not rank_only:
+            dollar_conf_extra = {
+                "gravity_score_latent": round(float(g_latent), 4),
+                "calibration_version": "commercial_ml_passthrough",
+            }
 
     market_val = _market_value_usd(raw, sport)
     if dollar_p50 is None:
@@ -293,6 +406,7 @@ def score_athlete(req: ScoreAthleteRequest) -> ScoreAthleteResponse:
         dollar_confidence={
             "source": "ml" if not fallback_used else "heuristic",
             "quality": "beta_rank_only" if rank_only else "moderate",
+            **commercial_metadata,
             **dollar_conf_extra,
         },
         shap_values=shap_from_components(

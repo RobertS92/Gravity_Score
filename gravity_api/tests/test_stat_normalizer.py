@@ -13,6 +13,7 @@ from gravity_api.scrapers.parsers.stat_normalizer import (
     merge_stat_layers,
     normalize_espn_stats,
     parse_stat_value,
+    promote_legacy_prefixed_stats,
 )
 
 
@@ -200,3 +201,17 @@ def test_stats_from_espn_payload_categories():
     stats = stats_from_espn_payload(data)
     assert stats["ERA"] == "2.45"
     assert stats["IP"] == "56.1"
+
+
+def test_promote_legacy_cfb_prefixed_stats():
+    raw = {
+        "cfb_games_played": 12,
+        "cfb_passing_yards": 3200,
+        "cfb_passing_tds": 28,
+        "pass_yards": 3100,  # canonical wins
+    }
+    out = promote_legacy_prefixed_stats(raw, "cfb")
+    assert out["games_played_season"] == 12
+    assert out["gp"] == 12.0
+    assert out["pass_yards"] == 3100
+    assert out["pass_td"] == 28.0

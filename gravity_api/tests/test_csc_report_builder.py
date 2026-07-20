@@ -461,7 +461,7 @@ def test_v3_metadata_has_cohort_fit_and_range_quality():
     )
     report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
     assert report["metadata"]["cohort_fit"] in {"good", "edge", "poor"}
-    assert report["metadata"]["range_quality"] in {"normal", "wide", "unavailable"}
+    assert report["metadata"]["range_quality"] in {"normal", "wide", "estimate", "unavailable"}
 
 
 def test_v3_detail_blocks_provenance_includes_report_id_and_model_status():
@@ -734,8 +734,8 @@ def test_csc_band_overrides_widen_range_when_provided():
     assert report["metadata"].get("csc_band_high_pct") == 0.95
 
 
-def test_hero_deal_range_always_brackets_benchmark():
-    """Point estimate must sit inside the recommended deal range."""
+def test_hero_deal_range_is_activation_guidance_not_annual_benchmark_band():
+    """Recommended deal range must be activation-level, not forced around annual NIL."""
     score = _base_score()
     score["dollar_p50_usd"] = 21_900_000
     score["dollar_p10_usd"] = 4_500_000
@@ -753,7 +753,11 @@ def test_hero_deal_range_always_brackets_benchmark():
     lo = report["value"]["range_low"]
     hi = report["value"]["range_high"]
     assert benchmark is not None and lo is not None and hi is not None
-    assert lo <= benchmark <= hi
+    assert hi < benchmark
+    assert report["value"]["activation_deal_low"] == lo
+    assert report["value"]["activation_deal_high"] == hi
+    assert report["value"]["deal_pricing_method"] == "activation_prior_v2"
+    assert report["value"]["deal_confidence"] == "Uncalibrated"
 
 
 def test_outlier_value_section_marks_peer_range_not_applicable():
@@ -785,10 +789,10 @@ def test_outlier_value_section_marks_peer_range_not_applicable():
     assert report["metadata"]["cohort_fit"] == "poor"
     assert report["value"]["peer_range_applicable"] is False
     assert report["value"]["range_note"]
-    assert "peer cohort range is not applicable" in report["value"]["range_note"].lower()
+    assert "standard 4-6 week brand activation" in report["value"]["range_note"].lower()
     assert "Peer Market Context" in report["validation"]["market_context"]
     benchmark = report["value"]["total_benchmark"]
-    assert report["value"]["range_low"] <= benchmark <= report["value"]["range_high"]
+    assert report["value"]["range_high"] < benchmark
 
 
 def test_driver_interpretation_fallback_quality_in_report(monkeypatch):

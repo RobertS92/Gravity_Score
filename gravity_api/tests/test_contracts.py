@@ -251,7 +251,7 @@ def test_v3_metadata_carries_cohort_fit():
 
 def test_v3_metadata_carries_range_quality():
     report = _build("phase3", _LARGE_COHORT)
-    assert report["metadata"].get("range_quality") in {"normal", "wide", "unavailable"}
+    assert report["metadata"].get("range_quality") in {"normal", "wide", "estimate", "unavailable"}
 
 
 def test_v3_detail_blocks_populated():

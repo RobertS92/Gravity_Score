@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import asyncpg
 
+from gravity_api.services.deal_pricing import price_standard_activation
 from gravity_api.services.risk_utils import invert_risk_score
 
 
@@ -240,16 +241,36 @@ def _score_candidate(row: dict[str, Any], brief: BrandMatchBriefData, weights: d
     if brief.min_social_reach is not None and reach < float(brief.min_social_reach):
         return None
 
-    p50 = _safe_float(row.get("dollar_p50_usd"))
-    if p50 <= 0:
-        p50 = _safe_float(row.get("avg_verified_deal_value"))
-    budget_cap = brief.budget * 1.2
-    if p50 > 0 and p50 > budget_cap:
-        return None
-
     brand_score = _clamp(_safe_float(row.get("brand_score")))
     raw_risk = _clamp(_safe_float(row.get("risk_score"), 30.0))
     risk_score = _clamp(invert_risk_score(raw_risk) or 0.0)
+    p50 = _safe_float(row.get("dollar_p50_usd"))
+    avg_verified_deal = _safe_float(row.get("avg_verified_deal_value"))
+    pricing = price_standard_activation(
+        annual_benchmark=p50 if p50 > 0 else None,
+        model_p50=p50 if p50 > 0 else None,
+        cohort_stats={"size": 0, "benchmark_values": []},
+        comparables=(
+            [{"deal_value": avg_verified_deal, "dollar_p50_usd": p50}]
+            if avg_verified_deal > 0
+            else []
+        ),
+        sport=str(row.get("sport") or "").upper(),
+        position_group=str(row.get("position_group") or row.get("position") or "").upper(),
+        brand_score=brand_score,
+        proof_score=_safe_float(row.get("proof_score"), 50.0),
+        exposure_score=_safe_float(row.get("proximity_score"), 50.0),
+        velocity_score=_safe_float(row.get("velocity_score"), 50.0),
+        risk_score=raw_risk,
+        model_confidence=0.55,
+        verified_deals_count=int(row.get("verified_deals_count") or 0),
+        cohort_fit="edge",
+    )
+    activation_mid = pricing.activation_deal_mid or avg_verified_deal or p50
+    budget_cap = brief.budget * 1.2
+    if activation_mid > 0 and activation_mid > budget_cap:
+        return None
+
     engagement_rate = row.get("instagram_engagement_rate")
     engagement_val = _safe_float(engagement_rate, 0.0)
     conference_regions = _conference_regions(row.get("conference"))
@@ -260,8 +281,8 @@ def _score_candidate(row: dict[str, Any], brief: BrandMatchBriefData, weights: d
     category_affinity = _category_affinity(row.get("position"), brief.category)
     category_score = _clamp(category_affinity * 100.0)
 
-    if p50 > 0:
-        affordability = _clamp((brief.budget / p50) * 100.0)
+    if activation_mid > 0:
+        affordability = _clamp((brief.budget / activation_mid) * 100.0)
     else:
         affordability = 65.0
 
@@ -310,8 +331,8 @@ def _score_candidate(row: dict[str, Any], brief: BrandMatchBriefData, weights: d
         "match_score": round(match_score, 1),
         "gravity_score": _safe_float(row.get("gravity_score"), 0.0),
         "brand_score": _safe_float(row.get("brand_score"), 0.0),
-        "deal_range_low": _safe_float(row.get("dollar_p10_usd"), p50 * 0.75 if p50 > 0 else 0.0) or None,
-        "deal_range_high": _safe_float(row.get("dollar_p90_usd"), p50 * 1.25 if p50 > 0 else 0.0) or None,
+        "deal_range_low": pricing.activation_deal_low,
+        "deal_range_high": pricing.activation_deal_high,
         "social_combined_reach": int(reach) if reach > 0 else None,
         "instagram_engagement_rate": engagement_val if engagement_val > 0 else None,
         "verified_deals_count": verified_deals_count,

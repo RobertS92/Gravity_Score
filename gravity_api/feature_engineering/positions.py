@@ -13,6 +13,56 @@ FOOTBALL_POSITIONS = ("QB", "RB", "WR", "TE", "OL", "DL", "LB", "DB", "K")
 # Basketball — college + pro
 BASKETBALL_POSITIONS = ("PG", "SG", "SF", "PF", "C")
 
+# Basketball position aliases. Ordered specific → generic so that a precise
+# ESPN position ("PG") resolves exactly, while coarse tokens ("G", "F") — which
+# is all ESPN exposes for many players — still map to a valid cohort. NOTE: the
+# shared football matcher maps "G"/"C" to the offensive line (OL), so basketball
+# MUST use this table instead of delegating to it.
+BASKETBALL_ALIASES: dict[str, list[str]] = {
+    "PG": ["PG", "POINT GUARD"],
+    "SG": ["SG", "SHOOTING GUARD"],
+    "SF": ["SF", "SMALL FORWARD"],
+    "PF": ["PF", "POWER FORWARD"],
+    "C": ["C", "CENTER"],
+}
+# Coarse/ambiguous tokens → default cohort (guards and forwards share stat
+# profiles within their tier, so a deterministic default is acceptable).
+_BASKETBALL_GENERIC: dict[str, str] = {
+    "G": "PG",
+    "GUARD": "PG",
+    "F": "SF",
+    "FORWARD": "SF",
+    "W": "SF",
+    "WING": "SF",
+    "B": "C",
+    "BIG": "C",
+    "FC": "C",
+    "CF": "C",
+    "GF": "SF",
+    "FG": "SF",
+}
+
+
+def _derive_basketball_group(position: str) -> str | None:
+    token = position.strip().upper()
+    if not token:
+        return None
+    parts = [p.strip() for p in token.replace("-", "/").split("/") if p.strip()]
+    candidates = list(dict.fromkeys([token, *parts]))  # preserve order, dedupe
+    # Specific alias match first.
+    for cand in candidates:
+        for group, aliases in BASKETBALL_ALIASES.items():
+            if cand in aliases:
+                return group
+    # Generic/coarse fallback (e.g. "G", "F", "G/F").
+    for cand in candidates:
+        norm = cand.replace("/", "").replace(" ", "")
+        if norm in _BASKETBALL_GENERIC:
+            return _BASKETBALL_GENERIC[norm]
+        if cand in _BASKETBALL_GENERIC:
+            return _BASKETBALL_GENERIC[cand]
+    return None
+
 # Baseball
 BASEBALL_ALIASES: dict[str, list[str]] = {
     "SP": ["SP", "STARTER", "STARTING PITCHER"],
@@ -59,7 +109,11 @@ SPORT_LEAGUE: dict[str, str] = {
 
 def position_aliases(position_group: str, sport: str) -> list[str]:
     key = position_group.strip().upper()
-    if sport in ("cfb", "nfl", "ncaab_mens", "ncaab_womens", "nba", "wnba"):
+    if sport in ("ncaab_mens", "ncaab_womens", "nba", "wnba"):
+        aliases = list(BASKETBALL_ALIASES.get(key, [key]))
+        aliases += [tok for tok, grp in _BASKETBALL_GENERIC.items() if grp == key]
+        return list(dict.fromkeys(aliases))
+    if sport in ("cfb", "nfl"):
         return _FB_BB_ALIASES.get(key, [key])
     if sport == "ncaa_baseball":
         return BASEBALL_ALIASES.get(key, [key])
@@ -77,7 +131,10 @@ def derive_position_group(position: str | None, sport: str) -> str | None:
     candidates = {part.strip() for part in token.split("/") if part.strip()}
     candidates.add(token)
 
-    if sport in ("cfb", "nfl", "ncaab_mens", "ncaab_womens", "nba", "wnba"):
+    if sport in ("ncaab_mens", "ncaab_womens", "nba", "wnba"):
+        return _derive_basketball_group(position)
+
+    if sport in ("cfb", "nfl"):
         return _derive_fb_bb(position)
 
     alias_map = BASEBALL_ALIASES if sport == "ncaa_baseball" else VOLLEYBALL_ALIASES

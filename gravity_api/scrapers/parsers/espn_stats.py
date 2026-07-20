@@ -112,6 +112,48 @@ def _season_label_to_key(label: str) -> str:
     return m.group(1) if m else label.strip() or "unknown"
 
 
+def _categoried_rows(data: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    """Parse ESPN common/v3 athlete stats shape.
+
+    Each ``categories[]`` block (passing, rushing, receiving, ...) carries a
+    ``names`` header array plus:
+      * ``statistics[]`` — one row per season, each with ``season.year`` and a
+        ``stats`` array parallel to ``names`` (true per-season data), and
+      * ``totals`` — a career row parallel to ``names``.
+
+    Returns ``(history_by_year, career)`` with raw (un-normalized) stat names.
+    """
+    history: dict[str, dict[str, Any]] = {}
+    career: dict[str, Any] = {}
+    cats = data.get("categories")
+    if not isinstance(cats, list):
+        return history, career
+    for cat in cats:
+        if not isinstance(cat, dict):
+            continue
+        names = cat.get("names") or cat.get("labels")
+        if not isinstance(names, list) or not names:
+            continue
+        for srow in cat.get("statistics") or []:
+            if not isinstance(srow, dict):
+                continue
+            stats = srow.get("stats")
+            if not isinstance(stats, list) or len(stats) != len(names):
+                continue
+            season = srow.get("season")
+            year = season.get("year") or season.get("displayName") if isinstance(season, dict) else season
+            if year is None:
+                continue
+            row = {str(names[i]): stats[i] for i in range(len(names))}
+            key = _season_label_to_key(str(year))
+            history[key] = _merge_stat_dicts(history.get(key, {}), row)
+        totals = cat.get("totals")
+        if isinstance(totals, list) and len(totals) == len(names):
+            trow = {str(names[i]): totals[i] for i in range(len(names))}
+            career = _merge_stat_dicts(career, trow)
+    return history, career
+
+
 def extract_season_history(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Return {season_year: stats_dict} from ESPN multi-split payloads."""
     history: dict[str, dict[str, Any]] = {}
@@ -160,6 +202,11 @@ def extract_season_history(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 else:
                     history[season_key] = stats
 
+    # ESPN common/v3 categories[].statistics[] per-season shape.
+    cat_history, _ = _categoried_rows(data)
+    for key, stats in cat_history.items():
+        history[key] = _merge_stat_dicts(history.get(key, {}), stats)
+
     return history
 
 
@@ -167,6 +214,10 @@ def extract_career_totals(data: dict[str, Any]) -> dict[str, Any]:
     """Pull career / total row when ESPN exposes it."""
     if not data:
         return {}
+    # ESPN common/v3 categories[].totals career row (most reliable when present).
+    _, cat_career = _categoried_rows(data)
+    if cat_career:
+        return cat_career
     for block in data.get("splitCategories") or []:
         if not isinstance(block, dict):
             continue
@@ -202,16 +253,19 @@ def build_stats_bundle(data: dict[str, Any]) -> dict[str, Any]:
     career = extract_career_totals(data)
 
     # CFB: merge all category blocks from latest splitCategories season
+    stats_as_of = data.get("season") or data.get("displaySeason")
     if history:
         latest_key = sorted(history.keys(), reverse=True)[0]
         latest = history.get(latest_key) or {}
         current = _merge_stat_dicts(current, latest)
+        if not stats_as_of:
+            stats_as_of = latest_key
 
     return {
         "current": current,
         "history": history,
         "career": career,
-        "stats_as_of": data.get("season") or data.get("displaySeason"),
+        "stats_as_of": stats_as_of,
         "raw": data,
     }
 

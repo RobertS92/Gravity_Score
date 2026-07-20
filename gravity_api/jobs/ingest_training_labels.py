@@ -20,36 +20,60 @@ logger = logging.getLogger(__name__)
 
 
 async def ingest_nil_labels(conn: asyncpg.Connection) -> int:
+    """Ingest only governed, scope-specific transactions.
+
+    Legacy ``athlete_nil_deals.verified`` booleans are deliberately not
+    accepted: they lack enough provenance to support supervised pricing.
+    """
     rows = await conn.fetch(
         """
-        SELECT athlete_id, deal_value, deal_date, verified, brand_name, source
-        FROM athlete_nil_deals
-        WHERE deal_value IS NOT NULL AND deal_value > 0 AND athlete_id IS NOT NULL
+        SELECT id, athlete_id, deal_scope::text AS deal_scope, amount_usd,
+               deal_date, available_at, brand_name, source_url, source_domain,
+               source_tier, verification_status, score_snapshot_id
+        FROM verified_deal_transactions
+        WHERE retracted_at IS NULL
+          AND amount_usd > 0
+          AND source_url ~ '^https?://[^[:space:]]+$'
+          AND verification_status IN ('two_source_verified', 'primary_document_verified')
         """
     )
     count = 0
     for row in rows:
-        start = row["deal_date"] or datetime.now(tz=timezone.utc).date()
-        available = datetime.now(tz=timezone.utc)
+        start = row["deal_date"]
+        target_key = f"nil_deal_value_usd:{row['deal_scope']}"
         await conn.execute(
             """
             INSERT INTO gravity_training_labels (
               entity_type, entity_id, target_key, target_value,
               label_start_at, available_at, confidence, verified, metadata
             ) VALUES (
-              'athlete', $1, 'nil_deal_value_usd', $2,
-              $3::timestamptz, $4, $5, $6,
-              jsonb_build_object('brand', COALESCE($7::text, ''), 'source', COALESCE($8::text, ''))
+              'athlete', $1, $2, $3,
+              $4::timestamptz, $5, 1.0, TRUE,
+              jsonb_build_object(
+                'transaction_id', $6::text,
+                'deal_scope', $7::text,
+                'brand', COALESCE($8::text, ''),
+                'source_url', $9::text,
+                'source_domain', $10::text,
+                'source_tier', $11::text,
+                'verification_status', $12::text,
+                'score_snapshot_id', $13::text
+              )
             )
             """,
             row["athlete_id"],
-            float(row["deal_value"]),
+            target_key,
+            float(row["amount_usd"]),
             datetime.combine(start, datetime.min.time()).replace(tzinfo=timezone.utc),
-            available,
-            0.9 if row["verified"] else 0.65,
-            bool(row["verified"]),
+            row["available_at"],
+            row["id"],
+            row["deal_scope"],
             row["brand_name"],
-            row["source"],
+            row["source_url"],
+            row["source_domain"],
+            row["source_tier"],
+            row["verification_status"],
+            row["score_snapshot_id"],
         )
         count += 1
     return count

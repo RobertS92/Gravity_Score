@@ -3,7 +3,7 @@ import { formatDelta, formatScore } from '../../lib/formatters'
 import type { AthleteRecord, ComponentDeltas } from '../../types/athlete'
 import styles from './MetricsRow.module.css'
 
-type Dim = 'brand' | 'proof' | 'proximity' | 'velocity' | 'risk' | 'program' | 'deal_brands'
+type Dim = 'brand' | 'proof' | 'proximity' | 'velocity' | 'risk' | 'program' | 'deal_brands' | 'value'
 
 function riskColor(risk: number | null | undefined) {
   if (risk == null) return styles.cMuted
@@ -17,6 +17,7 @@ function dimColor(dim: Dim, athlete: AthleteRecord) {
   if (dim === 'risk') return riskColor(athlete.risk_score)
   if (dim === 'program') return styles.cAmber
   if (dim === 'deal_brands') return styles.cTeal
+  if (dim === 'value') return styles.cGreen
   return styles.cMuted
 }
 
@@ -41,6 +42,7 @@ export function MetricsRow({ athlete }: { athlete: AthleteRecord }) {
     athlete.proximity_score,
     athlete.velocity_score,
     athlete.risk_score,
+    athlete.impact_score ?? athlete.value_score,
     athlete.company_gravity_score,
     athlete.brand_gravity_score,
   ].join('|')
@@ -62,6 +64,13 @@ export function MetricsRow({ athlete }: { athlete: AthleteRecord }) {
   // analytics docs use) and explain the formula on hover.
   const coreCells: ContextCell[] = [
     {
+      dim: 'value',
+      label: 'IMPACT',
+      val: athlete.impact_score ?? athlete.value_score,
+      tooltip:
+        'Winning impact (Impact Score): on-field proof × participation × team win context. Distinct from commercial Gravity.',
+    },
+    {
       dim: 'brand',
       label: 'BRAND',
       val: athlete.brand_score,
@@ -73,7 +82,7 @@ export function MetricsRow({ athlete }: { athlete: AthleteRecord }) {
       label: 'PROOF',
       val: athlete.proof_score,
       dk: 'proof',
-      tooltip: 'Verified NIL deals & publicly reported deal value.',
+      tooltip: 'On-field performance vs position cohort (feeds Value Score).',
     },
     {
       dim: 'proximity',

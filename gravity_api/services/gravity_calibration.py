@@ -103,6 +103,22 @@ def calibrate_gravity_score(
     return round(max(0.0, min(99.0, display)), 4), pctile
 
 
+def _is_commercial_ml_payload(score_data: Mapping[str, Any]) -> bool:
+    """True when Gravity already comes from a production commercial value model.
+
+    Those scores are dollar-ordered (APY/salary/NIL). Replacing them with BPXVR
+    cohort calibration destroys commercial rank (e.g. Clifford > Mahomes).
+    """
+    if score_data.get("fallback_used"):
+        return False
+    dc = score_data.get("dollar_confidence") or {}
+    if str(dc.get("quality") or "") == "beta_rank_only":
+        return False
+    if str(score_data.get("gravity_source") or dc.get("gravity_source") or "") == "commercial_ml":
+        return True
+    return score_data.get("dollar_p50_usd") is not None and not score_data.get("fallback_used")
+
+
 def apply_calibration_to_score(
     score_data: dict[str, Any],
     *,
@@ -111,8 +127,25 @@ def apply_calibration_to_score(
     raw: Mapping[str, Any] | None = None,
     latent: float | None = None,
 ) -> dict[str, Any]:
-    """Overlay calibrated display score onto an existing score payload."""
+    """Overlay calibrated display score onto an existing score payload.
+
+    Commercial ML Gravity is already a market-value score — preserve it and only
+    attach audit metadata. BPXVR / heuristic paths still get cohort calibration.
+    """
     out = dict(score_data)
+    if _is_commercial_ml_payload(out):
+        g = float(out.get("gravity_score") or 0.0)
+        out["gravity_score"] = round(max(0.0, min(99.0, g)), 4)
+        out["gravity_score_latent"] = round(g, 4)
+        out["gravity_source"] = "commercial_ml"
+        dc = dict(out.get("dollar_confidence") or {})
+        dc["gravity_source"] = "commercial_ml"
+        dc["gravity_score_latent"] = out["gravity_score_latent"]
+        dc["calibration_version"] = "commercial_ml_passthrough"
+        dc["score_objective"] = "commercial"
+        out["dollar_confidence"] = dc
+        return out
+
     g_latent = latent
     if g_latent is None:
         g_latent = out.get("gravity_score_latent")

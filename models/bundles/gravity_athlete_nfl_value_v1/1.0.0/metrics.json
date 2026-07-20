@@ -1,10 +1,23 @@
 {
   "validation": {
-    "mae": 3.938,
-    "rmse": 3.9973,
-    "pearson": 0.2404
+    "mae": 0.3626,
+    "rmse": 0.5605,
+    "pearson": 0.8328,
+    "spearman": 0.7739,
+    "n": 419
   },
-  "train_rows": 140,
-  "val_rows": 30,
-  "test_rows": 30
+  "test": {
+    "mae": 0.3502,
+    "rmse": 0.5337,
+    "pearson": 0.8235,
+    "spearman": 0.7851,
+    "n": 420
+  },
+  "train_rows": 3910,
+  "val_rows": 419,
+  "test_rows": 420,
+  "training_source": "observed_contract_apy",
+  "labeled_rows": 2794,
+  "augmented": true,
+  "feature_count": 342
 }
