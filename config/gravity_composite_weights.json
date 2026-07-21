@@ -12,12 +12,12 @@
   },
   "sports": {
     "cfb": {
-      "brand": 0.4,
+      "brand": 0.42,
       "proof": 0.05,
-      "proximity": 0.35,
+      "proximity": 0.33,
       "velocity": 0.15,
       "risk": 0.05,
-      "provenance": "commercial_remap_v1",
+      "provenance": "sport_prior_v1",
       "rationale": "CFB NIL is reach- and market-heavy; Proof demoted to quality/value_score."
     },
     "ncaab_mens": {

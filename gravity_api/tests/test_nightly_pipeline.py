@@ -10,7 +10,8 @@ def test_partition_scraper_keys_parallel_espn():
         "college_experience_pro",
         "transfer_portal_nfl",
     ]
-    parallel, serial = _partition_scraper_keys(keys, "nfl")
+    bootstrap, parallel, serial = _partition_scraper_keys(keys, "nfl")
+    assert bootstrap == []
     assert "espn_roster_nfl" in parallel
     assert "espn_stats_nfl" in parallel
     assert "college_experience_pro" in serial
@@ -25,7 +26,8 @@ def test_partition_scraper_keys_db_scrapers_serial():
         "recruiting_247_cfb",
         "espn_stats_cfb",
     ]
-    parallel, serial = _partition_scraper_keys(keys, "cfb")
+    bootstrap, parallel, serial = _partition_scraper_keys(keys, "cfb")
+    assert bootstrap == []
     assert "espn_stats_cfb" in parallel
     assert "cfbd_api_stats_cfb" in parallel
     assert "news_rss_on3" in serial

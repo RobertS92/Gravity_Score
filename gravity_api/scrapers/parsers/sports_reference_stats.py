@@ -110,7 +110,13 @@ def _canon_label(label: str, sport: str) -> str | None:
     aliases = _label_aliases_for_sport(sport)
     keys = all_stat_keys_for_sport(sport)
     norm = _normalize_label(label)
-    canon = aliases.get(norm, norm.replace(" ", "_"))
+    # Explicit Sports Reference aliases are trusted canonical fields even when
+    # the model's position-specific feature catalog does not consume that raw
+    # counting stat directly. Keeping them lets downstream normalizers derive
+    # rates (for example pass yards per attempt) from fallback HTML tables.
+    if norm in aliases:
+        return aliases[norm]
+    canon = norm.replace(" ", "_")
     if canon in keys or canon.replace("_", "") in {k.replace("_", "") for k in keys}:
         return canon
     if canon in ("gp", "gs", "min"):

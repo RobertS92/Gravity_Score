@@ -3,9 +3,11 @@
 from gravity_ml.inference.vectorizer import build_feature_manifest
 
 
-def test_college_manifest_uses_nil_not_contracts():
+def test_college_value_manifest_excludes_target_and_pro_contracts():
     keys = build_feature_manifest("value", sport="cfb")
-    assert "nil_valuation" in keys
+    # nil_valuation is the college value target. Including it as an input leaks
+    # the answer and makes held-out accuracy meaningless.
+    assert "nil_valuation" not in keys
     assert "contract_aav_usd" not in keys
 
 
