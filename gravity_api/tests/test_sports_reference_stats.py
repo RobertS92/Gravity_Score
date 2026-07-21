@@ -1,6 +1,7 @@
 """Unit tests for Sports Reference search URL builder and HTML parsing (no network)."""
 
 import urllib.parse
+import builtins
 
 from gravity_api.scrapers.parsers.sports_reference_stats import (
     extract_player_url_from_search_html,
@@ -55,3 +56,20 @@ def test_parse_sports_ref_stats_from_html_table():
     assert parsed["season_stats"]["gp"] == 12.0
     assert parsed["season_stats"]["pass_yards"] == 2800.0
     assert parsed["stats_source"] == "sports_reference"
+
+
+def test_parse_sports_ref_table_without_beautifulsoup(monkeypatch):
+    real_import = builtins.__import__
+
+    def no_bs4(name, *args, **kwargs):
+        if name == "bs4":
+            raise ModuleNotFoundError("bs4 intentionally unavailable")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", no_bs4)
+    parsed = parse_sports_ref_stats_from_html(
+        "cfb",
+        "<table id='stats'><tr><th>G</th><th>Pass Yds</th><th>Pass TD</th></tr>"
+        "<tr><td>12</td><td>2800</td><td>22</td></tr></table>",
+    )
+    assert parsed["season_stats"] == {"gp": 12.0, "pass_yards": 2800.0, "pass_td": 22.0}

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import urllib.parse
+from html import unescape
 from datetime import datetime, timezone
 from typing import Any
 
@@ -124,6 +125,51 @@ def _canon_label(label: str, sport: str) -> str | None:
     return None
 
 
+def _basic_table_rows(html: str) -> list[list[str]]:
+    """Extract table rows without optional BeautifulSoup.
+
+    Railway/API CI intentionally installs only runtime requirements. This
+    fallback keeps simple Sports Reference tables parseable when bs4 is absent.
+    """
+    tables = re.findall(r"<table\b[^>]*>(.*?)</table>", html, flags=re.I | re.S)
+    for table in tables:
+        rows: list[list[str]] = []
+        for row_html in re.findall(r"<tr\b[^>]*>(.*?)</tr>", table, flags=re.I | re.S):
+            cells = []
+            for cell_html in re.findall(
+                r"<(?:th|td)\b[^>]*>(.*?)</(?:th|td)>", row_html, flags=re.I | re.S
+            ):
+                text = re.sub(r"<[^>]+>", " ", cell_html)
+                cells.append(re.sub(r"\s+", " ", unescape(text)).strip())
+            if cells:
+                rows.append(cells)
+        if len(rows) >= 2:
+            return rows
+    return []
+
+
+def _merge_table_rows(season: dict[str, float], rows: list[list[str]], sport: str) -> None:
+    if len(rows) < 2:
+        return
+    headers = rows[0]
+    data_row = next(
+        (cells for cells in reversed(rows[1:]) if len(cells) >= 2 and any(re.search(r"\d", c) for c in cells)),
+        None,
+    )
+    if not data_row:
+        return
+    for label, val_s in zip(headers, data_row):
+        canon = _canon_label(label, sport)
+        if not canon:
+            continue
+        try:
+            value = float(val_s.replace(",", ""))
+        except ValueError:
+            continue
+        if value >= 0:
+            season[canon] = value
+
+
 def parse_sports_ref_stats_from_html(sport: str, html: str) -> dict[str, Any]:
     """Parse current-season stats from SR player page HTML."""
     if not html:
@@ -166,6 +212,9 @@ def parse_sports_ref_stats_from_html(sport: str, html: str) -> dict[str, Any]:
                 break
     except Exception as exc:
         logger.debug("bs4 SR parse failed: %s", exc)
+
+    if not season:
+        _merge_table_rows(season, _basic_table_rows(html), sport)
 
     if not season:
         from gravity_api.scrapers.clients.http_fetch import html_to_markdownish
