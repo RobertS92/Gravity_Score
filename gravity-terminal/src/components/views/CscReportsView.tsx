@@ -481,6 +481,15 @@ export function CscReportsView() {
                 {' '}This report is informational only and must not be used for binding decisions.
               </div>
             )}
+            {report.metadata?.roster_verification_status === 'stale' && (
+              <div className={styles.fallbackBanner}>
+                Roster verification is stale
+                {report.metadata.roster_freshness_warning
+                  ? ` (${report.metadata.roster_freshness_warning})`
+                  : ''}.
+                {' '}Refresh the authoritative roster before using this report for binding decisions.
+              </div>
+            )}
             <GroupBreak label="// VALUE" />
             <ValueSection
               value={report.value}

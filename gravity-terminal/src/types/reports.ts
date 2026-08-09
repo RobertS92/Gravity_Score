@@ -189,6 +189,8 @@ export interface CscReportMetadata {
   report_version?: 'v2' | 'v3' | null
   report_rollout_phase?: string | null
   conference_mapping_status?: 'mapped' | 'stored_fallback' | 'school_fallback' | 'unmapped' | null
+  roster_verification_status?: 'fresh' | 'stale' | 'unknown' | null
+  roster_freshness_warning?: string | null
   selected_deal_scope?: DealScope
   deal_scope_calibrated?: boolean
   deal_scope_readiness?: 'insufficient_data' | 'pilot' | 'production'

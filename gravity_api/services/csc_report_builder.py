@@ -25,7 +25,10 @@ from gravity_api.services.csc_report_rollout import (
     load_report_rollout_state,
 )
 from gravity_api.services.brand_heritage import detect_brand_heritage
-from gravity_api.services.athlete_eligibility import live_eligibility_reason
+from gravity_api.services.athlete_eligibility import (
+    report_eligibility_block_reason,
+    roster_freshness_issue,
+)
 from gravity_api.services.deal_pricing import price_standard_activation
 from gravity_api.services.deal_scope_pricing import DEAL_SCOPES, price_all_deal_scopes
 from gravity_api.services.model_health import classify_model_version
@@ -1981,11 +1984,27 @@ async def build_csc_report_json(
     if not athlete:
         raise ValueError("athlete not found")
     athlete_d = dict(athlete)
-    eligibility_block = live_eligibility_reason(athlete_d)
+    # Hard-block departed/inactive athletes. Stale roster verification is a
+    # metadata warning (not a 404) so reports still load for athletes the
+    # terminal already surfaces via include_stale_roster bootstrap.
+    eligibility_block = report_eligibility_block_reason(athlete_d)
     if eligibility_block:
         raise ValueError(
             f"Live pricing unavailable: {eligibility_block}. Refresh the authoritative roster before generating a report."
         )
+    roster_freshness_warning = roster_freshness_issue(athlete_d)
+    roster_verification_status = (
+        "stale"
+        if roster_freshness_warning
+        else (
+            "fresh"
+            if any(
+                key in athlete_d
+                for key in ("is_active", "roster_status", "roster_verified_at")
+            )
+            else "unknown"
+        )
+    )
 
     report_dt = datetime.now(tz=UTC)
     name = _text_or_fallback(athlete_d.get("name"), "Selected athlete")
@@ -3031,6 +3050,8 @@ async def build_csc_report_json(
             "conference": conference_f,
             "conference_tier": conference_tier,
             "conference_mapping_status": conference_mapping_status,
+            "roster_verification_status": roster_verification_status,
+            "roster_freshness_warning": roster_freshness_warning,
             "model_status": model_status,
             "model_version": (
                 str(latest_model_version) if latest_model_version is not None else None

@@ -827,3 +827,40 @@ def test_driver_interpretation_fallback_quality_in_report(monkeypatch):
     assert "Instagram" in explanation
     assert explanation != "Brand Strength leads the SEC QBs cohort."
     assert len(explanation.split(".")) >= 3
+
+
+def test_csc_report_allows_stale_roster_with_metadata_warning(monkeypatch):
+    """Terminal bootstrap loads stale athletes; CSC must not 404 them."""
+    monkeypatch.setenv("CSC_REPORT_LLM_ENABLED", "0")
+    monkeypatch.delenv("CSC_REQUIRE_FRESH_ROSTER", raising=False)
+    now = datetime.now(tz=timezone.utc)
+    athlete = {
+        **_base_athlete(),
+        "is_active": True,
+        "roster_status": "active_on_roster",
+        "roster_verified_at": now - timedelta(days=45),
+    }
+    db = _FakeDb(
+        athlete=athlete,
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    assert report["metadata"]["roster_verification_status"] == "stale"
+    assert report["metadata"]["roster_freshness_warning"]
+
+    departed = {
+        **athlete,
+        "is_active": False,
+        "roster_status": "left_for_draft",
+    }
+    db_departed = _FakeDb(
+        athlete=departed,
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    try:
+        asyncio.run(build_csc_report_json(db_departed, "subject-1", {}))
+        raise AssertionError("expected departed athlete to be blocked")
+    except ValueError as exc:
+        assert "Live pricing unavailable" in str(exc)

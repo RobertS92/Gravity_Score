@@ -334,6 +334,8 @@ class CscReportOut(BaseModel):
         conference_mapping_status: Literal[
             "mapped", "stored_fallback", "school_fallback", "unmapped"
         ] | None = None
+        roster_verification_status: Literal["fresh", "stale", "unknown"] | None = None
+        roster_freshness_warning: str | None = None
         # CSC v3 fields (populated incrementally during rollout).
         model_status: Literal["production", "fallback", "unknown"] | None = None
         model_version: str | None = None
@@ -408,8 +410,14 @@ async def post_csc_report(
                 f"({e.team_id})"
             ),
         ) from e
-    except ValueError:
-        raise HTTPException(status_code=404, detail="Athlete not found") from None
+    except ValueError as e:
+        # Distinguish missing athlete (404) from eligibility / param errors (422).
+        # Previously every ValueError was collapsed to "Athlete not found", which
+        # hid live-roster blocks (inactive, unverified, stale verification, etc.).
+        msg = str(e) or "Invalid report request"
+        if msg.lower() == "athlete not found":
+            raise HTTPException(status_code=404, detail="Athlete not found") from e
+        raise HTTPException(status_code=422, detail=msg) from e
 
     # Per-report fallback enforcement. A fallback model means the report
     # cannot be used for binding deal decisions; the report already carries

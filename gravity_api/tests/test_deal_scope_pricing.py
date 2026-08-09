@@ -1,7 +1,11 @@
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from gravity_api.services.athlete_eligibility import live_eligibility_reason
+from gravity_api.services.athlete_eligibility import (
+    live_eligibility_reason,
+    report_eligibility_block_reason,
+    roster_freshness_issue,
+)
 from gravity_api.services.deal_scope_pricing import DEAL_SCOPES, price_all_deal_scopes, price_deal_scope
 
 
@@ -76,6 +80,28 @@ def test_live_eligibility_rejects_departed_and_stale_athletes():
     assert live_eligibility_reason(
         {**active, "roster_verified_at": now - timedelta(days=22)}, now=now
     )
+
+
+def test_report_eligibility_allows_stale_but_blocks_departed(monkeypatch):
+    now = datetime(2026, 7, 20, tzinfo=timezone.utc)
+    active = {
+        "is_active": True,
+        "roster_status": "active_on_roster",
+        "roster_verified_at": now - timedelta(days=2),
+    }
+    stale = {**active, "roster_verified_at": now - timedelta(days=45)}
+    monkeypatch.delenv("CSC_REQUIRE_FRESH_ROSTER", raising=False)
+
+    assert report_eligibility_block_reason(active, now=now) is None
+    assert report_eligibility_block_reason(stale, now=now) is None
+    assert roster_freshness_issue(stale, now=now)
+    assert report_eligibility_block_reason({**active, "is_active": False}, now=now)
+    assert report_eligibility_block_reason(
+        {**active, "roster_status": "left_for_draft"}, now=now
+    )
+
+    monkeypatch.setenv("CSC_REQUIRE_FRESH_ROSTER", "1")
+    assert report_eligibility_block_reason(stale, now=now)
 
 
 def test_governed_transaction_schema_requires_structured_verification():
