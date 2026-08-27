@@ -7,11 +7,11 @@ import asyncpg
 from fastapi import APIRouter, Depends, Query
 
 from gravity_api.database import get_db
+from gravity_api.services.athlete_eligibility import DEFAULT_FRESHNESS_DAYS
 from gravity_api.services.athlete_search import search_athletes as run_athlete_search
 from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 
 router = APIRouter()
-ROSTER_FRESHNESS_DAYS = 14
 _OPTIONAL_NIL_VALUATION_SQL = """
 CASE
     WHEN jsonb_typeof(to_jsonb(a) -> 'nil_valuation_raw') = 'number'
@@ -68,6 +68,14 @@ async def market_scan(
     max_gravity: Optional[float] = None,
     min_brand: Optional[float] = None,
     max_risk: Optional[float] = None,
+    include_stale_roster: bool = Query(
+        False,
+        description=(
+            "Include current-roster athletes whose roster verification is older "
+            "than the live window. Market Scan falls back to this automatically "
+            "when the live window is empty."
+        ),
+    ),
     sort_by: str = "gravity_score",
     sort_dir: str = "desc",
     limit: int = Query(default=500, le=1000),
@@ -77,25 +85,43 @@ async def market_scan(
     sports_db: Optional[List[str]] = None
     if not sport and sports and sports.strip():
         sports_db = cap_prefs_to_db_slugs([s.strip() for s in sports.split(",") if s.strip()])
-    return await run_athlete_search(
-        db,
-        q=q,
-        sport=sport,
-        sports_db=sports_db,
-        conference=conference,
-        position_group=position_group,
-        school=school,
-        min_gravity=min_gravity,
-        max_gravity=max_gravity,
-        min_brand=min_brand,
-        max_risk=max_risk,
-        exclude_inactive=True,
-        roster_verified_within_days=ROSTER_FRESHNESS_DAYS,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        limit=limit,
-        offset=offset,
-    )
+
+    async def _search(roster_verified_within_days: Optional[int]) -> dict[str, Any]:
+        return await run_athlete_search(
+            db,
+            q=q,
+            sport=sport,
+            sports_db=sports_db,
+            conference=conference,
+            position_group=position_group,
+            school=school,
+            min_gravity=min_gravity,
+            max_gravity=max_gravity,
+            min_brand=min_brand,
+            max_risk=max_risk,
+            exclude_inactive=True,
+            roster_verified_within_days=roster_verified_within_days,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+            limit=limit,
+            offset=offset,
+        )
+
+    if include_stale_roster:
+        out = await _search(None)
+        out["roster_window"] = "stale"
+        return out
+
+    live = await _search(DEFAULT_FRESHNESS_DAYS)
+    if live.get("total"):
+        live["roster_window"] = "live"
+        return live
+
+    # Live discovery is empty (roster sync older than the freshness window).
+    # Fall back to current-roster athletes so Market Scan is not a blank table.
+    stale = await _search(None)
+    stale["roster_window"] = "stale_fallback"
+    return stale
 
 
 @router.get("/schools")

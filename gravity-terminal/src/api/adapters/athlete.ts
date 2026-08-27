@@ -391,19 +391,46 @@ export function mapWatchlistAthleteRow(row: Record<string, unknown>): AthleteRec
   }
 }
 
+const VALID_ALERT_TYPES = new Set<AlertType>(['SCORE_MOVE', 'NIL_SIGNAL', 'RISK_FLAG', 'DEAL_DETECTED'])
+
+function alertTypeFromRow(row: Record<string, unknown>): AlertType {
+  const direct = str(row.alert_type)?.toUpperCase()
+  if (direct && VALID_ALERT_TYPES.has(direct as AlertType)) return direct as AlertType
+  const reason = (str(row.trigger_reason) ?? '').toUpperCase()
+  for (const t of VALID_ALERT_TYPES) {
+    if (reason.startsWith(t)) return t
+  }
+  return 'SCORE_MOVE'
+}
+
+function alertSeverity(alertType: AlertType, delta: number | null): AlertSeverity {
+  if (alertType === 'RISK_FLAG') return 'CRITICAL'
+  if (alertType === 'NIL_SIGNAL' || alertType === 'DEAL_DETECTED') return 'WARN'
+  if (delta != null && Math.abs(delta) >= 5) return 'WARN'
+  return 'INFO'
+}
+
 export function mapAlertRow(row: Record<string, unknown>, athleteName: string): AlertRecord {
   const id = str(row.id)
   const delta = num(row.delta)
+  const alertType = alertTypeFromRow(row)
+  const source = str(row.source)
   return {
     alert_id: id ?? `alert-${String(row.created_at ?? Date.now())}`,
     athlete_id: str(row.athlete_id) ?? '',
     athlete_name: athleteName,
-    school: null,
-    alert_type: 'SCORE_MOVE' as AlertType,
-    severity: (delta != null && Math.abs(delta) >= 5 ? 'WARN' : 'INFO') as AlertSeverity,
-    description: str(row.trigger_reason) ?? 'Score change',
+    school: str(row.school),
+    alert_type: alertType,
+    severity: alertSeverity(alertType, delta),
+    description: (() => {
+      const raw = str(row.trigger_reason) ?? 'Score change'
+      const prefix = `${alertType}:`
+      return raw.toUpperCase().startsWith(prefix) ? raw.slice(prefix.length).trim() : raw
+    })(),
     numeric_change: delta,
     timestamp: str(row.created_at) ?? new Date().toISOString(),
+    read: row.read === true,
+    source: source === 'live' ? 'live' : 'event',
   }
 }
 

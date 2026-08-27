@@ -143,6 +143,30 @@
   text-align: right;
 }
 
+.row {
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--bg-tertiary);
+}
+
+.rowActive {
+  cursor: pointer;
+  background: var(--bg-tertiary);
+  box-shadow: inset 2px 0 0 var(--accent-green);
+}
+
+.compareCheck {
+  cursor: pointer;
+  accent-color: var(--accent-green);
+}
+
+.rowSelected td {
+  color: var(--text-primary);
+  background: rgba(0, 255, 136, 0.04);
+}
+
 .muted {
   font-family: var(--font-data);
   font-size: 13px;

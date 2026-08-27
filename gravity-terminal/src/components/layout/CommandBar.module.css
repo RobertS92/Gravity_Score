@@ -47,7 +47,12 @@
 }
 
 .hint {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-data);
   font-size: 13px;
   color: var(--text-dim);

@@ -6,7 +6,7 @@ export type ParsedCommand =
   | { kind: 'score'; name: string }
   | { kind: 'watchlist_add'; name: string }
   | { kind: 'watchlist_remove'; name: string }
-  | { kind: 'csc_report' }
+  | { kind: 'csc_report'; name?: string }
   | { kind: 'brand_match'; rest: string }
   | { kind: 'compare'; names: string[] }
   | { kind: 'scan'; position?: string; conference?: string }
@@ -24,8 +24,9 @@ export function parseStructuredCommand(raw: string): ParsedCommand {
     return { kind: 'scope_reject', league: m?.[0] ?? 'PRO' }
   }
 
-  const scoreM = line.match(/^score\s+--athlete\s+"([^"]+)"/i)
-  if (scoreM) return { kind: 'score', name: scoreM[1] }
+  const scoreM =
+    line.match(/^score\s+--athlete\s+"([^"]+)"/i) ?? line.match(/^score\s+--athlete\s+(.+)$/i)
+  if (scoreM) return { kind: 'score', name: scoreM[1].trim() }
 
   const addM = line.match(/^watchlist\s+--add\s+"([^"]+)"/i)
   if (addM) return { kind: 'watchlist_add', name: addM[1] }
@@ -33,7 +34,12 @@ export function parseStructuredCommand(raw: string): ParsedCommand {
   const remM = line.match(/^watchlist\s+--remove\s+"([^"]+)"/i)
   if (remM) return { kind: 'watchlist_remove', name: remM[1] }
 
-  if (/^csc\s+--report/i.test(line)) return { kind: 'csc_report' }
+  const cscAthleteM =
+    line.match(/^csc(?:\s+--report)?\s+--athlete\s+"([^"]+)"/i) ??
+    line.match(/^csc(?:\s+--report)?\s+--athlete\s+(.+)$/i)
+  if (cscAthleteM) return { kind: 'csc_report', name: cscAthleteM[1].trim() }
+
+  if (/^csc(?:\s+--report)?$/i.test(line)) return { kind: 'csc_report' }
 
   const brandM = line.match(/^brand\s+--match\s+(.+)/i)
   if (brandM) return { kind: 'brand_match', rest: brandM[1].trim() }

@@ -11,12 +11,18 @@ export type MarketScanQuery = {
   position?: string
   conference?: string
   min_score?: number
+  include_stale_roster?: boolean
+  /** Cap rows loaded client-side. Agent tools should pass a small value. */
+  maxLoaded?: number
 }
+
+export type MarketScanRosterWindow = 'live' | 'stale' | 'stale_fallback'
 
 export type MarketScanResult = {
   athletes: AthleteRecord[]
   /** Total rows matching filters (across all pages). */
   total: number
+  rosterWindow: MarketScanRosterWindow | null
 }
 
 const PAGE_SIZE = 500
@@ -24,7 +30,12 @@ const PAGE_SIZE = 500
 export const MARKET_SCAN_ROW_CAP = 12000
 const MAX_LOADED = MARKET_SCAN_ROW_CAP
 
-function buildMarketScanSearchParams(q: MarketScanQuery, offset: number, limit: number): string {
+function buildMarketScanSearchParams(
+  q: MarketScanQuery,
+  offset: number,
+  limit: number,
+  includeStaleRoster: boolean,
+): string {
   const sp = new URLSearchParams()
   sp.set('limit', String(limit))
   sp.set('offset', String(offset))
@@ -33,42 +44,87 @@ function buildMarketScanSearchParams(q: MarketScanQuery, offset: number, limit: 
   if (q.position) sp.set('position_group', q.position)
   if (q.conference) sp.set('conference', q.conference)
   if (q.min_score != null) sp.set('min_gravity', String(q.min_score))
+  if (includeStaleRoster) sp.set('include_stale_roster', 'true')
   return sp.toString()
+}
+
+function parseRosterWindow(raw: unknown): MarketScanRosterWindow | null {
+  if (raw === 'live' || raw === 'stale' || raw === 'stale_fallback') return raw
+  return null
+}
+
+type ScanPage = {
+  athletes: AthleteRecord[]
+  total: number
+  rosterWindow: MarketScanRosterWindow | null
+}
+
+async function fetchMarketScanPage(
+  q: MarketScanQuery,
+  offset: number,
+  includeStaleRoster: boolean,
+  limit: number,
+  signal?: AbortSignal,
+): Promise<ScanPage> {
+  const qs = buildMarketScanSearchParams(q, offset, limit, includeStaleRoster)
+  const raw = await apiGet<{
+    athletes: Record<string, unknown>[]
+    total?: number
+    returned?: number
+    roster_window?: string
+  }>(`market/scan?${qs}`, { signal })
+  return {
+    athletes: (raw.athletes ?? []).map((r) => mapSearchRowToAthlete(r)),
+    total: typeof raw.total === 'number' ? raw.total : 0,
+    rosterWindow: parseRosterWindow(raw.roster_window),
+  }
 }
 
 /**
  * Loads market scan rows in pages until all matching athletes are fetched (up to MAX_LOADED).
+ * When the live roster window is empty, retries with include_stale_roster so the table
+ * still shows current-roster athletes (same fallback as terminal bootstrap).
  */
-export async function getMarketScan(q: MarketScanQuery = {}): Promise<MarketScanResult> {
+export async function getMarketScan(
+  q: MarketScanQuery = {},
+  opts?: { onPage?: (partial: MarketScanResult) => void; signal?: AbortSignal },
+): Promise<MarketScanResult> {
   const out: AthleteRecord[] = []
+  const maxLoaded = Math.min(Math.max(1, q.maxLoaded ?? MAX_LOADED), MAX_LOADED)
   let offset = 0
+  let includeStale = Boolean(q.include_stale_roster)
   let total = 0
+  let rosterWindow: MarketScanRosterWindow | null = includeStale ? 'stale' : null
 
-  while (offset < MAX_LOADED) {
-    const qs = buildMarketScanSearchParams(q, offset, PAGE_SIZE)
-    const raw = await apiGet<{
-      athletes: Record<string, unknown>[]
-      total?: number
-      returned?: number
-    }>(`market/scan?${qs}`)
-    const batch = (raw.athletes ?? []).map((r) => mapSearchRowToAthlete(r))
-    if (offset === 0 && typeof raw.total === 'number') {
-      total = raw.total
+  while (offset < maxLoaded) {
+    const pageLimit = Math.min(PAGE_SIZE, maxLoaded - offset)
+    if (pageLimit <= 0) break
+    const batch = await fetchMarketScanPage(q, offset, includeStale, pageLimit, opts?.signal)
+    if (offset === 0) {
+      total = batch.total
+      rosterWindow = batch.rosterWindow ?? rosterWindow
+      if (!includeStale && (total === 0 || batch.rosterWindow === 'stale_fallback')) {
+        includeStale = true
+        rosterWindow = batch.rosterWindow === 'stale_fallback' ? 'stale_fallback' : 'stale'
+        if (total === 0) {
+          continue
+        }
+      }
     }
-    out.push(...batch)
-    const n = batch.length
+    out.push(...batch.athletes)
+    if (total === 0 && out.length > 0) total = out.length
+    if (offset === 0) {
+      opts?.onPage?.({ athletes: [...out], total, rosterWindow })
+    }
+    const n = batch.athletes.length
     if (n === 0) break
-    if (n < PAGE_SIZE) break
+    if (n < pageLimit) break
     if (total > 0 && out.length >= total) break
     offset += n
-    if (out.length >= MAX_LOADED) break
+    if (out.length >= maxLoaded) break
   }
 
-  if (total === 0 && out.length > 0) {
-    total = out.length
-  }
-
-  return { athletes: out, total }
+  return { athletes: out, total: total || out.length, rosterWindow }
 }
 
 export async function getMarketSchools(): Promise<SchoolIndexRow[]> {

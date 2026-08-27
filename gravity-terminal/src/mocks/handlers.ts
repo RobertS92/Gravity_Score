@@ -141,6 +141,19 @@ export async function mockRequest(
     })
   }
 
+  if (p === 'auth/demo-accounts' && method === 'GET') {
+    return json({
+      password: 'demo1234',
+      accounts: [
+        { email: 'demo@gravity.local', label: 'School admin', role: 'school_admin', org_type: 'school' },
+        { email: 'coach@gravity.local', label: 'CFB coach', role: 'school_coach', org_type: 'school' },
+        { email: 'agent@gravity.local', label: 'Agent', role: 'agent', org_type: 'law_firm_agent' },
+        { email: 'brand@gravity.local', label: 'Brand', role: 'brand', org_type: 'brand_agency' },
+        { email: 'admin@gravity.local', label: 'Platform admin', role: 'admin', org_type: 'media_research' },
+      ],
+    })
+  }
+
   if (p === 'auth/login' && method === 'POST') {
     const em = (body as { email?: string })?.email ?? 'demo@gravity.local'
     void em
@@ -340,11 +353,19 @@ export async function mockRequest(
       id: a.alert_id,
       athlete_id: a.athlete_id,
       athlete_name: a.athlete_name,
+      school: a.school ?? null,
       delta: a.numeric_change,
       trigger_reason: a.description,
       created_at: a.timestamp,
+      alert_type: a.alert_type,
+      read: false,
+      source: 'event',
     }))
     return json({ items, unread: items.length })
+  }
+
+  if (p === 'alerts/mark-read' && method === 'POST') {
+    return json({ ok: true })
   }
 
   if (p.startsWith('market/scan') && method === 'GET') {
@@ -373,7 +394,7 @@ export async function mockRequest(
       velocity_score: a.velocity_score,
       risk_score: a.risk_score,
     }))
-    return json({ athletes, total: athletes.length, returned: athletes.length })
+    return json({ athletes, total: athletes.length, returned: athletes.length, roster_window: 'live' })
   }
 
   if (p === 'market/schools' && method === 'GET') {

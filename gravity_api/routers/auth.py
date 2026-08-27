@@ -18,6 +18,10 @@ import asyncpg
 from gravity_api.auth_deps import require_user_id
 from gravity_api.config import get_settings
 from gravity_api.database import get_db
+from gravity_api.services.demo_accounts import (
+    is_enabled as is_demo_accounts_enabled,
+    public_catalog as demo_catalog,
+)
 from gravity_api.services.onboarding_defaults import (
     assert_org_type,
     default_athletes_sort_for_org_type,
@@ -412,6 +416,15 @@ async def me(
         if row["onboarding_completed_at"]
         else None,
     }
+
+
+@router.get("/demo-accounts", include_in_schema=False)
+async def demo_accounts():
+    """Public catalog of walkthrough logins. Disabled in production by default."""
+    settings = get_settings()
+    if not is_demo_accounts_enabled(environment=settings.environment):
+        raise HTTPException(status_code=404, detail="Demo accounts are not enabled")
+    return demo_catalog()
 
 
 @router.get("/health")

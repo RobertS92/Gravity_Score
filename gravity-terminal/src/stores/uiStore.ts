@@ -86,7 +86,9 @@ export type UiStore = {
   cohortIds: string[]
   /** When true, CSC view keeps current report until user regenerates or leaves */
   cscLockedFromAgent: boolean
+  watchlistFinderOpen: boolean
   setActiveSidebarItem: (item: SidebarItem | null) => void
+  setWatchlistFinderOpen: (open: boolean) => void
   setCommandBarValue: (v: string) => void
   pushHistory: (line: string) => void
   historyPrev: () => string | null
@@ -106,6 +108,7 @@ export type UiStore = {
   toggleBrandMatchShortlist: (row: BrandMatchResult) => void
   clearBrandMatchShortlist: () => void
   setCohortIds: (ids: string[]) => void
+  toggleCohortId: (id: string) => void
   setCscLockedFromAgent: (v: boolean) => void
 }
 
@@ -151,8 +154,10 @@ export const useUiStore = create<UiStore>((set, get) => ({
   brandMatchResultContext: null,
   cohortIds: [],
   cscLockedFromAgent: false,
+  watchlistFinderOpen: false,
 
   setActiveSidebarItem: (item) => set({ activeSidebarItem: item }),
+  setWatchlistFinderOpen: (open) => set({ watchlistFinderOpen: open }),
   setCommandBarValue: (v) => set({ commandBarValue: v }),
   setReportModalOpen: (v) => set({ isReportModalOpen: v }),
   setReportConfig: (p) => {
@@ -233,7 +238,15 @@ export const useUiStore = create<UiStore>((set, get) => ({
       }
     }),
   clearBrandMatchShortlist: () => set({ brandMatchShortlist: [] }),
-  setCohortIds: (ids) => set({ cohortIds: ids }),
+  setCohortIds: (ids) => set({ cohortIds: ids.slice(0, 5) }),
+  toggleCohortId: (id) =>
+    set((state) => {
+      if (state.cohortIds.includes(id)) {
+        return { cohortIds: state.cohortIds.filter((x) => x !== id) }
+      }
+      if (state.cohortIds.length >= 5) return state
+      return { cohortIds: [...state.cohortIds, id] }
+    }),
   setCscLockedFromAgent: (v) => set({ cscLockedFromAgent: v }),
 
   pushHistory: (line) => {

@@ -1,5 +1,6 @@
 import { mapAlertRow } from './adapters/athlete'
-import { apiGet } from './client'
+import { apiGet, apiPost } from './client'
+import type { AlertRecord } from '../types/alerts'
 
 export function getAlerts(userId: string, sportsCsv?: string | null) {
   const sp = new URLSearchParams({ user_id: userId })
@@ -12,3 +13,16 @@ export function getAlerts(userId: string, sportsCsv?: string | null) {
     ),
   )
 }
+
+export function markAlertsRead(body: { alert_ids?: string[]; mark_all?: boolean }) {
+  return apiPost<{ ok: boolean }>('alerts/mark-read', {
+    alert_ids: body.alert_ids ?? [],
+    mark_all: body.mark_all ?? false,
+  })
+}
+
+export function isPersistedAlertId(id: string) {
+  return !id.startsWith('live:')
+}
+
+export type { AlertRecord }

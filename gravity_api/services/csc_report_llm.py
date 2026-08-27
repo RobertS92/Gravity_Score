@@ -39,6 +39,40 @@ class LlmResult:
 
 _DECIMAL_LEAK_PATTERN = re.compile(r"\b\d+\.\d+\b")
 _BRACE_LEAK_PATTERN = re.compile(r"[\{\}]")
+_YEARLY_OFFER_CONFLATION_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bbrackets?\b", re.IGNORECASE),
+    re.compile(r"\bband around\b", re.IGNORECASE),
+    re.compile(r"\bcontains the (yearly|annual|benchmark)\b", re.IGNORECASE),
+    re.compile(r"\bone (single )?figure\b", re.IGNORECASE),
+    re.compile(r"\bsame (number|figure|value) as\b", re.IGNORECASE),
+)
+_RISK_ELEVATING = re.compile(
+    r"\b(elevated|defensive deal construction|shorter terms|high risk)\b",
+    re.IGNORECASE,
+)
+_HIGH_CONTRADICTION = re.compile(r"\b(weak|lags?\b|below peers|thin support)\b", re.IGNORECASE)
+
+
+def yearly_offer_conflation_reason(text: str) -> str | None:
+    """Return a reason when prose treats yearly NIL and the suggested offer as one figure."""
+    sample = (text or "").strip()
+    if not sample:
+        return None
+    for pattern in _YEARLY_OFFER_CONFLATION_PATTERNS:
+        if pattern.search(sample):
+            return f"yearly_offer_conflation:{pattern.pattern}"
+    return None
+
+
+def driver_prose_conflicts_badge(label: str, signal: str, explanation: str) -> bool:
+    """True when driver-grade language contradicts the interpretation paragraph."""
+    grade = (signal or "").strip().lower()
+    prose = explanation or ""
+    if label == "Risk" and grade == "low" and _RISK_ELEVATING.search(prose):
+        return True
+    if grade == "high" and _HIGH_CONTRADICTION.search(prose):
+        return True
+    return False
 
 
 def _llm_enabled() -> bool:
@@ -75,6 +109,10 @@ def validate_prose(
         return False, "decimal_score_leak"
     if _BRACE_LEAK_PATTERN.search(stripped):
         return False, "json_brace_leak"
+    if surface == "executive_summary":
+        conflation = yearly_offer_conflation_reason(stripped)
+        if conflation:
+            return False, conflation
     sentences = [s for s in re.split(r"(?<=[.!?])\s+", stripped) if s.strip()]
     if len(sentences) < min_sentences:
         return False, f"too_few_sentences:{len(sentences)}<{min_sentences}"
@@ -174,6 +212,13 @@ async def generate_prose(
     )
     if not ok:
         logger.warning("Generated prose failed validation: surface=%s reason=%s", surface, reason)
+        return LlmResult(text=fallback, source="template")
+    if surface == "driver" and driver_prose_conflicts_badge(
+        str(prompt_inputs.get("driver_label") or ""),
+        str(prompt_inputs.get("signal_level") or ""),
+        text,
+    ):
+        logger.warning("Generated driver prose contradicted badge: label=%s", prompt_inputs.get("driver_label"))
         return LlmResult(text=fallback, source="template")
     return LlmResult(text=text, source="llm")
 

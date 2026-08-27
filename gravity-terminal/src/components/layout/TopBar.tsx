@@ -186,9 +186,13 @@ export function TopBar() {
           </span>
         </div>
         <span className={styles.clock}>{clock} ET</span>
-        {unread > 0 && (
-          <span className={`${styles.badge} ${pulse ? styles.badgePulse : ''}`}>{unread} ALERTS</span>
-        )}
+        <NavLink
+          to="/monitoring"
+          className={`${styles.badge} ${unread > 0 ? styles.badgeHot : styles.badgeIdle} ${pulse ? styles.badgePulse : ''}`}
+          title="Open Alert Center"
+        >
+          {unread} ALERTS
+        </NavLink>
         <NavLink to="/settings" className={styles.settingsLink}>
           SETTINGS
         </NavLink>

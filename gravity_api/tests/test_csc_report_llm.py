@@ -11,6 +11,30 @@ from gravity_api.services.csc_report_llm import (
 )
 
 
+def test_validate_prose_rejects_yearly_offer_conflation():
+    ok, reason = validate_prose(
+        "The suggested offer brackets the yearly market value of twenty million.",
+        surface="executive_summary",
+        min_sentences=1,
+        max_sentences=6,
+    )
+    assert ok is False
+    assert reason and reason.startswith("yearly_offer_conflation")
+
+
+def test_yearly_offer_checker_rejects_bad_llm_completion():
+    from gravity_api.services.csc_report_llm import yearly_offer_conflation_reason
+
+    bad = "Arch Manning's deal range brackets the yearly market value."
+    assert yearly_offer_conflation_reason(bad)
+    assert (
+        yearly_offer_conflation_reason(
+            "Arch Manning's yearly market value is twenty two million. Suggested offer for one campaign: one hundred sixty eight thousand to six hundred twelve thousand."
+        )
+        is None
+    )
+
+
 def test_validate_prose_accepts_clean_short_prose():
     ok, reason = validate_prose(
         "Rocco Becht's brand strength outpaces conference peers. Recent deal activity is sparse.",

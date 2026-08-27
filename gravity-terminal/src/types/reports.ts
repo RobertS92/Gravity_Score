@@ -131,6 +131,9 @@ export interface CscProvenanceBlock {
   exposure_formula_version: string
   model_version?: string | null
   model_status?: 'production' | 'fallback' | null
+  scored_at?: string | null
+  feature_populated?: number | null
+  feature_total?: number | null
 }
 
 export interface CscShapRow {

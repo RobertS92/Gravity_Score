@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
@@ -130,6 +131,39 @@ def _format_scored_at(value: Any) -> str:
     return text[:10] if len(text) >= 10 else text
 
 
+_FEATURE_SKIP_KEYS = {
+    "id",
+    "athlete_id",
+    "shap_values",
+    "created_at",
+    "updated_at",
+    "model_version",
+    "calculated_at",
+}
+
+
+def _feature_vector_completeness(latest_dict: dict[str, Any] | None) -> tuple[int, int]:
+    """Count non-null score-row fields vs total eligible fields."""
+    source = latest_dict or {}
+    keys = [k for k in source.keys() if k not in _FEATURE_SKIP_KEYS]
+    if not keys:
+        return 0, 0
+    populated = sum(1 for k in keys if source.get(k) is not None)
+    return populated, len(keys)
+
+
+def risk_attribution_cause(*, roster_inactive: bool, risk_score: float | None) -> str:
+    """Causal phrase for the Risk summary line — always from risk inputs, never another driver."""
+    parts: list[str] = []
+    if roster_inactive:
+        parts.append("roster status")
+    if risk_score is not None:
+        parts.append("modeled risk posture")
+    if not parts:
+        parts.append("modeled risk posture")
+    return " and ".join(parts)
+
+
 def _signal_level(score: Optional[float], *, invert: bool = False) -> str:
     if score is None:
         return "Moderate"
@@ -244,6 +278,11 @@ def _supporting_metrics_for_driver(
     ig, tw, tt, engagement = _driver_signal_inputs(athlete_d, latest_dict)
     if label == "Brand Strength":
         return [
+            metric(
+                "Brand Score",
+                _first_number(latest_dict.get("brand_score"), athlete_d.get("brand_score")),
+                "/100",
+            ),
             metric("Instagram", ig, "followers"),
             metric("TikTok", tt, "followers"),
             metric("X", tw, "followers"),
@@ -325,7 +364,9 @@ def _supporting_signals_for_driver(
 ) -> list[dict[str, str]]:
     ig, tw, tt, engagement = _driver_signal_inputs(athlete_d, latest_dict)
     if label == "Brand Strength":
+        brand_score = _first_number(latest_dict.get("brand_score"), athlete_d.get("brand_score"))
         return [
+            {"label": "Brand Score", "value": _format_score(brand_score)},
             {"label": "Instagram", "value": _fmt_followers(ig)},
             {"label": "TikTok", "value": _fmt_followers(tt)},
             {"label": "X", "value": _fmt_followers(tw)},
@@ -1653,6 +1694,7 @@ def _build_detail_blocks(
     report_id: str,
     model_version: Any,
     model_status: str,
+    scored_at: str | None = None,
 ) -> dict[str, Any]:
     """Assemble the nested Methodology/Cohort/Comparables/Provenance/SHAP blocks."""
     shap_rows: list[dict[str, Any]] = []
@@ -1678,17 +1720,26 @@ def _build_detail_blocks(
                         "contribution": float(num),
                     }
                 )
+    shap_narrative = _build_shap_narrative(latest_dict, latest_with_shap_dict)
+    shap_line = (
+        ", ".join(f"{row['feature']} ({row['contribution']:+.2f})" for row in shap_rows[:5])
+        if shap_rows
+        else shap_narrative
+    )
+    populated, total = _feature_vector_completeness(latest_dict)
+    scored_label = scored_at or _format_scored_at((latest_dict or {}).get("calculated_at"))
     return {
         "methodology": {
             "title": "Methodology",
             "summary": (
-                "Component-based valuation model with cohort-relative market context."
+                "Component-based valuation model with cohort-relative market context. "
+                "Yearly market value and the suggested offer are priced separately."
             ),
             "components": [
-                "Brand Strength — branded reach and audience alignment.",
-                "Market Proof — verified deal density and pricing.",
-                "Exposure — proximity to high-leverage moments + recent velocity.",
-                "Risk — operational, eligibility, and stability factors.",
+                f"Model version: {model_version or 'unspecified'} ({model_status})",
+                f"Top SHAP drivers: {shap_line}",
+                f"Feature vector: {populated}/{total} populated",
+                f"Last scored: {scored_label}",
             ],
             "tier_methodology_version": tier_version,
         },
@@ -1720,6 +1771,9 @@ def _build_detail_blocks(
             "exposure_formula_version": exposure_formula["version"],
             "model_version": str(model_version) if model_version is not None else None,
             "model_status": model_status,
+            "scored_at": scored_label,
+            "feature_populated": populated,
+            "feature_total": total,
         },
         "shap_attribution": {
             "title": "SHAP Attribution",
@@ -1896,8 +1950,8 @@ def deal_construction_band(
 
 
 OUTLIER_VALUE_RANGE_NOTE = (
-    "Outlier profile — peer cohort range is not applicable for deal construction. "
-    "Displayed band is a deal-construction range around this athlete's benchmark."
+    "This athlete sits outside a typical peer set, so the band is built around "
+    "their own yearly value rather than a peer envelope."
 )
 
 
@@ -1935,26 +1989,22 @@ def _build_market_context_text(
 ) -> str:
     label = f"{conference} {position_group}s (n={cohort_size})"
     if cohort_fit == "poor":
-        # The athlete's benchmark is outside the cohort distribution; the
-        # spec mandates that percentile and median be suppressed in favor
-        # of an explicit "exceeds peer cohort distribution" framing.
         return (
-            f"Peer Market Context ({label})\n"
-            "Outlier profile — peer cohort range is not applicable for deal "
-            "construction. Athlete valuation exceeds the peer cohort distribution. "
-            "Standard percentile statistics are not applicable; refer to the "
-            "Comparable Athletes section for peer reference.\n"
+            f"How this compares ({label})\n"
+            "This athlete sits outside a typical peer set. Yearly value is above "
+            "the usual range for this group, so a percentile is not shown. Use "
+            "the similar-athlete table as the reference.\n"
             f"Based on athletes scored in the last {window_days} days"
         )
     if fallback_step >= 3:
         return (
-            f"Peer Market Context ({label})\n"
-            f"Peer market range: {_format_nil_value(p10)} – {_format_nil_value(p90)}\n"
-            f"Based on athletes scored in the last {window_days} days (absolute methodology)."
+            f"How this compares ({label})\n"
+            f"Peer yearly values: {_format_nil_value(p10)} – {_format_nil_value(p90)}\n"
+            f"Based on athletes scored in the last {window_days} days."
         )
     return (
-        f"Peer Market Context ({label})\n"
-        f"Peer market range: {_format_nil_value(p10)} – {_format_nil_value(p90)}\n"
+        f"How this compares ({label})\n"
+        f"Peer yearly values: {_format_nil_value(p10)} – {_format_nil_value(p90)}\n"
         f"Median: {_format_nil_value(p50)}\n"
         f"Based on athletes scored in the last {window_days} days"
     )
@@ -2674,11 +2724,11 @@ async def build_csc_report_json(
         range_quality = "normal" if selected_scope_estimate["calibrated"] else "estimate"
         value_range_note = (
             (
-                "Recommended range is priced for a standard 4-6 week brand activation. "
+                "Suggested offer is priced for one campaign (about 4–6 weeks). "
                 if selected_deal_scope == "standard_activation"
-                else f"Recommended range is priced for {selected_scope_estimate['label'].lower()}. "
+                else f"Suggested offer is priced for {selected_scope_estimate['label'].lower()}. "
             )
-            + "It is intentionally separate from the annual NIL market benchmark."
+            + "It is not the athlete's full-year NIL value."
         )
 
     base_confidence = _signal_level((model_confidence or 0.5) * 100.0)
@@ -2734,16 +2784,16 @@ async def build_csc_report_json(
     # decimals, no formula constants, no system internals).
     fallback_executive_parts = [
         (
-            f"{name} carries a Total NIL Value Benchmark of {benchmark_text} "
-            f"with standard activation guidance of {range_text}."
+            f"{name}'s yearly market value is {benchmark_text}. "
+            f"Suggested offer for one campaign: {range_text}."
         ),
         (
             f"In {conference_f} {pos_group}s, this profile sits in {percentile_text}, "
             f"led by {top_driver.lower()}."
         ),
         (
-            "The benchmark reflects annual market positioning; the activation range "
-            "is priced separately using deliverable-level deal economics."
+            "The yearly figure is full-year NIL worth. The suggested offer is the "
+            "price of one campaign, not that yearly number."
         ),
     ]
     if confidence_level != "High":
@@ -2758,19 +2808,6 @@ async def build_csc_report_json(
         if confidence_level == "High"
         else f"Primary uncertainty: {primary_constraint.lower()}."
     )
-    executive_result = await generate_executive_summary(
-        athlete_name=name,
-        benchmark_text=benchmark_text,
-        range_text=range_text,
-        cohort_label=cohort_label,
-        tier_tag=tier_selected,
-        confidence_tag=f"{confidence_level} Confidence",
-        dominant_driver=top_driver,
-        uncertainty_note=uncertainty_note,
-        fallback=fallback_executive_summary,
-    )
-    executive_summary = executive_result.text
-
     # Deterministic per-driver Interpretation — evidence + peer meaning +
     # actionability (same quality bar as the LLM target).
     raw_driver_rows = [
@@ -2781,7 +2818,7 @@ async def build_csc_report_json(
         ("Commercial Readiness", _signal_level(commercial_score)),
         ("Risk", _signal_level(risk_score, invert=True)),
     ]
-    key_value_drivers: list[dict[str, Any]] = []
+    driver_fallbacks: list[tuple[str, str, str, str]] = []
     for label, signal in raw_driver_rows:
         fallback = build_driver_interpretation_fallback(
             athlete_name=name,
@@ -2794,15 +2831,137 @@ async def build_csc_report_json(
         evidence_summary = _driver_evidence_summary_for_prompt(
             label, athlete_d, latest_dict, signal=signal, athlete_name=name
         )
-        driver_result = await generate_driver_explanation(
-            athlete_name=name,
-            driver_label=label,
-            signal_level=signal,
-            position_group=pos_group,
-            cohort_label=cohort_label,
-            evidence_summary=evidence_summary,
-            fallback=fallback,
+        driver_fallbacks.append((label, signal, fallback, evidence_summary))
+
+    market_context = _build_market_context_text(
+        conference=conference_f,
+        position_group=pos_group,
+        cohort_size=cohort_stats["size"],
+        p10=_first_number(cohort_stats["p10"], lo),
+        p50=_first_number(cohort_stats["p50"], benchmark),
+        p90=_first_number(cohort_stats["p90"], hi),
+        window_days=(90 if cohort_fallback_step >= 2 else cohort_window_days),
+        fallback_step=cohort_fallback_step,
+        cohort_fit=cohort_fit_label,
+    )
+    if percentile_override_text:
+        # Suffix the override text so consumers see "Highest of N" instead of
+        # a numeric percentile when the athlete is at the top of the cohort.
+        market_context = f"{market_context}\n{percentile_override_text}"
+    if comparable_state == "none":
+        validation_takeaway_fallback = (
+            f"{name}'s benchmark is presented against positional cohort context; direct similarity comparables were unavailable."
         )
+    elif comparable_state == "sparse":
+        validation_takeaway_fallback = (
+            f"{name}'s benchmark aligns with available comparables, but sparse matches reduce certainty in the band."
+        )
+    else:
+        validation_takeaway_fallback = (
+            f"{name}'s benchmark aligns with similar comparables and current cohort market context."
+        )
+
+    # ---------------- PHASE 6: PERSIST (report id allocation) ----------------
+    report_id = await _allocate_report_id(
+        db,
+        report_date=report_dt.date(),
+        initials=_athlete_initials(name),
+    )
+
+    comparables_summary = (
+        f"{len(comparables_analysis)} comparable athletes"
+        if comparable_state != "none"
+        else "No direct comparables available; using positional reference athletes"
+    )
+
+    confidence_causes_parts: list[str] = []
+    if model_status == "fallback":
+        confidence_causes_parts.append("the scoring service is on a fallback model")
+    if comparable_state == "none":
+        confidence_causes_parts.append("no direct comparables were available")
+    elif comparable_state == "sparse":
+        confidence_causes_parts.append("comparable athlete depth is limited")
+    if cohort_fallback_step >= 2:
+        confidence_causes_parts.append("cohort data is sparse for this athlete")
+    if cohort_fit_label == "poor":
+        confidence_causes_parts.append("the athlete sits outside the typical peer cohort")
+    if range_quality == "wide":
+        confidence_causes_parts.append("the value range is wider than the benchmark")
+    if not confidence_causes_parts:
+        confidence_causes_parts.append("cohort quality and comparable depth are adequate")
+    confidence_causes = "; ".join(confidence_causes_parts)
+    fallback_confidence_note = (
+        f"{confidence_level} confidence: {confidence_causes_parts[0]}."
+    )
+    risk_factors = risk_attribution_cause(
+        roster_inactive=bool(athlete_d.get("roster_inactive") or athlete_d.get("is_active") is False),
+        risk_score=risk_score,
+    )
+    fallback_risk_note = (
+        f"{risk_level} risk: driven by {risk_factors}."
+    )
+
+    # Run independent prose calls together. Sequential awaits were the
+    # dominant click-to-report delay (one 12s budget per section).
+    (
+        executive_result,
+        interpretation_result,
+        confidence_result,
+        risk_result,
+        *driver_results,
+    ) = await asyncio.gather(
+        generate_executive_summary(
+            athlete_name=name,
+            benchmark_text=benchmark_text,
+            range_text=range_text,
+            cohort_label=cohort_label,
+            tier_tag=tier_selected,
+            confidence_tag=f"{confidence_level} Confidence",
+            dominant_driver=top_driver,
+            uncertainty_note=uncertainty_note,
+            fallback=fallback_executive_summary,
+        ),
+        generate_value_interpretation(
+            athlete_name=name,
+            market_context=market_context.replace("\n", " "),
+            comparables_summary=comparables_summary,
+            benchmark_text=benchmark_text,
+            percentile_text=percentile_text,
+            fallback=validation_takeaway_fallback,
+        ),
+        generate_confidence_rationale(
+            athlete_name=name,
+            confidence_level=confidence_level,
+            causes=confidence_causes,
+            fallback=fallback_confidence_note,
+        ),
+        generate_risk_rationale(
+            athlete_name=name,
+            risk_level=risk_level,
+            position_group=pos_group,
+            risk_factors=risk_factors,
+            fallback=fallback_risk_note,
+        ),
+        *[
+            generate_driver_explanation(
+                athlete_name=name,
+                driver_label=label,
+                signal_level=signal,
+                position_group=pos_group,
+                cohort_label=cohort_label,
+                evidence_summary=evidence_summary,
+                fallback=fallback,
+            )
+            for label, signal, fallback, evidence_summary in driver_fallbacks
+        ],
+    )
+    executive_summary = executive_result.text
+    validation_takeaway = interpretation_result.text
+
+    key_value_drivers: list[dict[str, Any]] = []
+    for (label, signal, _fallback, _evidence), driver_result in zip(
+        driver_fallbacks, driver_results, strict=True
+    ):
         key_value_drivers.append(
             {
                 "label": label,
@@ -2835,96 +2994,6 @@ async def build_csc_report_json(
         key_value_drivers.sort(
             key=lambda d: 0 if d.get("label") == focus_label else 1,
         )
-
-    market_context = _build_market_context_text(
-        conference=conference_f,
-        position_group=pos_group,
-        cohort_size=cohort_stats["size"],
-        p10=_first_number(cohort_stats["p10"], lo),
-        p50=_first_number(cohort_stats["p50"], benchmark),
-        p90=_first_number(cohort_stats["p90"], hi),
-        window_days=(90 if cohort_fallback_step >= 2 else cohort_window_days),
-        fallback_step=cohort_fallback_step,
-        cohort_fit=cohort_fit_label,
-    )
-    if percentile_override_text:
-        # Suffix the override text so consumers see "Highest of N" instead of
-        # a numeric percentile when the athlete is at the top of the cohort.
-        market_context = f"{market_context}\n{percentile_override_text}"
-    if comparable_state == "none":
-        validation_takeaway = (
-            f"{name}'s benchmark is presented against positional cohort context; direct similarity comparables were unavailable."
-        )
-    elif comparable_state == "sparse":
-        validation_takeaway = (
-            f"{name}'s benchmark aligns with available comparables, but sparse matches reduce certainty in the band."
-        )
-    else:
-        validation_takeaway = (
-            f"{name}'s benchmark aligns with similar comparables and current cohort market context."
-        )
-
-    # ---------------- PHASE 6: PERSIST (report id allocation) ----------------
-    report_id = await _allocate_report_id(
-        db,
-        report_date=report_dt.date(),
-        initials=_athlete_initials(name),
-    )
-
-    # Validation takeaway via LLM with deterministic fallback.
-    comparables_summary = (
-        f"{len(comparables_analysis)} comparable athletes"
-        if comparable_state != "none"
-        else "No direct comparables available; using positional reference athletes"
-    )
-    interpretation_result = await generate_value_interpretation(
-        athlete_name=name,
-        market_context=market_context.replace("\n", " "),
-        comparables_summary=comparables_summary,
-        benchmark_text=benchmark_text,
-        percentile_text=percentile_text,
-        fallback=validation_takeaway,
-    )
-    validation_takeaway = interpretation_result.text
-
-    # Confidence + risk rationale via LLM with deterministic fallback.
-    confidence_causes_parts: list[str] = []
-    if model_status == "fallback":
-        confidence_causes_parts.append("the scoring service is on a fallback model")
-    if comparable_state == "none":
-        confidence_causes_parts.append("no direct comparables were available")
-    elif comparable_state == "sparse":
-        confidence_causes_parts.append("comparable athlete depth is limited")
-    if cohort_fallback_step >= 2:
-        confidence_causes_parts.append("cohort data is sparse for this athlete")
-    if cohort_fit_label == "poor":
-        confidence_causes_parts.append("the athlete sits outside the typical peer cohort")
-    if range_quality == "wide":
-        confidence_causes_parts.append("the value range is wider than the benchmark")
-    if not confidence_causes_parts:
-        confidence_causes_parts.append("cohort quality and comparable depth are adequate")
-    confidence_causes = "; ".join(confidence_causes_parts)
-    fallback_confidence_note = (
-        f"{confidence_level} confidence: {confidence_causes_parts[0]}."
-    )
-    confidence_result = await generate_confidence_rationale(
-        athlete_name=name,
-        confidence_level=confidence_level,
-        causes=confidence_causes,
-        fallback=fallback_confidence_note,
-    )
-
-    risk_factors = primary_constraint.lower() if confidence_level != "High" else "none material"
-    fallback_risk_note = (
-        f"{risk_level} risk: driven by {risk_factors}."
-    )
-    risk_result = await generate_risk_rationale(
-        athlete_name=name,
-        risk_level=risk_level,
-        position_group=pos_group,
-        risk_factors=risk_factors,
-        fallback=fallback_risk_note,
-    )
 
     detail_methodology = (
         "Component-based annual valuation with separate activation-level deal pricing. "
@@ -3011,6 +3080,7 @@ async def build_csc_report_json(
                 report_id=report_id,
                 model_version=latest_model_version,
                 model_status=model_status,
+                scored_at=_format_scored_at(latest_dict.get("calculated_at")),
             ),
         },
         "metadata": {

@@ -1,4 +1,4 @@
-import { formatInteger, formatScore } from './formatters'
+import { formatInteger, formatScore, formatScoreOn100 } from './formatters'
 import type { AthleteRecord } from '../types/athlete'
 import type { CscKeyValueDriver, CscSignalLevel } from '../types/reports'
 
@@ -58,6 +58,7 @@ export function supportingSignalsForDriver(
   switch (label) {
     case 'Brand Strength':
       return [
+        { label: 'Brand Score', value: formatScoreOn100(athlete.brand_score) },
         { label: 'Instagram', value: fmtFollowers(athlete.instagram_followers) },
         { label: 'TikTok', value: fmtFollowers(athlete.tiktok_followers) },
         { label: 'X', value: fmtFollowers(athlete.twitter_followers) },
@@ -88,12 +89,12 @@ export function supportingSignalsForDriver(
         },
         {
           label: 'Proof score',
-          value: formatScore(athlete.proof_score),
+          value: formatScoreOn100(athlete.proof_score),
         },
       ]
     case 'Momentum':
       return [
-        { label: 'Velocity score', value: formatScore(athlete.velocity_score) },
+        { label: 'Velocity score', value: formatScoreOn100(athlete.velocity_score) },
         {
           label: '30d NIL delta',
           value:
@@ -133,7 +134,7 @@ export function supportingSignalsForDriver(
       ]
     case 'Risk':
       return [
-        { label: 'Risk score', value: formatScore(athlete.risk_score) },
+        { label: 'Risk score', value: formatScoreOn100(athlete.risk_score) },
         {
           label: 'Roster status',
           value: athlete.roster_inactive ? 'Inactive' : 'Active',
@@ -190,6 +191,43 @@ function defaultDriversFromAthlete(athlete: AthleteRecord): CscKeyValueDriver[] 
   ]
 }
 
+export function isBlankSignal(value: string | undefined): boolean {
+  const v = (value ?? '').trim().toLowerCase()
+  return !v || v === 'n/a' || v === 'na' || v === '—' || v === '-'
+}
+
+export function qualifyDriverDisplay(driver: CscKeyValueDriver): {
+  signal: CscSignalLevel
+  qualifier: string | null
+} {
+  const signals = driver.supporting_signals ?? []
+  const blank = signals.filter((s) => isBlankSignal(s.value)).length
+  const majorityBlank = signals.length > 0 && blank / signals.length >= 0.5
+  if (driver.signal === 'High' && majorityBlank) {
+    return { signal: driver.signal, qualifier: 'Modeled, not observed' }
+  }
+  return { signal: driver.signal, qualifier: null }
+}
+
+function mergeSignals(
+  apiSignals: { label: string; value: string }[] | undefined,
+  athleteSignals: { label: string; value: string }[],
+): { label: string; value: string }[] {
+  const byLabel = new Map<string, { label: string; value: string }>()
+  for (const signal of athleteSignals) byLabel.set(signal.label, signal)
+  for (const signal of apiSignals ?? []) {
+    const existing = byLabel.get(signal.label)
+    if (!existing || isBlankSignal(existing.value) || !isBlankSignal(signal.value)) {
+      byLabel.set(signal.label, signal)
+    }
+  }
+  const order = [
+    ...athleteSignals.map((s) => s.label),
+    ...(apiSignals ?? []).map((s) => s.label).filter((label) => !athleteSignals.some((s) => s.label === label)),
+  ]
+  return order.map((label) => byLabel.get(label)).filter((s): s is { label: string; value: string } => !!s)
+}
+
 const DRIVER_ORDER = [
   'Brand Strength',
   'Market Proof',
@@ -210,10 +248,10 @@ export function enrichKeyValueDrivers(
   for (const d of drivers ?? []) {
     byLabel.set(d.label, {
       ...d,
-      supporting_signals:
-        d.supporting_signals?.length
-          ? d.supporting_signals
-          : supportingSignalsForDriver(d.label, athlete),
+      supporting_signals: mergeSignals(
+        d.supporting_signals,
+        supportingSignalsForDriver(d.label, athlete),
+      ),
     })
   }
   for (const d of defaults) {

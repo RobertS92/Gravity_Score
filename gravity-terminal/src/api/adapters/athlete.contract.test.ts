@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  mapAlertRow,
   mapAthleteFromBundle,
   mapComparableRow,
   mapComparablesFromBundle,
@@ -82,6 +83,44 @@ describe('athlete adapters', () => {
     expect(search.impact_score).toBe(91.2)
     expect(search.value_score).toBe(91.2)
     expect(search.impact_sport_percentile).toBe(99)
+  })
+
+  it('maps alert type, school, and live source from API rows', () => {
+    const event = mapAlertRow(
+      {
+        id: 'al1',
+        athlete_id: 'a1',
+        school: 'Ohio State',
+        delta: 4.2,
+        trigger_reason: 'SCORE_MOVE: Gravity score moved +4.2',
+        alert_type: 'SCORE_MOVE',
+        created_at: '2026-08-01T00:00:00Z',
+        read: false,
+        source: 'event',
+      },
+      'Caleb Downs',
+    )
+    expect(event.alert_type).toBe('SCORE_MOVE')
+    expect(event.school).toBe('Ohio State')
+    expect(event.source).toBe('event')
+    expect(event.description).toBe('Gravity score moved +4.2')
+
+    const live = mapAlertRow(
+      {
+        id: 'live:NIL_SIGNAL:a1',
+        athlete_id: 'a1',
+        school: 'Ohio State',
+        delta: 400000,
+        trigger_reason: 'NIL_SIGNAL: Model NIL P50 is $400,000',
+        created_at: '2026-08-01T00:00:00Z',
+        source: 'live',
+      },
+      'Caleb Downs',
+    )
+    expect(live.alert_type).toBe('NIL_SIGNAL')
+    expect(live.severity).toBe('WARN')
+    expect(live.source).toBe('live')
+    expect(live.description).toBe('Model NIL P50 is $400,000')
   })
 
   it('maps score history', () => {

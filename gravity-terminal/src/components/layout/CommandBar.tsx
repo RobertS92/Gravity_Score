@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { tryApplyAgentResponseText } from '../../agent/applyAgentResult'
 import { runAgentCommand } from '../../agent/claudeClient'
 import { parseStructuredCommand, resolveAthleteByName } from '../../agent/commandParser'
@@ -9,15 +9,9 @@ import { useUiStore } from '../../stores/uiStore'
 import { useWatchlistStore } from '../../stores/watchlistStore'
 import styles from './CommandBar.module.css'
 
-const PLACEHOLDERS = [
-  'score --athlete "Arch Manning"',
-  'deal --assess $175K apparel',
-  'csc --report',
-  'brand --match $400K Southeast',
-]
-
 const KEYWORDS = [
   'score --athlete ""',
+  'csc --athlete ""',
   'watchlist --add ""',
   'watchlist --remove ""',
   'csc --report',
@@ -26,8 +20,21 @@ const KEYWORDS = [
   'scan --position WR --conference Big12',
 ]
 
+function examplePlaceholders(athleteName: string | null | undefined): string[] {
+  // Examples follow the selected athlete so the bar never looks like a
+  // stale query for someone else. With no selection, use a generic name.
+  const quoted = JSON.stringify(athleteName?.trim() || 'Athlete Name')
+  return [
+    `score --athlete ${quoted}`,
+    `csc --athlete ${quoted}`,
+    'deal --assess $175K apparel',
+    'brand --match $400K Southeast',
+  ]
+}
+
 export function CommandBar() {
   const navigate = useNavigate()
+  const location = useLocation()
   const inputRef = useRef<HTMLInputElement>(null)
   const [phIdx, setPhIdx] = useState(0)
   const [suggestOpen, setSuggestOpen] = useState(false)
@@ -53,14 +60,17 @@ export function CommandBar() {
   const setProcessing = useCommandStore((s) => s.setProcessing)
   const error = useCommandStore((s) => s.error)
   const setLast = useCommandStore((s) => s.setLast)
+  const lastCommand = useCommandStore((s) => s.lastCommand)
   const clearErr = useCommandStore((s) => s.clearError)
+  const activeAthleteName = useAthleteStore((s) => s.activeAthlete?.name)
 
   useEffect(() => {
-    const t = setInterval(() => setPhIdx((i) => (i + 1) % PLACEHOLDERS.length), 4000)
+    const t = setInterval(() => setPhIdx((i) => (i + 1) % 4), 4000)
     return () => clearInterval(t)
   }, [])
 
-  const placeholder = value ? '' : PLACEHOLDERS[phIdx]
+  const placeholders = examplePlaceholders(activeAthleteName)
+  const placeholder = value ? '' : placeholders[phIdx % placeholders.length]
 
   const buildSuggestions = useCallback(
     (prefix: string) => {
@@ -96,8 +106,13 @@ export function CommandBar() {
         return
       }
       await setActive(id)
-      navigate('/')
-      setLast(trimmed, `Loaded athlete.`, null)
+      const stayOnCsc = location.pathname.startsWith('/csc')
+      navigate(stayOnCsc ? '/csc' : '/')
+      setLast(
+        trimmed,
+        stayOnCsc ? `Loaded ${parsed.name}. Generating CSC report.` : `Loaded ${parsed.name}.`,
+        null,
+      )
       return
     }
 
@@ -124,6 +139,17 @@ export function CommandBar() {
     }
 
     if (parsed.kind === 'csc_report') {
+      if (parsed.name) {
+        const id = await resolveAthleteByName(parsed.name)
+        if (!id) {
+          setLast(trimmed, null, 'Athlete not found.')
+          return
+        }
+        await setActive(id)
+        navigate('/csc')
+        setLast(trimmed, `CSC report for ${parsed.name}.`, null)
+        return
+      }
       navigate('/csc')
       setLast(trimmed, 'CSC Reports.', null)
       return
@@ -256,7 +282,9 @@ export function CommandBar() {
           </div>
         )}
       </div>
-      <span className={styles.hint}>{hint}</span>
+      <span className={styles.hint}>
+        {lastCommand ? `last · ${lastCommand}` : hint}
+      </span>
     </div>
   )
 }

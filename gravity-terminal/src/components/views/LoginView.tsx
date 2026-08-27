@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { loginWithEmail } from '../../api/auth'
+import { fetchDemoAccounts, loginWithEmail, type DemoAccountsResponse } from '../../api/auth'
 import { setSessionToken } from '../../api/client'
 import { useAuthStore } from '../../stores/authStore'
 import styles from './LoginView.module.css'
@@ -12,10 +12,20 @@ export function LoginView() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [demo, setDemo] = useState<DemoAccountsResponse | null>(null)
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email.trim() || !password.trim()) {
+  useEffect(() => {
+    let cancelled = false
+    void fetchDemoAccounts().then((res) => {
+      if (!cancelled) setDemo(res)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const signIn = async (nextEmail: string, nextPassword: string) => {
+    if (!nextEmail.trim() || !nextPassword.trim()) {
       setError('Email and password are required.')
       return
     }
@@ -24,13 +34,13 @@ export function LoginView() {
     try {
       // Clear stale bearer tokens before auth/login to avoid upstream auth middleware rejections.
       setSessionToken('')
-      const res = await loginWithEmail(email, password)
+      const res = await loginWithEmail(nextEmail, nextPassword)
       // Seed auth state immediately so the first render after navigation is
       // authenticated; /auth/me will refine role/org shortly via hydrate().
       applySessionFromAuth({
         access_token: res.access_token,
         user_id: res.user_id,
-        email: res.email ?? email,
+        email: res.email ?? nextEmail,
       })
       // Kick off a background refresh to fill role/org/coachSports.
       void useAuthStore.getState().hydrate()
@@ -45,6 +55,11 @@ export function LoginView() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await signIn(email, password)
   }
 
   return (
@@ -95,6 +110,32 @@ export function LoginView() {
             {loading ? 'AUTHENTICATING...' : 'SIGN IN'}
           </button>
         </form>
+        {demo && demo.accounts.length > 0 && (
+          <div className={styles.demo}>
+            <p className={styles.demoTitle}>DEMO ACCESS</p>
+            <p className={styles.demoHint}>
+              Shared password <span className={styles.demoSecret}>{demo.password}</span>
+            </p>
+            <div className={styles.demoList}>
+              {demo.accounts.map((acct) => (
+                <button
+                  key={acct.email}
+                  type="button"
+                  className={styles.demoBtn}
+                  disabled={loading}
+                  onClick={() => {
+                    setEmail(acct.email)
+                    setPassword(demo.password)
+                    void signIn(acct.email, demo.password)
+                  }}
+                >
+                  <span className={styles.demoLabel}>{acct.label}</span>
+                  <span className={styles.demoEmail}>{acct.email}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <p className={styles.signupHint}>
           No account? <Link to="/onboarding" className={styles.signupLink}>Create one</Link>
         </p>

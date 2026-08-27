@@ -1,5 +1,8 @@
 export type AlertType = 'SCORE_MOVE' | 'NIL_SIGNAL' | 'RISK_FLAG' | 'DEAL_DETECTED'
 export type AlertSeverity = 'INFO' | 'WARN' | 'CRITICAL'
+export type AlertSource = 'event' | 'live'
+
+export const ALERT_TYPES: AlertType[] = ['SCORE_MOVE', 'NIL_SIGNAL', 'RISK_FLAG', 'DEAL_DETECTED']
 
 export interface AlertRecord {
   alert_id: string
@@ -11,4 +14,6 @@ export interface AlertRecord {
   description: string
   numeric_change?: number | null
   timestamp: string
+  read?: boolean
+  source?: AlertSource
 }

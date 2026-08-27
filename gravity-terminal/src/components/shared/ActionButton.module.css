@@ -14,6 +14,16 @@
   color: var(--text-secondary);
 }
 
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
 .primary {
   border-color: var(--accent-green);
   color: var(--accent-green);

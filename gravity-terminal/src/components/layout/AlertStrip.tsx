@@ -1,6 +1,9 @@
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAlertStore } from '../../stores/alertStore'
+import { useAthleteStore } from '../../stores/athleteStore'
 import { usePreferencesStore, watchlistPromptForOrgType } from '../../stores/preferencesStore'
+import { useUiStore } from '../../stores/uiStore'
 import { useWatchlistStore } from '../../stores/watchlistStore'
 import styles from './AlertStrip.module.css'
 
@@ -11,11 +14,22 @@ const SPORT_LABEL: Record<string, string> = {
 }
 
 export function AlertStrip() {
+  const navigate = useNavigate()
   const orgType = usePreferencesStore((s) => s.orgType)
   const activeSports = usePreferencesStore((s) => s.activeSports)
   const wl = useWatchlistStore((s) => s.athletes)
   const alerts = useAlertStore((s) => s.alerts)
   const markRead = useAlertStore((s) => s.markRead)
+  const setActive = useAthleteStore((s) => s.setActiveAthlete)
+  const setFinderOpen = useUiStore((s) => s.setWatchlistFinderOpen)
+  const setInitialNavDone = usePreferencesStore((s) => s.setInitialNavDone)
+
+  const openAthlete = (athleteId: string, alertId?: string) => {
+    if (alertId) markRead(alertId)
+    setInitialNavDone()
+    void setActive(athleteId)
+    navigate('/')
+  }
 
   const sportHint = useMemo(
     () =>
@@ -30,6 +44,9 @@ export function AlertStrip() {
       <div className={styles.strip} role="status">
         <span className={styles.label}>WATCHLIST</span>
         <span className={styles.msg}>{watchlistPromptForOrgType(orgType)}</span>
+        <button type="button" className={styles.linkBtn} onClick={() => setFinderOpen(true)}>
+          + FIND
+        </button>
         <span className={styles.meta}>{sportHint}</span>
       </div>
     )
@@ -40,6 +57,9 @@ export function AlertStrip() {
       <div className={styles.strip} role="status">
         <span className={styles.label}>ALERTS</span>
         <span className={styles.msg}>No alerts for your watchlist in the selected sports.</span>
+        <button type="button" className={styles.linkBtn} onClick={() => navigate('/monitoring')}>
+          ALERT CENTER
+        </button>
         <span className={styles.meta}>{sportHint}</span>
       </div>
     )
@@ -54,7 +74,7 @@ export function AlertStrip() {
             key={a.alert_id}
             type="button"
             className={styles.pill}
-            onClick={() => markRead(a.alert_id)}
+            onClick={() => openAthlete(a.athlete_id, a.alert_id)}
             title={a.description}
           >
             <span className={styles.pillName}>{a.athlete_name}</span>
@@ -62,6 +82,9 @@ export function AlertStrip() {
           </button>
         ))}
       </div>
+      <button type="button" className={styles.linkBtn} onClick={() => navigate('/monitoring')}>
+        VIEW ALL
+      </button>
     </div>
   )
 }

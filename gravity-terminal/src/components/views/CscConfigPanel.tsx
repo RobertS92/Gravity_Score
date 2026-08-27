@@ -75,7 +75,6 @@ export function CscConfigPanel({
       <label className={styles.field}>
         Athlete Search
         <input
-          autoFocus={!athlete}
           className={styles.textIn}
           type="text"
           placeholder="Search athlete by name..."

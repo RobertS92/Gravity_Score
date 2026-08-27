@@ -789,8 +789,8 @@ def test_outlier_value_section_marks_peer_range_not_applicable():
     assert report["metadata"]["cohort_fit"] == "poor"
     assert report["value"]["peer_range_applicable"] is False
     assert report["value"]["range_note"]
-    assert "standard 4-6 week brand activation" in report["value"]["range_note"].lower()
-    assert "Peer Market Context" in report["validation"]["market_context"]
+    assert "one campaign" in report["value"]["range_note"].lower()
+    assert "How this compares" in report["validation"]["market_context"]
     benchmark = report["value"]["total_benchmark"]
     assert report["value"]["range_high"] < benchmark
 
@@ -864,3 +864,49 @@ def test_csc_report_allows_stale_roster_with_metadata_warning(monkeypatch):
         raise AssertionError("expected departed athlete to be blocked")
     except ValueError as exc:
         assert "Live pricing unavailable" in str(exc)
+
+
+def test_risk_attribution_cause_never_uses_another_driver():
+    from gravity_api.services.csc_report_builder import risk_attribution_cause
+
+    cause = risk_attribution_cause(roster_inactive=False, risk_score=18.0)
+    assert "momentum" not in cause.lower()
+    assert "modeled risk posture" in cause
+    assert "roster status" in risk_attribution_cause(roster_inactive=True, risk_score=18.0)
+
+
+def test_risk_note_matches_risk_inputs(monkeypatch):
+    monkeypatch.setenv("CSC_REPORT_LLM_ENABLED", "0")
+    score = _base_score()
+    score["velocity_score"] = 5.0
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=score,
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    note = report["confidence_risk"]["risk_note"].lower()
+    assert "momentum" not in note
+    assert "risk" in note
+
+
+def test_model_details_audit_bullets_are_populated(monkeypatch):
+    monkeypatch.setenv("CSC_REPORT_LLM_ENABLED", "0")
+    db = _FakeDb(
+        athlete=_base_athlete(),
+        latest_score=_base_score(),
+        cohort_rows_by_call=[_good_cohort()],
+    )
+    report = asyncio.run(build_csc_report_json(db, "subject-1", {}))
+    components = report["detail"]["blocks"]["methodology"]["components"]
+    assert len(components) >= 4
+    joined = " ".join(components).lower()
+    assert "model version" in joined
+    assert "shap" in joined or "driver" in joined
+    assert "feature vector" in joined
+    assert "/" in components[2]
+    assert "last scored" in joined
+    provenance = report["detail"]["blocks"]["provenance"]
+    assert provenance.get("feature_total", 0) > 0
+    assert provenance.get("scored_at")
+

@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 import asyncpg
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from gravity_api.auth_deps import optional_user_id, require_user_id
 from gravity_api.config import get_settings
@@ -185,7 +185,30 @@ class BrandMatchBriefIn(BaseModel):
     sports: List[str] = Field(default_factory=list)
 
 
+class CscScopedDealOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    scope: str
+    label: str
+    low: float | None = None
+    mid: float | None = None
+    high: float | None = None
+    model_version: str | None = None
+    calibrated: bool = False
+    confidence: str | None = None
+    basis: str | None = None
+    qualified_transactions: int = 0
+    validation_transactions: int = 0
+    empirical_coverage: float | None = None
+    target_coverage: float | None = None
+    median_absolute_percentage_error: float | None = None
+    evaluated_through: str | None = None
+    readiness: str | None = None
+
+
 class CscValueOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     total_benchmark: float | None = None
     range_low: float | None = None
     range_high: float | None = None
@@ -199,14 +222,35 @@ class CscValueOut(BaseModel):
     deal_uncertainty: str | None = None
     deal_pricing_method: str | None = None
     deal_pricing_basis: str | None = None
+    selected_deal_scope: str | None = None
+    deal_scopes: Dict[str, CscScopedDealOut] | None = None
     tier_tag: str | None = None
     confidence_tag: str | None = None
+    range_note: str | None = None
+    peer_range_applicable: bool | None = None
+
+
+class CscDriverSignalOut(BaseModel):
+    label: str
+    value: str
+
+
+class CscDriverMetricOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    label: str
+    value: float | str | None = None
+    unit: str | None = None
 
 
 class CscKeyDriverOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     label: str
     signal: Literal["High", "Moderate", "Low"]
     explanation: str
+    supporting_signals: List[CscDriverSignalOut] = Field(default_factory=list)
+    supporting_metrics: List[CscDriverMetricOut] = Field(default_factory=list)
 
 
 class CscComparableOut(BaseModel):
@@ -279,6 +323,9 @@ class CscProvenanceBlock(BaseModel):
     exposure_formula_version: str
     model_version: str | None = None
     model_status: Literal["production", "fallback"] | None = None
+    scored_at: str | None = None
+    feature_populated: int | None = None
+    feature_total: int | None = None
 
 
 class CscShapRow(BaseModel):
@@ -308,6 +355,8 @@ class CscDetailOut(BaseModel):
 
 
 class CscReportOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     value: CscValueOut
     explanation: CscExplanationOut
     validation: CscValidationOut
@@ -315,6 +364,8 @@ class CscReportOut(BaseModel):
     detail: CscDetailOut
 
     class CscMetadataOut(BaseModel):
+        model_config = ConfigDict(extra="allow")
+
         tier_version: Literal["tier_v1", "tier_v2"]
         tier_v1: str
         tier_v2: str
@@ -341,6 +392,9 @@ class CscReportOut(BaseModel):
         model_version: str | None = None
         cohort_fit: Literal["good", "edge", "poor"] | None = None
         range_quality: Literal["normal", "wide", "estimate", "unavailable"] | None = None
+        selected_deal_scope: str | None = None
+        deal_scope_calibrated: bool | None = None
+        deal_scope_readiness: str | None = None
         report_id: str | None = None
         report_version: Literal["v2", "v3"] | None = None
         report_rollout_phase: str | None = None

@@ -69,3 +69,23 @@ export function resetPassword(token: string, password: string) {
     password,
   })
 }
+
+export type DemoAccount = {
+  email: string
+  label: string
+  role: string
+  org_type: string
+}
+
+export type DemoAccountsResponse = {
+  password: string
+  accounts: DemoAccount[]
+}
+
+export async function fetchDemoAccounts(): Promise<DemoAccountsResponse | null> {
+  try {
+    return await apiGet<DemoAccountsResponse>('auth/demo-accounts')
+  } catch {
+    return null
+  }
+}

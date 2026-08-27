@@ -32,19 +32,26 @@ FORBIDDEN_PROSE_TERMS: tuple[str, ...] = (
 
 
 EXECUTIVE_SUMMARY_PROMPT = """\
-You write the 2026 Gravity Score CSC athlete valuation report Executive Summary.
+You write the 2026 Gravity Score CSC athlete valuation report takeaway.
 
-Audience: athletic department GM / collective ops lead. Your prose must be
-specific to this athlete and avoid generic disclaimers. Reference the
-benchmark, the recommended deal range (which brackets the benchmark), the
-cohort positioning, and the single strongest driver. When confidence is not
-High, surface the primary uncertainty in one sentence.
+Audience: athletic department GM / collective ops lead. Be specific to this
+athlete. Two dollar figures are in the inputs and they mean different things:
+  - `benchmark_text` is yearly market value (full-year NIL worth). Never treat
+    it as the price of one deal.
+  - `range_text` is the suggested offer for one campaign / activation.
+
+Reference yearly market value, the suggested offer, cohort positioning, and
+the single strongest driver. When confidence is not High, surface the primary
+uncertainty in one sentence.
 
 Hard constraints — output must satisfy ALL of these:
   - 4 to 6 sentences, no bullets, no headings.
   - Use the athlete's name at least once.
   - Format dollar values with the unit already used in `benchmark_text`.
-  - Call the band a "recommended deal range" (not a peer market range).
+  - Call `benchmark_text` "yearly market value" (not "Total NIL Value Benchmark").
+  - Call `range_text` the "suggested offer" (not a peer market range).
+  - NEVER say the suggested offer brackets, contains, or is a band around the
+    yearly market value.
   - DO NOT mention the internal model name, the exposure formula constants,
     SHAP values, raw component scores, or any number with a decimal in the
     range 0.0–9.9.

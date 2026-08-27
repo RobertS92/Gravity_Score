@@ -7,7 +7,7 @@
 }
 
 .card {
-  width: 360px;
+  width: 400px;
   padding: 40px 32px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-default);
@@ -155,9 +155,81 @@
   text-align: center;
 }
 
+.demo {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.demoTitle {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.demoHint {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin: 0 0 4px;
+}
+
+.demoSecret {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.demoList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.demoBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-family: var(--font-data);
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+
+.demoBtn:hover:not(:disabled) {
+  border-color: var(--accent-green);
+}
+
+.demoBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.demoLabel {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+}
+
+.demoEmail {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
 @media (max-width: 768px) {
   .card {
-    width: min(360px, calc(100vw - 32px));
+    width: min(400px, calc(100vw - 32px));
     padding: 32px 24px;
   }
 

@@ -6,8 +6,20 @@ import type { AthleteRecord, ComparableRecord } from '../types/athlete'
 import type { CscReportJson } from '../types/reports'
 import { formatComparableConfidence, normalizeComparableRows } from './cscComparables'
 import { conferenceTierDisplayLabel, shouldSuppressPercentile } from './cscReportTags'
-import { enrichKeyValueDrivers } from './cscDriverSignals'
-import { formatNilValue, formatNilRangeAligned, formatScore } from './formatters'
+import { enrichKeyValueDrivers, qualifyDriverDisplay } from './cscDriverSignals'
+import {
+  dealConfidenceCopy,
+  dealEvidenceCopy,
+  dealScopeCopy,
+  driverNarrativeConflictsBadge,
+  fallbackTakeaway,
+  isPlanningEstimateExport,
+  modelAuditBullets,
+  PDF_PLANNING_BANNER,
+  shouldShowTierBadge,
+  titleCaseChip,
+} from './cscDealCopy'
+import { formatNilValue, formatNilRangeAligned, formatScore, formatScoreOn100 } from './formatters'
 
 function nilFmt(v: number | null | undefined) {
   if (v == null) return '—'
@@ -88,6 +100,23 @@ export async function downloadCscPdf(
     y += 8
     rule()
 
+    const value = report?.value
+    const scopedDefault = value?.deal_scopes?.[value?.selected_deal_scope ?? 'standard_activation']
+    const stampPlanning = isPlanningEstimateExport(
+      value?.deal_confidence ?? value?.confidence_tag,
+      scopedDefault?.qualified_transactions,
+    )
+    if (stampPlanning) {
+      writeWrapped(
+        `${PDF_PLANNING_BANNER}. This number is not evidence-backed and must not be treated as a calibrated CSC figure.`,
+        9,
+        '#f85149',
+        13,
+      )
+      y += 4
+      rule()
+    }
+
     // ── Fallback model banner (if applicable) ────────────────────────────────
     if (report?.metadata?.model_status === 'fallback') {
       const versionSuffix = report.metadata.model_version ? ` (${report.metadata.model_version})` : ''
@@ -115,30 +144,49 @@ export async function downloadCscPdf(
     line(meta, 9, false, '#8b949e')
     y += 4
 
-    // ── Value benchmark ───────────────────────────────────────────────────────
+    // ── Suggested offer ───────────────────────────────────────────────────────
     rule()
-    line('TOTAL NIL VALUE BENCHMARK', 9, true, '#6e7681')
-    const value = report?.value
-    const benchmark = value?.total_benchmark ?? athlete.dollar_p50_usd ?? athlete.nil_valuation_consensus
-    const rangeLow = value?.range_low ?? athlete.dollar_p10_usd ?? athlete.nil_range_low
-    const rangeHigh = value?.range_high ?? athlete.dollar_p90_usd ?? athlete.nil_range_high
-    line(nilFmt(benchmark), 30, true, '#d29922')
-    line(formatNilRangeAligned(benchmark, rangeLow, rangeHigh), 10, false, '#8b949e')
-    if (value?.range_note) {
-      writeWrapped(value.range_note, 8, '#8b949e', 11)
-    } else if (value?.peer_range_applicable === false) {
+    line('SUGGESTED OFFER', 9, true, '#6e7681')
+    const yearly = value?.annual_nil_benchmark ?? value?.total_benchmark ?? athlete.dollar_p50_usd ?? athlete.nil_valuation_consensus
+    const offerLow = value?.activation_deal_low ?? value?.range_low
+    const offerMid = value?.activation_deal_mid ?? (
+      offerLow != null && (value?.activation_deal_high ?? value?.range_high) != null
+        ? (offerLow + ((value?.activation_deal_high ?? value?.range_high) as number)) / 2
+        : null
+    )
+    const offerHigh = value?.activation_deal_high ?? value?.range_high
+    const scopeLabel = dealScopeCopy(value?.selected_deal_scope).menuLabel
+    line(nilFmt(offerMid), 30, true, '#d29922')
+    line(`${scopeLabel} · ${formatNilRangeAligned(offerMid, offerLow, offerHigh)}`, 10, false, '#8b949e')
+    line(`Yearly market value: ${nilFmt(yearly)}  ·  not the price of one deal`, 9, false, '#8b949e')
+    const confidenceCopy = dealConfidenceCopy(value?.deal_confidence ?? value?.confidence_tag)
+    const evidenceCopy = dealEvidenceCopy(
+      scopedDefault?.qualified_transactions,
+      scopedDefault?.readiness ?? report?.metadata?.deal_scope_readiness,
+    )
+    line(`How sure we are: ${confidenceCopy.title}`, 9, false, '#8b949e')
+    writeWrapped(confidenceCopy.detail, 8, '#8b949e', 11)
+    line(`Evidence: ${evidenceCopy.title}`, 9, false, '#8b949e')
+    writeWrapped(evidenceCopy.detail, 8, '#8b949e', 11)
+    if (value?.peer_range_applicable === false) {
       writeWrapped(
-        'Outlier profile — peer cohort range is not applicable for deal construction.',
+        'This athlete sits outside a typical peer set, so the band is built around their own numbers rather than a peer envelope.',
         8,
         '#8b949e',
         11,
       )
     }
     const tagBits: string[] = []
-    if (value?.tier_tag) tagBits.push(value.tier_tag)
-    if (value?.confidence_tag) tagBits.push(value.confidence_tag)
+    const showTier = shouldShowTierBadge({
+      cohortSize: report?.metadata?.cohort_size,
+      comparableState: report?.metadata?.comparable_state,
+      lowCohortData: report?.metadata?.low_cohort_data,
+    })
+    if (showTier && value?.tier_tag) tagBits.push(titleCaseChip(value.tier_tag))
+    if (value?.confidence_tag) tagBits.push(dealConfidenceCopy(value.confidence_tag).title)
     if (conferenceTierLabelText) tagBits.push(conferenceTierLabelText)
-    if (value?.peer_range_applicable === false) tagBits.push('OUTLIER — PEER RANGE N/A')
+    if (value?.peer_range_applicable === false) tagBits.push(titleCaseChip('Unusual vs peers'))
+    if (!showTier) tagBits.push(titleCaseChip('Limited comps'))
     if (tagBits.length) {
       line(`TAGS: ${tagBits.join(' · ')}`, 8, false, '#6e7681')
     }
@@ -146,9 +194,11 @@ export async function downloadCscPdf(
 
     // ── Executive summary ─────────────────────────────────────────────────────
     rule()
-    line('EXECUTIVE SUMMARY', 9, true, '#6e7681')
+    line('THE TAKEAWAY', 9, true, '#6e7681')
     writeWrapped(
-      report?.explanation?.executive_summary || report?.executive_summary || 'Summary unavailable.',
+      report?.explanation?.executive_summary ||
+        report?.executive_summary ||
+        fallbackTakeaway(athlete.name, nilFmt(yearly), nilFmt(offerLow), nilFmt(offerHigh)),
       9,
       '#c9d1d9',
       13,
@@ -156,22 +206,33 @@ export async function downloadCscPdf(
 
     // ── Key value drivers ─────────────────────────────────────────────────────
     rule()
-    line('KEY VALUE DRIVERS', 9, true, '#6e7681')
+    line('WHAT DRIVES THE NUMBER', 9, true, '#6e7681')
     const drivers = enrichKeyValueDrivers(report?.explanation?.key_value_drivers, athlete)
     if (!drivers.length) {
-      line(`Brand Strength: ${formatScore(athlete.brand_score)} (Moderate)`, 9, false, '#c9d1d9')
-      line(`Market Proof: ${formatScore(athlete.proof_score)} (Moderate)`, 9, false, '#c9d1d9')
-      line(`Exposure: ${formatScore(athlete.proximity_score)} (Moderate)`, 9, false, '#c9d1d9')
-      line(`Risk: ${formatScore(athlete.risk_score)} (Moderate)`, 9, false, '#c9d1d9')
+      line(`Brand Strength: ${formatScoreOn100(athlete.brand_score)} (Moderate)`, 9, false, '#c9d1d9')
+      line(`Market Proof: ${formatScoreOn100(athlete.proof_score)} (Moderate)`, 9, false, '#c9d1d9')
+      line(`Exposure: ${formatScoreOn100(athlete.proximity_score)} (Moderate)`, 9, false, '#c9d1d9')
+      line(`Risk: ${formatScoreOn100(athlete.risk_score)} (Moderate)`, 9, false, '#c9d1d9')
     } else {
       for (const d of drivers) {
-        line(`${d.label}: ${d.signal}`, 9, true, '#c9d1d9')
+        const display = qualifyDriverDisplay(d)
+        const hideNarrative = driverNarrativeConflictsBadge(d.label, d.signal, d.explanation)
+        line(
+          `${d.label}: ${display.signal}${display.qualifier ? ` · ${display.qualifier}` : ''}`,
+          9,
+          true,
+          '#c9d1d9',
+        )
         if (d.supporting_signals?.length) {
           for (const s of d.supporting_signals) {
-            line(`${s.label}: ${s.value}`, 8, false, '#8b949e')
+            const scaled =
+              /score/i.test(s.label) && /^\d+(\.\d+)?$/.test(s.value.trim()) && !/\/100/.test(s.value)
+                ? `${s.value.trim()}/100`
+                : s.value
+            line(`${s.label}: ${scaled}`, 8, false, '#8b949e')
           }
         }
-        if (d.explanation) {
+        if (d.explanation && !hideNarrative) {
           writeWrapped(d.explanation, 8, '#8b949e', 11)
         }
       }
@@ -188,10 +249,10 @@ export async function downloadCscPdf(
     )
     if (report?.validation?.market_context) {
       rule()
-      line('MARKET & COMPARABLE ANALYSIS', 9, true, '#6e7681')
+      line('HOW THIS COMPARES', 9, true, '#6e7681')
       if (shouldSuppressPercentile(report.metadata?.cohort_fit)) {
         writeWrapped(
-          `${athlete.name}'s benchmark exceeds the peer cohort distribution; reference the positional peer range below in lieu of percentile.`,
+          `${athlete.name} sits outside a typical peer set. Use the similar-athlete table below instead of a percentile.`,
           8,
           '#8b949e',
           12,
@@ -205,7 +266,7 @@ export async function downloadCscPdf(
     }
     if (report?.validation?.comparable_state === 'none' && report.validation.positional_reference_athletes.length) {
       rule()
-      line('POSITIONAL REFERENCE ATHLETES', 9, true, '#6e7681')
+      line('SIMILAR ATHLETES', 9, true, '#6e7681')
       const refs = normalizeComparableRows(report.validation.positional_reference_athletes).slice(0, 3)
       for (const c of refs) {
         line(`${c.name} · ${c.school ?? ''} · ${scoreFmt(c.gravity_score)} · ${nilFmt(c.nil_valuation_consensus)}`, 8, false, '#c9d1d9')
@@ -213,11 +274,11 @@ export async function downloadCscPdf(
       y += 4
     } else if (comparablesForExport.length) {
       rule()
-      line('COMPARABLE ATHLETES', 9, true, '#6e7681')
+      line('SIMILAR ATHLETES', 9, true, '#6e7681')
       y += 4
 
-      const headers = ['ATHLETE', 'GS', 'NIL EST.', 'CONF.']
-      const colWidths = [200, 50, 90, 60]
+      const headers = ['ATHLETE', 'GRAVITY', 'YEARLY NIL', 'CONF.']
+      const colWidths = [180, 70, 100, 70]
       let x = margin
       for (let i = 0; i < headers.length; i++) {
         doc.setFontSize(8)
@@ -250,13 +311,13 @@ export async function downloadCscPdf(
       y += 4
     }
     if (report?.validation?.takeaway) {
-      line('VALUE INTERPRETATION', 9, true, '#6e7681')
+      line('WHAT THAT MEANS', 9, true, '#6e7681')
       writeWrapped(report.validation.takeaway, 8, '#8b949e', 12)
     }
     if (report?.confidence_risk) {
       rule()
       line('RISK & CONFIDENCE', 9, true, '#6e7681')
-      line(`Confidence: ${report.confidence_risk.confidence_level}`, 8, true, '#c9d1d9')
+      line(`Confidence: ${dealConfidenceCopy(report.confidence_risk.confidence_level).title}`, 8, true, '#c9d1d9')
       writeWrapped(report.confidence_risk.confidence_note, 8, '#8b949e', 12)
       line(`Risk: ${report.confidence_risk.risk_level}`, 8, true, '#c9d1d9')
       writeWrapped(report.confidence_risk.risk_note, 8, '#8b949e', 12)
@@ -265,6 +326,10 @@ export async function downloadCscPdf(
     // ── Detail appendix ───────────────────────────────────────────────────────
     rule()
     line('MODEL DETAILS (APPENDIX)', 9, true, '#6e7681')
+    for (const bullet of modelAuditBullets(report?.metadata, report?.detail ?? null)) {
+      writeWrapped(`• ${bullet}`, 8, '#8b949e', 12)
+    }
+    y += 4
     const blocks = report?.detail?.blocks
     if (blocks) {
       // Methodology
@@ -387,6 +452,22 @@ export async function downloadCscPdf(
       false,
       '#484f58',
     )
+
+    if (stampPlanning) {
+      const pages = doc.getNumberOfPages()
+      for (let i = 1; i <= pages; i++) {
+        doc.setPage(i)
+        doc.setFillColor(90, 22, 22)
+        doc.rect(0, 0, W, 26, 'F')
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(255, 210, 210)
+        doc.text(PDF_PLANNING_BANNER, margin, 16)
+        doc.setFontSize(16)
+        doc.setTextColor(140, 50, 50)
+        doc.text(PDF_PLANNING_BANNER, 72, 420, { angle: 32 })
+      }
+    }
 
     doc.save(`gravity_csc_${athlete.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`)
   } catch (err) {

@@ -232,9 +232,9 @@ export function RightPanel() {
           <div className={styles.section}>
             <div className={styles.title}>ALERT THRESHOLDS</div>
             <div style={{ fontFamily: 'var(--font-data)', fontSize: 12, color: 'var(--text-muted)' }}>
-              <div>Score move: 3+ pts</div>
-              <div>NIL signal: $50K+</div>
-              <div>Risk: standard</div>
+              <div>Score move: 3+ pts (~30d)</div>
+              <div>NIL signal: P50 $250K+</div>
+              <div>Risk: composite 65+</div>
             </div>
           </div>
           {nilBlock}

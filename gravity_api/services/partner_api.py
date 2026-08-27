@@ -10,7 +10,7 @@ from typing import Any
 import asyncpg
 
 from gravity_api.config import get_settings
-from gravity_api.partner_types import DEFAULT_SCOPES, PartnerContext
+from gravity_api.partner_types import ALL_PARTNER_SCOPES, DEFAULT_SCOPES, PartnerContext
 
 ATTRIBUTION_TEXT = "Powered by Gravity Score"
 ATTRIBUTION_URL = "https://gravityscore.ai"
@@ -233,6 +233,8 @@ def format_partner_athlete_detail(
         "sport": athlete_data.get("sport"),
         "position": athlete_data.get("position"),
         "position_group": athlete_data.get("position_group"),
+        "hometown": athlete_data.get("hometown"),
+        "home_state": athlete_data.get("home_state"),
         "photo_url": athlete_data.get("photo_url"),
         "score": score_payload,
         "attribution": attribution_block(athlete_id),
@@ -264,7 +266,7 @@ async def resolve_partner_context(conn: asyncpg.Connection, raw_key: str) -> Par
         return PartnerContext(
             partner_id=None,
             partner_name="env-bootstrap",
-            scopes=DEFAULT_SCOPES,
+            scopes=ALL_PARTNER_SCOPES,
             rate_limit_per_minute=settings.partner_api_rate_limit_per_minute,
             allowed_origins=None,
         )

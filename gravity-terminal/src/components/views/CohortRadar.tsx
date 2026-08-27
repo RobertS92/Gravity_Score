@@ -19,28 +19,41 @@ const DIMS: { key: keyof Pick<AthleteRecord, 'brand_score' | 'proof_score' | 'pr
 ]
 
 export default function CohortRadar({ athletes }: { athletes: AthleteRecord[] }) {
+  const usedNames = new Set<string>()
+  const series = athletes.map((a) => {
+    let key = a.name
+    if (usedNames.has(key)) key = `${a.name} (${a.athlete_id.slice(0, 6)})`
+    usedNames.add(key)
+    return { athlete: a, key }
+  })
+
   const data = DIMS.map((d) => {
     const row: Record<string, string | number> = { dim: d.label }
-    for (const a of athletes) {
-      row[a.name] = a[d.key] ?? 0
+    for (const s of series) {
+      row[s.key] = s.athlete[d.key] ?? 0
     }
     return row
   })
 
   const colors = ['#58a6ff', '#3fb950', '#a371f7', '#d29922', '#f85149']
 
+  if (athletes.length === 0) {
+    return null
+  }
+
   return (
-    <div style={{ width: '100%', height: 320 }}>
-      <ResponsiveContainer>
+    <div>
+      <div style={{ width: '100%', height: 320 }}>
+      <ResponsiveContainer width="100%" height="100%" minWidth={200} minHeight={240} debounce={50}>
         <RadarChart data={data} cx="50%" cy="50%" outerRadius="70%">
           <PolarGrid stroke="#1c2128" />
           <PolarAngleAxis dataKey="dim" tick={{ fill: '#484f58', fontSize: 9, fontFamily: 'Courier New' }} />
           <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-          {athletes.map((a, i) => (
+          {series.map((s, i) => (
             <Radar
-              key={a.athlete_id}
-              name={a.name}
-              dataKey={a.name}
+              key={s.athlete.athlete_id}
+              name={s.key}
+              dataKey={s.key}
               stroke={colors[i % colors.length]}
               fill={colors[i % colors.length]}
               fillOpacity={0.12}
@@ -50,6 +63,7 @@ export default function CohortRadar({ athletes }: { athletes: AthleteRecord[] })
           <Legend wrapperStyle={{ fontFamily: 'Arial', fontSize: 10, color: '#8b949e' }} />
         </RadarChart>
       </ResponsiveContainer>
+      </div>
       <div style={{ marginTop: 12, fontFamily: 'Courier New', fontSize: 10, color: '#c9d1d9' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>

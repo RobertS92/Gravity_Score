@@ -70,14 +70,14 @@ async function throwForHttpError(r: Response): Promise<never> {
   throw new Error(`${r.status} ${r.statusText}${suffix}`)
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
+export async function apiGet<T>(path: string, init?: { signal?: AbortSignal }): Promise<T> {
   const rel = path.startsWith('/') ? path.slice(1) : path
   if (USE_MOCKS) {
     return mockRequest('GET', rel) as Promise<T>
   }
   const base = getApiBaseUrl()
   if (!base) throw new Error('VITE_API_URL is not set')
-  const r = await fetch(`${base}/${rel}`, { headers: headers() })
+  const r = await fetch(`${base}/${rel}`, { headers: headers(), signal: init?.signal })
   if (!r.ok) await throwForHttpError(r)
   return r.json() as Promise<T>
 }

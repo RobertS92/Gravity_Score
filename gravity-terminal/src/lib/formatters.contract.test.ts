@@ -5,6 +5,7 @@ import {
   formatNilRangeAligned,
   formatNilValue,
   isNilRangeEstimate,
+  plotBandPercent,
 } from './formatters'
 
 describe('formatNilValue', () => {
@@ -19,13 +20,13 @@ describe('formatNilValue', () => {
 
   it('formats ranges with consistent K/M policy', () => {
     expect(formatNilRange(35_000, 1_200_000)).toBe(
-      'RECOMMENDED DEAL RANGE: $35.0K – $1.2M',
+      'SUGGESTED OFFER: $35.0K – $1.2M',
     )
   })
 
   it('shows distinct endpoints when M rounding would collapse a narrow band', () => {
     expect(formatNilRangeAligned(4_530_000, 4_520_000, 4_540_000)).toBe(
-      'RECOMMENDED DEAL RANGE: $4520.0K – $4540.0K',
+      'SUGGESTED OFFER: $4520.0K – $4540.0K',
     )
   })
 
@@ -38,8 +39,21 @@ describe('formatNilValue', () => {
 
   it('keeps the deal-range label when the band is meaningfully wide', () => {
     expect(formatNilRangeAligned(100_000, 80_000, 120_000)).toBe(
-      'RECOMMENDED DEAL RANGE: $80.0K – $120.0K',
+      'SUGGESTED OFFER: $80.0K – $120.0K',
     )
+  })
+})
+
+describe('plotBandPercent', () => {
+  it('places a non-midpoint suggested offer at the proportional band position', () => {
+    expect(plotBandPercent(53_200, 25_500, 93_100)).toBeCloseTo(41.0, 0)
+    expect(plotBandPercent(3_700_000, 25_500, 93_100)).toBe(100)
+    expect(plotBandPercent(30_000, 20_000, 80_000)).toBeCloseTo(((30_000 - 20_000) / (80_000 - 20_000)) * 100, 5)
+  })
+
+  it('returns midpoint when the band is missing or inverted', () => {
+    expect(plotBandPercent(50_000, null, 90_000)).toBe(50)
+    expect(plotBandPercent(50_000, 90_000, 20_000)).toBe(50)
   })
 })
 
@@ -52,7 +66,7 @@ describe('formatDriverMetric', () => {
 
   it('formats percent / score / pts variants', () => {
     expect(formatDriverMetric(6.2, '%')).toBe('6.2%')
-    expect(formatDriverMetric(72.4, '/100')).toBe('72.4')
+    expect(formatDriverMetric(72.4, '/100')).toBe('72.4/100')
     expect(formatDriverMetric(3.5, 'pts')).toBe('+3.5')
     expect(formatDriverMetric(-2.1, 'pts')).toBe('-2.1')
   })

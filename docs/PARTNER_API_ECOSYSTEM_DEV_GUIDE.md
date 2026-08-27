@@ -86,9 +86,19 @@ Base path: `{GRAVITY_API_URL}/v2/partner`
 | `GET` | `/athletes/resolve` | Match name → athlete |
 | `GET` | `/athletes/{athlete_id}` | Profile + latest score |
 | `GET` | `/scores/{athlete_id}` | Latest score only |
+| `GET` | `/athletes/{athlete_id}/deal-pricing` | Scoped deal pricing + governance (**`pricing:read`**) |
 | `GET` | `/athletes/{athlete_id}/score-history` | Score trend |
 
 Interactive docs (if exposed): `{GRAVITY_API_URL}/docs` → tag **partner**.
+
+**Auth scopes**
+
+| Scope | Access |
+|-------|--------|
+| `scores:read` | Profile, scores, history |
+| `search:read` | Sports, search, resolve |
+| `pricing:read` | Deal pricing (request explicitly when Gravity issues the key) |
+| `opportunities:read` | Reserved for local/regional opportunities (not yet shipped) |
 
 ---
 
@@ -180,6 +190,69 @@ Authorization: Bearer {GRAVITY_PARTNER_API_KEY}
 
 `gravity_score` is commercial/market value. `impact_score` is winning impact (primary public field; `value_score` is a deprecated alias for one release).
 
+`nil_estimate_usd` is an **annual NIL estimate band** (p10/p50/p90). It is **not** scoped activation deal guidance. For deal pricing with readiness and confidence governance, use `/deal-pricing` below.
+
+### Flow A2 — Scoped deal pricing (honest governance)
+
+Requires scope **`pricing:read`** on the partner key.
+
+```http
+GET /v2/partner/athletes/{athlete_id}/deal-pricing
+Authorization: Bearer {GRAVITY_PARTNER_API_KEY}
+```
+
+**Example response (shape):**
+
+```json
+{
+  "athlete_id": "00000000-0000-4000-8000-000000000001",
+  "annual_nil_benchmark": 1200000.0,
+  "annual_nil_benchmark_unit": "annual_usd",
+  "deal_scopes": {
+    "standard_activation": {
+      "scope": "standard_activation",
+      "label": "Standard activation",
+      "low": 9600.0,
+      "mid": 20000.0,
+      "high": 35000.0,
+      "unit": "per_scope_usd",
+      "model_version": "activation_prior_v2",
+      "calibrated": false,
+      "confidence": "Uncalibrated",
+      "basis": "...",
+      "qualified_transactions": 0,
+      "validation_transactions": 0,
+      "empirical_coverage": null,
+      "target_coverage": null,
+      "median_absolute_percentage_error": null,
+      "evaluated_through": null,
+      "readiness": "insufficient_data"
+    }
+  },
+  "signals_used": { "brand_score": 82.0, "proof_score": 75.0, "exposure_score": 88.0, "velocity_score": 91.0, "risk_score": 25.0 },
+  "calculated_at": "2026-06-28T12:00:00Z",
+  "attribution": { "text": "Powered by Gravity Score", "url": "https://gravityscore.ai" }
+}
+```
+
+**Five commercial scopes** (always returned; no implicit selected scope):
+
+`standard_activation`, `season_partnership`, `collective_package`, `group_licensing`, `revenue_sharing`
+
+**Partner UI honesty rules**
+
+| API state | UI may show | UI must not show |
+|-----------|-------------|------------------|
+| `calibrated: true` with confidence `High`/`Moderate`/`Low` | Range, evidence count, confidence as served | Any invented tier |
+| `confidence: "Uncalibrated"` / `readiness: "insufficient_data"` | Range labeled **prior guidance — not empirically calibrated** | Stars, gauges, or implied measured confidence |
+| Missing athlete / no score | Unavailable | Stubbed numbers |
+
+- Render `annual_nil_benchmark` (annual) separately from scope `low`/`mid`/`high` (per-scope). They are **not comparable on one axis**.
+- Never invent a midpoint if you only display low/high from the API — prefer the served `mid`.
+- Never default a missing readiness to `"Uncalibrated"` locally if the field is absent; treat that as malformed/unavailable.
+
+Spec bible: `docs/specs/PARTNER_HONEST_PRICING_AND_REGIONAL_OPPORTUNITIES.md`.
+
 ### Score quality (high / mid / low)
 
 Partners should label Gravity Score confidence from scoring-stack metadata:
@@ -233,7 +306,7 @@ Authorization: Bearer {GRAVITY_PARTNER_API_KEY}
 | `sport` | Single sport: db slug (`cfb`, `nba`) or code (`CFB`, `NBA`) |
 | `sports` | Multi: `CFB,NCAAB,NBA,NFL,WNBA,NCAA_BASEBALL,NCAA_VOLLEYBALL` |
 | `school` | School name (substring) |
-| `conference` | Conference (substring) |
+| `conference` | Conference name (substring), e.g. `SEC`, `Big Ten` |
 | `min_gravity` / `max_gravity` | Filter by score |
 | `sort_by` | `gravity_score`, `brand_score`, `name`, … |
 | `sort_dir` | `desc` or `asc` |
@@ -424,6 +497,7 @@ Search:     GET  {API}/v2/partner/athletes?q=...&sport=nba  OR  &sports=NBA,WNBA
 Resolve:    GET  {API}/v2/partner/athletes/resolve?name=...&school=...
 Profile:    GET  {API}/v2/partner/athletes/{id}
 Score:      GET  {API}/v2/partner/scores/{id}
+Pricing:    GET  {API}/v2/partner/athletes/{id}/deal-pricing   (scope pricing:read)
 History:    GET  {API}/v2/partner/athletes/{id}/score-history?weeks=12
 
 Auth:       Authorization: Bearer {GRAVITY_PARTNER_API_KEY}

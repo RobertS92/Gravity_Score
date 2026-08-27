@@ -1,11 +1,16 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { getAthlete } from '../../api/athletes'
 import { getMarketScan, getMarketSchools, MARKET_SCAN_ROW_CAP } from '../../api/market'
+import type { MarketScanRosterWindow } from '../../api/market'
 import type { AthleteRecord } from '../../types/athlete'
 import type { SchoolIndexRow } from '../../types/reports'
 import { formatNilValue, formatScore } from '../../lib/formatters'
+import { useAthleteStore } from '../../stores/athleteStore'
 import { usePreferencesStore } from '../../stores/preferencesStore'
 import { useUiStore } from '../../stores/uiStore'
+import { useWatchlistStore } from '../../stores/watchlistStore'
 import { TeamFavoriteStar } from '../shared/TeamFavoriteStar'
+import CohortRadar from './CohortRadar'
 import styles from './MarketScanView.module.css'
 
 const SPORT_LABELS: Record<string, string> = {
@@ -23,8 +28,6 @@ function progGColor(g: number | null | undefined) {
   return '#f07a44'
 }
 
-const CohortRadar = lazy(() => import('./CohortRadar'))
-
 type SortKey = keyof AthleteRecord | 'name'
 
 export function MarketScanView() {
@@ -34,27 +37,77 @@ export function MarketScanView() {
   const setMarketScanFilters = useUiStore((s) => s.setMarketScanFilters)
   const resetMarketScanFilters = useUiStore((s) => s.resetMarketScanFilters)
   const cohortIds = useUiStore((s) => s.cohortIds)
+  const setCohortIds = useUiStore((s) => s.setCohortIds)
+  const toggleCohortId = useUiStore((s) => s.toggleCohortId)
+  const watchlist = useWatchlistStore((s) => s.athletes)
   const activeSports = usePreferencesStore((s) => s.activeSports)
   const sportsCsv = useMemo(() => activeSports.filter(Boolean).join(','), [activeSports])
+  const activeId = useAthleteStore((s) => s.activeAthleteId)
+  const setActiveAthlete = useAthleteStore((s) => s.setActiveAthlete)
 
   const [rows, setRows] = useState<AthleteRecord[]>([])
   const [scanTotal, setScanTotal] = useState<number | null>(null)
+  const [rosterWindow, setRosterWindow] = useState<MarketScanRosterWindow | null>(null)
+  const [scanLoading, setScanLoading] = useState(true)
+  const [scanError, setScanError] = useState<string | null>(null)
   const [schools, setSchools] = useState<SchoolIndexRow[]>([])
+  const [fetchedById, setFetchedById] = useState<Record<string, AthleteRecord>>({})
   const [sortKey, setSortKey] = useState<SortKey>('gravity_score')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [schoolSport, setSchoolSport] = useState<string>('all')
   const [schoolSort, setSchoolSort] = useState<keyof SchoolIndexRow>('program_gravity_score')
 
   useEffect(() => {
-    void getMarketScan({
-      ...(sportsCsv ? { sports: sportsCsv } : {}),
-      ...(marketScanFilters.position ? { position: marketScanFilters.position } : {}),
-      ...(marketScanFilters.conference ? { conference: marketScanFilters.conference } : {}),
-    }).then((r) => {
-      setRows(r.athletes)
-      setScanTotal(r.total)
-    })
-    void getMarketSchools().then(setSchools)
+    let cancelled = false
+    const ac = new AbortController()
+    setScanLoading(true)
+    setScanError(null)
+    setRows([])
+    setScanTotal(null)
+    setRosterWindow(null)
+    void getMarketScan(
+      {
+        ...(sportsCsv ? { sports: sportsCsv } : {}),
+        ...(marketScanFilters.position ? { position: marketScanFilters.position } : {}),
+        ...(marketScanFilters.conference ? { conference: marketScanFilters.conference } : {}),
+      },
+      {
+        signal: ac.signal,
+        onPage: (r) => {
+          if (cancelled) return
+          setRows(r.athletes)
+          setScanTotal(r.total)
+          setRosterWindow(r.rosterWindow)
+          setScanLoading(false)
+        },
+      },
+    )
+      .then((r) => {
+        if (cancelled) return
+        setRows(r.athletes)
+        setScanTotal(r.total)
+        setRosterWindow(r.rosterWindow)
+      })
+      .catch((e) => {
+        if (cancelled || (e instanceof DOMException && e.name === 'AbortError')) return
+        setScanError(e instanceof Error ? e.message : 'Market scan failed')
+        setRows([])
+        setScanTotal(0)
+      })
+      .finally(() => {
+        if (!cancelled) setScanLoading(false)
+      })
+    void getMarketSchools()
+      .then((list) => {
+        if (!cancelled) setSchools(list)
+      })
+      .catch(() => {
+        if (!cancelled) setSchools([])
+      })
+    return () => {
+      cancelled = true
+      ac.abort()
+    }
   }, [sportsCsv, marketScanFilters.position, marketScanFilters.conference])
 
   const sorted = useMemo(() => {
@@ -70,11 +123,60 @@ export function MarketScanView() {
     return out
   }, [rows, sortKey, sortDir])
 
-  const cohortAthletes = useMemo(() => {
-    const byId = new Map(rows.map((r) => [r.athlete_id, r]))
-    const ids = cohortIds.length ? cohortIds : rows.slice(0, 3).map((r) => r.athlete_id)
-    return ids.map((id) => byId.get(id)).filter(Boolean) as AthleteRecord[]
-  }, [cohortIds, rows])
+  const athleteIndex = useMemo(() => {
+    const byId = new Map<string, AthleteRecord>()
+    for (const r of rows) byId.set(r.athlete_id, r)
+    for (const w of watchlist) byId.set(w.athlete_id, w)
+    for (const a of Object.values(fetchedById)) byId.set(a.athlete_id, a)
+    return byId
+  }, [rows, watchlist, fetchedById])
+
+  const previewIds = useMemo(() => {
+    if (cohortIds.length) return cohortIds
+    const fromWatch = watchlist.slice(0, 3).map((a) => a.athlete_id)
+    if (fromWatch.length) return fromWatch
+    return rows.slice(0, 3).map((r) => r.athlete_id)
+  }, [cohortIds, watchlist, rows])
+
+  const missingIds = useMemo(
+    () => previewIds.filter((id) => !athleteIndex.has(id)),
+    [previewIds, athleteIndex],
+  )
+
+  useEffect(() => {
+    if (sub !== 'cohort' || missingIds.length === 0) return
+    let cancelled = false
+    void Promise.all(
+      missingIds.map((id) =>
+        getAthlete(id)
+          .then((a) => a)
+          .catch(() => null),
+      ),
+    ).then((fetched) => {
+      if (cancelled) return
+      const found = fetched.filter((a): a is AthleteRecord => a != null)
+      if (found.length === 0) return
+      setFetchedById((prev) => {
+        let changed = false
+        const next = { ...prev }
+        for (const a of found) {
+          if (next[a.athlete_id] !== a) {
+            next[a.athlete_id] = a
+            changed = true
+          }
+        }
+        return changed ? next : prev
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [sub, missingIds])
+
+  const cohortAthletes = useMemo(
+    () => previewIds.map((id) => athleteIndex.get(id)).filter(Boolean) as AthleteRecord[],
+    [previewIds, athleteIndex],
+  )
 
   const toggleSort = (k: SortKey) => {
     if (k === sortKey) setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))
@@ -86,11 +188,21 @@ export function MarketScanView() {
 
   return (
     <div className={styles.root}>
-      {sub === 'position' && scanTotal != null && (
+      {sub === 'position' && (
         <div className={styles.muted}>
-          Showing {rows.length} of {scanTotal}
-          {rows.length >= MARKET_SCAN_ROW_CAP && scanTotal > MARKET_SCAN_ROW_CAP
-            ? ` (display limited to first ${MARKET_SCAN_ROW_CAP} rows)`
+          {scanLoading && rows.length === 0
+            ? 'Loading market…'
+            : scanError
+              ? scanError
+              : scanTotal != null
+                ? `Showing ${rows.length} of ${scanTotal}${
+                    rows.length >= MARKET_SCAN_ROW_CAP && scanTotal > MARKET_SCAN_ROW_CAP
+                      ? ` (display limited to first ${MARKET_SCAN_ROW_CAP} rows)`
+                      : ''
+                  }`
+                : ''}
+          {rosterWindow === 'stale_fallback' || rosterWindow === 'stale'
+            ? ' · Roster verification is outside the live window — showing current-roster athletes.'
             : ''}
         </div>
       )}
@@ -102,7 +214,7 @@ export function MarketScanView() {
           SCHOOL INDEX
         </button>
         <button type="button" className={sub === 'cohort' ? styles.subOn : styles.subOff} onClick={() => setSub('cohort')}>
-          COHORT COMPARE
+          COHORT COMPARE{cohortIds.length ? ` (${cohortIds.length})` : ''}
         </button>
       </div>
       {sub === 'position' && (
@@ -142,6 +254,7 @@ export function MarketScanView() {
           <table className={styles.table}>
             <thead>
               <tr>
+                <th className={styles.th} style={{ width: 36 }} aria-label="Compare" />
                 {(
                   [
                     ['name', 'NAME'],
@@ -165,20 +278,55 @@ export function MarketScanView() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((a) => (
-                <tr key={a.athlete_id}>
-                  <td className={styles.td}>{a.name}</td>
-                  <td className={styles.td}>{a.school ?? '\u2014'}</td>
-                  <td className={styles.td}>{a.conference ?? '\u2014'}</td>
-                  <td className={styles.tdR}>{formatScore(a.gravity_score)}</td>
-                  <td className={styles.tdR}>{formatNilValue(a.nil_valuation_consensus)}</td>
-                  <td className={styles.tdR}>{formatScore(a.brand_score)}</td>
-                  <td className={styles.tdR}>{formatScore(a.proof_score)}</td>
-                  <td className={styles.tdR}>{formatScore(a.proximity_score)}</td>
-                  <td className={styles.tdR}>{formatScore(a.velocity_score)}</td>
-                  <td className={styles.tdR}>{formatScore(a.risk_score)}</td>
+              {sorted.map((a) => {
+                const selected = cohortIds.includes(a.athlete_id)
+                const active = a.athlete_id === activeId
+                const rowClass = [
+                  styles.row,
+                  selected ? styles.rowSelected : '',
+                  active ? styles.rowActive : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+                return (
+                  <tr
+                    key={a.athlete_id}
+                    className={rowClass}
+                    onClick={() => {
+                      if (a.athlete_id) void setActiveAthlete(a.athlete_id)
+                    }}
+                  >
+                    <td className={styles.td}>
+                      <input
+                        type="checkbox"
+                        className={styles.compareCheck}
+                        checked={selected}
+                        disabled={!selected && cohortIds.length >= 5}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => toggleCohortId(a.athlete_id)}
+                        aria-label={`Compare ${a.name}`}
+                      />
+                    </td>
+                    <td className={styles.td}>{a.name}</td>
+                    <td className={styles.td}>{a.school ?? '\u2014'}</td>
+                    <td className={styles.td}>{a.conference ?? '\u2014'}</td>
+                    <td className={styles.tdR}>{formatScore(a.gravity_score)}</td>
+                    <td className={styles.tdR}>{formatNilValue(a.nil_valuation_consensus)}</td>
+                    <td className={styles.tdR}>{formatScore(a.brand_score)}</td>
+                    <td className={styles.tdR}>{formatScore(a.proof_score)}</td>
+                    <td className={styles.tdR}>{formatScore(a.proximity_score)}</td>
+                    <td className={styles.tdR}>{formatScore(a.velocity_score)}</td>
+                    <td className={styles.tdR}>{formatScore(a.risk_score)}</td>
+                  </tr>
+                )
+              })}
+              {!scanLoading && !scanError && sorted.length === 0 && (
+                <tr>
+                  <td className={styles.td} colSpan={11}>
+                    No current-roster athletes matched these filters.
+                  </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -260,9 +408,45 @@ export function MarketScanView() {
       )}
 
       {sub === 'cohort' && (
-        <Suspense fallback={<div className={styles.muted}>Loading chart\u2026</div>}>
-          <CohortRadar athletes={cohortAthletes} />
-        </Suspense>
+        <>
+          <div className={styles.filterBar}>
+            {watchlist.length > 0 &&
+              watchlist.slice(0, 12).map((a) => (
+                <button
+                  key={a.athlete_id}
+                  type="button"
+                  className={cohortIds.includes(a.athlete_id) ? styles.subOn : styles.subOff}
+                  onClick={() => toggleCohortId(a.athlete_id)}
+                >
+                  {a.name}
+                </button>
+              ))}
+            {cohortIds.length > 0 && (
+              <button type="button" className={styles.clearBtn} onClick={() => setCohortIds([])}>
+                Clear selection
+              </button>
+            )}
+            {watchlist.length === 0 && cohortIds.length === 0 && (
+              <span className={styles.muted} style={{ padding: 0 }}>
+                Check athletes on Position Rank, or add names to your watchlist, to pin a comparison.
+              </span>
+            )}
+          </div>
+          {cohortAthletes.length === 0 ? (
+            <div className={styles.muted}>
+              Select up to 5 athletes from Position Rank or your watchlist to compare Brand, Proof, Proximity, Velocity, and Risk.
+            </div>
+          ) : (
+            <>
+              {!cohortIds.length && (
+                <div className={styles.muted}>
+                  Previewing {cohortAthletes.map((a) => a.name).join(', ')}. Pin athletes on Position Rank or the chips above.
+                </div>
+              )}
+              <CohortRadar athletes={cohortAthletes} />
+            </>
+          )}
+        </>
       )}
     </div>
   )

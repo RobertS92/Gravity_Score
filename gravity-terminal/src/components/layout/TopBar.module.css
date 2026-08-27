@@ -270,9 +270,17 @@
 .badge {
   font-family: var(--font-data);
   font-size: 12px;
-  color: var(--accent-red);
   padding: 1px 6px;
   border: 1px solid var(--border-default);
+  text-decoration: none;
+}
+
+.badgeHot {
+  color: var(--accent-red);
+}
+
+.badgeIdle {
+  color: var(--text-dim);
 }
 
 .badgePulse {

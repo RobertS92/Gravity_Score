@@ -14,7 +14,9 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import ResponseValidationError
 
 from gravity_api.config import get_settings
-from gravity_api.database import close_db, init_db
+from gravity_api.database import close_db, get_pool, init_db
+from gravity_api.services.demo_accounts import is_enabled as demo_accounts_enabled
+from gravity_api.services.demo_accounts import seed_demo_accounts
 from gravity_api.services.model_health import (
     get_model_health,
     probe_model_health,
@@ -58,6 +60,14 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("Gravity API startup failed while connecting to Postgres")
         raise
+    settings = get_settings()
+    if demo_accounts_enabled(environment=settings.environment):
+        try:
+            async with get_pool().acquire() as conn:
+                seeded = await seed_demo_accounts(conn)
+            logger.info("Demo login accounts ready (%s)", seeded)
+        except Exception:
+            logger.exception("Demo account seed failed (non-fatal)")
     # Probe the ML scorer once so /health and CSC reporting know whether the
     # production model is live. The probe is best-effort and never blocks
     # startup unless MODEL_FAIL_ON_FALLBACK=1 and the probe reports a confirmed

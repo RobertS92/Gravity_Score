@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getMarketSchools } from './market'
+import { getMarketScan, getMarketSchools } from './market'
 import { apiGet } from './client'
+
+vi.mock('./client', () => ({
+  apiGet: vi.fn(),
+}))
 
 vi.mock('./client', () => ({
   apiGet: vi.fn(),
@@ -97,5 +101,66 @@ describe('market api adapters', () => {
       program_gravity_score: 84.6,
       nil_market_size_estimate: 2500000,
     })
+  })
+
+  it('retries with include_stale_roster when the live window is empty', async () => {
+    vi.mocked(apiGet)
+      .mockResolvedValueOnce({ athletes: [], total: 0, returned: 0, roster_window: 'live' })
+      .mockResolvedValueOnce({
+        athletes: [
+          {
+            id: 'ath-1',
+            name: 'A. Player',
+            school: 'State U',
+            gravity_score: 81,
+          },
+        ],
+        total: 1,
+        returned: 1,
+        roster_window: 'stale',
+      })
+
+    const pages: number[] = []
+    const result = await getMarketScan({ sports: 'CFB' }, { onPage: (p) => pages.push(p.athletes.length) })
+
+    expect(vi.mocked(apiGet).mock.calls[0][0]).toContain('market/scan?')
+    expect(vi.mocked(apiGet).mock.calls[0][0]).not.toContain('include_stale_roster=true')
+    expect(vi.mocked(apiGet).mock.calls[1][0]).toContain('include_stale_roster=true')
+    expect(result.athletes).toHaveLength(1)
+    expect(result.athletes[0]?.name).toBe('A. Player')
+    expect(result.total).toBe(1)
+    expect(result.rosterWindow).toBe('stale')
+    expect(pages[0]).toBe(1)
+  })
+
+  it('keeps live rows without a stale retry', async () => {
+    vi.mocked(apiGet).mockResolvedValue({
+      athletes: [{ id: 'ath-2', name: 'Fresh Player', gravity_score: 90 }],
+      total: 1,
+      returned: 1,
+      roster_window: 'live',
+    })
+
+    const result = await getMarketScan({ sports: 'CFB' })
+
+    expect(apiGet).toHaveBeenCalledTimes(1)
+    expect(result.rosterWindow).toBe('live')
+    expect(result.athletes[0]?.name).toBe('Fresh Player')
+  })
+
+  it('honors maxLoaded for agent-sized scans', async () => {
+    vi.mocked(apiGet).mockResolvedValue({
+      athletes: [{ id: 'ath-3', name: 'Capped', gravity_score: 70 }],
+      total: 4000,
+      returned: 1,
+      roster_window: 'stale_fallback',
+    })
+
+    const result = await getMarketScan({ maxLoaded: 1 })
+
+    expect(apiGet).toHaveBeenCalledTimes(1)
+    expect(String(vi.mocked(apiGet).mock.calls[0][0])).toContain('limit=1')
+    expect(result.athletes).toHaveLength(1)
+    expect(result.rosterWindow).toBe('stale_fallback')
   })
 })

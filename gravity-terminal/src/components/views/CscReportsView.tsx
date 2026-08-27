@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { searchAthletesFilteredPaged } from '../../api/athletes'
 import { postCscReport } from '../../api/reports'
@@ -21,13 +21,13 @@ import {
   normalizeComparableRows,
   withLegacyOption,
 } from '../../lib/cscComparables'
-import { enrichKeyValueDrivers } from '../../lib/cscDriverSignals'
+import { enrichKeyValueDrivers, qualifyDriverDisplay } from '../../lib/cscDriverSignals'
 import {
   formatDriverMetric,
   formatNilBandEndpoints,
-  formatNilRangeAligned,
   formatNilValue,
   formatScore,
+  plotBandPercent,
 } from '../../lib/formatters'
 import {
   classifyConferenceTier,
@@ -35,6 +35,16 @@ import {
   classifyTierTag,
   conferenceTierDisplayLabel,
 } from '../../lib/cscReportTags'
+import {
+  dealConfidenceCopy,
+  dealEvidenceCopy,
+  dealScopeCopy,
+  driverNarrativeConflictsBadge,
+  fallbackTakeaway,
+  modelAuditBullets,
+  shouldShowTierBadge,
+  titleCaseChip,
+} from '../../lib/cscDealCopy'
 import { downloadCscPdf } from '../../lib/pdfExport'
 import { useAthleteStore } from '../../stores/athleteStore'
 import { useUiStore } from '../../stores/uiStore'
@@ -58,6 +68,18 @@ function levelFromScore(value: number | null | undefined, invert = false): 'High
   if (adjusted >= 66) return 'High'
   if (adjusted >= 40) return 'Moderate'
   return 'Low'
+}
+
+function fallbackActivationBand(annual: number | null | undefined): {
+  low: number | null
+  mid: number | null
+  high: number | null
+} {
+  if (annual == null || !Number.isFinite(annual) || annual <= 0) {
+    return { low: null, mid: null, high: null }
+  }
+  const mid = Math.max(500, annual * 0.016)
+  return { low: mid * 0.48, mid, high: mid * 1.75 }
 }
 
 function buildFallbackDrivers(athlete: ReturnType<typeof useAthleteStore.getState>['activeAthlete']): CscKeyValueDriver[] {
@@ -106,46 +128,72 @@ function buildFallbackReport(
   const marketMedian = marketValues.length
     ? [...marketValues].sort((a, b) => a - b)[Math.floor(marketValues.length / 2)]
     : benchmark
+  const activation = fallbackActivationBand(benchmark)
 
   return {
     value: {
       total_benchmark: benchmark,
-      range_low: rangeLow,
-      range_high: rangeHigh,
+      range_low: activation.low,
+      range_high: activation.high,
       annual_nil_benchmark: benchmark,
-      activation_deal_low: rangeLow,
-      activation_deal_mid:
-        rangeLow != null && rangeHigh != null ? (rangeLow + rangeHigh) / 2 : null,
-      activation_deal_high: rangeHigh,
+      activation_deal_low: activation.low,
+      activation_deal_mid: activation.mid,
+      activation_deal_high: activation.high,
       season_partnership_low: null,
       season_partnership_high: null,
       deal_confidence: confidenceLevel,
       deal_uncertainty: null,
       deal_pricing_method: 'legacy_fallback',
-      deal_pricing_basis: 'Fallback report uses existing model band; regenerate report for activation-level deal pricing.',
+      deal_pricing_basis: 'Preview using current athlete numbers. The full report will refine the campaign range.',
+      selected_deal_scope: 'standard_activation',
+      deal_scopes: {
+        standard_activation: {
+          scope: 'standard_activation',
+          label: 'Standard activation',
+          low: activation.low,
+          mid: activation.mid,
+          high: activation.high,
+          model_version: 'activation_prior_v2',
+          calibrated: false,
+          confidence: 'Uncalibrated',
+          basis: 'Preview from this athlete’s current numbers while the full report loads.',
+          qualified_transactions: 0,
+          validation_transactions: 0,
+          empirical_coverage: null,
+          target_coverage: null,
+          median_absolute_percentage_error: null,
+          evaluated_through: null,
+          readiness: 'insufficient_data',
+        },
+      },
       tier_tag: benchmark != null && benchmark >= 150000 ? 'High-tier' : benchmark != null && benchmark >= 50000 ? 'Mid-tier' : 'Developing-tier',
       confidence_tag: confidenceTag,
       range_note: null,
       peer_range_applicable: true,
     },
     explanation: {
-      executive_summary: `${subject} carries a Total NIL Value Benchmark of ${formatNilValue(benchmark)} with a recommended deal range of ${formatNilValue(rangeLow)} to ${formatNilValue(rangeHigh)} for roster planning context.`,
+      executive_summary: fallbackTakeaway(
+        subject,
+        formatNilValue(benchmark),
+        formatNilValue(activation.low),
+        formatNilValue(activation.high),
+      ),
       key_value_drivers: drivers,
-      driver_takeaway: `${subject}'s benchmark is most sensitive to brand and exposure signals, while proof depth and risk profile moderate upside confidence.`,
+      driver_takeaway: `${subject}'s offer is driven most by brand and exposure. Proof and risk decide how firmly you can hold the number.`,
     },
     validation: {
-      market_context: `Peer market context (${athlete?.conference ?? 'Conference n/a'} ${athlete?.position ?? 'Position n/a'}): peer market range ${formatNilValue(marketLow)} – ${formatNilValue(marketHigh)}; median ${formatNilValue(marketMedian)}.`,
-      comparable_tier: `Comparable athletes with similar role and signal profile.`,
+      market_context: `Peers at ${athlete?.conference ?? 'this conference'} ${athlete?.position ?? 'this position'}: yearly values from ${formatNilValue(marketLow)} to ${formatNilValue(marketHigh)} (median ${formatNilValue(marketMedian)}).`,
+      comparable_tier: 'Athletes with a similar role and signal profile.',
       example_comparables: rows.slice(0, 5),
-      takeaway: `${subject}'s benchmark sits within the current comparable market envelope and should be used as a planning reference, not a single-point guarantee.`,
+      takeaway: `Use ${subject}'s yearly value as context. Price the deal from the campaign range, not the yearly number.`,
       comparable_state: rows.length >= 3 ? 'sufficient' : rows.length >= 1 ? 'sparse' : 'none',
       positional_reference_athletes: rows.length === 0 ? [] : [],
     },
     confidence_risk: {
       confidence_level: confidenceLevel,
-      confidence_note: `${confidenceLevel} confidence based on available comparables and model signal stability.`,
+      confidence_note: `${confidenceLevel} confidence from the signals and comps we have so far.`,
       risk_level: riskLevel,
-      risk_note: `${riskLevel} risk profile from latest risk component inputs.`,
+      risk_note: `${riskLevel} risk from roster status and modeled risk posture.`,
     },
     detail: {
       shap_attribution: 'SHAP attribution pending latest explainable model output.',
@@ -316,11 +364,20 @@ export function CscReportsView() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
 
+  const loadedAthleteIdRef = useRef<string | null>(null)
+
   const selectorAthletes = useMemo(() => {
     if (!athlete) return watchlist
     const inWl = watchlist.some((a) => a.athlete_id === athlete.athlete_id)
     return inWl ? watchlist : [athlete, ...watchlist]
   }, [athlete, watchlist])
+
+  const selectAthlete = (id: string) => {
+    void setActive(id)
+    setSearchQ('')
+    setSearchRows([])
+    setSearchOpen(false)
+  }
 
   useLayoutEffect(() => {
     const st = location.state as { agentCscReport?: CscReportJson } | null
@@ -337,22 +394,33 @@ export function CscReportsView() {
     [setCscLocked],
   )
 
+  const athleteId = athlete?.athlete_id ?? null
+  const paramsKey = JSON.stringify(resolvedParams)
+
   useEffect(() => {
-    if (!athlete) return
+    if (!athleteId) return
     if (useUiStore.getState().cscLockedFromAgent) return
+    const current = useAthleteStore.getState().activeAthlete
+    if (!current || current.athlete_id !== athleteId) return
     let cancelled = false
+    const athleteChanged = loadedAthleteIdRef.current !== athleteId
+    if (athleteChanged) {
+      loadedAthleteIdRef.current = athleteId
+      setReport(normalizeReport(null, current))
+    }
     setReportLoading(true)
     setReportError(null)
-    postCscReport(athlete.athlete_id, resolvedParams)
+    postCscReport(athleteId, resolvedParams)
       .then((r) => {
         if (!cancelled) {
-          setReport(normalizeReport(r, athlete))
+          const latest = useAthleteStore.getState().activeAthlete
+          setReport(normalizeReport(r, latest?.athlete_id === athleteId ? latest : current))
           setReportError(null)
         }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setReport(null)
+          setReport((prev) => prev ?? normalizeReport(null, current))
           setReportError(err instanceof Error ? err.message : 'Failed to generate report')
         }
       })
@@ -362,7 +430,10 @@ export function CscReportsView() {
     return () => {
       cancelled = true
     }
-  }, [athlete, resolvedParams, cscLockedFromAgent])
+    // Fetch only when the selected athlete or report knobs change — not on
+    // every realtime athlete-record tick, which previously retriggered the
+    // full LLM rebuild in a loop.
+  }, [athleteId, paramsKey, resolvedParams, cscLockedFromAgent])
 
   useEffect(() => {
     const q = searchQ.trim()
@@ -416,17 +487,60 @@ export function CscReportsView() {
     }
   }
 
-  const low = report?.value.range_low ?? athlete?.nil_range_low
-  const high = report?.value.range_high ?? athlete?.nil_range_high
-  const consensus = report?.value.total_benchmark ?? athlete?.nil_valuation_consensus
-  let plotPct = 50
-  if (athlete && low != null && high != null && high > low && consensus != null) {
-    plotPct = Math.min(100, Math.max(0, ((consensus - low) / (high - low)) * 100))
-  }
-
   return (
     <div className={styles.grid}>
       <div className={styles.configBar}>
+        <div className={styles.athletePicker}>
+          <input
+            className={styles.athleteSearch}
+            type="search"
+            placeholder="Search athlete to run a report…"
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            onFocus={() => {
+              if (searchRows.length > 0 || searchQ.trim()) setSearchOpen(true)
+            }}
+            aria-label="Search athlete to run a CSC report"
+          />
+          {searchOpen && (
+            <div className={styles.athleteDrop} role="listbox">
+              {searchLoading && <div className={styles.searchItemMuted}>Searching…</div>}
+              {!searchLoading && searchRows.length === 0 && (
+                <div className={styles.searchItemMuted}>No athletes found</div>
+              )}
+              {!searchLoading &&
+                searchRows.map((a) => (
+                  <button
+                    key={a.athlete_id}
+                    type="button"
+                    className={styles.searchItem}
+                    onClick={() => selectAthlete(a.athlete_id)}
+                  >
+                    <span>{a.name}</span>
+                    <span className={styles.subMuted}>
+                      {[a.school, a.position, a.conference].filter(Boolean).join(' · ')}
+                    </span>
+                  </button>
+                ))}
+            </div>
+          )}
+          <select
+            className={styles.athleteSelect}
+            value={athlete?.athlete_id ?? ''}
+            onChange={(e) => {
+              if (e.target.value) selectAthlete(e.target.value)
+            }}
+            aria-label="Select athlete"
+          >
+            {!athlete && <option value="">Select athlete…</option>}
+            {selectorAthletes.map((a) => (
+              <option key={a.athlete_id} value={a.athlete_id}>
+                {a.name}
+                {a.school ? ` · ${a.school}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
         <button
           type="button"
           className={styles.configToggle}
@@ -454,14 +568,16 @@ export function CscReportsView() {
               NO ATHLETE SELECTED
             </div>
             <div style={{ fontSize: 12, maxWidth: 420, lineHeight: 1.5 }}>
-              Pick an athlete from{' '}
+              Search an athlete above, run{' '}
+              <span className={styles.inlineCmd}>csc --athlete &quot;Athlete Name&quot;</span> in
+              the terminal, or pick from{' '}
               <Link to="/market-scan" style={{ color: 'var(--accent-green)' }}>
                 Market Scan
-              </Link>{' '}
-              or your watchlist to generate a CSC valuation report.
+              </Link>
+              .
             </div>
           </div>
-        ) : reportError ? (
+        ) : reportError && !report ? (
           <div className={styles.muted} style={{ color: 'var(--accent-red)' }}>
             <div style={{ marginBottom: 8 }}>Report failed to load.</div>
             <div style={{ fontSize: 11, opacity: 0.85 }}>{reportError}</div>
@@ -471,10 +587,23 @@ export function CscReportsView() {
               </ActionButton>
             </div>
           </div>
-        ) : !report || reportLoading ? (
-          <div className={styles.muted}>Loading report\u2026</div>
+        ) : !report ? (
+          <div className={styles.muted}>Loading report{'\u2026'}</div>
         ) : (
           <>
+            {reportLoading && (
+              <div className={styles.updatingBanner} role="status">
+                Loading the full report{'\u2026'}
+              </div>
+            )}
+            {reportError && (
+              <div className={styles.fallbackBanner}>
+                Live report refresh failed ({reportError}). Showing the latest available numbers.{' '}
+                <button type="button" className={styles.inlineRetry} onClick={() => regen()}>
+                  Retry
+                </button>
+              </div>
+            )}
             {report.metadata?.model_status === 'fallback' && (
               <div className={styles.fallbackBanner}>
                 Fallback scorer active{report.metadata.model_version ? ` (${report.metadata.model_version})` : ''}.
@@ -490,23 +619,31 @@ export function CscReportsView() {
                 {' '}Refresh the authoritative roster before using this report for binding decisions.
               </div>
             )}
-            <GroupBreak label="// VALUE" />
+            <div className={styles.reportSubject}>
+              <div className={styles.reportName}>{athlete.name}</div>
+              <div className={styles.reportMeta}>
+                {[athlete.school, athlete.position, athlete.conference].filter(Boolean).join(' · ')}
+              </div>
+            </div>
+            <GroupBreak label="WHAT TO OFFER" />
             <ValueSection
               value={report.value}
-              plotPct={plotPct}
               athleteName={athlete.name}
               conferenceTier={report.metadata?.conference_tier ?? null}
               cohortFallbackStep={report.metadata?.cohort_fallback_step ?? null}
               cohortFit={report.metadata?.cohort_fit ?? null}
               lowCohortData={report.metadata?.low_cohort_data ?? null}
+              dealScopeReadiness={report.metadata?.deal_scope_readiness ?? null}
+              cohortSize={report.metadata?.cohort_size ?? null}
+              comparableState={report.metadata?.comparable_state ?? null}
             />
-            <GroupBreak label="// EXPLANATION" />
+            <GroupBreak label="WHY THIS NUMBER" />
             <ExecutiveSummarySection summary={report.explanation.executive_summary} />
             <KeyValueDriversSection
               explanation={report.explanation}
               athlete={athlete}
             />
-            <GroupBreak label="// VALIDATION" />
+            <GroupBreak label="PEER CHECK" />
             <ValidationSection
               validation={report.validation}
               onChange={(rows) =>
@@ -517,7 +654,7 @@ export function CscReportsView() {
               }
             />
             <ConfidenceRiskSection confidenceRisk={report.confidence_risk} />
-            <GroupBreak label="// DETAIL" />
+            <GroupBreak label="MODEL DETAIL" />
             <DetailSection detail={report.detail} metadata={report.metadata} />
             <ReportFooter metadata={report.metadata} />
           </>
@@ -551,12 +688,7 @@ export function CscReportsView() {
           searchLoading={searchLoading}
           searchRows={searchRows}
           selectorAthletes={selectorAthletes}
-          onSelectAthlete={(id) => {
-            void setActive(id)
-            setSearchQ('')
-            setSearchRows([])
-            setSearchOpen(false)
-          }}
+          onSelectAthlete={selectAthlete}
           onRegen={regen}
           onExportPdf={() => void handleExportPdf()}
           pdfLoading={pdfLoading}
@@ -610,20 +742,24 @@ function conferenceTierLabel(tier: string | null | undefined): string | null {
 
 function ValueSection({
   value,
-  plotPct,
   athleteName,
   conferenceTier,
   cohortFallbackStep,
   cohortFit,
   lowCohortData,
+  dealScopeReadiness,
+  cohortSize,
+  comparableState,
 }: {
   value: CscValueSection
-  plotPct: number
   athleteName: string
   conferenceTier?: string | null
   cohortFallbackStep?: number | null
   cohortFit?: 'good' | 'edge' | 'poor' | null
   lowCohortData?: boolean | null
+  dealScopeReadiness?: string | null
+  cohortSize?: number | null
+  comparableState?: string | null
 }) {
   const scopeOptions = value.deal_scopes ?? {}
   const [selectedScope, setSelectedScope] = useState<DealScope>(
@@ -640,76 +776,102 @@ function ValueSection({
       ? (activationLow + ((scoped?.high ?? value.activation_deal_high ?? value.range_high) as number)) / 2
       : null)
   const activationHigh = scoped?.high ?? value.activation_deal_high ?? value.range_high
-  const rangeText = formatNilRangeAligned(activationMid, activationLow, activationHigh)
+  const plotPct = plotBandPercent(activationMid, activationLow, activationHigh)
   const bandEndpoints = formatNilBandEndpoints(
     activationMid,
     activationLow,
     activationHigh,
   )
+  const scopeCopy = dealScopeCopy(selectedScope)
+  const confidenceCopy = dealConfidenceCopy(scoped?.confidence ?? value.deal_confidence)
+  const evidenceCopy = dealEvidenceCopy(
+    scoped?.qualified_transactions,
+    scoped?.readiness ?? dealScopeReadiness,
+  )
   const confTierLabel = conferenceTierLabel(conferenceTier)
+  const showTierBadge = shouldShowTierBadge({
+    cohortSize,
+    comparableState,
+    lowCohortData,
+  })
   const showLowDataChip =
-    lowCohortData === true || (cohortFallbackStep != null && cohortFallbackStep >= 2)
+    lowCohortData === true || (cohortFallbackStep != null && cohortFallbackStep >= 2) || !showTierBadge
   const showCohortFitChip = cohortFit === 'edge' || cohortFit === 'poor'
   const peerRangeApplicable = value.peer_range_applicable !== false
   const showOutlierNote = !peerRangeApplicable || cohortFit === 'poor'
-  const rangeNote =
-    value.range_note ||
-    (showOutlierNote
-      ? 'Outlier profile — peer cohort range is not applicable for deal construction. Displayed band is a deal-construction range around this athlete\'s benchmark.'
-      : null)
+  const rangeNote = showOutlierNote
+    ? 'This athlete sits outside a typical peer set, so the band is built around their own benchmark rather than a peer envelope.'
+    : null
+  const yearly = formatNilValue(value.annual_nil_benchmark ?? value.total_benchmark)
   return (
     <div className={styles.section}>
-      <div className={styles.sectionTitle}>Annual NIL Value Benchmark</div>
-      <div className={styles.valueHero}>{formatNilValue(value.total_benchmark)}</div>
-      <div className={styles.guidelineCaption}>
-        Annual market benchmark — not a transaction price. Choose the commercial
-        scope before using the guidance below.
-      </div>
+      <div className={styles.sectionTitle}>Suggested offer</div>
+      <p className={styles.dealLead}>
+        Price for this deal with {athleteName} — not their full-year NIL value ({yearly}).
+      </p>
       {Object.keys(scopeOptions).length > 0 && (
         <label className={styles.dealScopeField}>
-          <span>Deal scope</span>
+          <span>Deal type</span>
           <select value={selectedScope} onChange={(event) => setSelectedScope(event.target.value as DealScope)}>
             {Object.values(scopeOptions).filter(Boolean).map((estimate) => (
-              <option key={estimate!.scope} value={estimate!.scope}>{estimate!.label}</option>
+              <option key={estimate!.scope} value={estimate!.scope}>
+                {dealScopeCopy(estimate!.scope).menuLabel}
+              </option>
             ))}
           </select>
         </label>
       )}
-      <div className={styles.dealGuidanceGrid}>
-        <div className={styles.dealGuidanceCard}>
-          <div className={styles.dealGuidanceLabel}>{scoped?.label ?? 'Standard activation'} Mid</div>
-          <div className={styles.dealGuidanceValue}>{formatNilValue(activationMid)}</div>
+      <p className={styles.scopeHint}>{scopeCopy.blurb}</p>
+      <div className={styles.offerHero}>{formatNilValue(activationMid)}</div>
+      <div className={styles.offerHeroCaption}>Suggested offer · {scopeCopy.menuLabel}</div>
+      <div className={styles.bandBlock}>
+        <div className={styles.bandLabels}>
+          <span>
+            <span className={styles.bandRole}>Low</span>
+            {bandEndpoints.low}
+          </span>
+          <span className={styles.bandMidLabel}>
+            <span className={styles.bandRole}>Suggested</span>
+            {formatNilValue(activationMid)}
+          </span>
+          <span>
+            <span className={styles.bandRole}>High</span>
+            {bandEndpoints.high}
+          </span>
         </div>
-        <div className={styles.dealGuidanceCard}>
-          <div className={styles.dealGuidanceLabel}>Evidence readiness</div>
-          <div className={styles.dealGuidanceValue}>
-            {scoped ? `${scoped.qualified_transactions}/100 · ${scoped.readiness.replace('_', ' ')}` : '—'}
+        <div className={styles.bandTrack}>
+          <div className={styles.bandMarker} style={{ left: `${plotPct}%` }} title={`${athleteName} suggested offer`} />
+        </div>
+      </div>
+      <div className={styles.contextGrid}>
+        <div className={styles.contextCard}>
+          <div className={styles.dealGuidanceLabel}>Yearly market value</div>
+          <div className={`${styles.contextValue} ${styles.contextValueMuted}`}>{yearly}</div>
+          <div className={styles.contextHint}>
+            Full-year NIL worth. Do not use this as the price of one deal.
           </div>
         </div>
-        <div className={styles.dealGuidanceCard}>
-          <div className={styles.dealGuidanceLabel}>Deal Confidence</div>
-          <div className={styles.dealGuidanceValue}>{scoped?.confidence ?? value.deal_confidence ?? '—'}</div>
+        <div className={styles.contextCard}>
+          <div className={styles.dealGuidanceLabel}>How sure we are</div>
+          <div className={styles.contextValue}>{confidenceCopy.title}</div>
+          <div className={styles.contextHint}>{confidenceCopy.detail}</div>
+        </div>
+        <div className={styles.contextCard}>
+          <div className={styles.dealGuidanceLabel}>Evidence</div>
+          <div className={styles.contextValue}>{evidenceCopy.title}</div>
+          <div className={styles.contextHint}>{evidenceCopy.detail}</div>
         </div>
       </div>
-      <div className={styles.bandLabels}>
-        <span>{bandEndpoints.low}</span>
-        <span>{bandEndpoints.high}</span>
-      </div>
-      <div className={styles.bandTrack}>
-        <div className={styles.bandMarker} style={{ left: `${plotPct}%` }} title={athleteName} />
-      </div>
-      <p className={styles.subMuted}>{rangeText}</p>
-      {(scoped?.basis ?? value.deal_pricing_basis) && <p className={styles.prose}>{scoped?.basis ?? value.deal_pricing_basis}</p>}
       {rangeNote && <p className={styles.prose}>{rangeNote}</p>}
       <div className={styles.tagRow}>
-        {value.tier_tag && (
+        {showTierBadge && value.tier_tag && (
           <span className={`${styles.tagChip} ${tierTagClass(value.tier_tag)}`}>
-            {value.tier_tag}
+            {titleCaseChip(value.tier_tag)}
           </span>
         )}
         {value.confidence_tag && (
           <span className={`${styles.tagChip} ${confidenceTagClass(value.confidence_tag)}`}>
-            {value.confidence_tag}
+            {dealConfidenceCopy(value.confidence_tag).title}
           </span>
         )}
         {confTierLabel && (
@@ -720,9 +882,9 @@ function ValueSection({
         {showLowDataChip && (
           <span
             className={`${styles.tagChip} ${styles.tagLowData}`}
-            title="Cohort fallback active — see Detail block for the fallback chain."
+            title="Few close peers — see Model Detail for how the comparison set was built."
           >
-            LOW DATA
+            {titleCaseChip('Limited comps')}
           </span>
         )}
         {showCohortFitChip && (
@@ -730,11 +892,11 @@ function ValueSection({
             className={`${styles.tagChip} ${styles.tagCohortFit}`}
             title={
               cohortFit === 'poor'
-                ? 'Outlier — peer cohort range is not applicable for deal construction.'
-                : 'Cohort fit is weak; percentile statistics may be suppressed.'
+                ? 'This athlete sits outside a typical peer set, so the band uses their own numbers.'
+                : 'Few close peers — percentile stats may be thin.'
             }
           >
-            {cohortFit === 'poor' ? 'OUTLIER — PEER RANGE N/A' : `COHORT FIT: ${cohortFit?.toUpperCase()}`}
+            {titleCaseChip(cohortFit === 'poor' ? 'Unusual vs peers' : 'Thin peer set')}
           </span>
         )}
       </div>
@@ -753,10 +915,17 @@ function GroupBreak({ label }: { label: string }) {
 function ExecutiveSummarySection({ summary }: { summary: string }) {
   return (
     <div className={styles.section}>
-      <div className={styles.sectionTitle}>Executive Summary</div>
+      <div className={styles.sectionTitle}>The takeaway</div>
       <p className={styles.prose}>{summary}</p>
     </div>
   )
+}
+
+function withScoreScale(label: string, value: string): string {
+  if (!/score/i.test(label)) return value
+  if (/\/100/.test(value)) return value
+  if (/^\d+(\.\d+)?$/.test(value.trim())) return `${value.trim()}/100`
+  return value
 }
 
 function KeyValueDriversSection({
@@ -769,12 +938,18 @@ function KeyValueDriversSection({
   const drivers = enrichKeyValueDrivers(explanation.key_value_drivers, athlete)
   return (
     <div className={styles.section}>
-      <div className={styles.sectionTitleMajor}>Key Value Drivers</div>
-      {drivers.map((d, idx) => (
+      <div className={styles.sectionTitleMajor}>What drives the number</div>
+      {drivers.map((d, idx) => {
+        const display = qualifyDriverDisplay(d)
+        const hideNarrative = driverNarrativeConflictsBadge(d.label, d.signal, d.explanation)
+        return (
         <div key={`${d.label}-${idx}`} className={styles.driverCard}>
           <div className={styles.driverCardHeader}>
             <span className={styles.driverLabel}>{d.label}</span>
-            <span className={styles.driverSignal}>{d.signal}</span>
+            <span className={styles.driverSignal}>
+              {display.signal}
+              {display.qualifier ? ` · ${display.qualifier}` : ''}
+            </span>
           </div>
           {d.supporting_metrics && d.supporting_metrics.length > 0 && (
             <div className={styles.driverMetrics} aria-label={`${d.label} supporting metrics`}>
@@ -796,27 +971,29 @@ function KeyValueDriversSection({
           )}
           {d.supporting_signals && d.supporting_signals.length > 0 && (
             <div className={styles.driverSignals}>
-              <div className={styles.driverSignalsTitle}>Supporting Signals</div>
+              <div className={styles.driverSignalsTitle}>The numbers</div>
               <ul className={styles.driverSignalList}>
                 {d.supporting_signals.map((s) => (
                   <li key={s.label}>
-                    <span className={styles.driverSignalKey}>{s.label}:</span> {s.value}
+                    <span className={styles.driverSignalKey}>{s.label}:</span>{' '}
+                    {withScoreScale(s.label, s.value)}
                   </li>
                 ))}
               </ul>
             </div>
           )}
-          {d.explanation && (
+          {d.explanation && !hideNarrative && (
             <div className={styles.driverInterpretation}>
-              <div className={styles.driverSignalsTitle}>Interpretation</div>
+              <div className={styles.driverSignalsTitle}>What that means</div>
               <p className={styles.prose}>{d.explanation}</p>
             </div>
           )}
         </div>
-      ))}
+        )
+      })}
       {explanation.driver_takeaway && (
         <>
-          <div className={styles.subSectionTitle}>Value Interpretation</div>
+          <div className={styles.subSectionTitle}>What that means</div>
           <p className={styles.prose}>{explanation.driver_takeaway}</p>
         </>
       )}
@@ -831,10 +1008,10 @@ function ConfidenceRiskSection({
 }) {
   return (
     <div className={styles.section}>
-      <div className={styles.sectionTitleMajor}>Risk & Confidence</div>
+      <div className={styles.sectionTitleMajor}>Risk</div>
       <div className={styles.driverRow}>
         <span className={styles.driverLabel}>Confidence</span>
-        <span className={styles.driverSignal}>{confidenceRisk.confidence_level}</span>
+        <span className={styles.driverSignal}>{dealConfidenceCopy(confidenceRisk.confidence_level).title}</span>
         <span className={styles.subMuted}>{confidenceRisk.confidence_note}</span>
       </div>
       <div className={styles.driverRow}>
@@ -858,22 +1035,18 @@ function ValidationSection({
   if (list.length === 0) {
     return (
       <div className={styles.section}>
-        <div className={styles.sectionTitleMajor}>Market & Comparable Analysis</div>
+        <div className={styles.sectionTitleMajor}>How this compares</div>
         <p className={styles.prose}>{validation.market_context}</p>
         <p className={styles.prose}>{validation.comparable_tier}</p>
-        <div className={styles.muted}>
-          {validation.comparable_state === 'none'
-            ? 'Direct comparables unavailable.'
-            : 'No direct comparables available.'}
-        </div>
+        <div className={styles.muted}>No similar athletes on file yet.</div>
         {positionalReferences.length > 0 && (
           <div className={styles.tableScroll}>
             <table className={styles.dataTable}>
               <thead>
                 <tr>
-                  <th>Positional Reference Athletes</th>
-                  <th>GS</th>
-                  <th>NIL est.</th>
+                  <th>Similar athletes</th>
+                  <th>Gravity</th>
+                  <th>Yearly NIL</th>
                 </tr>
               </thead>
               <tbody>
@@ -883,38 +1056,38 @@ function ValidationSection({
                       <div>{r.name}</div>
                       <div className={styles.subMuted}>{r.school ?? '\u2014'}</div>
                     </td>
-                    <td>{formatScore(r.gravity_score ?? null)}</td>
-                    <td className={styles.amber}>{formatNilValue(r.nil_valuation_consensus)}</td>
+                    <td className={styles.tdNum}>{formatScore(r.gravity_score ?? null)}</td>
+                    <td className={`${styles.amber} ${styles.tdNum}`}>{formatNilValue(r.nil_valuation_consensus)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-        <div className={styles.subSectionTitle}>Value Interpretation</div>
+        <div className={styles.subSectionTitle}>What that means</div>
         <p className={styles.prose}>{validation.takeaway}</p>
       </div>
     )
   }
   return (
     <div className={styles.section}>
-      <div className={styles.sectionTitleMajor}>Market & Comparable Analysis</div>
+        <div className={styles.sectionTitleMajor}>How this compares</div>
       <p className={styles.prose}>{validation.market_context}</p>
       <p className={styles.prose}>{validation.comparable_tier}</p>
       {validation.comparable_state === 'sparse' && (
-        <div className={styles.subSectionTitle}>Sparse Comparables</div>
+        <div className={styles.subSectionTitle}>Few direct comps</div>
       )}
       <div className={styles.tableScroll}>
         <table className={styles.dataTable}>
           <thead>
             <tr>
               <th>Athlete</th>
-              <th>GS</th>
-              <th>Brand</th>
-              <th>NIL est.</th>
+              <th className={styles.tdNum}>Gravity</th>
+              <th className={styles.tdNum}>Brand</th>
+              <th className={styles.tdNum}>Yearly NIL</th>
               <th>Deal structure</th>
               <th>Source</th>
-              <th>Conf.</th>
+              <th>Confidence</th>
             </tr>
           </thead>
           <tbody>
@@ -929,9 +1102,9 @@ function ValidationSection({
                       {r.school ?? '\u2014'} · {r.position ?? '\u2014'}
                     </div>
                   </td>
-                  <td>{formatScore(r.gravity_score ?? null)}</td>
-                  <td>{formatScore(r.brand_score ?? null)}</td>
-                  <td className={styles.amber}>{formatNilValue(r.nil_valuation_consensus)}</td>
+                    <td className={styles.tdNum}>{formatScore(r.gravity_score ?? null)}</td>
+                    <td className={styles.tdNum}>{formatScore(r.brand_score ?? null)}</td>
+                    <td className={`${styles.amber} ${styles.tdNum}`}>{formatNilValue(r.nil_valuation_consensus)}</td>
                   <td>
                     <select
                       className={styles.cellSelect}
@@ -983,7 +1156,7 @@ function ValidationSection({
           </tbody>
         </table>
       </div>
-      <div className={styles.subSectionTitle}>Value Interpretation</div>
+      <div className={styles.subSectionTitle}>What that means</div>
       <p className={styles.prose}>{validation.takeaway}</p>
     </div>
   )
@@ -1011,14 +1184,24 @@ function ReportFooter({ metadata }: { metadata: CscReportMetadata }) {
 
 function DetailSection({ detail, metadata }: { detail: CscDetailSection; metadata: CscReportMetadata }) {
   const blocks = detail.blocks ?? null
+  const audit = modelAuditBullets(metadata, detail)
   return (
     <details className={styles.section}>
       <summary className={styles.sectionTitle}>Model Details</summary>
+      <div className={styles.detailBlock}>
+        <div className={styles.detailLabel}>Audit trail</div>
+        <ul className={styles.prose} style={{ paddingLeft: 18, margin: '0 0 12px' }}>
+          {audit.map((row) => (
+            <li key={row}>{row}</li>
+          ))}
+        </ul>
+      </div>
       {blocks ? (
         <div className={styles.detailBlock}>
           <div className={styles.detailLabel}>{blocks.methodology.title}</div>
           <p className={styles.prose}>{blocks.methodology.summary}</p>
-          {blocks.methodology.components.length > 0 && (
+          {blocks.methodology.components.length > 0 &&
+            !blocks.methodology.components[0]?.toLowerCase().startsWith('model version') && (
             <ul className={styles.prose} style={{ paddingLeft: 18, margin: 0 }}>
               {blocks.methodology.components.map((row, idx) => (
                 <li key={idx}>{row}</li>

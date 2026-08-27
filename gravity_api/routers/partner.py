@@ -29,7 +29,9 @@ from gravity_api.services.partner_api import (
     format_partner_score_row,
     format_score_history_point,
 )
+from gravity_api.services.partner_deal_pricing import build_partner_deal_pricing
 from gravity_api.services.partner_sports import fetch_partner_sport_catalog, resolve_sport_filters
+from gravity_api.services.deal_scope_pricing import DEAL_SCOPES
 
 router = APIRouter()
 
@@ -102,7 +104,13 @@ async def _fetch_score_history(
 
 class CreatePartnerKeyBody(BaseModel):
     partner_name: str = Field(..., min_length=1, max_length=200)
-    scopes: List[str] = Field(default_factory=lambda: ["scores:read", "search:read"])
+    scopes: List[str] = Field(
+        default_factory=lambda: ["scores:read", "search:read"],
+        description=(
+            "Granted scopes. Known: scores:read, search:read, pricing:read, "
+            "opportunities:read"
+        ),
+    )
     allowed_origins: Optional[List[str]] = None
     rate_limit_per_minute: int = Field(default=120, ge=1, le=10000)
     expires_at: Optional[datetime] = None
@@ -155,6 +163,10 @@ async def partner_search_athletes(
         description="Comma-separated codes or slugs: CFB,NCAAB,NBA,NFL,WNBA,NCAA_BASEBALL,NCAA_VOLLEYBALL",
     ),
     school: Optional[str] = None,
+    conference: Optional[str] = Query(
+        None,
+        description="Conference name substring filter (e.g. SEC, Big Ten)",
+    ),
     min_gravity: Optional[float] = None,
     max_gravity: Optional[float] = None,
     sort_by: str = "gravity_score",
@@ -172,6 +184,7 @@ async def partner_search_athletes(
         sport=single_sport,
         sports_db=sports_db,
         school=school,
+        conference=conference,
         min_gravity=min_gravity,
         max_gravity=max_gravity,
         exclude_inactive=True,
@@ -272,6 +285,45 @@ async def partner_latest_score(
     if not row:
         raise HTTPException(status_code=404, detail="No score for athlete")
     return format_partner_score_row(row)
+
+
+@router.get(
+    "/athletes/{athlete_id}/deal-pricing",
+    summary="Scoped deal pricing with governance fields",
+    response_description=(
+        "Annual NIL benchmark plus five commercial deal scopes. Each scope "
+        "includes range bounds, readiness, qualified evidence count, and "
+        "measured-error confidence. Uncalibrated scopes return confidence "
+        "'Uncalibrated' — partners must not invent tiers."
+    ),
+)
+async def partner_deal_pricing(
+    athlete_id: str,
+    scope: Optional[str] = Query(
+        None,
+        description=(
+            "Optional scope filter for documentation/clients; response always "
+            "includes the full deal_scopes map. One of: "
+            + ", ".join(DEAL_SCOPES)
+        ),
+    ),
+    db: asyncpg.Connection = Depends(get_db),
+    partner: PartnerContext = Depends(require_partner),
+):
+    """Honest scoped deal pricing for partner integrations (Ecos OS, etc.)."""
+    require_scope(partner, "pricing:read")
+    if scope is not None and scope not in DEAL_SCOPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported deal scope: {scope}. Expected one of {list(DEAL_SCOPES)}",
+        )
+    exists = await db.fetchval("SELECT 1 FROM athletes WHERE id = $1", athlete_id)
+    if not exists:
+        raise HTTPException(status_code=404, detail="Athlete not found")
+    row = await _fetch_latest_score_row(db, athlete_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="No score for athlete")
+    return await build_partner_deal_pricing(db, athlete_id=athlete_id, score_row=row)
 
 
 @router.get(

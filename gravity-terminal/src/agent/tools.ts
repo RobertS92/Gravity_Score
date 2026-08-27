@@ -180,6 +180,7 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
           position: input.position as string | undefined,
           conference: input.conference as string | undefined,
           min_score: input.min_score as number | undefined,
+          maxLoaded: 25,
         })
         return JSON.stringify(r)
       }

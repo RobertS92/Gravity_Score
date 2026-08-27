@@ -9,6 +9,12 @@ export function formatScore(n: number | null | undefined): string {
   return value.toFixed(1)
 }
 
+export function formatScoreOn100(n: number | null | undefined): string {
+  const formatted = formatScore(n)
+  if (formatted === EM) return EM
+  return `${formatted}/100`
+}
+
 export function formatDelta(n: number | null | undefined): string {
   const value = parseFiniteNumber(n)
   if (value == null) return EM
@@ -84,7 +90,7 @@ export function formatNilRangeAligned(
   const lowValue = parseFiniteNumber(low)
   const highValue = parseFiniteNumber(high)
   if (lowValue == null || highValue == null) {
-    return `RECOMMENDED DEAL RANGE: ${EM} \u2013 ${EM}`
+    return `SUGGESTED OFFER: ${EM} \u2013 ${EM}`
   }
   // Collapse to a single ESTIMATE label when the range is effectively flat
   // (within $250 difference). Mirrors backend `range_quality == "estimate"`
@@ -94,7 +100,7 @@ export function formatNilRangeAligned(
     return `ESTIMATE: ${formatNilValue(center)}`
   }
   const { low: lowStr, high: highStr } = formatNilBandEndpoints(benchmark, low, high)
-  return `RECOMMENDED DEAL RANGE: ${lowStr} \u2013 ${highStr}`
+  return `SUGGESTED OFFER: ${lowStr} \u2013 ${highStr}`
 }
 
 export function isNilRangeEstimate(
@@ -107,6 +113,18 @@ export function isNilRangeEstimate(
   return Math.abs(highValue - lowValue) < 250
 }
 
+export function plotBandPercent(
+  value: number | null | undefined,
+  low: number | null | undefined,
+  high: number | null | undefined,
+): number {
+  const v = parseFiniteNumber(value)
+  const lo = parseFiniteNumber(low)
+  const hi = parseFiniteNumber(high)
+  if (v == null || lo == null || hi == null || hi <= lo) return 50
+  return Math.min(100, Math.max(0, ((v - lo) / (hi - lo)) * 100))
+}
+
 export { formatNilBandEndpoints }
 
 export function formatNilRange(low: number | null | undefined, high: number | null | undefined): string {
@@ -114,7 +132,7 @@ export function formatNilRange(low: number | null | undefined, high: number | nu
   const highValue = parseFiniteNumber(high)
   const lowDisplay = lowValue == null ? EM : formatNilValue(lowValue)
   const highDisplay = highValue == null ? EM : formatNilValue(highValue)
-  return `RECOMMENDED DEAL RANGE: ${lowDisplay} \u2013 ${highDisplay}`
+  return `SUGGESTED OFFER: ${lowDisplay} \u2013 ${highDisplay}`
 }
 
 export function formatInteger(n: number | null | undefined): string {
@@ -168,7 +186,7 @@ export function formatDriverMetric(
     return `${value > 0 ? '+' : ''}${value.toFixed(1)}`
   }
   if (u === '/100' || u === 'score') {
-    return value.toFixed(1)
+    return `${value.toFixed(1)}/100`
   }
   if (u === '30d') {
     if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(1)}K`

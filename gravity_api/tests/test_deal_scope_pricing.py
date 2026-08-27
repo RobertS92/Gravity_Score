@@ -45,6 +45,21 @@ def test_prior_only_output_never_claims_confidence():
     assert estimate.readiness == "insufficient_data"
 
 
+def test_uncalibrated_basis_is_two_complete_sentences():
+    estimate = price_deal_scope(
+        "standard_activation",
+        annual_benchmark=1_000_000,
+        signals=SIGNALS,
+        qualified_transactions=0,
+    )
+    assert estimate.basis.startswith("Recommended structure:")
+    assert "0 of 100 qualified" in estimate.basis
+    first, _, rest = estimate.basis.partition(". ")
+    assert first
+    assert rest
+    assert not first.endswith("transactions")
+
+
 def test_calibrated_interval_and_confidence_use_measured_error():
     estimate = price_deal_scope(
         "season_partnership",

@@ -167,14 +167,21 @@ def price_deal_scope(
     target = _metric(calibration.get("target_coverage"))
     mape = _metric(calibration.get("median_absolute_percentage_error"))
     confidence = _confidence_from_error(mape, empirical, target) if calibrated else "Uncalibrated"
-    basis = (
-        f"{prior.description}; {qualified_transactions} qualified {scope.replace('_', ' ')} transactions. "
-        + (
-            f"Interval calibrated on {validation_n} later transactions with {empirical:.0%} measured coverage."
-            if calibrated and empirical is not None
-            else "Prior interval only; measured confidence is withheld until at least 100 qualified transactions and 20 out-of-time validation outcomes exist."
+    scope_words = scope.replace("_", " ")
+    structure = f"Recommended structure: {prior.description}."
+    if calibrated and empirical is not None:
+        caveat = (
+            f"{qualified_transactions} of 100 qualified {scope_words} transactions are on file, "
+            f"and the interval is calibrated on {validation_n} later transactions "
+            f"with {empirical:.0%} measured coverage."
         )
-    )
+    else:
+        caveat = (
+            f"{qualified_transactions} of 100 qualified {scope_words} transactions are on file. "
+            "The band is a planning prior until at least 100 qualified transactions "
+            "and 20 out-of-time validation outcomes exist."
+        )
+    basis = f"{structure} {caveat}"
     return ScopedDealEstimate(
         scope=scope,
         label=SCOPE_LABELS[scope],

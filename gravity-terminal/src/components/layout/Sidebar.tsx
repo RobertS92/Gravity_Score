@@ -21,8 +21,9 @@ export function Sidebar() {
   const removeFromWatchlist = useWatchlistStore((s) => s.removeFromWatchlist)
   const activeId = useAthleteStore((s) => s.activeAthleteId)
   const setActive = useAthleteStore((s) => s.setActiveAthlete)
-  const { activeSidebarItem, setActiveSidebarItem } = useUiStore()
-  const [showModal, setShowModal] = useState(false)
+  const { activeSidebarItem, setActiveSidebarItem, marketScanSub, setMarketScanSub } = useUiStore()
+  const finderOpen = useUiStore((s) => s.watchlistFinderOpen)
+  const setFinderOpen = useUiStore((s) => s.setWatchlistFinderOpen)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
 
   const nav = (id: string, section: 'csc' | 'research' | 'alerts') => {
@@ -43,7 +44,7 @@ export function Sidebar() {
             <button
               type="button"
               className={styles.addBtn}
-              onClick={() => setShowModal(true)}
+              onClick={() => setFinderOpen(true)}
               title="Find a player"
             >
               + FIND
@@ -161,7 +162,7 @@ export function Sidebar() {
           ) : (
             <>
               <div className={styles.sectionHeader}>
-                <span>CSC REPORTS</span>
+                <span>DEALS</span>
               </div>
               <button
                 type="button"
@@ -183,9 +184,14 @@ export function Sidebar() {
               </div>
               <button
                 type="button"
-                className={location.pathname.startsWith('/market-scan') ? styles.navItemActive : styles.navItem}
+                className={
+                  location.pathname.startsWith('/market-scan') && marketScanSub !== 'cohort'
+                    ? styles.navItemActive
+                    : styles.navItem
+                }
                 onClick={() => {
                   setActiveSidebarItem({ section: 'research', id: 'scan' })
+                  setMarketScanSub('position')
                   navigate('/market-scan')
                 }}
               >
@@ -203,9 +209,14 @@ export function Sidebar() {
               </button>
               <button
                 type="button"
-                className={styles.navItem}
+                className={
+                  location.pathname.startsWith('/market-scan') && marketScanSub === 'cohort'
+                    ? styles.navItemActive
+                    : styles.navItem
+                }
                 onClick={() => {
                   nav('cohort', 'research')
+                  setMarketScanSub('cohort')
                   navigate('/market-scan')
                 }}
               >
@@ -234,7 +245,7 @@ export function Sidebar() {
         </footer>
       </aside>
 
-      {showModal && <WatchlistModal onClose={() => setShowModal(false)} />}
+      {finderOpen && <WatchlistModal onClose={() => setFinderOpen(false)} />}
     </>
   )
 }
