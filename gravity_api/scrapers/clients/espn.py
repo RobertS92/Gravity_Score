@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextvars
 import logging
+import os
 from typing import Any
 
 import httpx
@@ -37,6 +38,15 @@ ESPN_HEADERS = {
     "User-Agent": "GravityScrapers/1.0",
     "Accept": "application/json",
 }
+
+# site.api.espn.com currently 403s from this environment; site.web.api serves
+# the same site/v2 roster payloads.
+ESPN_SITE_HOST = os.getenv("ESPN_SITE_API_HOST", "site.web.api.espn.com").strip() or "site.web.api.espn.com"
+
+def site_v2_url(path: str) -> str:
+    """Build a site/v2 URL on the host that currently serves ESPN public JSON."""
+    return f"https://{ESPN_SITE_HOST}/apis/site/v2/{path.lstrip('/')}"
+
 
 # site.api.espn.com league path segments
 SITE_LEAGUE_PATH: dict[str, str] = {
@@ -120,7 +130,7 @@ class EspnClient:
 
         async with httpx.AsyncClient(timeout=self.timeout_s, headers=ESPN_HEADERS) as client:
             resp = await client.get(url)
-            if resp.status_code in (400, 404, 500, 502, 503):
+            if resp.status_code in (400, 403, 404, 500, 502, 503):
                 data: dict[str, Any] = {}
             else:
                 resp.raise_for_status()
@@ -362,14 +372,14 @@ class EspnClient:
         league = SITE_LEAGUE_PATH.get(sport)
         if not league:
             raise ValueError(f"Unsupported sport for roster: {sport}")
-        return f"https://site.api.espn.com/apis/site/v2/sports/{league}/teams/{espn_team_id}/roster"
+        return f"https://{ESPN_SITE_HOST}/apis/site/v2/sports/{league}/teams/{espn_team_id}/roster"
 
     def team_detail_url(self, sport: str, espn_team_id: str) -> str:
         sport = normalize_sport(sport)
         league = SITE_LEAGUE_PATH.get(sport)
         if not league:
             raise ValueError(f"Unsupported sport for team detail: {sport}")
-        return f"https://site.api.espn.com/apis/site/v2/sports/{league}/teams/{espn_team_id}"
+        return f"https://{ESPN_SITE_HOST}/apis/site/v2/sports/{league}/teams/{espn_team_id}"
 
     async def fetch_roster_payload(self, sport: str, espn_team_id: str) -> dict[str, Any]:
         return await self._get(self.roster_url(sport, espn_team_id))
@@ -472,7 +482,7 @@ class EspnClient:
         if not league or not team_name:
             return None
         needle = " ".join(str(team_name).lower().split())
-        url = f"https://site.api.espn.com/apis/site/v2/sports/{league}/teams?limit=100"
+        url = f"https://{ESPN_SITE_HOST}/apis/site/v2/sports/{league}/teams?limit=100"
         data = await self._get(url)
         best: tuple[int, str] | None = None
         for block in data.get("sports") or []:

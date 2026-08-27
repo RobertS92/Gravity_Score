@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 
+from gravity_api.scrapers.clients.espn import ESPN_HEADERS, site_v2_url
+
 logger = logging.getLogger(__name__)
 
 CFB_CONFERENCE_GROUPS: tuple[tuple[int, str], ...] = (
@@ -30,23 +32,18 @@ CFB_CORE_TEAMS_TMPL = (
     "https://sports.core.api.espn.com/v2/sports/football/leagues/college-football"
     "/seasons/{year}/types/0/groups/{group_id}/teams?limit=200"
 )
-MBB_GROUPS_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/groups"
-)
-WBB_GROUPS_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/basketball/womens-college-basketball/groups"
-)
+MBB_GROUPS_URL = site_v2_url("sports/basketball/mens-college-basketball/groups")
+WBB_GROUPS_URL = site_v2_url("sports/basketball/womens-college-basketball/groups")
 
 NOTRE_DAME_CFB_TEAM_ID = "87"
 DEFAULT_MARKET_RANK = 50
-ESPN_HEADERS = {"User-Agent": "GravityScrapers/1.0", "Accept": "application/json"}
 
 
 def _fetch_json(url: str) -> dict[str, Any]:
     try:
         with httpx.Client(timeout=30.0, headers=ESPN_HEADERS) as client:
             resp = client.get(url)
-            if resp.status_code in (400, 404, 500):
+            if resp.status_code in (400, 403, 404, 500):
                 return {}
             resp.raise_for_status()
             data = resp.json()

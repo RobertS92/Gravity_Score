@@ -7,27 +7,17 @@ import re
 from typing import Any
 
 from gravity_api.scrapers.roster.power5_resolver import (
-    ESPN_HEADERS,
-    HOOPS_CONFERENCE_ABBREVS,
+    MBB_GROUPS_URL,
+    WBB_GROUPS_URL,
     _fetch_json,
     _walk_hoops_conference_teams,
 )
+from gravity_api.scrapers.clients.espn import site_v2_url
 
 logger = logging.getLogger(__name__)
 
-MBB_GROUPS_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/groups"
-)
-WBB_GROUPS_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/basketball/womens-college-basketball/groups"
-)
-
-BASEBALL_TEAMS_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/teams?limit=500"
-)
-VOLLEYBALL_TEAMS_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/volleyball/womens-college-volleyball/teams?limit=500"
-)
+BASEBALL_TEAMS_URL = site_v2_url("sports/baseball/college-baseball/teams?limit=500")
+VOLLEYBALL_TEAMS_URL = site_v2_url("sports/volleyball/womens-college-volleyball/teams?limit=500")
 
 DEFAULT_MARKET_RANK = 50
 

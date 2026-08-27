@@ -3,7 +3,11 @@
 from gravity_api.scrapers.clients.espn import EspnClient, _espn_nested_description
 
 
-def test_flatten_roster_players_nfl_grouped_buckets():
+def test_roster_url_uses_web_host_that_serves_site_v2():
+    client = EspnClient()
+    url = client.roster_url("cfb", "251")
+    assert "site.web.api.espn.com" in url
+    assert url.endswith("/teams/251/roster")
     payload = {
         "athletes": [
             {

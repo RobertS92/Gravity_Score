@@ -27,6 +27,15 @@ async def run_weekly_refresh(*, skip_roster: bool = False) -> None:
 
             logger.info("weekly_refresh: roster sync (in-process)")
             await sync_power5_sports(conn, rescrape_transfers=None)
+        else:
+            from gravity_api.services.roster_retirement import apply_pro_college_hygiene
+
+            hygiene = await apply_pro_college_hygiene(conn, apply=True, min_confidence="medium")
+            logger.info(
+                "weekly_refresh: pro/college hygiene deactivated=%s actionable=%s",
+                hygiene.get("deactivated"),
+                hygiene.get("actionable"),
+            )
 
         logger.info("weekly_refresh: rebuilding comparable_sets from latest scores")
         n = await rebuild_comparables_index(conn)

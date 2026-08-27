@@ -7,11 +7,10 @@ from typing import Any
 
 import httpx
 
-from gravity_api.scrapers.clients.espn import SITE_LEAGUE_PATH, normalize_sport
+from gravity_api.scrapers.clients.espn import ESPN_HEADERS, SITE_LEAGUE_PATH, normalize_sport, site_v2_url
 
 logger = logging.getLogger(__name__)
 
-ESPN_HEADERS = {"User-Agent": "GravityScrapers/1.0", "Accept": "application/json"}
 PRO_SPORTS = ("nfl", "nba", "wnba")
 
 
@@ -22,11 +21,11 @@ def fetch_pro_league_entries(sport: str) -> list[dict[str, Any]]:
     league = SITE_LEAGUE_PATH.get(sport)
     if not league:
         return []
-    url = f"https://site.api.espn.com/apis/site/v2/sports/{league}/teams?limit=100"
+    url = site_v2_url(f"sports/{league}/teams?limit=100")
     try:
         with httpx.Client(timeout=30.0, headers=ESPN_HEADERS) as client:
             resp = client.get(url)
-            if resp.status_code in (400, 404, 500):
+            if resp.status_code in (400, 403, 404, 500):
                 return []
             resp.raise_for_status()
             data = resp.json()

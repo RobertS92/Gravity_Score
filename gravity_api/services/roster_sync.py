@@ -20,6 +20,11 @@ from gravity_api.scrapers.roster.school_index import (
     default_team_ids_for_sport,
     schools_for_sport,
 )
+from gravity_api.services.roster_retirement import (
+    apply_pro_college_hygiene,
+    retire_unseen_on_synced_teams,
+    synced_school_names,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -368,7 +373,11 @@ async def sync_sport_rosters(
     async def fetch_team(tid: str) -> tuple[str, dict[str, Any]]:
         tid = tid.strip()
         async with fetch_sem:
-            payload = await espn.fetch_roster_payload(canonical, tid)
+            try:
+                payload = await espn.fetch_roster_payload(canonical, tid)
+            except Exception as exc:
+                logger.warning("Roster fetch failed for team %s: %s", tid, exc)
+                payload = {}
         return tid, payload
 
     cleaned_ids = [tid.strip() for tid in team_ids if tid.strip()]
@@ -423,7 +432,15 @@ async def sync_sport_rosters(
                     await conn.execute(
                         """UPDATE athletes SET
                              is_active = FALSE,
-                             roster_status = 'out_other',
+                             roster_status = CASE
+                                 WHEN class_year ~* '(^|[^a-z])(sr|senior|gr|grad)'
+                                  AND class_year !~* 'fresh|soph|junior|(^|[^a-z])(fr|so|jr)([^a-z]|$)'
+                                     THEN 'graduated'
+                                 ELSE 'out_other'
+                             END,
+                             roster_status_reason = COALESCE(
+                                 roster_status_reason, 'absent_from_current_espn_roster'
+                             ),
                              roster_status_changed_at = $2,
                              updated_at = NOW()
                            WHERE id = $1::uuid""",
@@ -479,6 +496,43 @@ async def sync_sport_rosters(
             except Exception:
                 logger.exception("post-transfer rescrape failed for %s", ev["athlete_id"])
 
+    seen_ids = [row.athlete_id for row in current if row.athlete_id]
+    schools = synced_school_names(
+        results,
+        canonical,
+        index_aliases=schools_for_sport(canonical),
+    )
+    retirement: dict[str, Any] = {
+        "skipped": "no_complete_team_payloads",
+        "deactivated": 0,
+        "rows": [],
+    }
+    try:
+        retirement = await retire_unseen_on_synced_teams(
+            conn,
+            sport=canonical,
+            seen_athlete_ids=seen_ids,
+            synced_schools=schools,
+        )
+    except Exception:
+        logger.exception("Unseen-roster retirement failed for %s", canonical)
+
+    departed_ids = [
+        ev["athlete_id"] for ev in diff.get("ROSTER_DEPARTURE", []) if ev.get("athlete_id")
+    ]
+    retired_ids = [row["id"] for row in retirement.get("rows") or [] if row.get("id")]
+    hygiene_ids = list({*departed_ids, *retired_ids})
+    if hygiene_ids:
+        try:
+            await apply_pro_college_hygiene(
+                conn,
+                apply=True,
+                min_confidence="medium",
+                college_ids=hygiene_ids,
+            )
+        except Exception:
+            logger.exception("Departure pro-overlay failed for %s", canonical)
+
     return {
         "sport": canonical,
         "snapshot_date": snap_d.isoformat(),
@@ -486,6 +540,11 @@ async def sync_sport_rosters(
         "team_results": results,
         "diff_event_counts": event_counts,
         "snapshots_written": len(current),
+        "retirement": {
+            "skipped": retirement.get("skipped"),
+            "deactivated": retirement.get("deactivated", 0),
+            "schools": retirement.get("schools") or schools,
+        },
     }
 
 
@@ -515,4 +574,21 @@ async def sync_power5_sports(
                 rescrape_transfers=rescrape_transfers,
             )
         )
+    try:
+        hygiene = await apply_pro_college_hygiene(conn, apply=True, min_confidence="medium")
+        logger.info(
+            "Pro/college hygiene: deactivated=%s actionable=%s candidates=%s",
+            hygiene.get("deactivated"),
+            hygiene.get("actionable"),
+            hygiene.get("candidates"),
+        )
+        if out:
+            out[-1]["pro_college_hygiene"] = {
+                "deactivated": hygiene.get("deactivated", 0),
+                "actionable": hygiene.get("actionable", 0),
+                "candidates": hygiene.get("candidates", 0),
+                "by_confidence": hygiene.get("by_confidence"),
+            }
+    except Exception:
+        logger.exception("Pro/college roster hygiene failed")
     return out

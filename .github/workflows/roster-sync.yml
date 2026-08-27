@@ -1,0 +1,52 @@
+# Nightly ESPN roster sync at 1:00 AM America/Chicago (06:00 UTC during CDT).
+# Primary scheduler is Railway Cron (gravity_api/railway.roster.toml).
+# This workflow is the coverage canary + a remote trigger if Railway is down.
+
+name: Roster Sync (1am Central)
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      require_coverage:
+        description: "Minimum complete Power 5 CFB teams"
+        required: false
+        default: "5"
+
+jobs:
+  coverage-canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install API test extras
+        run: pip install -r gravity_api/requirements.txt
+      - name: Five Power 5 team coverage (unit gate)
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m pytest gravity_api/tests/test_roster_coverage.py -k "not fetch_live" -q --tb=short
+
+  trigger-railway:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Trigger roster-sync on the API
+        env:
+          GRAVITY_API_URL: ${{ secrets.GRAVITY_API_URL }}
+          GRAVITY_INTERNAL_API_KEY: ${{ secrets.GRAVITY_INTERNAL_API_KEY }}
+        run: |
+          set -euo pipefail
+          API_URL="${GRAVITY_API_URL:-https://gravityscore-production.up.railway.app}"
+          if [ -z "${GRAVITY_INTERNAL_API_KEY:-}" ]; then
+            echo "::error::GRAVITY_INTERNAL_API_KEY secret required"
+            exit 1
+          fi
+          curl -sS -f -X POST "${API_URL%/}/v1/scraper/jobs/roster-sync" \
+            -H "X-Internal-Key: ${GRAVITY_INTERNAL_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"sport":"cfb","sports":["cfb"],"rescrape_transfers":false}'

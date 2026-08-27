@@ -53,6 +53,17 @@ async def main_async(
 
     conn = await asyncpg.connect(dsn, command_timeout=120)
     try:
+        hygiene_flag = os.environ.get("NIGHTLY_ROSTER_HYGIENE", "1").strip().lower()
+        if hygiene_flag not in ("0", "false", "no", "off"):
+            from gravity_api.services.roster_retirement import apply_pro_college_hygiene
+
+            hygiene = await apply_pro_college_hygiene(conn, apply=True, min_confidence="medium")
+            logger.info(
+                "Nightly roster hygiene: deactivated=%s actionable=%s candidates=%s",
+                hygiene.get("deactivated"),
+                hygiene.get("actionable"),
+                hygiene.get("candidates"),
+            )
         if sport:
             result = await run_nightly_for_sport(
                 conn,

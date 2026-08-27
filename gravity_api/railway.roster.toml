@@ -1,0 +1,21 @@
+# Railway Cron worker for ESPN roster sync (separate from the 3 AM UTC nightly scrape).
+#
+# Dashboard setup:
+#   1. New service in the same project → name: gravity-api-roster
+#   2. Root Directory = gravity_api
+#   3. Settings → Config file path = railway.roster.toml
+#   4. Copy env vars from gravity_api (PG_DSN at minimum)
+#   5. Do NOT attach a public domain — this service runs and exits on schedule.
+#
+# Schedule: 06:00 UTC daily = 1:00 AM America/Chicago (CDT).
+# Fails closed unless 5 Power 5 CFB rosters sync complete; retries 3 times.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+cronSchedule = "0 6 * * *"
+startCommand = "python -m gravity_api.jobs.roster_sync --sports cfb,ncaab_mens,ncaab_womens,nfl,nba,wnba --no-rescrape --require-coverage 5 --attempts 3"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 2
