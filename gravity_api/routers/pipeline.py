@@ -33,6 +33,9 @@ class NightlyBody(BaseModel):
     rebuild_cohorts: bool = True
     score: bool = True
     gap_fill: bool = False
+    rescore_all: bool = False
+    scrape_stale_days: int = Field(7, ge=0, le=365)
+    score_stale_days: int = Field(14, ge=0, le=365)
 
 
 class ExportCsvBody(BaseModel):
@@ -67,10 +70,16 @@ async def run_nightly_pipeline(
             rebuild_cohorts=body.rebuild_cohorts,
             score=body.score,
             gap_fill=body.gap_fill,
+            rescore_all=body.rescore_all,
+            scrape_stale_days=body.scrape_stale_days,
+            score_stale_days=body.score_stale_days,
         )
         return {
             "sport": result.sport,
             "gap_fill": body.gap_fill,
+            "rescore_all": body.rescore_all,
+            "scrape_stale_days": body.scrape_stale_days,
+            "score_stale_days": body.score_stale_days,
             "stale_found": result.stale_found,
             "scraped_ok": result.scraped_ok,
             "scraped_fail": result.scraped_fail,
@@ -95,6 +104,9 @@ async def run_nightly_pipeline(
         skip_scrape=not body.scrape,
         skip_cohorts=not body.rebuild_cohorts,
         skip_score=not body.score,
+        rescore_all=body.rescore_all,
+        scrape_stale_days=body.scrape_stale_days,
+        score_stale_days=body.score_stale_days,
     )
 
 

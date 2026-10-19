@@ -321,11 +321,12 @@ async def run_nightly_for_sport(
 
     try:
         if scrape:
-            async def scrape_one(aid: str) -> tuple[bool, str | None]:
+            async def scrape_one(aid: str) -> tuple[str, str | None]:
+                """Return status: ok | fail | skipped."""
                 async with scrape_sem:
                     try:
-                        async def work(task_conn: asyncpg.Connection) -> bool:
-                            summary = await run_scrapers_for_athlete(
+                        async def work(task_conn: asyncpg.Connection) -> dict:
+                            return await run_scrapers_for_athlete(
                                 task_conn,
                                 aid,
                                 event_type="gap_fill" if gap_fill else "scheduled_full",
@@ -333,17 +334,23 @@ async def run_nightly_for_sport(
                                 score_after=False,
                                 persist=True,
                             )
-                            return summary.get("success_count", 0) > 0
 
-                        ok = await _run_with_pool_retry(pool, work)
-                        return ok, None
+                        summary = await _run_with_pool_retry(pool, work)
+                        if summary.get("skipped") and summary.get("reason") == "no_data_gaps":
+                            return "skipped", None
+                        if summary.get("success_count", 0) > 0:
+                            return "ok", None
+                        return "fail", None
                     except Exception as exc:
-                        return False, f"scrape {aid[:8]}: {exc}"
+                        return "fail", f"scrape {aid[:8]}: {exc}"
 
             scrape_outcomes = await asyncio.gather(*[scrape_one(aid) for aid in stale_ids])
-            for ok, err in scrape_outcomes:
-                if ok:
+            for status, err in scrape_outcomes:
+                if status == "ok":
                     result.scraped_ok += 1
+                elif status == "skipped":
+                    # No-op gap-fill must not inflate scraped_fail / burn attention.
+                    pass
                 else:
                     result.scraped_fail += 1
                     if err:

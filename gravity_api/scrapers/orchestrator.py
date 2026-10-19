@@ -142,6 +142,14 @@ async def run_scrapers_for_athlete(
     ctx = await build_context(conn, athlete_id)
     settings = get_settings()
     ext = settings.scrape_extended if include_extended is None else include_extended
+    effective_event = "gap_fill" if (gap_fill or event_type == "gap_fill") else event_type
+    ctx.event_type = effective_event
+    ctx.force_refresh = effective_event in {
+        "scheduled_full",
+        "scheduled_extended",
+        "stat_update",
+        "social_delta",
+    }
 
     if scraper_keys:
         keys = list(scraper_keys)
@@ -154,7 +162,7 @@ async def run_scrapers_for_athlete(
 
         keys = resolve_gap_fill_scraper_keys(ctx, include_extended=ext)
         gap_info = {
-            "gaps": analyze_field_gaps(ctx.existing_raw),
+            "gaps": analyze_field_gaps(ctx.existing_raw, include_stats=True),
             "scraper_keys": keys,
         }
         if not keys:
@@ -281,7 +289,12 @@ async def run_scrapers_for_athlete(
 
     merged_fields = finalize_stat_fields(ctx.sport, merged_fields)
 
-    if persist and merged_fields != raw_before:
+    # Only bump scraped_at when at least one scraper produced a real write.
+    # Normalize-only diffs (finalize_stat_fields type coercion) must not fake freshness.
+    real_scrape_writes = any(
+        r.status in ("success", "partial") and r.fields_written for r in results
+    )
+    if persist and real_scrape_writes and merged_fields != raw_before:
         await merge_raw_athlete_data(conn, athlete_id=athlete_id, fields=merged_fields)
         athlete_row = await conn.fetchrow(
             "SELECT position FROM athletes WHERE id = $1::uuid", athlete_id
@@ -295,6 +308,7 @@ async def run_scrapers_for_athlete(
         )
 
     pipeline_result = None
+    pipeline_error: str | None = None
     if persist:
         try:
             from gravity_api.services.sport_pipeline.run import run_athlete_pipeline
@@ -302,22 +316,28 @@ async def run_scrapers_for_athlete(
             pipeline_result = await run_athlete_pipeline(
                 conn, athlete_id, score=score_after
             )
-        except Exception:
+        except Exception as exc:
             logger.exception("Post-scrape sport pipeline failed for %s", athlete_id)
+            pipeline_error = str(exc)
+            if score_after:
+                # Surface scoring failure when caller asked to score after scrape.
+                pipeline_error = f"score_after failed: {exc}"
 
     success = sum(1 for r in results if r.status == "success")
-    if success == 0 and merged_fields != raw_before:
+    if success == 0 and real_scrape_writes and merged_fields != raw_before:
         success = 1
 
     return {
         "athlete_id": athlete_id,
         "sport": ctx.sport,
         "run_id": run_id,
+        "event_type": effective_event,
         "scrapers_run": len(results),
         "success_count": success,
         "fields_merged": list(merged_fields.keys()),
         "gap_fill": gap_info,
         "pipeline": pipeline_result,
+        "pipeline_error": pipeline_error,
         "results": [
             {
                 "scraper_key": r.scraper_key,

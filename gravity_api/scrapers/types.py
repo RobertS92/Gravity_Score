@@ -24,10 +24,25 @@ class AthleteScrapeContext:
     draft_year: int | None = None
     existing_raw: dict[str, Any] = field(default_factory=dict)
     league_tier: str = "college"
+    # Propagated from orchestrator so scrapers can force-refresh on full runs.
+    event_type: str = "scheduled_full"
+    force_refresh: bool = False
 
     @property
     def is_pro(self) -> bool:
         return self.sport in {"nfl", "nba", "wnba"} or self.league_tier == "pro"
+
+    @property
+    def should_refresh_sufficient_fields(self) -> bool:
+        """True on full / stale refreshes — do not early-return cached social/stats."""
+        if self.force_refresh:
+            return True
+        return self.event_type in {
+            "scheduled_full",
+            "scheduled_extended",
+            "stat_update",
+            "social_delta",
+        }
 
 
 @dataclass

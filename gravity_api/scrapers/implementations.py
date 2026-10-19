@@ -299,7 +299,8 @@ class InstagramFollowersScraper(BaseMicroScraper):
                 error="missing instagram_handle",
                 confidence=0.3,
             )
-        if is_sufficient(raw, "instagram_followers"):
+        # Gap-fill may reuse a sufficient count; full/stale refreshes must re-fetch.
+        if is_sufficient(raw, "instagram_followers") and not ctx.should_refresh_sufficient_fields:
             return self._result(
                 scraper_key,
                 fields={
@@ -311,6 +312,7 @@ class InstagramFollowersScraper(BaseMicroScraper):
                     "instagram_handle_source": raw.get("instagram_handle_source"),
                 },
                 confidence=0.85,
+                status="skipped",
             )
         if not fc.enabled:
             return self._result(
@@ -689,16 +691,36 @@ class StatsFreshnessScraper(BaseMicroScraper):
     SOURCE_KEY = "espn"
 
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
+        # Never invent stats_as_of=now — that fake stamp blocks gap-fill from
+        # selecting missing season_stats and bumps scraped_at without a fetch.
+        raw = ctx.existing_raw
+        stats_as_of = raw.get("stats_as_of")
+        has_stats = bool(
+            raw.get("season_stats")
+            or raw.get("games_played_season")
+            or raw.get("json_stat_passing_yards")
+            or raw.get("ppg")
+        )
+        if not stats_as_of and not has_stats:
+            return self._result(
+                scraper_key,
+                fields={},
+                error="no season stats yet; refusing to invent stats_as_of",
+                confidence=0.2,
+                status="skipped",
+            )
+        fields: dict[str, Any] = {
+            "season_id": raw.get("season_id"),
+            "stats_source": raw.get("stats_source") or ("espn" if has_stats else None),
+            "games_played_season": raw.get("games_played_season"),
+        }
+        if stats_as_of:
+            fields["stats_as_of"] = stats_as_of
         return self._result(
             scraper_key,
-            fields={
-                "stats_as_of": ctx.existing_raw.get("stats_as_of")
-                or datetime.now(tz=timezone.utc).isoformat(),
-                "season_id": ctx.existing_raw.get("season_id"),
-                "stats_source": ctx.existing_raw.get("stats_source") or "espn",
-                "games_played_season": ctx.existing_raw.get("games_played_season"),
-            },
-            confidence=0.95,
+            fields={k: v for k, v in fields.items() if v is not None},
+            confidence=0.95 if stats_as_of else 0.5,
+            status="success" if stats_as_of else "partial",
         )
 
 
@@ -716,17 +738,31 @@ class InjuryStructuredScraper(BaseMicroScraper):
         profile = await espn.get_athlete_profile(str(espn_id), ctx.sport)
         injuries = profile.get("injuries") or []
         status = injuries[0].get("status") if injuries else "healthy"
+        # Injury list length ≠ games missed. Prefer explicit ESPN fields when present.
+        games_missed: int | float | None = None
+        if injuries:
+            first = injuries[0] if isinstance(injuries[0], dict) else {}
+            for key in ("gamesMissed", "games_missed", "gamesMissedSeason", "long"):
+                if first.get(key) is not None:
+                    try:
+                        games_missed = float(first[key])
+                        break
+                    except (TypeError, ValueError):
+                        pass
         risk = min(95.0, 20.0 + len(injuries) * 25.0)
-        return self._result(
-            scraper_key,
-            fields={
-                "current_injury_status": status,
-                "games_missed_season": len(injuries),
-                "injury_risk_score": risk,
-                "last_injury_date": injuries[0].get("date") if injuries else None,
-            },
-            confidence=0.88,
-        )
+        fields: dict[str, Any] = {
+            "current_injury_status": status,
+            "injury_risk_score": risk,
+            "injury_report_count": len(injuries),
+            "last_injury_date": injuries[0].get("date") if injuries else None,
+        }
+        if games_missed is not None:
+            fields["games_missed_season"] = games_missed
+        elif not injuries:
+            fields["games_missed_season"] = 0
+        # If injured but games missed unknown, leave games_missed_season unset
+        # rather than writing a false proxy.
+        return self._result(scraper_key, fields=fields, confidence=0.88)
 
 
 class EspnRosterScraper(BaseMicroScraper):
@@ -895,7 +931,16 @@ class AllAmericanScraper(BaseMicroScraper):
     SOURCE_KEY = "model_derived"
 
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
-        text = json.dumps(ctx.existing_raw.get("achievements_json") or [])
+        achievements = ctx.existing_raw.get("achievements_json") or []
+        if not achievements:
+            return self._result(
+                scraper_key,
+                fields={},
+                error="no achievements_json yet; run espn_awards first",
+                status="skipped",
+                confidence=0.2,
+            )
+        text = json.dumps(achievements)
         fields = parse_achievements_from_text(text)
         return self._result(scraper_key, fields=fields, confidence=0.85)
 
@@ -905,9 +950,16 @@ class NationalAwardsScraper(BaseMicroScraper):
     SOURCE_KEY = "model_derived"
 
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
-        fields = parse_achievements_from_text(
-            json.dumps(ctx.existing_raw.get("achievements_json") or [])
-        )
+        achievements = ctx.existing_raw.get("achievements_json") or []
+        if not achievements:
+            return self._result(
+                scraper_key,
+                fields={},
+                error="no achievements_json yet; run espn_awards first",
+                status="skipped",
+                confidence=0.2,
+            )
+        fields = parse_achievements_from_text(json.dumps(achievements))
         keep = {
             k: fields[k]
             for k in (
@@ -918,7 +970,7 @@ class NationalAwardsScraper(BaseMicroScraper):
             )
             if k in fields
         }
-        keep["national_awards_json"] = ctx.existing_raw.get("achievements_json") or []
+        keep["national_awards_json"] = achievements
         return self._result(scraper_key, fields=keep, confidence=0.88)
 
 
@@ -927,9 +979,16 @@ class ConferenceHonorsScraper(BaseMicroScraper):
     SOURCE_KEY = "espn"
 
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
-        fields = parse_achievements_from_text(
-            json.dumps(ctx.existing_raw.get("achievements_json") or [])
-        )
+        achievements = ctx.existing_raw.get("achievements_json") or []
+        if not achievements:
+            return self._result(
+                scraper_key,
+                fields={},
+                error="no achievements_json yet; run espn_awards first",
+                status="skipped",
+                confidence=0.2,
+            )
+        fields = parse_achievements_from_text(json.dumps(achievements))
         return self._result(
             scraper_key,
             fields={
@@ -946,12 +1005,25 @@ class ChampionshipResultsScraper(BaseMicroScraper):
     SOURCE_KEY = "espn"
 
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
-        text = json.dumps(ctx.existing_raw, default=str)
+        # Only scan achievements / award payloads — never the whole raw blob
+        # (substring counts on full raw invent false championships).
+        achievements = ctx.existing_raw.get("achievements_json") or []
+        awards = ctx.existing_raw.get("espn_awards_json") or []
+        if not achievements and not awards:
+            return self._result(
+                scraper_key,
+                fields={},
+                error="no awards/achievements payload to derive championships",
+                status="skipped",
+                confidence=0.2,
+            )
+        text = json.dumps({"achievements": achievements, "awards": awards}, default=str)
+        lower = text.lower()
         fields = {
-            "national_championships": text.lower().count("national champion"),
-            "conference_championships": text.lower().count("conference champion"),
-            "tournament_final_four": text.lower().count("final four"),
-            "playoff_appearances": text.lower().count("playoff"),
+            "national_championships": lower.count("national champion"),
+            "conference_championships": lower.count("conference champion"),
+            "tournament_final_four": lower.count("final four"),
+            "playoff_appearances": lower.count("playoff"),
         }
         return self._result(scraper_key, fields=fields, confidence=0.7)
 
@@ -1556,6 +1628,9 @@ for cls in ALL_SCRAPER_CLASSES:
 def get_scraper_impl(scraper_key: str) -> BaseMicroScraper | None:
     if scraper_key.startswith("on3_nil"):
         return _IMPLEMENTATIONS.get("nil_deal_verified")
+    # No standalone Sports Ref stats scraper — ESPN path already falls back.
+    if scraper_key.startswith("sports_ref_stats"):
+        return _IMPLEMENTATIONS.get("espn_stats")
     if site_suffix_for_key(scraper_key):
         return _IMPLEMENTATIONS.get("")
     for suffix, impl in _IMPLEMENTATIONS.items():

@@ -49,7 +49,8 @@ EVENT_SCRAPER_SUFFIXES: dict[str, list[str]] = {
     ],
     "stat_update": [
         "espn_stats",
-        "sports_ref_stats",
+        # sports_ref_stats has no standalone impl — EspnStatsScraper already
+        # falls back to Sports Reference internally when ESPN is thin.
         "stats_freshness",
         "cfbd_api_stats_cfb",
     ],

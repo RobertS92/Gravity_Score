@@ -1,0 +1,85 @@
+# Tuesday full scheduled_full refresh canary + manual trigger.
+# Primary scheduler is Railway Cron (gravity_api/railway.tuesday.toml).
+# This workflow is the coverage canary + remote trigger if Railway cron is down.
+
+name: Tuesday Full Scrape
+
+on:
+  schedule:
+    # Tuesday 10:00 UTC ≈ 5:00 AM America/Chicago (CDT)
+    - cron: "0 10 * * 2"
+  workflow_dispatch:
+    inputs:
+      athlete_limit:
+        description: "Max athletes per sport"
+        required: false
+        default: "500"
+      sports:
+        description: "Comma-separated sports (blank = acceptance defaults via API)"
+        required: false
+        default: "cfb,ncaab_mens,ncaab_womens,nfl,nba,wnba"
+
+jobs:
+  trigger-tuesday-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Trigger Tuesday full scrape on Railway API
+        env:
+          GRAVITY_API_URL: ${{ secrets.GRAVITY_API_URL }}
+          GRAVITY_INTERNAL_API_KEY: ${{ secrets.GRAVITY_INTERNAL_API_KEY }}
+          LIMIT: ${{ github.event.inputs.athlete_limit || '500' }}
+          SPORTS: ${{ github.event.inputs.sports || 'cfb,ncaab_mens,ncaab_womens,nfl,nba,wnba' }}
+        run: |
+          set -euo pipefail
+          API_URL="${GRAVITY_API_URL:-https://gravityscore-production.up.railway.app}"
+          if [ -z "${GRAVITY_INTERNAL_API_KEY:-}" ]; then
+            echo "::error::GRAVITY_INTERNAL_API_KEY secret required"
+            exit 1
+          fi
+
+          # Build sports JSON array
+          sports_json="["
+          first=1
+          IFS=',' read -ra SPORT_ARR <<< "${SPORTS}"
+          for s in "${SPORT_ARR[@]}"; do
+            s="$(echo "$s" | xargs)"
+            [ -z "$s" ] && continue
+            if [ $first -eq 1 ]; then first=0; else sports_json+=","; fi
+            sports_json+="\"${s}\""
+          done
+          sports_json+="]"
+
+          payload=$(cat <<JSON
+          {
+            "sports": ${sports_json},
+            "athlete_limit": ${LIMIT},
+            "scrape": true,
+            "rebuild_cohorts": true,
+            "score": true,
+            "gap_fill": false,
+            "rescore_all": false,
+            "scrape_stale_days": 0,
+            "score_stale_days": 0,
+            "sport_parallel": 2,
+            "scrape_concurrency": 3,
+            "score_concurrency": 8
+          }
+          JSON
+          )
+
+          echo "POST ${API_URL%/}/v1/pipeline/nightly (Tuesday full refresh)"
+          echo "$payload"
+          http_code=$(curl -sS -o /tmp/tuesday_response.json -w "%{http_code}" \
+            -X POST "${API_URL%/}/v1/pipeline/nightly" \
+            -H "X-Gravity-Internal-Key: ${GRAVITY_INTERNAL_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$payload")
+          cat /tmp/tuesday_response.json
+          echo
+          if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+            echo "Tuesday full scrape completed on Railway (HTTP $http_code)"
+            exit 0
+          fi
+          echo "::error::Tuesday API trigger failed with HTTP $http_code"
+          exit 1

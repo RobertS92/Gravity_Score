@@ -43,7 +43,11 @@ class BaseMicroScraper(ABC):
         fields = fields or {}
         written = [k for k, v in fields.items() if v is not None and v != ""]
         failed = [k for k in fields if k not in written]
-        if error and not written:
+        # Preserve explicit skip (e.g. waiting on upstream data) — do not
+        # promote to failed just because an explanatory error string is set.
+        if status == "skipped":
+            pass
+        elif error and not written:
             status = "failed"
         elif error and written:
             status = "partial"

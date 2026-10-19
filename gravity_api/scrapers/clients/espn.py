@@ -131,13 +131,15 @@ class EspnClient:
         async with httpx.AsyncClient(timeout=self.timeout_s, headers=ESPN_HEADERS) as client:
             resp = await client.get(url)
             if resp.status_code in (400, 403, 404, 500, 502, 503):
-                data: dict[str, Any] = {}
-            else:
-                resp.raise_for_status()
-                raw = resp.json()
-                data = raw if isinstance(raw, dict) else {}
+                # Do not cache empty error bodies — a transient 5xx would poison
+                # parallel roster/stats/awards scrapers for the whole athlete run.
+                logger.debug("ESPN GET %s returned %s (not cached)", url, resp.status_code)
+                return {}
+            resp.raise_for_status()
+            raw = resp.json()
+            data = raw if isinstance(raw, dict) else {}
 
-        if cache is not None:
+        if cache is not None and data:
             cache[url] = data
         return data
 

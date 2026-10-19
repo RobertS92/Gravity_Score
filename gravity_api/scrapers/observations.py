@@ -139,6 +139,16 @@ async def merge_raw_athlete_data(
         str(athlete["sport"]),
         json.dumps(merged, default=str),
     )
+    # Best-effort ops freshness column (may be absent on older schemas).
+    try:
+        await conn.execute(
+            """UPDATE athletes SET last_scraped_at = NOW(), updated_at = NOW()
+               WHERE id = $1::uuid""",
+            athlete_id,
+        )
+    except Exception:
+        # Column may not exist; raw_athlete_data.scraped_at remains source of truth.
+        pass
 
 
 async def seed_raw_from_roster_if_missing(
