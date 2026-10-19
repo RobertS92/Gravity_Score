@@ -20,5 +20,5 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 cronSchedule = "0 3 * * *"
-startCommand = "python -m gravity_api.jobs.nightly_pipeline --gap-fill --limit 200 --sport-parallel 2 --scrape-concurrency 3 --score-concurrency 8"
+startCommand = "python -m gravity_api.jobs.nightly_pipeline --gap-fill --sports cfb,ncaab_mens,ncaab_womens,nfl,nba --limit 200 --sport-parallel 2 --scrape-concurrency 3 --score-concurrency 8"
 restartPolicyType = "NEVER"

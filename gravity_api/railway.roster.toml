@@ -16,6 +16,7 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 cronSchedule = "0 6 * * *"
-startCommand = "python -m gravity_api.jobs.roster_sync --sports cfb,ncaab_mens,ncaab_womens,nfl,nba,wnba --no-rescrape --require-coverage 5 --attempts 3"
+# Priority sports first (cfb + ncaab M/W + nfl + nba). WNBA optional via ROSTER_SYNC_SPORTS override.
+startCommand = "python -m gravity_api.jobs.roster_sync --sports cfb,ncaab_mens,ncaab_womens,nfl,nba --no-rescrape --require-coverage 5 --attempts 3"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 2

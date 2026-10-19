@@ -1,5 +1,10 @@
 # Railway Cron worker for Tuesday full scheduled_full refresh.
 #
+# Priority sports (product freshness scope):
+#   cfb, ncaab_mens, ncaab_womens, nfl, nba
+# WNBA remains in ACCEPTANCE_SPORTS / nightly gap-fill but is intentionally
+# omitted here so Tuesday capacity focuses on the sports above.
+#
 # Dashboard setup:
 #   1. New service in the same project → name: gravity-api-tuesday
 #   2. Root Directory = gravity_api
@@ -18,5 +23,5 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 cronSchedule = "0 10 * * 2"
-startCommand = "python -m gravity_api.jobs.nightly_pipeline --sports cfb,ncaab_mens,ncaab_womens,nfl,nba,wnba --limit 500 --scrape-stale-days 0 --score-stale-days 0 --sport-parallel 2 --scrape-concurrency 3 --score-concurrency 8"
+startCommand = "python -m gravity_api.jobs.nightly_pipeline --sports cfb,ncaab_mens,ncaab_womens,nfl,nba --limit 500 --scrape-stale-days 0 --score-stale-days 0 --sport-parallel 2 --scrape-concurrency 3 --score-concurrency 8"
 restartPolicyType = "NEVER"

@@ -15,9 +15,9 @@ on:
         required: false
         default: "500"
       sports:
-        description: "Comma-separated sports (blank = acceptance defaults via API)"
+        description: "Comma-separated sports (priority: cfb,ncaab_mens,ncaab_womens,nfl,nba)"
         required: false
-        default: "cfb,ncaab_mens,ncaab_womens,nfl,nba,wnba"
+        default: "cfb,ncaab_mens,ncaab_womens,nfl,nba"
 
 jobs:
   trigger-tuesday-full:
@@ -29,7 +29,7 @@ jobs:
           GRAVITY_API_URL: ${{ secrets.GRAVITY_API_URL }}
           GRAVITY_INTERNAL_API_KEY: ${{ secrets.GRAVITY_INTERNAL_API_KEY }}
           LIMIT: ${{ github.event.inputs.athlete_limit || '500' }}
-          SPORTS: ${{ github.event.inputs.sports || 'cfb,ncaab_mens,ncaab_womens,nfl,nba,wnba' }}
+          SPORTS: ${{ github.event.inputs.sports || 'cfb,ncaab_mens,ncaab_womens,nfl,nba' }}
         run: |
           set -euo pipefail
           API_URL="${GRAVITY_API_URL:-https://gravityscore-production.up.railway.app}"

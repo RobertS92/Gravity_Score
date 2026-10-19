@@ -52,7 +52,6 @@ async def run_nightly_pipeline(
     _: None = Depends(_require_internal_key),
 ):
     """Per-sport stale scrape → cohort rebuild → BPXVR score (all 8 sports by default)."""
-    from gravity_api.scraper_registry.acceptance_sports import ACCEPTANCE_SPORTS
     from gravity_api.services.sport_pipeline.nightly import (
         run_nightly_all_sports,
         run_nightly_for_sport,
@@ -89,8 +88,11 @@ async def run_nightly_pipeline(
             "errors": result.errors[:20],
         }
 
+    from gravity_api.scraper_registry.acceptance_sports import PRIORITY_SPORTS
+
     sports = tuple(body.sports) if body.sports else (
-        ACCEPTANCE_SPORTS if body.gap_fill else None
+        # Gap-fill defaults to product priority sports (CFB, NCAAB M/W, NFL, NBA).
+        PRIORITY_SPORTS if body.gap_fill else None
     )
     return await run_nightly_all_sports(
         db,

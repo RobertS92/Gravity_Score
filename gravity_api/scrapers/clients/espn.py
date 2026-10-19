@@ -81,11 +81,13 @@ CORE_PROFILE_FIRST_SPORTS = frozenset({"ncaa_baseball", "ncaa_volleyball"})
 
 def normalize_sport(sport: str) -> str:
     s = sport.lower().strip()
-    if s == "mcbb":
-        return "ncaab_mens"
-    if s == "wcbb":
-        return "ncaab_womens"
-    return s
+    aliases = {
+        "mcbb": "ncaab_mens",
+        "wcbb": "ncaab_womens",
+        "ncaab": "ncaab_mens",
+        "ncaaf": "cfb",
+    }
+    return aliases.get(s, s)
 
 
 def _profile_from_core_athlete(athlete: dict[str, Any], athlete_id: str) -> dict[str, Any]:

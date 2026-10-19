@@ -23,7 +23,7 @@ load_dotenv()
 
 import asyncpg
 
-from gravity_api.scraper_registry.acceptance_sports import ACCEPTANCE_SPORTS
+from gravity_api.scraper_registry.acceptance_sports import PRIORITY_SPORTS
 from gravity_api.services.sport_pipeline.nightly import run_nightly_all_sports, run_nightly_for_sport
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -84,7 +84,7 @@ async def main_async(
         else:
             sport_list = sports
             if sport_list is None and gap_fill:
-                sport_list = ACCEPTANCE_SPORTS
+                sport_list = PRIORITY_SPORTS
             summary = await run_nightly_all_sports(
                 conn,
                 athlete_limit_per_sport=limit,

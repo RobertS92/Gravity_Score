@@ -807,7 +807,7 @@ class EspnStatsScraper(BaseMicroScraper):
             sports_ref_search_url,
         )
 
-        if ctx.sport not in {"nfl", "ncaab_mens", "ncaab_womens", "cfb"}:
+        if ctx.sport not in {"nfl", "nba", "ncaab_mens", "ncaab_womens", "cfb"}:
             return {}
 
         parsed = await fetch_sports_ref_stats(ctx.sport, ctx.name, ctx.school or ctx.team)
@@ -1648,15 +1648,24 @@ def get_scraper_impl(scraper_key: str) -> BaseMicroScraper | None:
 async def load_program_context(conn: asyncpg.Connection, ctx: AthleteScrapeContext) -> None:
     if not ctx.school:
         return
-    row = await conn.fetchrow(
-        """SELECT dma_rank, nil_environment_score, conference, annual_tv_appearances,
-                  collective_budget_usd
-           FROM programs
-           WHERE lower(trim(school)) = lower(trim($1)) AND sport = $2
-           LIMIT 1""",
-        ctx.school,
-        normalize_sport(ctx.sport).replace("ncaab_mens", "ncaab").replace("ncaab_womens", "ncaab"),
-    )
+    sport = normalize_sport(ctx.sport)
+    # programs.sport historically used "ncaab"; also try canonical slugs.
+    sport_candidates = [sport]
+    if sport in {"ncaab_mens", "ncaab_womens"}:
+        sport_candidates.extend(["ncaab", "mcbb" if sport == "ncaab_mens" else "wcbb"])
+    row = None
+    for sp in sport_candidates:
+        row = await conn.fetchrow(
+            """SELECT dma_rank, nil_environment_score, conference, annual_tv_appearances,
+                      collective_budget_usd
+               FROM programs
+               WHERE lower(trim(school)) = lower(trim($1)) AND sport = $2
+               LIMIT 1""",
+            ctx.school,
+            sp,
+        )
+        if row:
+            break
     if not row:
         return
     ctx.existing_raw.setdefault("school_market_rank", row.get("dma_rank"))

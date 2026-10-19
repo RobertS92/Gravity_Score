@@ -1,19 +1,19 @@
 {
   "summary": {
-    "total": 284,
+    "total": 286,
     "by_sport": {
       "*": 4,
       "cfb": 35,
-      "nba": 35,
+      "nba": 36,
       "ncaa_baseball": 36,
       "ncaa_volleyball": 36,
       "ncaab_mens": 34,
       "ncaab_womens": 34,
-      "nfl": 36,
+      "nfl": 37,
       "wnba": 34
     },
     "by_dimension": {
-      "velocity": 24,
+      "velocity": 26,
       "proximity": 32,
       "identity": 33,
       "risk": 16,
@@ -23,7 +23,7 @@
     },
     "by_league_tier": {
       "college": 179,
-      "pro": 105
+      "pro": 107
     },
     "achievements_scrapers": 49,
     "required_for_scoring": 50
@@ -1230,6 +1230,31 @@
       "priority": 2,
       "metadata": {
         "espn_slug": "basketball/nba"
+      }
+    },
+    {
+      "scraper_key": "news_rss_espn_nba",
+      "display_name": "ESPN NBA news RSS",
+      "sport": "nba",
+      "league_tier": "pro",
+      "dimension": "velocity",
+      "source": "espn",
+      "source_type": "public_api",
+      "description": "ESPN NBA news aggregated into athlete_events.",
+      "feature_keys": [
+        "news_count_30d",
+        "news_headlines_json"
+      ],
+      "status": "active",
+      "terminal_visible": false,
+      "required_for_scoring": false,
+      "sla_days": 1,
+      "default_confidence": 0.82,
+      "circuit_breaker_source": null,
+      "priority": 2,
+      "metadata": {
+        "repo": "gravity_api",
+        "module": "news_collector.py"
       }
     },
     {
@@ -5568,6 +5593,31 @@
       "priority": 2,
       "metadata": {
         "espn_slug": "football/nfl"
+      }
+    },
+    {
+      "scraper_key": "news_rss_espn_nfl",
+      "display_name": "ESPN NFL news RSS",
+      "sport": "nfl",
+      "league_tier": "pro",
+      "dimension": "velocity",
+      "source": "espn",
+      "source_type": "public_api",
+      "description": "ESPN NFL news aggregated into athlete_events.",
+      "feature_keys": [
+        "news_count_30d",
+        "news_headlines_json"
+      ],
+      "status": "active",
+      "terminal_visible": false,
+      "required_for_scoring": false,
+      "sla_days": 1,
+      "default_confidence": 0.82,
+      "circuit_breaker_source": null,
+      "priority": 2,
+      "metadata": {
+        "repo": "gravity_api",
+        "module": "news_collector.py"
       }
     },
     {

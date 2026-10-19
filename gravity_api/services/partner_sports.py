@@ -23,6 +23,11 @@ PARTNER_CODE_TO_DB_SLUGS: dict[str, list[str]] = {
 _LEGACY_SLUG_ALIASES: dict[str, str] = {
     "mcbb": "ncaab_mens",
     "wcbb": "ncaab_womens",
+    "ncaab": "ncaab_mens",
+    "ncaaf": "cfb",
+    "college-football": "cfb",
+    "mens-college-basketball": "ncaab_mens",
+    "womens-college-basketball": "ncaab_womens",
 }
 
 _DB_SLUG_TO_PARTNER_CODE: dict[str, str] = {}

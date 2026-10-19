@@ -104,7 +104,10 @@ async def build_context(conn: asyncpg.Connection, athlete_id: str) -> AthleteScr
     row = await conn.fetchrow("SELECT * FROM athletes WHERE id = $1::uuid", athlete_id)
     if not row:
         raise ValueError("Athlete not found")
-    sport = str(row["sport"])
+    from gravity_api.services.partner_sports import normalize_db_sport_slug
+
+    # Normalize legacy aliases (mcbb/wcbb/ncaaf) so event packs resolve ESPN/KenPom/etc.
+    sport = normalize_db_sport_slug(str(row["sport"]))
     cfg = SPORTS.get(sport, {})
     scraped = await fetch_latest_scraped_raw(conn, athlete_id)
     manual = await load_manual_imputations(conn, athlete_id)

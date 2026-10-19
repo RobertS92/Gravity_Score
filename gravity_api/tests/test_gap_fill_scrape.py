@@ -121,3 +121,20 @@ def test_resolve_gap_fill_runs_espn_stats_when_ml_ok_but_no_stats():
     )
     keys = resolve_gap_fill_scraper_keys(ctx)
     assert any("espn_stats" in k for k in keys)
+
+
+def test_gap_fill_nba_does_not_queue_cfbd():
+    from gravity_api.scraper_registry.gap_fill import scrapers_for_gaps
+
+    keys = scrapers_for_gaps(["season_stats"], "nba")
+    assert any("espn_stats_nba" in k for k in keys)
+    assert not any("cfbd" in k for k in keys)
+    assert not any("college_experience_pro" in k for k in keys)
+
+
+def test_gap_fill_ncaab_mens_includes_kenpom_not_cfbd():
+    from gravity_api.scraper_registry.gap_fill import scrapers_for_gaps
+
+    keys = scrapers_for_gaps(["season_stats"], "ncaab_mens")
+    assert "kenpom_ncaab_mens" in keys or any("espn_stats_ncaab_mens" in k for k in keys)
+    assert not any(k.endswith("_cfb") and "cfbd" in k for k in keys)

@@ -152,8 +152,14 @@ def scrapers_for_gaps(
         if "external_quality_score" in gap_set and defn.dimension == "achievements":
             feature_overlap.append("external_quality_score")
         if "season_stats" in gap_set and any(
-            fk.startswith("json_stat_") or "stats" in fk or fk in {
-                "season_stats", "career_stats", "games_played_season", "stats_as_of",
+            fk.startswith("json_stat_")
+            or fk
+            in {
+                "season_stats",
+                "career_stats",
+                "games_played_season",
+                "stats_as_of",
+                "advanced_stats",
             }
             for fk in defn.feature_keys
         ):
@@ -161,7 +167,15 @@ def scrapers_for_gaps(
         if feature_overlap:
             candidates.append(key)
 
-    # Fallback: known scrapers for common gaps
+    # Fallback: known scrapers for common gaps (sport-gated — never queue CFBD for non-CFB).
+    season_stats_fallback = [f"espn_stats_{sport}"]
+    if sport == "cfb":
+        season_stats_fallback.append("cfbd_api_stats_cfb")
+    elif sport == "ncaab_mens":
+        season_stats_fallback.append("kenpom_ncaab_mens")
+    elif sport == "ncaab_womens":
+        season_stats_fallback.append("her_hoop_stats_ncaab_womens")
+
     fallback: dict[str, list[str]] = {
         "instagram_handle": [f"social_handle_discovery_{sport}"],
         "instagram_followers": [f"instagram_followers_{sport}", f"social_handle_discovery_{sport}"],
@@ -173,10 +187,14 @@ def scrapers_for_gaps(
             f"all_american_{sport}",
             f"national_awards_{sport}",
         ],
-        "season_stats": [f"espn_stats_{sport}", "cfbd_api_stats_cfb", f"cfbd_api_stats_{sport}"],
+        "season_stats": season_stats_fallback,
         "espn_id": [f"espn_roster_{sport}"],
-        "team_win_pct": ["cfbd_team_record_cfb"],
-        "games_started": [f"espn_stats_{sport}", "cfbd_api_stats_cfb"],
+        "team_win_pct": ["cfbd_team_record_cfb"] if sport == "cfb" else [],
+        "games_started": (
+            [f"espn_stats_{sport}", "cfbd_api_stats_cfb"]
+            if sport == "cfb"
+            else [f"espn_stats_{sport}"]
+        ),
     }
     for gap in gaps:
         for key in fallback.get(gap, []):
