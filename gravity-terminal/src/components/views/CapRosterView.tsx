@@ -40,7 +40,9 @@ export function CapRosterView() {
 
   const load = useCallback(async () => {
     if (!organizationId) {
-      setErr('No organization linked yet. Complete onboarding or ask an admin for CapIQ access.')
+      setErr(
+        'No CapIQ organization linked. Profile labels in Settings do not unlock roster tools — complete school onboarding or ask an admin to add you (Settings → CapIQ organization access).',
+      )
       return
     }
     setErr(null)

@@ -1,5 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchUserPreferences, patchUserPreferences, type UserPreferences } from '../../api/userPreferences'
+import {
+  capiqFeaturesForMembership,
+  formatAccountRole,
+  membershipStatusLabel,
+  resolveMissingOrgAccessSteps,
+} from '../../lib/orgAccess'
+import { useAuthStore } from '../../stores/authStore'
 import { usePreferencesStore } from '../../stores/preferencesStore'
 import styles from './SettingsView.module.css'
 
@@ -56,6 +64,10 @@ function orgLabel(org: string | null): string {
 
 export function SettingsView() {
   const applyFromApi = usePreferencesStore((s) => s.applyFromApi)
+  const organizationId = useAuthStore((s) => s.organizationId)
+  const organizationName = useAuthStore((s) => s.organizationName)
+  const organizationSlug = useAuthStore((s) => s.organizationSlug)
+  const role = useAuthStore((s) => s.role)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -77,6 +89,8 @@ export function SettingsView() {
       setLoading(true)
       setErr(null)
       try {
+        // Ensure CapIQ membership fields are current when opening Settings.
+        await useAuthStore.getState().hydrate()
         const p = await fetchUserPreferences()
         setPrefs(p)
         setSports(p.sport_preferences?.length ? [...p.sport_preferences] : ['CFB'])
@@ -91,6 +105,18 @@ export function SettingsView() {
       }
     })()
   }, [])
+
+  const hasOrg = Boolean(organizationId)
+  const features = useMemo(() => capiqFeaturesForMembership(hasOrg, role), [hasOrg, role])
+  const resolveSteps = useMemo(
+    () =>
+      resolveMissingOrgAccessSteps({
+        organizationId,
+        orgType: prefs?.org_type ?? null,
+        profileOrgName: orgName || prefs?.org_name || null,
+      }),
+    [organizationId, prefs?.org_type, prefs?.org_name, orgName],
+  )
 
   const toggleSport = (id: string) => {
     setSports((prev) => {
@@ -140,13 +166,69 @@ export function SettingsView() {
       {err && <div className={styles.error}>{err}</div>}
 
       <section className={styles.section}>
-        <h2 className={styles.h2}>Organization</h2>
+        <h2 className={styles.h2}>Profile organization label</h2>
+        <p className={styles.hint}>
+          This label personalizes your account. It is <strong>not</strong> CapIQ membership and does not unlock
+          roster budgets, scenarios, or school data.
+        </p>
         <label className={styles.label}>Organization type</label>
         <div className={styles.readonly}>{orgLabel(prefs?.org_type ?? null)}</div>
-        <label className={styles.label}>Organization name</label>
-        <input className={styles.input} value={orgName} onChange={(e) => setOrgName(e.target.value)} />
+        <label className={styles.label}>Organization display name (profile only)</label>
+        <input
+          className={styles.input}
+          value={orgName}
+          onChange={(e) => setOrgName(e.target.value)}
+          placeholder="e.g. SMU — profile label only"
+          aria-describedby="org-name-hint"
+        />
+        <p id="org-name-hint" className={styles.hint}>
+          Editing this field updates your preference label only. CapIQ stays linked (or unlinked) based on the
+          membership status below.
+        </p>
         <label className={styles.label}>Team or program seed (optional)</label>
         <input className={styles.input} value={seed} onChange={(e) => setSeed(e.target.value)} />
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={styles.h2}>CapIQ organization access</h2>
+        <p className={styles.hint}>
+          CapIQ tools use a linked organization membership on your account, separate from the profile label above.
+        </p>
+        <label className={styles.label}>Membership status</label>
+        <div className={hasOrg ? styles.statusOk : styles.statusWarn}>{membershipStatusLabel(hasOrg)}</div>
+        <label className={styles.label}>Linked organization</label>
+        <div className={styles.readonly}>
+          {hasOrg
+            ? `${organizationName?.trim() || 'Linked organization'}${organizationSlug ? ` (${organizationSlug})` : ''}`
+            : 'None — CapIQ shows “no organization linked” until membership is attached'}
+        </div>
+        <label className={styles.label}>Account role</label>
+        <div className={styles.readonly}>{formatAccountRole(role)}</div>
+        <label className={styles.label}>Available CapIQ features</label>
+        <ul className={styles.list}>
+          {features.map((f) => (
+            <li key={f}>{f}</li>
+          ))}
+        </ul>
+        <label className={styles.label}>{hasOrg ? 'Using CapIQ' : 'How to resolve missing access'}</label>
+        <ul className={styles.list}>
+          {resolveSteps.map((s) => (
+            <li key={s}>{s}</li>
+          ))}
+        </ul>
+        {!hasOrg && (
+          <p className={styles.hint}>
+            School / collective accounts: complete{' '}
+            <Link className={styles.inlineLink} to="/onboarding">
+              onboarding
+            </Link>{' '}
+            with your organization name, or ask a school admin to add you. Then open{' '}
+            <Link className={styles.inlineLink} to="/cap">
+              CapIQ
+            </Link>
+            .
+          </p>
+        )}
       </section>
 
       <section className={styles.section}>
