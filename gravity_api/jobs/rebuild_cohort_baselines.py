@@ -162,7 +162,6 @@ async def rebuild_for_cohort(
 
 async def run(*, sport_filter: str | None = None) -> None:
     dsn = os.environ["PG_DSN"]
-    season_year = _current_season_year()
     conn = await asyncpg.connect(dsn)
     try:
         total = 0
@@ -170,6 +169,7 @@ async def run(*, sport_filter: str | None = None) -> None:
         if sport_filter:
             specs = [s for s in specs if s.sport == sport_filter]
         for spec in specs:
+            season_year = _current_season_year(spec.sport)
             league = SPORT_LEAGUE.get(spec.sport, spec.league)
             for pg in spec.position_groups:
                 n = await rebuild_for_cohort(

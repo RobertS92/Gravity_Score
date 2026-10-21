@@ -44,6 +44,7 @@ DEFAULT_ROSTER_SPORTS = COLLEGE_ROSTER_SPORTS + PRO_ROSTER_SPORTS
 
 
 def _season_year_for_cfb() -> int:
+    calendar_year = datetime.now(timezone.utc).year
     raw = (
         os.getenv("POWER5_CFB_SEASON")
         or os.getenv("CURRENT_STATS_SEASON")
@@ -51,8 +52,13 @@ def _season_year_for_cfb() -> int:
         or ""
     ).strip()
     if raw:
-        return int(raw.split("-")[0] if "-" in raw else raw)
-    return datetime.now(timezone.utc).year
+        env_year = int(raw.split("-")[0] if "-" in raw else raw)
+        # Refuse stale pins (e.g. CURRENT_STATS_SEASON=2024 in 2026) that
+        # freeze Power-5 roster indexes on 2-year-old seasons.
+        if env_year < calendar_year - 1:
+            return calendar_year
+        return env_year
+    return calendar_year
 
 
 def _resolve_entries() -> list[SchoolEntry]:

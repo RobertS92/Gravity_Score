@@ -79,7 +79,17 @@ def integrate_nil_pipeline(
         
         # Step 4: Calculate features
         logger.info(f"Step 4: Calculating features...")
-        season_id = "2024-25"  # Get from player_data or config
+        from datetime import datetime, timezone
+
+        now = datetime.now(tz=timezone.utc)
+        # CFB season key: calendar year from July onward, else prior year.
+        season_start = now.year if now.month >= 7 else now.year - 1
+        season_id = (
+            (player_data or {}).get("season_id")
+            or (player_data or {}).get("season_year")
+            or f"{season_start}-{str(season_start + 1)[-2:]}"
+        )
+        season_id = str(season_id)
         try:
             snapshot_id = calculate_and_store_features(athlete_id, season_id)
             logger.info(f"Features calculated: {snapshot_id}")

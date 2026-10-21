@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 _SEASON_YEAR_RE = re.compile(r"(20\d{2})")
+_SPLIT_SEASON_RE = re.compile(r"(20\d{2})\s*[-/]\s*(\d{4}|\d{2})")
 
 
 def _merge_stat_dicts(*parts: dict[str, Any]) -> dict[str, Any]:
@@ -108,8 +109,22 @@ def stats_from_espn_payload(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _season_label_to_key(label: str) -> str:
-    m = _SEASON_YEAR_RE.search(label or "")
-    return m.group(1) if m else label.strip() or "unknown"
+    """Normalize ESPN season labels to a 4-digit year key.
+
+    Split labels (``2024-25``, ``2024-2025``) use the **ending** year so
+    basketball seasons are not understated by one relative to calendar
+    ``_current_season_year`` heuristics.
+    """
+    text = (label or "").strip()
+    split = _SPLIT_SEASON_RE.search(text)
+    if split:
+        start = int(split.group(1))
+        end_raw = split.group(2)
+        end = int(end_raw) if len(end_raw) == 4 else 2000 + int(end_raw)
+        if end >= start:
+            return str(end)
+    m = _SEASON_YEAR_RE.search(text)
+    return m.group(1) if m else text or "unknown"
 
 
 def _categoried_rows(data: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
