@@ -6,10 +6,9 @@ import type {
   CscConfidenceRiskSection,
   CscDetailSection,
   CscExplanationSection,
-  CscKeyValueDriver,
-  CscReportMetadata,
   CscReportComparablesRow,
   CscReportJson,
+  CscReportMetadata,
   CscValidationSection,
   CscValueSection,
   DealScope,
@@ -18,7 +17,6 @@ import {
   DEAL_STRUCTURE_GROUPS,
   SOURCE_GROUPS,
   formatComparableConfidence,
-  normalizeComparableRows,
   withLegacyOption,
 } from '../../lib/cscComparables'
 import { enrichKeyValueDrivers, qualifyDriverDisplay } from '../../lib/cscDriverSignals'
@@ -36,11 +34,15 @@ import {
   conferenceTierDisplayLabel,
 } from '../../lib/cscReportTags'
 import {
+  hasFinalCscValuations,
+  isClientPreviewValuation,
+  normalizeCscReport,
+} from '../../lib/cscReportNormalize'
+import {
   dealConfidenceCopy,
   dealEvidenceCopy,
   dealScopeCopy,
   driverNarrativeConflictsBadge,
-  fallbackTakeaway,
   modelAuditBullets,
   shouldShowTierBadge,
   titleCaseChip,
@@ -52,297 +54,6 @@ import { useWatchlistStore } from '../../stores/watchlistStore'
 import { ActionButton } from '../shared/ActionButton'
 import { CscConfigPanel, useCscResolvedParams } from './CscConfigPanel'
 import styles from './CscReportsView.module.css'
-
-function withDefaultText(value: string | null | undefined, fallback: string) {
-  const clean = (value ?? '').trim()
-  return clean.length > 0 ? clean : fallback
-}
-
-function normalizeComparables(rows: CscReportComparablesRow[] | undefined): CscReportComparablesRow[] {
-  return normalizeComparableRows(rows).slice(0, 12)
-}
-
-function levelFromScore(value: number | null | undefined, invert = false): 'High' | 'Moderate' | 'Low' {
-  if (value == null || Number.isNaN(value)) return 'Moderate'
-  const adjusted = invert ? 100 - value : value
-  if (adjusted >= 66) return 'High'
-  if (adjusted >= 40) return 'Moderate'
-  return 'Low'
-}
-
-function fallbackActivationBand(annual: number | null | undefined): {
-  low: number | null
-  mid: number | null
-  high: number | null
-} {
-  if (annual == null || !Number.isFinite(annual) || annual <= 0) {
-    return { low: null, mid: null, high: null }
-  }
-  const mid = Math.max(500, annual * 0.016)
-  return { low: mid * 0.48, mid, high: mid * 1.75 }
-}
-
-function buildFallbackDrivers(athlete: ReturnType<typeof useAthleteStore.getState>['activeAthlete']): CscKeyValueDriver[] {
-  return [
-    {
-      label: 'Brand Strength',
-      signal: levelFromScore(athlete?.brand_score),
-      explanation: `Brand score ${formatScore(athlete?.brand_score ?? null)} relative to peers.`,
-    },
-    {
-      label: 'Market Proof',
-      signal: levelFromScore(athlete?.proof_score),
-      explanation: `Proof score ${formatScore(athlete?.proof_score ?? null)} with current verified activity.`,
-    },
-    {
-      label: 'Exposure',
-      signal: levelFromScore(athlete?.proximity_score),
-      explanation: `Exposure score ${formatScore(athlete?.proximity_score ?? null)} for program/media visibility.`,
-    },
-    {
-      label: 'Risk',
-      signal: levelFromScore(athlete?.risk_score, true),
-      explanation: `Risk score ${formatScore(athlete?.risk_score ?? null)} impacts valuation certainty.`,
-    },
-  ]
-}
-
-function buildFallbackReport(
-  athlete: ReturnType<typeof useAthleteStore.getState>['activeAthlete'],
-  rows: CscReportComparablesRow[] = [],
-): CscReportJson {
-  const athleteName = athlete?.name
-  const subject = athleteName ?? 'the selected athlete'
-  const benchmark = athlete?.nil_valuation_consensus ?? athlete?.dollar_p50_usd ?? null
-  const rangeLow = athlete?.nil_range_low ?? athlete?.dollar_p10_usd ?? null
-  const rangeHigh = athlete?.nil_range_high ?? athlete?.dollar_p90_usd ?? null
-  const confidenceLevel = levelFromScore((athlete?.dollar_confidence?.dollar_confidence_score ?? null) != null
-    ? (athlete?.dollar_confidence?.dollar_confidence_score ?? 0) * 100
-    : null)
-  const confidenceTag = `${confidenceLevel} Confidence`
-  const riskLevel = levelFromScore(athlete?.risk_score ?? null, true)
-  const drivers = buildFallbackDrivers(athlete)
-  const marketValues = rows.map((r) => r.nil_valuation_consensus).filter((v): v is number => v != null)
-  const marketLow = marketValues.length ? Math.min(...marketValues) : rangeLow
-  const marketHigh = marketValues.length ? Math.max(...marketValues) : rangeHigh
-  const marketMedian = marketValues.length
-    ? [...marketValues].sort((a, b) => a - b)[Math.floor(marketValues.length / 2)]
-    : benchmark
-  const activation = fallbackActivationBand(benchmark)
-
-  return {
-    value: {
-      total_benchmark: benchmark,
-      range_low: activation.low,
-      range_high: activation.high,
-      annual_nil_benchmark: benchmark,
-      activation_deal_low: activation.low,
-      activation_deal_mid: activation.mid,
-      activation_deal_high: activation.high,
-      season_partnership_low: null,
-      season_partnership_high: null,
-      deal_confidence: confidenceLevel,
-      deal_uncertainty: null,
-      deal_pricing_method: 'legacy_fallback',
-      deal_pricing_basis: 'Preview using current athlete numbers. The full report will refine the campaign range.',
-      selected_deal_scope: 'standard_activation',
-      deal_scopes: {
-        standard_activation: {
-          scope: 'standard_activation',
-          label: 'Standard activation',
-          low: activation.low,
-          mid: activation.mid,
-          high: activation.high,
-          model_version: 'activation_prior_v2',
-          calibrated: false,
-          confidence: 'Uncalibrated',
-          basis: 'Preview from this athlete’s current numbers while the full report loads.',
-          qualified_transactions: 0,
-          validation_transactions: 0,
-          empirical_coverage: null,
-          target_coverage: null,
-          median_absolute_percentage_error: null,
-          evaluated_through: null,
-          readiness: 'insufficient_data',
-        },
-      },
-      tier_tag: benchmark != null && benchmark >= 150000 ? 'High-tier' : benchmark != null && benchmark >= 50000 ? 'Mid-tier' : 'Developing-tier',
-      confidence_tag: confidenceTag,
-      range_note: null,
-      peer_range_applicable: true,
-    },
-    explanation: {
-      executive_summary: fallbackTakeaway(
-        subject,
-        formatNilValue(benchmark),
-        formatNilValue(activation.low),
-        formatNilValue(activation.high),
-      ),
-      key_value_drivers: drivers,
-      driver_takeaway: `${subject}'s offer is driven most by brand and exposure. Proof and risk decide how firmly you can hold the number.`,
-    },
-    validation: {
-      market_context: `Peers at ${athlete?.conference ?? 'this conference'} ${athlete?.position ?? 'this position'}: yearly values from ${formatNilValue(marketLow)} to ${formatNilValue(marketHigh)} (median ${formatNilValue(marketMedian)}).`,
-      comparable_tier: 'Athletes with a similar role and signal profile.',
-      example_comparables: rows.slice(0, 5),
-      takeaway: `Use ${subject}'s yearly value as context. Price the deal from the campaign range, not the yearly number.`,
-      comparable_state: rows.length >= 3 ? 'sufficient' : rows.length >= 1 ? 'sparse' : 'none',
-      positional_reference_athletes: rows.length === 0 ? [] : [],
-    },
-    confidence_risk: {
-      confidence_level: confidenceLevel,
-      confidence_note: `${confidenceLevel} confidence from the signals and comps we have so far.`,
-      risk_level: riskLevel,
-      risk_note: `${riskLevel} risk from roster status and modeled risk posture.`,
-    },
-    detail: {
-      shap_attribution: 'SHAP attribution pending latest explainable model output.',
-      methodology: 'Comparable-weighted NIL banding with Gravity score components and verified market observations.',
-      inputs: 'Inputs include sport, position, comparables set, confidence threshold, and current score components.',
-    },
-    metadata: {
-      tier_version: 'tier_v1',
-      tier_v1: 'Developing',
-      tier_v2: 'Developing',
-      cohort_window_days_used: 21,
-      season_state: 'unknown',
-      cohort_size: rows.length,
-      cohort_fallback_step: 3,
-      comparable_state: rows.length >= 3 ? 'sufficient' : rows.length >= 1 ? 'sparse' : 'none',
-      comparable_sets_computed_at: null,
-      exposure_formula_version: 'exposure_formula_v1',
-      exposure_formula_weights: { proximity_weight: 0.6, velocity_weight: 0.4 },
-      rollout_phase: 'phase1',
-      low_cohort_data: true,
-      athlete_benchmark_percentile_in_cohort: null,
-    },
-    executive_summary: '',
-    gravity_score_table: '',
-    comparables_analysis: rows,
-    nil_range_note: '',
-    shap_narrative: '',
-    risk_assessment: '',
-    methodology: '',
-  }
-}
-
-function normalizeReport(
-  report: CscReportJson | null | undefined,
-  athlete: ReturnType<typeof useAthleteStore.getState>['activeAthlete'],
-): CscReportJson {
-  const legacyRows = normalizeComparables(report?.comparables_analysis)
-  const fallback = buildFallbackReport(athlete, legacyRows)
-  if (!report) return fallback
-  const legacyExec = withDefaultText(report.executive_summary, fallback.explanation.executive_summary)
-  const legacyMethod = withDefaultText(report.methodology, fallback.detail.methodology)
-  const legacyShap = withDefaultText(report.shap_narrative, fallback.detail.shap_attribution)
-  const legacyRisk = withDefaultText(report.risk_assessment, fallback.confidence_risk.risk_note)
-  const value: CscValueSection = {
-    total_benchmark: report.value?.total_benchmark ?? fallback.value.total_benchmark,
-    range_low: report.value?.range_low ?? fallback.value.range_low,
-    range_high: report.value?.range_high ?? fallback.value.range_high,
-    annual_nil_benchmark:
-      report.value?.annual_nil_benchmark ?? report.value?.total_benchmark ?? fallback.value.annual_nil_benchmark,
-    activation_deal_low:
-      report.value?.activation_deal_low ?? report.value?.range_low ?? fallback.value.activation_deal_low,
-    activation_deal_mid:
-      report.value?.activation_deal_mid ??
-      (report.value?.range_low != null && report.value?.range_high != null
-        ? (report.value.range_low + report.value.range_high) / 2
-        : fallback.value.activation_deal_mid),
-    activation_deal_high:
-      report.value?.activation_deal_high ?? report.value?.range_high ?? fallback.value.activation_deal_high,
-    season_partnership_low:
-      report.value?.season_partnership_low ?? fallback.value.season_partnership_low ?? null,
-    season_partnership_high:
-      report.value?.season_partnership_high ?? fallback.value.season_partnership_high ?? null,
-    deal_confidence: report.value?.deal_confidence ?? fallback.value.deal_confidence ?? null,
-    deal_uncertainty: report.value?.deal_uncertainty ?? fallback.value.deal_uncertainty ?? null,
-    deal_pricing_method: report.value?.deal_pricing_method ?? fallback.value.deal_pricing_method ?? null,
-    deal_pricing_basis: report.value?.deal_pricing_basis ?? fallback.value.deal_pricing_basis ?? null,
-    selected_deal_scope: report.value?.selected_deal_scope,
-    deal_scopes: report.value?.deal_scopes,
-    tier_tag: report.value?.tier_tag ?? fallback.value.tier_tag,
-    confidence_tag: report.value?.confidence_tag ?? fallback.value.confidence_tag,
-    range_note: report.value?.range_note ?? fallback.value.range_note ?? null,
-    peer_range_applicable:
-      report.value?.peer_range_applicable ?? fallback.value.peer_range_applicable ?? true,
-  }
-  const explanation: CscExplanationSection = {
-    executive_summary: withDefaultText(report.explanation?.executive_summary, legacyExec),
-    key_value_drivers: report.explanation?.key_value_drivers?.length
-      ? report.explanation.key_value_drivers
-      : fallback.explanation.key_value_drivers,
-    driver_takeaway: withDefaultText(
-      report.explanation?.driver_takeaway,
-      fallback.explanation.driver_takeaway,
-    ),
-  }
-  const validationRows = report.validation?.example_comparables?.length
-    ? normalizeComparables(report.validation.example_comparables)
-    : legacyRows.length
-      ? legacyRows
-      : fallback.validation.example_comparables
-  const validation: CscValidationSection = {
-    market_context: withDefaultText(report.validation?.market_context, fallback.validation.market_context),
-    comparable_tier: withDefaultText(report.validation?.comparable_tier, fallback.validation.comparable_tier),
-    example_comparables: validationRows,
-    takeaway: withDefaultText(report.validation?.takeaway, fallback.validation.takeaway),
-    comparable_state: report.validation?.comparable_state ?? fallback.validation.comparable_state,
-    positional_reference_athletes:
-      report.validation?.positional_reference_athletes ?? fallback.validation.positional_reference_athletes,
-  }
-  const confidenceRisk: CscConfidenceRiskSection = {
-    confidence_level: report.confidence_risk?.confidence_level ?? fallback.confidence_risk.confidence_level,
-    confidence_note: withDefaultText(report.confidence_risk?.confidence_note, fallback.confidence_risk.confidence_note),
-    risk_level: report.confidence_risk?.risk_level ?? fallback.confidence_risk.risk_level,
-    risk_note: withDefaultText(report.confidence_risk?.risk_note, legacyRisk),
-  }
-  const detail: CscDetailSection = {
-    shap_attribution: withDefaultText(report.detail?.shap_attribution, legacyShap),
-    methodology: withDefaultText(report.detail?.methodology, legacyMethod),
-    inputs: withDefaultText(report.detail?.inputs, fallback.detail.inputs),
-    // Pass through the structured detail.blocks so the SHAP table,
-    // cohort metadata, and provenance render from the live API
-    // instead of silently falling back to the flat strings above.
-    blocks: report.detail?.blocks ?? undefined,
-  }
-  const metadata: CscReportMetadata = {
-    tier_version: report.metadata?.tier_version ?? fallback.metadata.tier_version,
-    tier_v1: report.metadata?.tier_v1 ?? fallback.metadata.tier_v1,
-    tier_v2: report.metadata?.tier_v2 ?? fallback.metadata.tier_v2,
-    cohort_window_days_used: report.metadata?.cohort_window_days_used ?? fallback.metadata.cohort_window_days_used,
-    season_state: report.metadata?.season_state ?? fallback.metadata.season_state,
-    cohort_size: report.metadata?.cohort_size ?? fallback.metadata.cohort_size,
-    cohort_fallback_step: report.metadata?.cohort_fallback_step ?? fallback.metadata.cohort_fallback_step,
-    comparable_state: report.metadata?.comparable_state ?? fallback.metadata.comparable_state,
-    comparable_sets_computed_at: report.metadata?.comparable_sets_computed_at ?? null,
-    exposure_formula_version: report.metadata?.exposure_formula_version ?? fallback.metadata.exposure_formula_version,
-    exposure_formula_weights: report.metadata?.exposure_formula_weights ?? fallback.metadata.exposure_formula_weights,
-    rollout_phase: report.metadata?.rollout_phase ?? fallback.metadata.rollout_phase,
-    low_cohort_data: report.metadata?.low_cohort_data ?? fallback.metadata.low_cohort_data,
-    athlete_benchmark_percentile_in_cohort:
-      report.metadata?.athlete_benchmark_percentile_in_cohort ?? fallback.metadata.athlete_benchmark_percentile_in_cohort,
-    selected_deal_scope: report.metadata?.selected_deal_scope,
-    deal_scope_calibrated: report.metadata?.deal_scope_calibrated,
-    deal_scope_readiness: report.metadata?.deal_scope_readiness,
-  }
-  return {
-    value,
-    explanation,
-    validation,
-    confidence_risk: confidenceRisk,
-    detail,
-    metadata,
-    executive_summary: report.executive_summary,
-    gravity_score_table: report.gravity_score_table,
-    comparables_analysis: report.comparables_analysis,
-    nil_range_note: report.nil_range_note,
-    shap_narrative: report.shap_narrative,
-    risk_assessment: report.risk_assessment,
-    methodology: report.methodology,
-  }
-}
 
 export function CscReportsView() {
   const athlete = useAthleteStore((s) => s.activeAthlete)
@@ -382,7 +93,7 @@ export function CscReportsView() {
   useLayoutEffect(() => {
     const st = location.state as { agentCscReport?: CscReportJson } | null
     if (st?.agentCscReport) {
-      setReport(normalizeReport(st.agentCscReport, athlete ?? null))
+      setReport(normalizeCscReport(st.agentCscReport, athlete ?? null))
       navigate(`${location.pathname}${location.search}`, { replace: true, state: {} })
     }
   }, [location.state, location.pathname, location.search, navigate, athlete])
@@ -406,7 +117,8 @@ export function CscReportsView() {
     const athleteChanged = loadedAthleteIdRef.current !== athleteId
     if (athleteChanged) {
       loadedAthleteIdRef.current = athleteId
-      setReport(normalizeReport(null, current))
+      // Clear immediately — never seed athlete-card / preview dollars as the report.
+      setReport(null)
     }
     setReportLoading(true)
     setReportError(null)
@@ -414,13 +126,14 @@ export function CscReportsView() {
       .then((r) => {
         if (!cancelled) {
           const latest = useAthleteStore.getState().activeAthlete
-          setReport(normalizeReport(r, latest?.athlete_id === athleteId ? latest : current))
+          setReport(normalizeCscReport(r, latest?.athlete_id === athleteId ? latest : current))
           setReportError(null)
         }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setReport((prev) => prev ?? normalizeReport(null, current))
+          // Keep a prior full report for this athlete if present; never invent preview valuations.
+          setReport((prev) => (hasFinalCscValuations(prev) ? prev : null))
           setReportError(err instanceof Error ? err.message : 'Failed to generate report')
         }
       })
@@ -460,6 +173,8 @@ export function CscReportsView() {
 
   const comparables = useAthleteStore((s) => s.comparables)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const showFinalReport = hasFinalCscValuations(report) && !isClientPreviewValuation(report)
+  const finalReport = showFinalReport ? report : null
 
   const regen = () => {
     if (!athlete) return
@@ -468,7 +183,7 @@ export function CscReportsView() {
     setReportError(null)
     postCscReport(athlete.athlete_id, resolvedParams)
       .then((r) => {
-        setReport(normalizeReport(r, athlete))
+        setReport(normalizeCscReport(r, athlete))
         setReportError(null)
       })
       .catch((err: unknown) =>
@@ -478,10 +193,10 @@ export function CscReportsView() {
   }
 
   const handleExportPdf = async () => {
-    if (!athlete) return
+    if (!athlete || !finalReport) return
     setPdfLoading(true)
     try {
-      await downloadCscPdf(athlete, comparables, report)
+      await downloadCscPdf(athlete, comparables, finalReport)
     } finally {
       setPdfLoading(false)
     }
@@ -577,7 +292,7 @@ export function CscReportsView() {
               .
             </div>
           </div>
-        ) : reportError && !report ? (
+        ) : reportError && !showFinalReport ? (
           <div className={styles.muted} style={{ color: 'var(--accent-red)' }}>
             <div style={{ marginBottom: 8 }}>Report failed to load.</div>
             <div style={{ fontSize: 11, opacity: 0.85 }}>{reportError}</div>
@@ -587,34 +302,53 @@ export function CscReportsView() {
               </ActionButton>
             </div>
           </div>
-        ) : !report ? (
+        ) : reportLoading && !showFinalReport ? (
+          <div className={styles.loadingState} role="status" aria-live="polite">
+            <div className={styles.reportSubject}>
+              <div className={styles.reportName}>{athlete.name}</div>
+              <div className={styles.reportMeta}>
+                {[athlete.school, athlete.position, athlete.conference].filter(Boolean).join(' · ')}
+              </div>
+            </div>
+            <div className={styles.updatingBanner}>Building full CSC report{'\u2026'}</div>
+            <p className={styles.loadingHint}>
+              Suggested offer and yearly market value appear only after the full report is ready.
+              Athlete-card or preliminary figures are not shown as recommendations.
+            </p>
+            <div className={styles.loadingSkeleton} aria-hidden="true">
+              <div className={styles.skeletonBlock} />
+              <div className={styles.skeletonBlock} />
+              <div className={styles.skeletonBlockWide} />
+            </div>
+          </div>
+        ) : !finalReport ? (
           <div className={styles.muted}>Loading report{'\u2026'}</div>
         ) : (
           <>
             {reportLoading && (
               <div className={styles.updatingBanner} role="status">
-                Loading the full report{'\u2026'}
+                Refreshing the full report{'\u2026'} Prior recommendations stay visible until the update finishes.
               </div>
             )}
             {reportError && (
               <div className={styles.fallbackBanner}>
-                Live report refresh failed ({reportError}). Showing the latest available numbers.{' '}
+                Live report refresh failed ({reportError}). Showing the last full report — not a preliminary estimate.{' '}
                 <button type="button" className={styles.inlineRetry} onClick={() => regen()}>
                   Retry
                 </button>
               </div>
             )}
-            {report.metadata?.model_status === 'fallback' && (
+            {finalReport.metadata?.model_status === 'fallback' && (
               <div className={styles.fallbackBanner}>
-                Fallback scorer active{report.metadata.model_version ? ` (${report.metadata.model_version})` : ''}.
+                Fallback scorer active{finalReport.metadata.model_version ? ` (${finalReport.metadata.model_version})` : ''}.
                 {' '}This report is informational only and must not be used for binding decisions.
               </div>
             )}
-            {report.metadata?.roster_verification_status === 'stale' && (
+            {finalReport.metadata?.roster_verification_status === 'stale' && (
               <div className={styles.fallbackBanner}>
                 Roster verification is stale
-                {report.metadata.roster_freshness_warning
-                  ? ` (${report.metadata.roster_freshness_warning})`
+                {finalReport.metadata.roster_freshness_warning
+                  ? ` (${finalReport.metadata.roster_freshness_warning})`
                   : ''}.
                 {' '}Refresh the authoritative roster before using this report for binding decisions.
               </div>
@@ -627,36 +361,36 @@ export function CscReportsView() {
             </div>
             <GroupBreak label="WHAT TO OFFER" />
             <ValueSection
-              value={report.value}
+              value={finalReport.value}
               athleteName={athlete.name}
-              conferenceTier={report.metadata?.conference_tier ?? null}
-              cohortFallbackStep={report.metadata?.cohort_fallback_step ?? null}
-              cohortFit={report.metadata?.cohort_fit ?? null}
-              lowCohortData={report.metadata?.low_cohort_data ?? null}
-              dealScopeReadiness={report.metadata?.deal_scope_readiness ?? null}
-              cohortSize={report.metadata?.cohort_size ?? null}
-              comparableState={report.metadata?.comparable_state ?? null}
+              conferenceTier={finalReport.metadata?.conference_tier ?? null}
+              cohortFallbackStep={finalReport.metadata?.cohort_fallback_step ?? null}
+              cohortFit={finalReport.metadata?.cohort_fit ?? null}
+              lowCohortData={finalReport.metadata?.low_cohort_data ?? null}
+              dealScopeReadiness={finalReport.metadata?.deal_scope_readiness ?? null}
+              cohortSize={finalReport.metadata?.cohort_size ?? null}
+              comparableState={finalReport.metadata?.comparable_state ?? null}
             />
             <GroupBreak label="WHY THIS NUMBER" />
-            <ExecutiveSummarySection summary={report.explanation.executive_summary} />
+            <ExecutiveSummarySection summary={finalReport.explanation.executive_summary} />
             <KeyValueDriversSection
-              explanation={report.explanation}
+              explanation={finalReport.explanation}
               athlete={athlete}
             />
             <GroupBreak label="PEER CHECK" />
             <ValidationSection
-              validation={report.validation}
+              validation={finalReport.validation}
               onChange={(rows) =>
                 setReport({
-                  ...report,
-                  validation: { ...report.validation, example_comparables: rows },
+                  ...finalReport,
+                  validation: { ...finalReport.validation, example_comparables: rows },
                 })
               }
             />
-            <ConfidenceRiskSection confidenceRisk={report.confidence_risk} />
+            <ConfidenceRiskSection confidenceRisk={finalReport.confidence_risk} />
             <GroupBreak label="MODEL DETAIL" />
-            <DetailSection detail={report.detail} metadata={report.metadata} />
-            <ReportFooter metadata={report.metadata} />
+            <DetailSection detail={finalReport.detail} metadata={finalReport.metadata} />
+            <ReportFooter metadata={finalReport.metadata} />
           </>
         )}
       </div>
@@ -692,7 +426,7 @@ export function CscReportsView() {
           onRegen={regen}
           onExportPdf={() => void handleExportPdf()}
           pdfLoading={pdfLoading}
-          hasReport={!!report}
+          hasReport={showFinalReport}
         />
       </aside>
     </div>

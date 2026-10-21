@@ -147,7 +147,8 @@ export async function downloadCscPdf(
     // ── Suggested offer ───────────────────────────────────────────────────────
     rule()
     line('SUGGESTED OFFER', 9, true, '#6e7681')
-    const yearly = value?.annual_nil_benchmark ?? value?.total_benchmark ?? athlete.dollar_p50_usd ?? athlete.nil_valuation_consensus
+    // Use report valuations only — never fall back to athlete-card consensus.
+    const yearly = value?.annual_nil_benchmark ?? value?.total_benchmark ?? null
     const offerLow = value?.activation_deal_low ?? value?.range_low
     const offerMid = value?.activation_deal_mid ?? (
       offerLow != null && (value?.activation_deal_high ?? value?.range_high) != null
