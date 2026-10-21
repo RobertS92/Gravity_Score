@@ -8,6 +8,7 @@ from gravity_api.services.athlete_enrichment import score_delta_30d, social_sign
 from gravity_api.services.athlete_feed import build_athlete_feed_events
 from gravity_api.services.athlete_search import search_athletes as run_athlete_search
 from gravity_api.services.nil_valuation import nil_from_row, sanitize_nil_valuation_usd
+from gravity_api.services.partner_sports import resolve_sport_filters
 from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 
 router = APIRouter()
@@ -61,13 +62,26 @@ async def search_athletes(
     db: asyncpg.Connection = Depends(get_db),
 ):
     """Search athletes with filters — terminal search and leaderboards."""
-    sports_db: Optional[List[str]] = None
-    if not sport and sports and sports.strip():
+    # Normalize sport=CFB / sport=cfb and sports=CFB,NCAAB the same way as the
+    # partner API so uppercase cap codes on the single `sport` param do not
+    # silently match zero rows.
+    single_sport, sports_db = resolve_sport_filters(sport, sports)
+    if sports_db is None and not single_sport and sports and sports.strip():
         sports_db = cap_prefs_to_db_slugs([s.strip() for s in sports.split(",") if s.strip()])
+
+    # Name lookups should find roster-stale athletes (partner search does the
+    # same). Leaderboard / browse queries stay gated to the freshness window
+    # unless the caller opts into include_stale_roster.
+    name_lookup = bool(q and q.strip())
+    freshness_days = (
+        None
+        if include_stale_roster or name_lookup
+        else ROSTER_FRESHNESS_DAYS
+    )
     return await run_athlete_search(
         db,
         q=q,
-        sport=sport,
+        sport=single_sport,
         sports_db=sports_db,
         conference=conference,
         position_group=position_group,
@@ -79,9 +93,9 @@ async def search_athletes(
         exclude_inactive=True,
         # Live discovery is current-roster only. Historical/departed athletes
         # remain in storage for audit and model evaluation but do not appear in
-        # customer search unless an explicit administrative stale-roster query
-        # is requested.
-        roster_verified_within_days=(None if include_stale_roster else ROSTER_FRESHNESS_DAYS),
+        # customer browse unless an explicit administrative stale-roster query
+        # is requested (or the caller is searching by name).
+        roster_verified_within_days=freshness_days,
         sort_by=sort_by,
         sort_dir=sort_dir,
         limit=limit,

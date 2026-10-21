@@ -37,9 +37,17 @@ GRAVITY_SYSTEM_PROMPT = """You are the Gravity NIL Intelligence engine. You help
 sports agents, NIL attorneys, and brand teams make data-driven decisions about
 college athlete commercial value.
 
+Score definitions (keep these distinct):
+- Gravity Score (GS): commercial NIL value signal — brandability, proof,
+  proximity, velocity, and inverted risk. Used for deal pricing and Brand Match.
+- Impact Score (aka value_score / winning impact): on-field / on-court contribution
+  to winning. It is NOT the same as Gravity Score and must not be described as a
+  commercial valuation.
+
 You have access to these tools:
 - search_athletes: Search the Gravity database by any combination of filters
-- get_athlete_score: Get full score breakdown for a specific athlete
+- get_athlete_score: Get full score breakdown for a specific athlete (includes
+  gravity_score and impact_score / value_score when available)
 - get_comparables: Get the comparable athlete set for a given athlete
 - assess_deal: Evaluate a proposed NIL deal against range of compensation
 - get_program_nil_data: Get NIL environment data for a specific school
@@ -51,6 +59,7 @@ When answering queries:
 - Be direct about confidence levels when data is thin
 - Format numbers cleanly: scores to 1 decimal, values with $ and M/K notation
 - When asked about deals, always reference the CSC range of compensation standard
+- When asked Gravity vs Impact, explain the distinction above even without tools
 
 You are precise, data-driven, and direct. You do not speculate beyond what the
 data supports."""
@@ -244,12 +253,25 @@ class GravityQueryAgent:
         return {"athletes": [dict(r) for r in rows], "count": len(rows)}
 
     async def _get_athlete_score(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        if params.get("athlete_id"):
-            row = await self.db.fetchrow(
-                        """SELECT a.*, s.gravity_score, s.brand_score, s.proof_score,
-                          s.proximity_score, s.velocity_score, (100.0 - s.risk_score) AS risk_score,
-                          s.confidence, s.shap_values, s.top_factors_up,
-                          s.top_factors_down, s.calculated_at
+        # Prefer value/impact columns when migrated; fall back so older DBs still serve.
+        score_select = """
+            a.*, s.gravity_score, s.brand_score, s.proof_score,
+            s.proximity_score, s.velocity_score, (100.0 - s.risk_score) AS risk_score,
+            s.value_score, s.value_sport_percentile, s.value_score_source,
+            s.confidence, s.shap_values, s.top_factors_up,
+            s.top_factors_down, s.calculated_at
+        """
+        score_select_legacy = """
+            a.*, s.gravity_score, s.brand_score, s.proof_score,
+            s.proximity_score, s.velocity_score, (100.0 - s.risk_score) AS risk_score,
+            s.confidence, s.shap_values, s.top_factors_up,
+            s.top_factors_down, s.calculated_at
+        """
+
+        async def _fetch(select_cols: str):
+            if params.get("athlete_id"):
+                return await self.db.fetchrow(
+                    f"""SELECT {select_cols}
                    FROM athletes a
                    LEFT JOIN LATERAL (
                        SELECT * FROM athlete_gravity_scores
@@ -257,14 +279,10 @@ class GravityQueryAgent:
                        ORDER BY calculated_at DESC LIMIT 1
                    ) s ON true
                    WHERE a.id = $1""",
-                params["athlete_id"],
-            )
-        else:
-            row = await self.db.fetchrow(
-                        """SELECT a.*, s.gravity_score, s.brand_score, s.proof_score,
-                          s.proximity_score, s.velocity_score, (100.0 - s.risk_score) AS risk_score,
-                          s.confidence, s.shap_values, s.top_factors_up,
-                          s.top_factors_down, s.calculated_at
+                    params["athlete_id"],
+                )
+            return await self.db.fetchrow(
+                f"""SELECT {select_cols}
                    FROM athletes a
                    LEFT JOIN LATERAL (
                        SELECT * FROM athlete_gravity_scores
@@ -276,9 +294,21 @@ class GravityQueryAgent:
                    LIMIT 1""",
                 f"%{params.get('athlete_name', '')}%",
             )
+
+        try:
+            row = await _fetch(score_select)
+        except Exception:
+            row = await _fetch(score_select_legacy)
         if not row:
             return {"error": "Athlete not found"}
-        return dict(row)
+        out = dict(row)
+        if "value_score" in out:
+            out["impact_score"] = out.get("value_score")
+        if "value_sport_percentile" in out:
+            out["impact_sport_percentile"] = out.get("value_sport_percentile")
+        if "value_score_source" in out:
+            out["impact_score_source"] = out.get("value_score_source")
+        return out
 
     async def _get_comparables(self, params: Dict[str, Any]) -> Dict[str, Any]:
         rows = await self.db.fetch(

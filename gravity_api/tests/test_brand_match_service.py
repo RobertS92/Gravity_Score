@@ -1,7 +1,9 @@
 from gravity_api.services.brand_match import (
     BrandMatchBriefData,
     _calc_weights,
+    _conference_regions,
     _score_candidate,
+    _sports_to_db_slugs,
 )
 
 
@@ -106,3 +108,45 @@ def test_recommended_structure_uses_inverted_risk_orientation():
     )
     assert riskier is not None
     assert riskier["recommended_structure"] == "PERFORMANCE_WEIGHTED"
+
+
+def test_sports_map_includes_mens_and_womens_basketball_slugs():
+    assert "ncaab_mens" in _sports_to_db_slugs(["NCAAB"])
+    assert "mcbb" in _sports_to_db_slugs(["NCAAB"])
+    assert "ncaab_womens" in _sports_to_db_slugs(["NCAAW"])
+    assert _sports_to_db_slugs(["CFB"]) == ["cfb"]
+
+
+def test_conference_region_substring_and_full_names():
+    assert "southeast" in _conference_regions("SEC")
+    assert "southeast" in _conference_regions("Atlantic Coast Conference")
+    assert "midwest" in _conference_regions("Big Ten")
+
+
+def test_default_400k_apparel_southeast_scores_sec_athlete():
+    brief = _brief(budget=400_000, category="apparel", geography=["Southeast"])
+    weights = _calc_weights(brief)
+    out = _score_candidate(_row(), brief, weights)
+    assert out is not None
+    assert out["match_score"] >= 50
+
+
+def test_non_se_conference_gets_partial_geo_credit_not_hard_zero():
+    brief = _brief(budget=400_000, category="apparel", geography=["Southeast"])
+    weights = _calc_weights(brief)
+    # Big Ten has no Southeast overlap; soft national credit should keep mid-brand
+    # athletes above the floor even with thin social.
+    out = _score_candidate(
+        _row(
+            conference="Big Ten",
+            brand_score=70.0,
+            instagram_followers=0,
+            twitter_followers=0,
+            tiktok_followers=0,
+            instagram_engagement_rate=0,
+        ),
+        brief,
+        weights,
+    )
+    assert out is not None
+    assert out["match_breakdown"]["geography_overlap"] > 0

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { BrandMatchBrief, BrandMatchResult } from '../types/reports'
+import type { BrandMatchBrief, BrandMatchResponse, BrandMatchResult } from '../types/reports'
 import { mockRequest } from './handlers'
 
 const BASE_BRIEF: BrandMatchBrief = {
@@ -16,11 +16,25 @@ const BASE_BRIEF: BrandMatchBrief = {
   deal_density_preference: 'any',
 }
 
+function matchesOf(raw: unknown): BrandMatchResult[] {
+  if (Array.isArray(raw)) return raw as BrandMatchResult[]
+  return ((raw as BrandMatchResponse)?.matches ?? []) as BrandMatchResult[]
+}
+
 describe('brand match mock handler', () => {
   it('returns broad result set larger than watchlist', async () => {
     const raw = await mockRequest('POST', 'reports/brand-match', BASE_BRIEF)
-    const rows = raw as BrandMatchResult[]
+    const rows = matchesOf(raw)
     expect(rows.length).toBeGreaterThan(5)
+    expect((raw as BrandMatchResponse).diagnostics).toBeTruthy()
+  })
+
+  it('returns athletes for default $400K apparel Southeast brief', async () => {
+    const raw = await mockRequest('POST', 'reports/brand-match', {
+      ...BASE_BRIEF,
+      budget: 400_000,
+    })
+    expect(matchesOf(raw).length).toBeGreaterThan(0)
   })
 
   it('respects budget ceiling with +20% guard', async () => {
@@ -28,7 +42,7 @@ describe('brand match mock handler', () => {
       ...BASE_BRIEF,
       budget: 200_000,
     })
-    const rows = raw as BrandMatchResult[]
+    const rows = matchesOf(raw)
     for (const row of rows) {
       if (typeof row.deal_range_low === 'number' && typeof row.deal_range_high === 'number') {
         const p50 = (row.deal_range_low + row.deal_range_high) / 2
@@ -38,14 +52,18 @@ describe('brand match mock handler', () => {
   })
 
   it('changes ordering when prioritize engagement is enabled', async () => {
-    const normal = (await mockRequest('POST', 'reports/brand-match', {
-      ...BASE_BRIEF,
-      prioritize_engagement: false,
-    })) as BrandMatchResult[]
-    const engagement = (await mockRequest('POST', 'reports/brand-match', {
-      ...BASE_BRIEF,
-      prioritize_engagement: true,
-    })) as BrandMatchResult[]
+    const normal = matchesOf(
+      await mockRequest('POST', 'reports/brand-match', {
+        ...BASE_BRIEF,
+        prioritize_engagement: false,
+      }),
+    )
+    const engagement = matchesOf(
+      await mockRequest('POST', 'reports/brand-match', {
+        ...BASE_BRIEF,
+        prioritize_engagement: true,
+      }),
+    )
     expect(normal[0]?.athlete_id).not.toBe(engagement[0]?.athlete_id)
   })
 })

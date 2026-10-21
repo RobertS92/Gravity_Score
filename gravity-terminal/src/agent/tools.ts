@@ -172,7 +172,7 @@ export async function runTool(name: string, input: Record<string, unknown>): Pro
           deal_density_preference: 'any',
         }
         const r = await postBrandMatch(brief)
-        return JSON.stringify(r.slice(0, limit))
+        return JSON.stringify(r.matches.slice(0, limit))
       }
       case 'get_market_scan': {
         const r = await getMarketScan({

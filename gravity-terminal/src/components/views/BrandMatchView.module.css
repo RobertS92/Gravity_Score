@@ -269,6 +269,43 @@
   gap: 8px;
 }
 
+.emptyState {
+  border: 1px solid var(--border-default);
+  background: var(--bg-secondary);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.emptyTitle {
+  font-family: var(--font-prose);
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.emptyMeta {
+  font-family: var(--font-data);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.emptyList {
+  margin: 0;
+  padding-left: 18px;
+  font-family: var(--font-prose);
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 @media (max-width: 1200px) {
   .formGrid {
     grid-template-columns: 1fr;

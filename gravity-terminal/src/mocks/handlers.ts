@@ -408,7 +408,22 @@ export async function mockRequest(
 
   if (p === 'reports/brand-match' && method === 'POST') {
     const brief = body as BrandMatchBrief
-    return json(mockBrandMatchResults(brief) as BrandMatchResult[])
+    const matches = mockBrandMatchResults(brief) as BrandMatchResult[]
+    return json({
+      matches,
+      diagnostics: {
+        candidates_fetched: matches.length,
+        returned: matches.length,
+        dropped: {},
+        suggestions:
+          matches.length === 0
+            ? [
+                'Add National to geography to widen regional fit.',
+                'Raise risk tolerance or enable Max transfer risk.',
+              ]
+            : [],
+      },
+    })
   }
 
   if (p === 'agent/complete' && method === 'POST') {

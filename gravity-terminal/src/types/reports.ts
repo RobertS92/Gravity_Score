@@ -297,6 +297,21 @@ export interface BrandMatchResult {
   athlete?: AthleteRecord
 }
 
+export interface BrandMatchDiagnostics {
+  candidates_fetched: number
+  sports_db?: string[]
+  max_risk_cap?: number
+  match_score_floor?: number
+  dropped?: Record<string, number>
+  returned?: number
+  suggestions?: string[]
+}
+
+export interface BrandMatchResponse {
+  matches: BrandMatchResult[]
+  diagnostics?: BrandMatchDiagnostics
+}
+
 export interface SchoolIndexRow {
   team_id?: string | null
   school: string

@@ -9,16 +9,27 @@ import asyncpg
 
 from gravity_api.services.deal_pricing import price_standard_activation
 from gravity_api.services.risk_utils import invert_risk_score
+from gravity_api.services.sport_query import cap_prefs_to_db_slugs
 
 
 CONFERENCE_REGION_MAP: dict[str, set[str]] = {
     "sec": {"southeast", "national"},
+    "southeastern": {"southeast", "national"},
+    "southeastern conference": {"southeast", "national"},
     "big ten": {"midwest", "northeast", "national"},
+    "big ten conference": {"midwest", "northeast", "national"},
     "big 12": {"midwest", "west", "national"},
+    "big 12 conference": {"midwest", "west", "national"},
     "acc": {"southeast", "northeast", "national"},
+    "atlantic coast": {"southeast", "northeast", "national"},
+    "atlantic coast conference": {"southeast", "northeast", "national"},
     "pac-12": {"west", "national"},
+    "pac-12 conference": {"west", "national"},
     "aac": {"southeast", "midwest", "national"},
+    "american athletic": {"southeast", "midwest", "national"},
+    "american athletic conference": {"southeast", "midwest", "national"},
     "mountain west": {"west", "national"},
+    "mountain west conference": {"west", "national"},
 }
 
 POSITION_CATEGORY_AFFINITY: dict[str, dict[str, float]] = {
@@ -43,12 +54,29 @@ DEAL_DENSITY_RANGES = {
     "moderate": (3, 6),
 }
 
+# Legacy single-slug map kept for tests / callers that expect a dict.
+# Prefer `_sports_to_db_slugs` which aligns with CAP_TO_DB_SLUGS.
 SPORT_MAP = {
     "CFB": "cfb",
     "NCAAB": "mcbb",
     "NCAAW": "wcbb",
     "NCAAWB": "wcbb",
 }
+
+
+def _sports_to_db_slugs(sports: List[str]) -> list[str]:
+    """Map UI cap codes to DB sport slugs (multi-slug for basketball)."""
+    caps = [str(s).strip() for s in sports if str(s).strip()]
+    mapped = cap_prefs_to_db_slugs(caps)
+    if mapped:
+        return mapped
+    # Fallback: accept raw DB slugs (cfb, ncaab_mens, mcbb, …).
+    out: list[str] = []
+    for s in caps:
+        slug = SPORT_MAP.get(s.upper(), s.lower())
+        if slug and slug not in out:
+            out.append(slug)
+    return out
 
 
 @dataclass
@@ -88,7 +116,13 @@ def _conference_regions(conference: Optional[str]) -> set[str]:
     if not conference:
         return {"national"}
     key = conference.strip().lower()
-    return CONFERENCE_REGION_MAP.get(key, {"national"})
+    if key in CONFERENCE_REGION_MAP:
+        return CONFERENCE_REGION_MAP[key]
+    # Substring fallback for labels like "SEC" / "ACC" / full conference names.
+    for mapped_key, regions in CONFERENCE_REGION_MAP.items():
+        if mapped_key in key or key in mapped_key:
+            return regions
+    return {"national"}
 
 
 def _category_affinity(position: Optional[str], category: str) -> float:
@@ -228,9 +262,26 @@ async def _fetch_candidates(db: asyncpg.Connection, sports_db: list[str], max_ri
         return [dict(r) for r in rows]
 
 
-def _score_candidate(row: dict[str, Any], brief: BrandMatchBriefData, weights: dict[str, float]) -> Optional[dict[str, Any]]:
+# Hard floor for returned matches. Near-misses (45–50) are tracked in diagnostics
+# so the UI can explain empty results instead of silently dropping everyone.
+MATCH_SCORE_FLOOR = 50.0
+NEAR_MISS_FLOOR = 45.0
+
+
+def _score_candidate(
+    row: dict[str, Any],
+    brief: BrandMatchBriefData,
+    weights: dict[str, float],
+    *,
+    drop_reason: Optional[dict[str, int]] = None,
+) -> Optional[dict[str, Any]]:
+    def _drop(reason: str) -> None:
+        if drop_reason is not None:
+            drop_reason[reason] = drop_reason.get(reason, 0) + 1
+
     dqs = _safe_float(row.get("data_quality_score"), 1.0)
     if dqs < 0.35:
+        _drop("data_quality")
         return None
 
     reach = (
@@ -239,6 +290,7 @@ def _score_candidate(row: dict[str, Any], brief: BrandMatchBriefData, weights: d
         + _safe_float(row.get("tiktok_followers"))
     )
     if brief.min_social_reach is not None and reach < float(brief.min_social_reach):
+        _drop("min_social_reach")
         return None
 
     brand_score = _clamp(_safe_float(row.get("brand_score")))
@@ -269,6 +321,7 @@ def _score_candidate(row: dict[str, Any], brief: BrandMatchBriefData, weights: d
     activation_mid = pricing.activation_deal_mid or avg_verified_deal or p50
     budget_cap = brief.budget * 1.2
     if activation_mid > 0 and activation_mid > budget_cap:
+        _drop("budget")
         return None
 
     engagement_rate = row.get("instagram_engagement_rate")
@@ -277,6 +330,11 @@ def _score_candidate(row: dict[str, Any], brief: BrandMatchBriefData, weights: d
     geo_target = _norm_text_set(brief.geography)
     geo_overlap = len(conference_regions.intersection(geo_target)) / max(1, len(geo_target)) if geo_target else 1.0
     geo_score = _clamp(geo_overlap * 100.0)
+    # Soft national reach: athletes with only national mapping (or no regional
+    # overlap) still get partial credit so Southeast-only briefs do not zero
+    # out every non-SE conference when social data is thin.
+    if geo_target and geo_score < 25.0 and "national" in conference_regions:
+        geo_score = max(geo_score, 35.0)
 
     category_affinity = _category_affinity(row.get("position"), brief.category)
     category_score = _clamp(category_affinity * 100.0)
@@ -314,7 +372,11 @@ def _score_candidate(row: dict[str, Any], brief: BrandMatchBriefData, weights: d
     excluded = _norm_text_set(brief.excluded_categories)
     flags = sorted(deal_categories.intersection(excluded))
 
-    if match_score < 50:
+    if match_score < MATCH_SCORE_FLOOR:
+        if match_score >= NEAR_MISS_FLOOR:
+            _drop("near_miss_score")
+        else:
+            _drop("match_score")
         return None
 
     sport_val = str(row.get("sport") or "").upper()
@@ -353,18 +415,65 @@ def _score_candidate(row: dict[str, Any], brief: BrandMatchBriefData, weights: d
     return out
 
 
-async def run_brand_match(db: asyncpg.Connection, brief: BrandMatchBriefData) -> list[dict[str, Any]]:
-    sports_db = [SPORT_MAP.get(s.upper(), s.lower()) for s in brief.sports if s]
+async def run_brand_match(
+    db: asyncpg.Connection,
+    brief: BrandMatchBriefData,
+) -> dict[str, Any]:
+    sports_db = _sports_to_db_slugs(brief.sports)
     max_risk_cap = min(
         100.0,
         float(brief.risk_tolerance) * 100.0 + (25.0 if brief.max_transfer_risk else 0.0),
     )
     rows = await _fetch_candidates(db, sports_db, max_risk_cap)
     weights = _calc_weights(brief)
+    drop_reason: dict[str, int] = {}
     scored = []
     for row in rows:
-        item = _score_candidate(row, brief, weights)
+        item = _score_candidate(row, brief, weights, drop_reason=drop_reason)
         if item is not None:
             scored.append(item)
     scored.sort(key=lambda x: float(x.get("match_score") or 0.0), reverse=True)
-    return scored[:25]
+    matches = scored[:25]
+    diagnostics = {
+        "candidates_fetched": len(rows),
+        "sports_db": sports_db,
+        "max_risk_cap": max_risk_cap,
+        "match_score_floor": MATCH_SCORE_FLOOR,
+        "dropped": drop_reason,
+        "returned": len(matches),
+        "suggestions": _empty_result_suggestions(brief, len(rows), drop_reason),
+    }
+    return {"matches": matches, "diagnostics": diagnostics}
+
+
+def _empty_result_suggestions(
+    brief: BrandMatchBriefData,
+    candidates: int,
+    dropped: dict[str, int],
+) -> list[str]:
+    """Human-readable next steps when matches are empty or thin."""
+    tips: list[str] = []
+    if candidates == 0:
+        tips.append(
+            "No scored athletes in the candidate pool for the selected sports "
+            "(need gravity scores and risk within tolerance). Try enabling Max transfer risk "
+            "or widening sports in the TopBar."
+        )
+        return tips
+    if dropped.get("match_score") or dropped.get("near_miss_score"):
+        tips.append(
+            "Several athletes scored just under the match floor — add National to geography "
+            "or lower the UI Min Match slider after results return."
+        )
+    if dropped.get("budget"):
+        tips.append("Raise budget or clear Min social reach; some athletes exceeded the activation budget cap.")
+    if dropped.get("min_social_reach"):
+        tips.append("Clear or lower Min social reach — the reach floor removed candidates.")
+    if dropped.get("data_quality"):
+        tips.append("Some athletes were skipped for low data quality; coverage may be thin for this sport.")
+    geo = _norm_text_set(brief.geography)
+    if geo and "national" not in geo:
+        tips.append(f"Geography is limited to {', '.join(sorted(geo)).title()} — add National to widen fit.")
+    if brief.risk_tolerance < 0.75:
+        tips.append("Raise risk tolerance (or enable Max transfer risk) to include more candidates.")
+    return tips[:4]

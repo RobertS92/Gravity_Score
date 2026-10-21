@@ -199,7 +199,9 @@ export function WatchlistModal({ onClose }: Props) {
           {!loading && results.length === 0 && !error && (
             <div className={styles.statusMsg}>
               {filters.q.trim() || filters.position || filters.conference || filters.sport
-                ? 'No athletes match this search.'
+                ? filters.q.trim()
+                  ? `No athletes named “${filters.q.trim()}” in the current Gravity coverage for the selected sport filters. Try clearing sport/conference filters, or confirm the athlete has been roster-synced.`
+                  : 'No athletes match this search.'
                 : 'Search for a player, then open their NIL Intelligence profile or CSC report.'}
             </div>
           )}

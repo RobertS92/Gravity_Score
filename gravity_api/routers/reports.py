@@ -407,7 +407,7 @@ async def brand_match(
     body: BrandMatchBriefIn,
     db: asyncpg.Connection = Depends(get_db),
 ):
-    scored = await run_brand_match(
+    result = await run_brand_match(
         db,
         BrandMatchBriefData(
             budget=body.budget,
@@ -424,7 +424,9 @@ async def brand_match(
             sports=body.sports,
         ),
     )
-    return scored
+    # Prefer structured payload with diagnostics for empty-state UX.
+    # Legacy callers that only iterate the array can still read `matches`.
+    return result
 
 
 @router.post("/csc", response_model=CscReportOut)
