@@ -15,8 +15,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install API deps
-        run: pip install -r requirements-gravity-api.txt pytest
+        run: pip install -r requirements-gravity-api.txt
       - name: Pytest
+        # Live ESPN smoke is opt-in (RUN_LIVE_SCRAPER_SMOKE=1) to avoid CI flakes.
         run: PYTHONPATH=. pytest gravity_api/tests gravity_ml/tests -q
 
   gravity-ml:

@@ -28,6 +28,20 @@ _DB_RETRY_EXCEPTIONS = (
     asyncpg.exceptions.InterfaceError,
 )
 
+# athletes.sport may still use legacy aliases — include them in selection SQL.
+_SPORT_DB_ALIASES: dict[str, tuple[str, ...]] = {
+    "cfb": ("cfb", "ncaaf"),
+    "ncaab_mens": ("ncaab_mens", "mcbb", "ncaab"),
+    "ncaab_womens": ("ncaab_womens", "wcbb"),
+    "nfl": ("nfl",),
+    "nba": ("nba",),
+    "wnba": ("wnba",),
+}
+
+
+def _sport_aliases(sport: str) -> tuple[str, ...]:
+    return _SPORT_DB_ALIASES.get(sport, (sport,))
+
 
 @dataclass
 class NightlySportResult:
@@ -48,6 +62,7 @@ async def fetch_gap_fill_athlete_ids(
     limit: int,
 ) -> list[str]:
     """Athletes missing critical scrape fields; active scorable players first."""
+    aliases = list(_sport_aliases(sport))
     rows = await conn.fetch(
         """SELECT a.id
            FROM athletes a
@@ -55,7 +70,7 @@ async def fetch_gap_fill_athlete_ids(
              SELECT raw_data FROM raw_athlete_data
              WHERE athlete_id = a.id ORDER BY scraped_at DESC NULLS LAST LIMIT 1
            ) r ON TRUE
-           WHERE a.sport = $1
+           WHERE a.sport = ANY($1::text[])
              AND COALESCE(a.is_active, TRUE) = TRUE
              AND a.espn_id IS NOT NULL
              AND (
@@ -94,7 +109,7 @@ async def fetch_gap_fill_athlete_ids(
              r.raw_data IS NULL DESC,
              a.updated_at DESC NULLS LAST
            LIMIT $2""",
-        sport,
+        aliases,
         limit,
     )
     return [str(r["id"]) for r in rows]
@@ -110,6 +125,7 @@ async def fetch_nil_priority_athlete_ids(
     college_sports = frozenset({"cfb", "ncaab_mens", "ncaab_womens"})
     if sport not in college_sports:
         return []
+    aliases = list(_sport_aliases(sport))
     rows = await conn.fetch(
         """SELECT a.id
            FROM athletes a
@@ -117,7 +133,7 @@ async def fetch_nil_priority_athlete_ids(
              SELECT raw_data FROM raw_athlete_data
              WHERE athlete_id = a.id ORDER BY scraped_at DESC NULLS LAST LIMIT 1
            ) r ON TRUE
-           WHERE a.sport = $1
+           WHERE a.sport = ANY($1::text[])
              AND COALESCE(a.is_active, TRUE) = TRUE
              AND COALESCE(r.raw_data->>'nil_valuation_observed', '0') <> '1'
              AND (
@@ -135,7 +151,7 @@ async def fetch_nil_priority_athlete_ids(
              COALESCE((r.raw_data->>'instagram_followers')::float, 0) DESC NULLS LAST,
              a.updated_at DESC NULLS LAST
            LIMIT $2""",
-        sport,
+        aliases,
         limit,
     )
     return [str(r["id"]) for r in rows]
@@ -148,15 +164,16 @@ async def fetch_all_active_athlete_ids(
     limit: int,
 ) -> list[str]:
     """All active athletes with espn_id (for full rescore)."""
+    aliases = list(_sport_aliases(sport))
     rows = await conn.fetch(
         """SELECT a.id
            FROM athletes a
-           WHERE a.sport = $1
+           WHERE a.sport = ANY($1::text[])
              AND COALESCE(a.is_active, TRUE) = TRUE
              AND a.espn_id IS NOT NULL
            ORDER BY a.updated_at DESC NULLS LAST
            LIMIT $2""",
-        sport,
+        aliases,
         limit,
     )
     return [str(r["id"]) for r in rows]
@@ -170,6 +187,7 @@ async def fetch_stale_athlete_ids(
     scrape_stale_days: int = 7,
     score_stale_days: int = 14,
 ) -> list[str]:
+    aliases = list(_sport_aliases(sport))
     rows = await conn.fetch(
         """SELECT a.id
            FROM athletes a
@@ -181,7 +199,7 @@ async def fetch_stale_athlete_ids(
              SELECT calculated_at FROM athlete_gravity_scores
              WHERE athlete_id = a.id ORDER BY calculated_at DESC NULLS LAST LIMIT 1
            ) s ON TRUE
-           WHERE a.sport = $1
+           WHERE a.sport = ANY($1::text[])
              AND COALESCE(a.is_active, TRUE) = TRUE
              AND (
                r.scraped_at IS NULL
@@ -191,7 +209,7 @@ async def fetch_stale_athlete_ids(
              )
            ORDER BY r.scraped_at NULLS FIRST, s.calculated_at NULLS FIRST
            LIMIT $4""",
-        sport,
+        aliases,
         scrape_stale_days,
         score_stale_days,
         limit,
@@ -321,11 +339,12 @@ async def run_nightly_for_sport(
 
     try:
         if scrape:
-            async def scrape_one(aid: str) -> tuple[bool, str | None]:
+            async def scrape_one(aid: str) -> tuple[str, str | None]:
+                """Return status: ok | fail | skipped."""
                 async with scrape_sem:
                     try:
-                        async def work(task_conn: asyncpg.Connection) -> bool:
-                            summary = await run_scrapers_for_athlete(
+                        async def work(task_conn: asyncpg.Connection) -> dict:
+                            return await run_scrapers_for_athlete(
                                 task_conn,
                                 aid,
                                 event_type="gap_fill" if gap_fill else "scheduled_full",
@@ -333,17 +352,23 @@ async def run_nightly_for_sport(
                                 score_after=False,
                                 persist=True,
                             )
-                            return summary.get("success_count", 0) > 0
 
-                        ok = await _run_with_pool_retry(pool, work)
-                        return ok, None
+                        summary = await _run_with_pool_retry(pool, work)
+                        if summary.get("skipped") and summary.get("reason") == "no_data_gaps":
+                            return "skipped", None
+                        if summary.get("success_count", 0) > 0:
+                            return "ok", None
+                        return "fail", None
                     except Exception as exc:
-                        return False, f"scrape {aid[:8]}: {exc}"
+                        return "fail", f"scrape {aid[:8]}: {exc}"
 
             scrape_outcomes = await asyncio.gather(*[scrape_one(aid) for aid in stale_ids])
-            for ok, err in scrape_outcomes:
-                if ok:
+            for status, err in scrape_outcomes:
+                if status == "ok":
                     result.scraped_ok += 1
+                elif status == "skipped":
+                    # No-op gap-fill must not inflate scraped_fail / burn attention.
+                    pass
                 else:
                     result.scraped_fail += 1
                     if err:

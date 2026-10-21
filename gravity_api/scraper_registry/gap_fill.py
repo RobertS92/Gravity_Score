@@ -76,6 +76,24 @@ def _priority_index(scraper_key: str, sport: str) -> int:
     return len(SCRAPER_PRIORITY) + 1
 
 
+def _has_usable_season_stats(raw: dict[str, Any]) -> bool:
+    """True when raw has real season stats (not a fabricated stats_as_of stamp)."""
+    try:
+        gp = float(raw.get("games_played_season") or 0)
+    except (TypeError, ValueError):
+        gp = 0.0
+    if gp > 0:
+        return True
+    season = raw.get("season_stats")
+    if isinstance(season, dict) and len(season) >= 3:
+        return True
+    if raw.get("json_stat_passing_yards") or raw.get("json_stat_rushing_yards"):
+        return True
+    if raw.get("json_stat_points") or raw.get("ppg"):
+        return True
+    return False
+
+
 def analyze_field_gaps(
     raw: dict[str, Any],
     *,
@@ -89,9 +107,9 @@ def analyze_field_gaps(
         gaps = [g for g in gaps if g not in {
             "external_quality_score", "all_american_count", "national_awards_count",
         }]
-    if include_stats and not is_sufficient(raw, "stats_as_of"):
-        if not raw.get("season_stats") and not raw.get("json_stat_passing_yards"):
-            gaps.append("season_stats")
+    # Prefer real season-stat payload over a fabricated stats_as_of timestamp.
+    if include_stats and not _has_usable_season_stats(raw):
+        gaps.append("season_stats")
     return gaps
 
 
@@ -113,7 +131,15 @@ def scrapers_for_gaps(
         if defn.sport not in (sport, "*") and not key.endswith(f"_{sport}"):
             if defn.sport != sport and sport not in key:
                 continue
-        if defn.status == "stub":
+        # Skip true stubs only. Implemented NIL scrapers may still be labeled stub
+        # in older registry rows — allow known implemented suffixes through.
+        _implemented_despite_stub = {
+            "on3_nil",
+            "opendorse_profile",
+            "nil_deal_verified",
+        }
+        suffix = _suffix_from_key(key, sport)
+        if defn.status == "stub" and suffix not in _implemented_despite_stub:
             continue
         if defn.sport != sport and not (key.endswith(f"_{sport}") or key in {
             "news_rss_on3",
@@ -126,13 +152,30 @@ def scrapers_for_gaps(
         if "external_quality_score" in gap_set and defn.dimension == "achievements":
             feature_overlap.append("external_quality_score")
         if "season_stats" in gap_set and any(
-            fk.startswith("json_stat_") or "stats" in fk for fk in defn.feature_keys
+            fk.startswith("json_stat_")
+            or fk
+            in {
+                "season_stats",
+                "career_stats",
+                "games_played_season",
+                "stats_as_of",
+                "advanced_stats",
+            }
+            for fk in defn.feature_keys
         ):
             feature_overlap.append("season_stats")
         if feature_overlap:
             candidates.append(key)
 
-    # Fallback: known scrapers for common gaps
+    # Fallback: known scrapers for common gaps (sport-gated — never queue CFBD for non-CFB).
+    season_stats_fallback = [f"espn_stats_{sport}"]
+    if sport == "cfb":
+        season_stats_fallback.append("cfbd_api_stats_cfb")
+    elif sport == "ncaab_mens":
+        season_stats_fallback.append("kenpom_ncaab_mens")
+    elif sport == "ncaab_womens":
+        season_stats_fallback.append("her_hoop_stats_ncaab_womens")
+
     fallback: dict[str, list[str]] = {
         "instagram_handle": [f"social_handle_discovery_{sport}"],
         "instagram_followers": [f"instagram_followers_{sport}", f"social_handle_discovery_{sport}"],
@@ -144,9 +187,14 @@ def scrapers_for_gaps(
             f"all_american_{sport}",
             f"national_awards_{sport}",
         ],
-        "season_stats": [f"espn_stats_{sport}", "cfbd_api_stats_cfb"],
-        "team_win_pct": ["cfbd_team_record_cfb"],
-        "games_started": [f"espn_stats_{sport}", "cfbd_api_stats_cfb"],
+        "season_stats": season_stats_fallback,
+        "espn_id": [f"espn_roster_{sport}"],
+        "team_win_pct": ["cfbd_team_record_cfb"] if sport == "cfb" else [],
+        "games_started": (
+            [f"espn_stats_{sport}", "cfbd_api_stats_cfb"]
+            if sport == "cfb"
+            else [f"espn_stats_{sport}"]
+        ),
     }
     for gap in gaps:
         for key in fallback.get(gap, []):
@@ -172,11 +220,20 @@ def resolve_gap_fill_scraper_keys(
     include_extended: bool = False,
     fields: tuple[str, ...] | None = None,
 ) -> list[str]:
-    """Return ordered scraper keys to run for this athlete's data gaps only."""
+    """Return ordered scraper keys to run for this athlete's data gaps only.
+
+    Always includes season-stats gaps so selection SQL (missing games_played /
+    season_stats) and the resolver stay aligned — otherwise athletes are
+    selected forever and then skipped with ``no_data_gaps``.
+    """
     from gravity_api.scrapers.parsers.handle_discovery import is_user_provided_instagram
 
-    gaps = analyze_field_gaps(ctx.existing_raw, fields=fields)
-    if is_user_provided_instagram(ctx.existing_raw) and ctx.existing_raw.get("instagram_handle"):
+    raw = dict(ctx.existing_raw)
+    # Athlete-row identity fields are authoritative when raw is missing them.
+    if ctx.espn_id and not raw.get("espn_id"):
+        raw["espn_id"] = ctx.espn_id
+    gaps = analyze_field_gaps(raw, fields=fields, include_stats=True)
+    if is_user_provided_instagram(raw) and raw.get("instagram_handle"):
         gaps = [g for g in gaps if g not in {"instagram_handle"}]
     if not gaps:
         return []
@@ -184,7 +241,7 @@ def resolve_gap_fill_scraper_keys(
 
 
 def gap_fill_summary(ctx: AthleteScrapeContext) -> dict[str, Any]:
-    gaps = analyze_field_gaps(ctx.existing_raw)
+    gaps = analyze_field_gaps(ctx.existing_raw, include_stats=True)
     keys = scrapers_for_gaps(gaps, ctx.sport)
     return {
         "athlete_id": ctx.athlete_id,

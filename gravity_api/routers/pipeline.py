@@ -33,6 +33,9 @@ class NightlyBody(BaseModel):
     rebuild_cohorts: bool = True
     score: bool = True
     gap_fill: bool = False
+    rescore_all: bool = False
+    scrape_stale_days: int = Field(7, ge=0, le=365)
+    score_stale_days: int = Field(14, ge=0, le=365)
 
 
 class ExportCsvBody(BaseModel):
@@ -49,7 +52,6 @@ async def run_nightly_pipeline(
     _: None = Depends(_require_internal_key),
 ):
     """Per-sport stale scrape → cohort rebuild → BPXVR score (all 8 sports by default)."""
-    from gravity_api.scraper_registry.acceptance_sports import ACCEPTANCE_SPORTS
     from gravity_api.services.sport_pipeline.nightly import (
         run_nightly_all_sports,
         run_nightly_for_sport,
@@ -67,10 +69,16 @@ async def run_nightly_pipeline(
             rebuild_cohorts=body.rebuild_cohorts,
             score=body.score,
             gap_fill=body.gap_fill,
+            rescore_all=body.rescore_all,
+            scrape_stale_days=body.scrape_stale_days,
+            score_stale_days=body.score_stale_days,
         )
         return {
             "sport": result.sport,
             "gap_fill": body.gap_fill,
+            "rescore_all": body.rescore_all,
+            "scrape_stale_days": body.scrape_stale_days,
+            "score_stale_days": body.score_stale_days,
             "stale_found": result.stale_found,
             "scraped_ok": result.scraped_ok,
             "scraped_fail": result.scraped_fail,
@@ -80,8 +88,11 @@ async def run_nightly_pipeline(
             "errors": result.errors[:20],
         }
 
+    from gravity_api.scraper_registry.acceptance_sports import PRIORITY_SPORTS
+
     sports = tuple(body.sports) if body.sports else (
-        ACCEPTANCE_SPORTS if body.gap_fill else None
+        # Gap-fill defaults to product priority sports (CFB, NCAAB M/W, NFL, NBA).
+        PRIORITY_SPORTS if body.gap_fill else None
     )
     return await run_nightly_all_sports(
         db,
@@ -95,6 +106,9 @@ async def run_nightly_pipeline(
         skip_scrape=not body.scrape,
         skip_cohorts=not body.rebuild_cohorts,
         skip_score=not body.score,
+        rescore_all=body.rescore_all,
+        scrape_stale_days=body.scrape_stale_days,
+        score_stale_days=body.score_stale_days,
     )
 
 

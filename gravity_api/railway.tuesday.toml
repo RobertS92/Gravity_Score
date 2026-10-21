@@ -1,0 +1,27 @@
+# Railway Cron worker for Tuesday full scheduled_full refresh.
+#
+# Priority sports (product freshness scope):
+#   cfb, ncaab_mens, ncaab_womens, nfl, nba
+# WNBA remains in ACCEPTANCE_SPORTS / nightly gap-fill but is intentionally
+# omitted here so Tuesday capacity focuses on the sports above.
+#
+# Dashboard setup:
+#   1. New service in the same project → name: gravity-api-tuesday
+#   2. Root Directory = gravity_api
+#   3. Settings → Config file path = railway.tuesday.toml
+#   4. Copy env vars from gravity_api (PG_DSN, FIRECRAWL_API_KEY, CFBD_*, ML_*, etc.)
+#   5. Do NOT set DISABLE_FIRECRAWL=1 on this service — social refresh needs Firecrawl.
+#   6. Do NOT attach a public domain — this service runs and exits on schedule.
+#
+# Schedule: Tuesday 10:00 UTC ≈ 5:00 AM America/Chicago (CDT).
+# Runs scheduled_full (not gap-fill) with scrape_stale_days=0 so every selected
+# athlete is rescraped, then cohorts rebuild and scores update.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+cronSchedule = "0 10 * * 2"
+startCommand = "python -m gravity_api.jobs.nightly_pipeline --sports cfb,ncaab_mens,ncaab_womens,nfl,nba --limit 500 --scrape-stale-days 0 --score-stale-days 0 --sport-parallel 2 --scrape-concurrency 3 --score-concurrency 8"
+restartPolicyType = "NEVER"

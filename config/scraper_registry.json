@@ -1,32 +1,32 @@
 {
   "summary": {
-    "total": 279,
+    "total": 286,
     "by_sport": {
       "*": 4,
-      "cfb": 34,
-      "nba": 34,
+      "cfb": 35,
+      "nba": 36,
       "ncaa_baseball": 36,
       "ncaa_volleyball": 36,
       "ncaab_mens": 34,
       "ncaab_womens": 34,
-      "nfl": 35,
-      "wnba": 32
+      "nfl": 37,
+      "wnba": 34
     },
     "by_dimension": {
-      "velocity": 24,
-      "proximity": 30,
+      "velocity": 26,
+      "proximity": 32,
       "identity": 33,
       "risk": 16,
-      "proof": 55,
+      "proof": 58,
       "brand": 72,
       "achievements": 49
     },
     "by_league_tier": {
-      "college": 178,
-      "pro": 101
+      "college": 179,
+      "pro": 107
     },
     "achievements_scrapers": 49,
-    "required_for_scoring": 48
+    "required_for_scoring": 50
   },
   "scrapers": [
     {
@@ -147,7 +147,7 @@
         "height_inches",
         "weight_lbs"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -171,9 +171,10 @@
         "current_injury_status",
         "games_missed_season",
         "injury_risk_score",
-        "last_injury_date"
+        "last_injury_date",
+        "injury_report_count"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 1,
@@ -226,7 +227,7 @@
         "handle_confidence",
         "handle_source"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -277,7 +278,7 @@
         "games_played_season",
         "stats_as_of"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -327,7 +328,7 @@
         "instagram_posts",
         "instagram_handle"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -378,7 +379,7 @@
         "nil_last_deal_date",
         "nil_confidence"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -403,7 +404,7 @@
         "nil_deal_count",
         "nil_rank_national"
       ],
-      "status": "stub",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -478,7 +479,7 @@
         "conference_honors_count",
         "national_honors_count"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -503,7 +504,7 @@
         "marketplace_listing",
         "social_metrics"
       ],
-      "status": "stub",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -635,6 +636,30 @@
       "metadata": {
         "espn_slug": "football/college-football"
       }
+    },
+    {
+      "scraper_key": "cfbd_team_record_cfb",
+      "display_name": "CollegeFootballData team season record",
+      "sport": "cfb",
+      "league_tier": "college",
+      "dimension": "proof",
+      "source": "cfbd",
+      "source_type": "public_api",
+      "description": "Team wins/losses for win-impact context.",
+      "feature_keys": [
+        "team_wins",
+        "team_losses",
+        "team_win_pct",
+        "team_record_observed"
+      ],
+      "status": "planned",
+      "terminal_visible": true,
+      "required_for_scoring": false,
+      "sla_days": 7,
+      "default_confidence": 0.9,
+      "circuit_breaker_source": null,
+      "priority": 4,
+      "metadata": {}
     },
     {
       "scraper_key": "conference_honors_cfb",
@@ -823,8 +848,6 @@
       "description": "All-Pro, All-Star, awards tables from ref sites.",
       "feature_keys": [
         "achievements_json",
-        "all_pro_count",
-        "all_star_count",
         "major_awards_json"
       ],
       "status": "legacy",
@@ -851,7 +874,7 @@
         "career_stats",
         "advanced_stats"
       ],
-      "status": "legacy",
+      "status": "planned",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 14,
@@ -998,12 +1021,11 @@
         "player_name",
         "team",
         "position",
-        "class_year",
         "jersey_number",
         "height_inches",
         "weight_lbs"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -1027,9 +1049,10 @@
         "current_injury_status",
         "games_missed_season",
         "injury_risk_score",
-        "last_injury_date"
+        "last_injury_date",
+        "injury_report_count"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 1,
@@ -1049,12 +1072,7 @@
       "source": "ncaa",
       "source_type": "official",
       "description": "Cross-check athlete is on official school roster.",
-      "feature_keys": [
-        "roster_verified_at",
-        "is_on_roster",
-        "official_jersey",
-        "official_position"
-      ],
+      "feature_keys": [],
       "status": "planned",
       "terminal_visible": false,
       "required_for_scoring": true,
@@ -1082,7 +1100,7 @@
         "handle_confidence",
         "handle_source"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -1102,11 +1120,7 @@
       "source": "on3",
       "source_type": "scrape",
       "description": "Portal entry, destination school, timeline.",
-      "feature_keys": [
-        "in_transfer_portal",
-        "portal_entry_date",
-        "destination_school"
-      ],
+      "feature_keys": [],
       "status": "planned",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -1117,6 +1131,30 @@
       "metadata": {
         "espn_slug": "basketball/nba"
       }
+    },
+    {
+      "scraper_key": "college_experience_pro_nba",
+      "display_name": "NBA college career (ESPN)",
+      "sport": "nba",
+      "league_tier": "pro",
+      "dimension": "proof",
+      "source": "espn",
+      "source_type": "public_api",
+      "description": "College basketball career for NBA player.",
+      "feature_keys": [
+        "college_career_found",
+        "college_espn_id",
+        "college_stats_json",
+        "college_achievements_json"
+      ],
+      "status": "active",
+      "terminal_visible": false,
+      "required_for_scoring": true,
+      "sla_days": 30,
+      "default_confidence": 0.9,
+      "circuit_breaker_source": null,
+      "priority": 2,
+      "metadata": {}
     },
     {
       "scraper_key": "espn_stats_nba",
@@ -1133,7 +1171,7 @@
         "games_played_season",
         "stats_as_of"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -1183,7 +1221,7 @@
         "instagram_posts",
         "instagram_handle"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -1195,6 +1233,31 @@
       }
     },
     {
+      "scraper_key": "news_rss_espn_nba",
+      "display_name": "ESPN NBA news RSS",
+      "sport": "nba",
+      "league_tier": "pro",
+      "dimension": "velocity",
+      "source": "espn",
+      "source_type": "public_api",
+      "description": "ESPN NBA news aggregated into athlete_events.",
+      "feature_keys": [
+        "news_count_30d",
+        "news_headlines_json"
+      ],
+      "status": "active",
+      "terminal_visible": false,
+      "required_for_scoring": false,
+      "sla_days": 1,
+      "default_confidence": 0.82,
+      "circuit_breaker_source": null,
+      "priority": 2,
+      "metadata": {
+        "repo": "gravity_api",
+        "module": "news_collector.py"
+      }
+    },
+    {
       "scraper_key": "nil_deal_verified_nba",
       "display_name": "NIL deal verifier (NBA)",
       "sport": "nba",
@@ -1203,14 +1266,8 @@
       "source": "derived",
       "source_type": "derived",
       "description": "Cross-source NIL consensus (On3 + Opendorse + news).",
-      "feature_keys": [
-        "nil_valuation",
-        "nil_valuation_source",
-        "nil_deal_count_verified",
-        "nil_last_deal_date",
-        "nil_confidence"
-      ],
-      "status": "planned",
+      "feature_keys": [],
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -1230,12 +1287,8 @@
       "source": "on3",
       "source_type": "scrape",
       "description": "NIL valuation, deal announcements, rankings.",
-      "feature_keys": [
-        "nil_valuation",
-        "nil_deal_count",
-        "nil_rank_national"
-      ],
-      "status": "stub",
+      "feature_keys": [],
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -1287,7 +1340,7 @@
         "conference_honors_count",
         "national_honors_count"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -1307,12 +1360,8 @@
       "source": "opendorse",
       "source_type": "scrape",
       "description": "Athlete marketplace profile and social metrics.",
-      "feature_keys": [
-        "nil_valuation",
-        "marketplace_listing",
-        "social_metrics"
-      ],
-      "status": "stub",
+      "feature_keys": [],
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -1453,8 +1502,6 @@
       "source_type": "derived",
       "description": "AP/Coaches/Walter Camp All-American selections.",
       "feature_keys": [
-        "all_american_count",
-        "all_american_first_team",
         "achievements_json"
       ],
       "status": "planned",
@@ -1526,10 +1573,7 @@
       "source": "inflcr",
       "source_type": "licensed",
       "description": "Engagement rates and content activity.",
-      "feature_keys": [
-        "engagement_rate",
-        "content_activity_score"
-      ],
+      "feature_keys": [],
       "status": "stub",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -1577,11 +1621,7 @@
       "description": "Heisman, Naismith, Golden Spikes, AVCA POY, etc.",
       "feature_keys": [
         "national_awards_json",
-        "national_awards_count",
-        "heisman_finalist",
-        "naismith_candidate",
-        "golden_spikes_candidate",
-        "avca_player_of_year"
+        "national_awards_count"
       ],
       "status": "planned",
       "terminal_visible": false,
@@ -1603,12 +1643,7 @@
       "source": "247sports",
       "source_type": "scrape",
       "description": "Stars, national/position/state recruiting ranks.",
-      "feature_keys": [
-        "recruiting_stars",
-        "recruiting_rank_national",
-        "recruiting_rank_position",
-        "recruiting_state_rank"
-      ],
+      "feature_keys": [],
       "status": "legacy",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -1683,7 +1718,7 @@
         "career_stats",
         "advanced_stats"
       ],
-      "status": "legacy",
+      "status": "planned",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 14,
@@ -1777,10 +1812,7 @@
       "source": "espn",
       "source_type": "public_api",
       "description": "ESPN recruiting ranks.",
-      "feature_keys": [
-        "recruiting_stars",
-        "recruiting_rank_national"
-      ],
+      "feature_keys": [],
       "status": "legacy",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -1801,10 +1833,7 @@
       "source": "rivals",
       "source_type": "scrape",
       "description": "Recruiting profile backup.",
-      "feature_keys": [
-        "recruiting_stars",
-        "recruiting_rank_national"
-      ],
+      "feature_keys": [],
       "status": "legacy",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -1858,7 +1887,7 @@
         "height_inches",
         "weight_lbs"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -1882,9 +1911,10 @@
         "current_injury_status",
         "games_missed_season",
         "injury_risk_score",
-        "last_injury_date"
+        "last_injury_date",
+        "injury_report_count"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 1,
@@ -1937,7 +1967,7 @@
         "handle_confidence",
         "handle_source"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -1988,7 +2018,7 @@
         "games_played_season",
         "stats_as_of"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -2038,7 +2068,7 @@
         "instagram_posts",
         "instagram_handle"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -2065,7 +2095,7 @@
         "nil_last_deal_date",
         "nil_confidence"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -2090,7 +2120,7 @@
         "nil_deal_count",
         "nil_rank_national"
       ],
-      "status": "stub",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -2142,7 +2172,7 @@
         "conference_honors_count",
         "national_honors_count"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -2188,7 +2218,7 @@
         "marketplace_listing",
         "social_metrics"
       ],
-      "status": "stub",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -2575,8 +2605,6 @@
       "description": "All-Pro, All-Star, awards tables from ref sites.",
       "feature_keys": [
         "achievements_json",
-        "all_pro_count",
-        "all_star_count",
         "major_awards_json"
       ],
       "status": "legacy",
@@ -2603,7 +2631,7 @@
         "career_stats",
         "advanced_stats"
       ],
-      "status": "legacy",
+      "status": "planned",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 14,
@@ -2755,7 +2783,7 @@
         "height_inches",
         "weight_lbs"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -2779,9 +2807,10 @@
         "current_injury_status",
         "games_missed_season",
         "injury_risk_score",
-        "last_injury_date"
+        "last_injury_date",
+        "injury_report_count"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 1,
@@ -2834,7 +2863,7 @@
         "handle_confidence",
         "handle_source"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -2885,7 +2914,7 @@
         "games_played_season",
         "stats_as_of"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -2935,7 +2964,7 @@
         "instagram_posts",
         "instagram_handle"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -2962,7 +2991,7 @@
         "nil_last_deal_date",
         "nil_confidence"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -2987,7 +3016,7 @@
         "nil_deal_count",
         "nil_rank_national"
       ],
-      "status": "stub",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -3061,7 +3090,7 @@
         "conference_honors_count",
         "national_honors_count"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -3107,7 +3136,7 @@
         "marketplace_listing",
         "social_metrics"
       ],
-      "status": "stub",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -3471,8 +3500,6 @@
       "description": "All-Pro, All-Star, awards tables from ref sites.",
       "feature_keys": [
         "achievements_json",
-        "all_pro_count",
-        "all_star_count",
         "major_awards_json"
       ],
       "status": "legacy",
@@ -3499,7 +3526,7 @@
         "career_stats",
         "advanced_stats"
       ],
-      "status": "legacy",
+      "status": "planned",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 14,
@@ -3651,7 +3678,7 @@
         "height_inches",
         "weight_lbs"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -3675,9 +3702,10 @@
         "current_injury_status",
         "games_missed_season",
         "injury_risk_score",
-        "last_injury_date"
+        "last_injury_date",
+        "injury_report_count"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 1,
@@ -3730,7 +3758,7 @@
         "handle_confidence",
         "handle_source"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -3781,7 +3809,7 @@
         "games_played_season",
         "stats_as_of"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -3831,7 +3859,7 @@
         "instagram_posts",
         "instagram_handle"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -3882,7 +3910,7 @@
         "nil_last_deal_date",
         "nil_confidence"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -3907,7 +3935,7 @@
         "nil_deal_count",
         "nil_rank_national"
       ],
-      "status": "stub",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -3959,7 +3987,7 @@
         "conference_honors_count",
         "national_honors_count"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -4007,7 +4035,7 @@
         "marketplace_listing",
         "social_metrics"
       ],
-      "status": "stub",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -4327,8 +4355,6 @@
       "description": "All-Pro, All-Star, awards tables from ref sites.",
       "feature_keys": [
         "achievements_json",
-        "all_pro_count",
-        "all_star_count",
         "major_awards_json"
       ],
       "status": "legacy",
@@ -4355,7 +4381,7 @@
         "career_stats",
         "advanced_stats"
       ],
-      "status": "legacy",
+      "status": "planned",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 14,
@@ -4507,7 +4533,7 @@
         "height_inches",
         "weight_lbs"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -4531,9 +4557,10 @@
         "current_injury_status",
         "games_missed_season",
         "injury_risk_score",
-        "last_injury_date"
+        "last_injury_date",
+        "injury_report_count"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 1,
@@ -4586,7 +4613,7 @@
         "handle_confidence",
         "handle_source"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -4637,7 +4664,7 @@
         "games_played_season",
         "stats_as_of"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -4687,7 +4714,7 @@
         "instagram_posts",
         "instagram_handle"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -4738,7 +4765,7 @@
         "nil_last_deal_date",
         "nil_confidence"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -4763,7 +4790,7 @@
         "nil_deal_count",
         "nil_rank_national"
       ],
-      "status": "stub",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -4815,7 +4842,7 @@
         "conference_honors_count",
         "national_honors_count"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -4840,7 +4867,7 @@
         "marketplace_listing",
         "social_metrics"
       ],
-      "status": "stub",
+      "status": "active",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -5182,8 +5209,6 @@
       "description": "All-Pro, All-Star, awards tables from ref sites.",
       "feature_keys": [
         "achievements_json",
-        "all_pro_count",
-        "all_star_count",
         "major_awards_json"
       ],
       "status": "legacy",
@@ -5210,7 +5235,7 @@
         "career_stats",
         "advanced_stats"
       ],
-      "status": "legacy",
+      "status": "planned",
       "terminal_visible": true,
       "required_for_scoring": false,
       "sla_days": 14,
@@ -5357,12 +5382,11 @@
         "player_name",
         "team",
         "position",
-        "class_year",
         "jersey_number",
         "height_inches",
         "weight_lbs"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -5386,9 +5410,10 @@
         "current_injury_status",
         "games_missed_season",
         "injury_risk_score",
-        "last_injury_date"
+        "last_injury_date",
+        "injury_report_count"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 1,
@@ -5408,12 +5433,7 @@
       "source": "ncaa",
       "source_type": "official",
       "description": "Cross-check athlete is on official school roster.",
-      "feature_keys": [
-        "roster_verified_at",
-        "is_on_roster",
-        "official_jersey",
-        "official_position"
-      ],
+      "feature_keys": [],
       "status": "planned",
       "terminal_visible": false,
       "required_for_scoring": true,
@@ -5441,7 +5461,7 @@
         "handle_confidence",
         "handle_source"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -5461,11 +5481,7 @@
       "source": "on3",
       "source_type": "scrape",
       "description": "Portal entry, destination school, timeline.",
-      "feature_keys": [
-        "in_transfer_portal",
-        "portal_entry_date",
-        "destination_school"
-      ],
+      "feature_keys": [],
       "status": "planned",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -5476,6 +5492,32 @@
       "metadata": {
         "espn_slug": "football/nfl"
       }
+    },
+    {
+      "scraper_key": "college_experience_pro",
+      "display_name": "NFL college career (ESPN)",
+      "sport": "nfl",
+      "league_tier": "pro",
+      "dimension": "proof",
+      "source": "espn",
+      "source_type": "public_api",
+      "description": "College football career for pro player \u2014 predictive modeling.",
+      "feature_keys": [
+        "college_career_found",
+        "college_espn_id",
+        "college_stats_json",
+        "college_achievements_json",
+        "college_team",
+        "college_position"
+      ],
+      "status": "active",
+      "terminal_visible": false,
+      "required_for_scoring": true,
+      "sla_days": 30,
+      "default_confidence": 0.9,
+      "circuit_breaker_source": null,
+      "priority": 2,
+      "metadata": {}
     },
     {
       "scraper_key": "espn_stats_nfl",
@@ -5492,7 +5534,7 @@
         "games_played_season",
         "stats_as_of"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -5542,7 +5584,7 @@
         "instagram_posts",
         "instagram_handle"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -5554,6 +5596,31 @@
       }
     },
     {
+      "scraper_key": "news_rss_espn_nfl",
+      "display_name": "ESPN NFL news RSS",
+      "sport": "nfl",
+      "league_tier": "pro",
+      "dimension": "velocity",
+      "source": "espn",
+      "source_type": "public_api",
+      "description": "ESPN NFL news aggregated into athlete_events.",
+      "feature_keys": [
+        "news_count_30d",
+        "news_headlines_json"
+      ],
+      "status": "active",
+      "terminal_visible": false,
+      "required_for_scoring": false,
+      "sla_days": 1,
+      "default_confidence": 0.82,
+      "circuit_breaker_source": null,
+      "priority": 2,
+      "metadata": {
+        "repo": "gravity_api",
+        "module": "news_collector.py"
+      }
+    },
+    {
       "scraper_key": "nil_deal_verified_nfl",
       "display_name": "NIL deal verifier (NFL)",
       "sport": "nfl",
@@ -5562,14 +5629,8 @@
       "source": "derived",
       "source_type": "derived",
       "description": "Cross-source NIL consensus (On3 + Opendorse + news).",
-      "feature_keys": [
-        "nil_valuation",
-        "nil_valuation_source",
-        "nil_deal_count_verified",
-        "nil_last_deal_date",
-        "nil_confidence"
-      ],
-      "status": "planned",
+      "feature_keys": [],
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -5589,12 +5650,8 @@
       "source": "on3",
       "source_type": "scrape",
       "description": "NIL valuation, deal announcements, rankings.",
-      "feature_keys": [
-        "nil_valuation",
-        "nil_deal_count",
-        "nil_rank_national"
-      ],
-      "status": "stub",
+      "feature_keys": [],
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -5646,7 +5703,7 @@
         "conference_honors_count",
         "national_honors_count"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -5666,12 +5723,8 @@
       "source": "opendorse",
       "source_type": "scrape",
       "description": "Athlete marketplace profile and social metrics.",
-      "feature_keys": [
-        "nil_valuation",
-        "marketplace_listing",
-        "social_metrics"
-      ],
-      "status": "stub",
+      "feature_keys": [],
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -5812,8 +5865,6 @@
       "source_type": "derived",
       "description": "AP/Coaches/Walter Camp All-American selections.",
       "feature_keys": [
-        "all_american_count",
-        "all_american_first_team",
         "achievements_json"
       ],
       "status": "planned",
@@ -5885,10 +5936,7 @@
       "source": "inflcr",
       "source_type": "licensed",
       "description": "Engagement rates and content activity.",
-      "feature_keys": [
-        "engagement_rate",
-        "content_activity_score"
-      ],
+      "feature_keys": [],
       "status": "stub",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -5936,11 +5984,7 @@
       "description": "Heisman, Naismith, Golden Spikes, AVCA POY, etc.",
       "feature_keys": [
         "national_awards_json",
-        "national_awards_count",
-        "heisman_finalist",
-        "naismith_candidate",
-        "golden_spikes_candidate",
-        "avca_player_of_year"
+        "national_awards_count"
       ],
       "status": "planned",
       "terminal_visible": false,
@@ -5962,12 +6006,7 @@
       "source": "247sports",
       "source_type": "scrape",
       "description": "Stars, national/position/state recruiting ranks.",
-      "feature_keys": [
-        "recruiting_stars",
-        "recruiting_rank_national",
-        "recruiting_rank_position",
-        "recruiting_state_rank"
-      ],
+      "feature_keys": [],
       "status": "legacy",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -6042,7 +6081,7 @@
         "career_stats",
         "advanced_stats"
       ],
-      "status": "legacy",
+      "status": "planned",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 14,
@@ -6158,10 +6197,7 @@
       "source": "espn",
       "source_type": "public_api",
       "description": "ESPN recruiting ranks.",
-      "feature_keys": [
-        "recruiting_stars",
-        "recruiting_rank_national"
-      ],
+      "feature_keys": [],
       "status": "legacy",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -6182,10 +6218,7 @@
       "source": "rivals",
       "source_type": "scrape",
       "description": "Recruiting profile backup.",
-      "feature_keys": [
-        "recruiting_stars",
-        "recruiting_rank_national"
-      ],
+      "feature_keys": [],
       "status": "legacy",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -6234,12 +6267,11 @@
         "player_name",
         "team",
         "position",
-        "class_year",
         "jersey_number",
         "height_inches",
         "weight_lbs"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -6263,9 +6295,10 @@
         "current_injury_status",
         "games_missed_season",
         "injury_risk_score",
-        "last_injury_date"
+        "last_injury_date",
+        "injury_report_count"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 1,
@@ -6285,12 +6318,7 @@
       "source": "ncaa",
       "source_type": "official",
       "description": "Cross-check athlete is on official school roster.",
-      "feature_keys": [
-        "roster_verified_at",
-        "is_on_roster",
-        "official_jersey",
-        "official_position"
-      ],
+      "feature_keys": [],
       "status": "planned",
       "terminal_visible": false,
       "required_for_scoring": true,
@@ -6318,7 +6346,7 @@
         "handle_confidence",
         "handle_source"
       ],
-      "status": "planned",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -6338,11 +6366,7 @@
       "source": "on3",
       "source_type": "scrape",
       "description": "Portal entry, destination school, timeline.",
-      "feature_keys": [
-        "in_transfer_portal",
-        "portal_entry_date",
-        "destination_school"
-      ],
+      "feature_keys": [],
       "status": "planned",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -6369,7 +6393,7 @@
         "games_played_season",
         "stats_as_of"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -6419,7 +6443,7 @@
         "instagram_posts",
         "instagram_handle"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 3,
@@ -6439,14 +6463,8 @@
       "source": "derived",
       "source_type": "derived",
       "description": "Cross-source NIL consensus (On3 + Opendorse + news).",
-      "feature_keys": [
-        "nil_valuation",
-        "nil_valuation_source",
-        "nil_deal_count_verified",
-        "nil_last_deal_date",
-        "nil_confidence"
-      ],
-      "status": "planned",
+      "feature_keys": [],
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": true,
       "sla_days": 7,
@@ -6466,12 +6484,8 @@
       "source": "on3",
       "source_type": "scrape",
       "description": "NIL valuation, deal announcements, rankings.",
-      "feature_keys": [
-        "nil_valuation",
-        "nil_deal_count",
-        "nil_rank_national"
-      ],
-      "status": "stub",
+      "feature_keys": [],
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -6523,7 +6537,7 @@
         "conference_honors_count",
         "national_honors_count"
       ],
-      "status": "legacy",
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -6543,12 +6557,8 @@
       "source": "opendorse",
       "source_type": "scrape",
       "description": "Athlete marketplace profile and social metrics.",
-      "feature_keys": [
-        "nil_valuation",
-        "marketplace_listing",
-        "social_metrics"
-      ],
-      "status": "stub",
+      "feature_keys": [],
+      "status": "active",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 7,
@@ -6609,6 +6619,29 @@
       }
     },
     {
+      "scraper_key": "spotrac_contract_wnba",
+      "display_name": "Spotrac WNBA contracts",
+      "sport": "wnba",
+      "league_tier": "pro",
+      "dimension": "proximity",
+      "source": "spotrac",
+      "source_type": "scrape",
+      "description": "Contract value, guarantees, AAV.",
+      "feature_keys": [
+        "contract_total_usd",
+        "contract_guaranteed_usd",
+        "contract_aav_usd"
+      ],
+      "status": "legacy",
+      "terminal_visible": false,
+      "required_for_scoring": false,
+      "sla_days": 14,
+      "default_confidence": 0.88,
+      "circuit_breaker_source": null,
+      "priority": 3,
+      "metadata": {}
+    },
+    {
       "scraper_key": "tiktok_followers_wnba",
       "display_name": "TikTok followers (WNBA)",
       "sport": "wnba",
@@ -6666,8 +6699,6 @@
       "source_type": "derived",
       "description": "AP/Coaches/Walter Camp All-American selections.",
       "feature_keys": [
-        "all_american_count",
-        "all_american_first_team",
         "achievements_json"
       ],
       "status": "planned",
@@ -6739,10 +6770,7 @@
       "source": "inflcr",
       "source_type": "licensed",
       "description": "Engagement rates and content activity.",
-      "feature_keys": [
-        "engagement_rate",
-        "content_activity_score"
-      ],
+      "feature_keys": [],
       "status": "stub",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -6790,11 +6818,7 @@
       "description": "Heisman, Naismith, Golden Spikes, AVCA POY, etc.",
       "feature_keys": [
         "national_awards_json",
-        "national_awards_count",
-        "heisman_finalist",
-        "naismith_candidate",
-        "golden_spikes_candidate",
-        "avca_player_of_year"
+        "national_awards_count"
       ],
       "status": "planned",
       "terminal_visible": false,
@@ -6816,12 +6840,7 @@
       "source": "247sports",
       "source_type": "scrape",
       "description": "Stars, national/position/state recruiting ranks.",
-      "feature_keys": [
-        "recruiting_stars",
-        "recruiting_rank_national",
-        "recruiting_rank_position",
-        "recruiting_state_rank"
-      ],
+      "feature_keys": [],
       "status": "legacy",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -6896,7 +6915,7 @@
         "career_stats",
         "advanced_stats"
       ],
-      "status": "legacy",
+      "status": "planned",
       "terminal_visible": false,
       "required_for_scoring": false,
       "sla_days": 14,
@@ -6959,6 +6978,29 @@
       }
     },
     {
+      "scraper_key": "forbes_earnings_wnba",
+      "display_name": "Forbes WNBA earnings",
+      "sport": "wnba",
+      "league_tier": "pro",
+      "dimension": "proximity",
+      "source": "forbes",
+      "source_type": "scrape",
+      "description": "Endorsement and on-field earnings.",
+      "feature_keys": [
+        "endorsement_value_usd",
+        "total_earnings_usd",
+        "forbes_list_rank"
+      ],
+      "status": "legacy",
+      "terminal_visible": false,
+      "required_for_scoring": false,
+      "sla_days": 365,
+      "default_confidence": 0.85,
+      "circuit_breaker_source": null,
+      "priority": 5,
+      "metadata": {}
+    },
+    {
       "scraper_key": "recruiting_espn_wnba",
       "display_name": "ESPN recruiting (WNBA)",
       "sport": "wnba",
@@ -6967,10 +7009,7 @@
       "source": "espn",
       "source_type": "public_api",
       "description": "ESPN recruiting ranks.",
-      "feature_keys": [
-        "recruiting_stars",
-        "recruiting_rank_national"
-      ],
+      "feature_keys": [],
       "status": "legacy",
       "terminal_visible": false,
       "required_for_scoring": false,
@@ -6991,10 +7030,7 @@
       "source": "rivals",
       "source_type": "scrape",
       "description": "Recruiting profile backup.",
-      "feature_keys": [
-        "recruiting_stars",
-        "recruiting_rank_national"
-      ],
+      "feature_keys": [],
       "status": "legacy",
       "terminal_visible": false,
       "required_for_scoring": false,

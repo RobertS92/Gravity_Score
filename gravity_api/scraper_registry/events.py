@@ -49,7 +49,8 @@ EVENT_SCRAPER_SUFFIXES: dict[str, list[str]] = {
     ],
     "stat_update": [
         "espn_stats",
-        "sports_ref_stats",
+        # sports_ref_stats has no standalone impl — EspnStatsScraper already
+        # falls back to Sports Reference internally when ESPN is thin.
         "stats_freshness",
         "cfbd_api_stats_cfb",
     ],
@@ -131,8 +132,9 @@ COLLEGE_ONLY_SUFFIXES = frozenset(
 
 # Additional sport-specific keys appended to scheduled_full (beyond suffix expansion).
 SCHEDULED_SPORT_API_KEYS: dict[str, list[str]] = {
-    "ncaab_mens": ["kenpom_ncaab_mens"],
-    "ncaab_womens": ["her_hoop_stats_ncaab_womens"],
+    "cfb": ["news_rss_espn_cfb"],
+    "ncaab_mens": ["kenpom_ncaab_mens", "news_rss_espn_ncaab_mens"],
+    "ncaab_womens": ["her_hoop_stats_ncaab_womens", "news_rss_espn_ncaab_womens"],
     "ncaa_baseball": [
         "perfect_game_recruiting_baseball",
         "d1baseball_rankings_baseball",
@@ -146,8 +148,18 @@ SCHEDULED_SPORT_API_KEYS: dict[str, list[str]] = {
 }
 
 SCHEDULED_PRO_API_KEYS: dict[str, list[str]] = {
-    "nfl": ["spotrac_contract_nfl", "forbes_earnings_nfl", "fantasy_adp_nfl"],
-    "nba": ["spotrac_contract_nba", "forbes_earnings_nba", "college_experience_pro_nba"],
+    "nfl": [
+        "spotrac_contract_nfl",
+        "forbes_earnings_nfl",
+        "fantasy_adp_nfl",
+        "news_rss_espn_nfl",
+    ],
+    "nba": [
+        "spotrac_contract_nba",
+        "forbes_earnings_nba",
+        "college_experience_pro_nba",
+        "news_rss_espn_nba",
+    ],
     "wnba": ["spotrac_contract_wnba", "forbes_earnings_wnba"],
 }
 
@@ -188,7 +200,9 @@ def resolve_event_scraper_keys(
     """Return concrete scraper_keys for an event + sport."""
     from gravity_api.scraper_registry import registry_by_key
     from gravity_api.scraper_registry.sports import SPORTS
+    from gravity_api.services.partner_sports import normalize_db_sport_slug
 
+    sport = normalize_db_sport_slug(sport)
     keys_map = registry_by_key()
     league_tier = SPORTS.get(sport, {}).get("league_tier", "college")
     suffixes = list(
@@ -210,6 +224,8 @@ def resolve_event_scraper_keys(
     }
     sport_only_keys = {
         "cfbd_api_stats_cfb",
+        # Must be here — otherwise suffix expands to cfbd_team_record_cfb_cfb and drops.
+        "cfbd_team_record_cfb",
         "kenpom_ncaab_mens",
         "her_hoop_stats_ncaab_womens",
         "perfect_game_recruiting_baseball",
@@ -229,6 +245,8 @@ def resolve_event_scraper_keys(
         "news_rss_espn_cfb",
         "news_rss_espn_ncaab_mens",
         "news_rss_espn_ncaab_womens",
+        "news_rss_espn_nfl",
+        "news_rss_espn_nba",
         "news_rss_espn_baseball",
         "news_rss_espn_volleyball",
     }

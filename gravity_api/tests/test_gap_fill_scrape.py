@@ -81,7 +81,60 @@ def test_resolve_gap_fill_empty_when_sufficient():
             "nil_confidence": 0.9,
             "external_quality_score": 72,
             "external_quality_score_observed": 1,
+            # Season stats required — resolver always include_stats=True
+            "games_played_season": 8,
+            "season_stats": {"passing_yards": 1200, "td": 10, "int": 2},
+            "stats_as_of": "2025-10-01",
         },
         league_tier="college",
     )
     assert resolve_gap_fill_scraper_keys(ctx) == []
+
+
+def test_resolve_gap_fill_runs_espn_stats_when_ml_ok_but_no_stats():
+    """Selection SQL and resolver must agree: missing season stats → espn_stats."""
+    from gravity_api.scraper_registry.gap_fill import resolve_gap_fill_scraper_keys
+
+    ctx = AthleteScrapeContext(
+        athlete_id="a2",
+        name="Test",
+        sport="cfb",
+        school="Alabama",
+        team="Alabama",
+        position="QB",
+        espn_id="1",
+        existing_raw={
+            "instagram_handle": "qb1",
+            "instagram_handle_source": "espn",
+            "instagram_followers": 50000,
+            "instagram_followers_observed": 1,
+            "instagram_engagement_rate": 3.2,
+            "nil_valuation": 500000,
+            "nil_valuation_observed": 1,
+            "nil_confidence": 0.9,
+            "external_quality_score": 72,
+            "external_quality_score_observed": 1,
+            # Fabricated stats_as_of alone must NOT block season_stats gap
+            "stats_as_of": "2025-10-15T00:00:00+00:00",
+        },
+        league_tier="college",
+    )
+    keys = resolve_gap_fill_scraper_keys(ctx)
+    assert any("espn_stats" in k for k in keys)
+
+
+def test_gap_fill_nba_does_not_queue_cfbd():
+    from gravity_api.scraper_registry.gap_fill import scrapers_for_gaps
+
+    keys = scrapers_for_gaps(["season_stats"], "nba")
+    assert any("espn_stats_nba" in k for k in keys)
+    assert not any("cfbd" in k for k in keys)
+    assert not any("college_experience_pro" in k for k in keys)
+
+
+def test_gap_fill_ncaab_mens_includes_kenpom_not_cfbd():
+    from gravity_api.scraper_registry.gap_fill import scrapers_for_gaps
+
+    keys = scrapers_for_gaps(["season_stats"], "ncaab_mens")
+    assert "kenpom_ncaab_mens" in keys or any("espn_stats_ncaab_mens" in k for k in keys)
+    assert not any(k.endswith("_cfb") and "cfbd" in k for k in keys)

@@ -45,8 +45,26 @@ def test_pro_extended_blocks_college_nil():
 def test_cfb_scheduled_includes_cfbd_and_news():
     keys = resolve_event_scraper_keys("scheduled_full", "cfb")
     assert "cfbd_api_stats_cfb" in keys
+    assert "cfbd_team_record_cfb" in keys
     assert "news_rss_on3" in keys
+    assert "news_rss_espn_cfb" in keys
     assert "social_growth_delta" in keys
+
+
+def test_mcbb_alias_resolves_ncaab_mens_pack():
+    keys = resolve_event_scraper_keys("scheduled_full", "mcbb")
+    assert "espn_stats_ncaab_mens" in keys
+    assert "kenpom_ncaab_mens" in keys
+    assert "news_rss_espn_ncaab_mens" in keys
+
+
+def test_nba_scheduled_includes_pro_and_news():
+    keys = resolve_event_scraper_keys("scheduled_full", "nba")
+    assert "spotrac_contract_nba" in keys
+    assert "forbes_earnings_nba" in keys
+    assert "news_rss_espn_nba" in keys
+    assert "espn_stats_nba" in keys
+    assert "cfbd_api_stats_cfb" not in keys
 
 
 def test_get_scraper_impl_cfbd_and_news():

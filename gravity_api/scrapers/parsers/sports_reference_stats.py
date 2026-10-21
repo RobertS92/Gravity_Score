@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__)
 _SR_DIRECT_SEARCH: dict[str, str] = {
     "cfb": "https://www.sports-reference.com/cfb/search/search.fcgi?search={query}",
     "ncaab_mens": "https://www.sports-reference.com/cbb/search/search.fcgi?search={query}",
-    "ncaab_womens": "https://www.sports-reference.com/cbb/search/search.fcgi?search={query}",
+    "ncaab_womens": "https://www.sports-reference.com/cbb/women/search/search.fcgi?search={query}",
     "nfl": "https://www.pro-football-reference.com/search/search.fcgi?search={query}",
+    "nba": "https://www.basketball-reference.com/search/search.fcgi?search={query}",
 }
 
 _SR_BASE: dict[str, str] = {
@@ -26,6 +27,7 @@ _SR_BASE: dict[str, str] = {
     "ncaab_mens": "https://www.sports-reference.com",
     "ncaab_womens": "https://www.sports-reference.com",
     "nfl": "https://www.pro-football-reference.com",
+    "nba": "https://www.basketball-reference.com",
 }
 
 # Label aliases in SR tables -> canonical keys (sport-specific overrides applied in parser).
