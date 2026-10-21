@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { postBrandMatch } from '../../api/reports'
-import type { BrandMatchBrief, BrandMatchResult } from '../../types/reports'
+import type { BrandMatchBrief, BrandMatchDiagnostics, BrandMatchResult } from '../../types/reports'
 import { formatNilValue, formatScore } from '../../lib/formatters'
 import { usePreferencesStore } from '../../stores/preferencesStore'
 import { useUiStore } from '../../stores/uiStore'
@@ -67,6 +67,9 @@ export function BrandMatchView() {
   const [dealDensityPreference, setDealDensityPreference] = useState<'few' | 'moderate' | 'any'>('any')
   const [collapsed, setCollapsed] = useState(false)
   const [results, setResults] = useState<BrandMatchResult[] | null>(null)
+  const [diagnostics, setDiagnostics] = useState<BrandMatchDiagnostics | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const [activeRow, setActiveRow] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<SortKey>('match_score')
   const [minMatch, setMinMatch] = useState(50)
@@ -89,10 +92,38 @@ export function BrandMatchView() {
     }
     const floor = minSocialReach > 0 ? ` · min ${fmtReach(minSocialReach)} reach` : ''
     setSummary(`$${(budget / 1000).toFixed(0)}K · ${category} · ${geo.join(', ')}${floor}`)
-    const r = await postBrandMatch(brief)
-    setResults(r)
-    setResultContext(r)
-    setCollapsed(true)
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      const r = await postBrandMatch(brief)
+      setResults(r.matches)
+      setDiagnostics(r.diagnostics ?? null)
+      setResultContext(r.matches)
+      setCollapsed(true)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      setSubmitError(message)
+      setResults(null)
+      setDiagnostics(null)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const relaxGeography = () => {
+    setGeo((g) => (g.includes('National') ? g : [...g, 'National']))
+    setCollapsed(false)
+  }
+
+  const relaxRisk = () => {
+    setRiskTol(0.75)
+    setMaxTransfer(true)
+    setCollapsed(false)
+  }
+
+  const clearReachFloor = () => {
+    setMinSocialReach(0)
+    setCollapsed(false)
   }
 
   const shownResults = useMemo(() => {
@@ -246,10 +277,11 @@ export function BrandMatchView() {
             </div>
           </div>
           <div className={styles.submitBtn}>
-            <ActionButton variant="primary" onClick={() => void submit()}>
-            FIND MATCHES
+            <ActionButton variant="primary" onClick={() => void submit()} disabled={submitting}>
+              {submitting ? 'MATCHING…' : 'FIND MATCHES'}
             </ActionButton>
           </div>
+          {submitError && <div className={styles.emptyState}>Brand Match failed: {submitError}</div>}
         </div>
       ) : (
         <div className={styles.summaryLine}>
@@ -282,6 +314,63 @@ export function BrandMatchView() {
               <input type="range" min={50} max={90} value={minMatch} onChange={(e) => setMinMatch(Number(e.target.value))} />
             </label>
           </div>
+          {shownResults.length === 0 && (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyTitle}>
+                {results.length === 0
+                  ? 'No athletes matched this brief'
+                  : `No athletes above Min Match ${minMatch} (API returned ${results.length})`}
+              </div>
+              {diagnostics && (
+                <div className={styles.emptyMeta}>
+                  Candidates scored: {diagnostics.candidates_fetched}
+                  {diagnostics.dropped
+                    ? ` · Dropped: ${Object.entries(diagnostics.dropped)
+                        .map(([k, v]) => `${k}=${v}`)
+                        .join(', ')}`
+                    : ''}
+                </div>
+              )}
+              <ul className={styles.emptyList}>
+                {(diagnostics?.suggestions?.length
+                  ? diagnostics.suggestions
+                  : [
+                      'Add National to geography to widen regional fit.',
+                      'Raise risk tolerance or enable Max transfer risk.',
+                      'Clear Min social reach if set.',
+                      'Confirm TopBar sports include athletes with gravity scores.',
+                    ]
+                ).map((tip) => (
+                  <li key={tip}>{tip}</li>
+                ))}
+              </ul>
+              <div className={styles.emptyActions}>
+                {!geo.includes('National') && (
+                  <ActionButton variant="secondary" onClick={relaxGeography}>
+                    Add National geo
+                  </ActionButton>
+                )}
+                {riskTol < 0.75 && (
+                  <ActionButton variant="secondary" onClick={relaxRisk}>
+                    Raise risk to 75%
+                  </ActionButton>
+                )}
+                {minSocialReach > 0 && (
+                  <ActionButton variant="secondary" onClick={clearReachFloor}>
+                    Clear reach floor
+                  </ActionButton>
+                )}
+                {results.length > 0 && minMatch > 50 && (
+                  <ActionButton variant="secondary" onClick={() => setMinMatch(50)}>
+                    Reset Min Match to 50
+                  </ActionButton>
+                )}
+                <ActionButton variant="secondary" onClick={() => setCollapsed(false)}>
+                  Edit brief
+                </ActionButton>
+              </div>
+            </div>
+          )}
           {shownResults.map((r, idx) => (
             <div
               key={r.athlete_id}

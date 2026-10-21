@@ -48,9 +48,21 @@ async def agent_stream(
     """SSE endpoint with token-style chunks + [DONE] terminator."""
 
     async def generate() -> AsyncGenerator[str, None]:
-        agent = GravityQueryAgent(db)
-        result = await agent.run_sync(body.prompt, body.context or None)
-        text = str(result.get("response") or "")
+        # Keep the stream alive while Anthropic/tools run so idle proxies do
+        # not abort the connection before the first content chunk.
+        yield ": keepalive\n\n"
+        try:
+            agent = GravityQueryAgent(db)
+            result = await agent.run_sync(body.prompt, body.context or None)
+            text = str(result.get("response") or "")
+        except Exception as exc:  # noqa: BLE001 — surface to client instead of aborting SSE
+            safe = str(exc).strip() or "Agent failed"
+            # Avoid leaking secrets / huge traces into the chat bubble.
+            if len(safe) > 240:
+                safe = safe[:237] + "..."
+            yield f"data: Error: {safe.replace(chr(10), ' ')}\n\n"
+            yield "data: [DONE]\n\n"
+            return
         if not text:
             yield "data: [DONE]\n\n"
             return

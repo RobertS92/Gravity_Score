@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { apiGet, apiPost } from '../api/client'
-import { getRawViteApiUrl } from '../lib/apiBaseUrl'
+import { getApiBaseUrlWithV1, getRawViteApiUrl } from '../lib/apiBaseUrl'
 import { getTerminalUserId } from './authStore'
 
 export type ChatRole = 'user' | 'assistant'
@@ -146,48 +146,15 @@ export const useGravityAiStore = create<GravityAiStore>((set, get) => ({
       const useProxy = import.meta.env.VITE_AGENT_USE_PROXY === 'true'
 
       if (useProxy) {
-        const res = await fetch(
-          `${_apiBase()}/v1/agent/stream`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${_getToken()}`,
-            },
-            body: JSON.stringify({
-              prompt: contextNote + text,
-              history,
-              context: { athleteId: contextAthleteId },
-            }),
-            signal: abortController.signal,
-          },
-        )
-
-        if (res.ok && res.body) {
-          const reader = res.body.getReader()
-          const decoder = new TextDecoder()
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            const chunk = decoder.decode(value, { stream: true })
-            // SSE lines: "data: {text}\n\n"
-            for (const line of chunk.split('\n')) {
-              if (line.startsWith('data: ')) {
-                const delta = line.slice(6)
-                if (delta === '[DONE]') break
-                fullText += delta
-                streamCallback(delta)
-                set({ streamingText: fullText })
-              }
-            }
-          }
-        } else {
-          // Proxy didn't support streaming — get full response
-          set({ waitingMode: 'processing' })
-          const data = await res.json() as { text?: string }
-          fullText = data.text ?? '(no response)'
-          streamCallback(fullText)
-        }
+        fullText = await _runProxyAgent({
+          prompt: contextNote + text,
+          history,
+          contextAthleteId,
+          streamCallback,
+          signal: abortController.signal,
+          setWaiting: (mode) => set({ waitingMode: mode }),
+          setStreamingText: (t) => set({ streamingText: t }),
+        })
       } else {
         // Direct Anthropic SDK with streaming
         const { runAgentCommandStream } = await import('../agent/claudeClient')
@@ -197,7 +164,7 @@ export const useGravityAiStore = create<GravityAiStore>((set, get) => ({
       if ((err as { name?: string }).name === 'AbortError') {
         fullText = fullText || '(stopped)'
       } else {
-        fullText = `Error: ${err instanceof Error ? err.message : 'Agent failed'}`
+        fullText = `Error: ${_formatAgentError(err)}`
       }
     }
 
@@ -274,10 +241,139 @@ function clampConversations(convs: Conversation[]): Conversation[] {
     .slice(0, CONVERSATION_CAP)
 }
 
-function _apiBase() {
-  return getRawViteApiUrl()
+/** Stream URL must use the same /v1-normalized base as apiPost — never raw+/v1. */
+function _agentStreamUrl() {
+  const base = getApiBaseUrlWithV1()
+  if (!base) return '/v1/agent/stream'
+  return `${base}/agent/stream`
 }
 
 function _getToken() {
   try { return localStorage.getItem('gravity_access_token') ?? '' } catch { return '' }
+}
+
+function _formatAgentError(err: unknown): string {
+  const message = err instanceof Error ? err.message : 'Agent failed'
+  if (/failed to fetch|network ?error|load failed|err_connection|cors/i.test(message)) {
+    const base = getApiBaseUrlWithV1() || getRawViteApiUrl() || '(unset)'
+    return (
+      `Cannot reach Gravity AI at ${base}. Check VITE_API_URL / CORS / login, ` +
+      `then retry. (${message})`
+    )
+  }
+  return message
+}
+
+async function _completeFallback(
+  prompt: string,
+  history: { role: string; content: string }[],
+  contextAthleteId: string | null,
+): Promise<string> {
+  try {
+    const data = await apiPost<{ text?: string; detail?: unknown }>('agent/complete', {
+      prompt,
+      history,
+      context: { athleteId: contextAthleteId },
+    })
+    if (typeof data?.text === 'string' && data.text.trim()) return data.text
+    if (data?.detail != null) {
+      return typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)
+    }
+    return '(no response)'
+  } catch (err: unknown) {
+    throw err
+  }
+}
+
+async function _runProxyAgent(args: {
+  prompt: string
+  history: { role: string; content: string }[]
+  contextAthleteId: string | null
+  streamCallback: (delta: string) => void
+  signal: AbortSignal
+  setWaiting: (mode: 'streaming' | 'processing' | null) => void
+  setStreamingText: (t: string) => void
+}): Promise<string> {
+  const body = JSON.stringify({
+    prompt: args.prompt,
+    history: args.history,
+    context: { athleteId: args.contextAthleteId },
+  })
+
+  let res: Response
+  try {
+    res = await fetch(_agentStreamUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${_getToken()}`,
+      },
+      body,
+      signal: args.signal,
+    })
+  } catch (err) {
+    // Stream connect failed — fall back to non-streaming complete.
+    args.setWaiting('processing')
+    const text = await _completeFallback(args.prompt, args.history, args.contextAthleteId)
+    args.streamCallback(text)
+    return text
+  }
+
+  if (res.ok && res.body) {
+    let fullText = ''
+    try {
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        for (const line of chunk.split('\n')) {
+          if (line.startsWith('data: ')) {
+            const delta = line.slice(6)
+            if (delta === '[DONE]') break
+            fullText += delta
+            args.streamCallback(delta)
+            args.setStreamingText(fullText)
+          }
+        }
+      }
+      if (fullText.trim()) return fullText
+    } catch (err) {
+      if ((err as { name?: string }).name === 'AbortError') throw err
+      // Mid-stream abort — fall back to complete if we got nothing useful.
+      if (!fullText.trim()) {
+        args.setWaiting('processing')
+        const text = await _completeFallback(args.prompt, args.history, args.contextAthleteId)
+        args.streamCallback(text)
+        return text
+      }
+      return fullText
+    }
+  }
+
+  // Non-OK HTTP or empty stream body — prefer complete, else surface detail.
+  args.setWaiting('processing')
+  try {
+    const text = await _completeFallback(args.prompt, args.history, args.contextAthleteId)
+    args.streamCallback(text)
+    return text
+  } catch {
+    try {
+      const data = (await res.json()) as { text?: string; detail?: unknown }
+      const detail =
+        typeof data.detail === 'string'
+          ? data.detail
+          : data.detail != null
+            ? JSON.stringify(data.detail)
+            : null
+      const fallback = data.text ?? detail ?? `(${res.status} ${res.statusText || 'no response'})`
+      args.streamCallback(fallback)
+      return fallback
+    } catch {
+      const fallback = `(${res.status} ${res.statusText || 'no response'})`
+      args.streamCallback(fallback)
+      return fallback
+    }
+  }
 }
