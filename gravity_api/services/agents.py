@@ -206,7 +206,11 @@ class GravityQueryAgent:
         }
 
         if params.get("position_group") is not None:
-            frag, extra, idx = position_group_sql_predicate(str(params["position_group"]), idx)
+            frag, extra, idx = position_group_sql_predicate(
+                str(params["position_group"]),
+                idx,
+                sport=params.get("sport"),
+            )
             conditions.append(frag)
             values.extend(extra)
 

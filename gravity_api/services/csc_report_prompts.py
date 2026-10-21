@@ -95,6 +95,9 @@ Write 2 to 3 sentences that cover ALL of the following beats:
 Hard constraints — output must satisfy ALL of these:
   - 2 to 4 sentences. No bullets, no headings.
   - Use {athlete_name} at least once.
+  - Match pronouns to the athlete's sport/league identity (she/her for women's
+    sports such as NCAAW/WNBA; he/him for men's sports; they/them if unknown).
+    Never default every athlete to male pronouns.
   - DO NOT cite raw decimal component scores (e.g. 81.2). Prefer whole-number
     follower counts ("750K", "1 million") or qualitative engagement language.
   - DO NOT mention SHAP, BPXVR, exposure formulas, or any system internals.
@@ -120,7 +123,7 @@ Athlete percentile in cohort: {percentile_text}
 Hard constraints:
   - 1 to 2 sentences.
   - Must reference both the cohort and the comparables.
-  - Use {athlete_name} or a pronoun bound to him.
+  - Use {athlete_name} or the object pronoun "{object_pronoun}" (match the athlete's gender; never default to him).
   - DO NOT mention SHAP, BPXVR, raw component scores, or system internals.
 
 Return only the prose."""

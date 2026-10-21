@@ -288,6 +288,7 @@ async def generate_value_interpretation(
     benchmark_text: str,
     percentile_text: str,
     fallback: str,
+    object_pronoun: str = "them",
 ) -> LlmResult:
     return await generate_prose(
         surface="value_interpretation",
@@ -297,6 +298,7 @@ async def generate_value_interpretation(
             "comparables_summary": comparables_summary,
             "benchmark_text": benchmark_text,
             "percentile_text": percentile_text,
+            "object_pronoun": object_pronoun,
         },
         fallback=fallback,
         min_sentences=1,

@@ -623,8 +623,27 @@ export const mockAlerts: AlertRecord[] = [
   },
 ]
 
+function mockPositionGroup(a: AthleteRecord): string {
+  const sport = (a.sport ?? '').toUpperCase()
+  const pos = (a.position ?? '').toUpperCase()
+  const basketball = ['NCAAW', 'NCAAB', 'NBA', 'WNBA'].includes(sport)
+  if (basketball) {
+    if (['PG', 'SG', 'SF', 'PF', 'C'].includes(pos)) return pos
+    if (pos === 'G' || pos === 'GUARD') return 'PG'
+    if (pos === 'F' || pos === 'FORWARD') return 'SF'
+    return pos || 'PG'
+  }
+  if (['OT', 'OG', 'C', 'G', 'OL', 'LT', 'RT', 'LG', 'RG'].includes(pos)) return 'OL'
+  if (['DE', 'DT', 'NT', 'DL'].includes(pos)) return 'DL'
+  if (['CB', 'S', 'FS', 'SS', 'DB'].includes(pos)) return 'DB'
+  if (['ILB', 'OLB', 'MLB', 'LB'].includes(pos)) return 'LB'
+  if (['QB', 'RB', 'WR', 'TE', 'K'].includes(pos)) return pos
+  return pos || 'QB'
+}
+
 export function mockCscReport(athleteId: string): CscReportJson {
   const a = mockAthletesById[athleteId] ?? mockAthletePrimary
+  const positionGroup = mockPositionGroup(a)
   const rows = mockComparablesPrimary.map((c) => ({
     ...c,
     deal_structure: 'Cash + appearances',
@@ -650,7 +669,7 @@ export function mockCscReport(athleteId: string): CscReportJson {
       driver_takeaway: `${a.name}'s valuation is primarily supported by brand positioning with stable exposure and manageable risk.`,
     },
     validation: {
-      market_context: `Market context (${a.conference ?? 'Conference'} ${a.position ?? 'Position'}): range aligns to verified peer set.`,
+      market_context: `Market context (${a.conference ?? 'Conference'} ${positionGroup}s): range aligns to verified peer set.`,
       comparable_tier: 'Comparable athletes with similar brand/exposure mix.',
       example_comparables: rows.slice(0, 5),
       takeaway: `${a.name}'s benchmark aligns with similarly tiered peers in the current market.`,
@@ -682,7 +701,7 @@ export function mockCscReport(athleteId: string): CscReportJson {
         cohort: {
           title: 'Cohort',
           sport: a.sport ?? 'CFB',
-          position_group: 'QB',
+          position_group: positionGroup,
           conference: a.conference ?? 'Big 12',
           conference_tier: 'power_5',
           size: 24,
