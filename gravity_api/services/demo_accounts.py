@@ -63,6 +63,18 @@ DEMO_ACCOUNTS: tuple[DemoAccount, ...] = (
         org_member_sport="CFB",
         team_or_athlete_seed="Ohio State",
     ),
+    # SMU walkthrough login — watchlist seeds from school ILIKE '%SMU%' after roster sync.
+    DemoAccount(
+        id=uuid.UUID("00000000-0000-4000-8000-000000000006"),
+        email="smu@gravity.local",
+        label="SMU school admin",
+        role="school_admin",
+        org_type="school",
+        display_name="SMU Demo Admin",
+        sport_preferences=("CFB", "NCAAB"),
+        org_member_role="school_admin",
+        team_or_athlete_seed="SMU",
+    ),
     DemoAccount(
         id=uuid.UUID("00000000-0000-4000-8000-000000000002"),
         email="agent@gravity.local",

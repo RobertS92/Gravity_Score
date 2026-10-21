@@ -13,6 +13,8 @@ export const MOCK_USER_ID = '00000000-0000-4000-8000-000000000001'
 export const MOCK_ORG_ID = '00000000-0000-4000-8000-0000000000aa'
 
 export const ARCH_MANNING_ID = 'a1111111-1111-4111-8111-111111111111'
+/** SMU demo primary — Kevin Jennings (ESPN 5084084). */
+export const KEVIN_JENNINGS_ID = 'a5084084-5084-4084-8084-508408400001'
 
 // Primary demo athlete — Arch Manning (Texas, QB, JR)
 export const mockAthletePrimary: AthleteRecord = {
@@ -172,6 +174,121 @@ const mockAthleteLow: AthleteRecord = {
   updated_at: new Date().toISOString(),
 }
 
+// SMU CFB primary — Kevin Jennings (QB, SR) — dependable SMU demo cohort
+const mockAthleteSmuQb: AthleteRecord = {
+  athlete_id: KEVIN_JENNINGS_ID,
+  name: 'Kevin Jennings',
+  position: 'QB',
+  school: 'SMU',
+  conference: 'ACC',
+  sport: 'CFB',
+  class_year: 'SR',
+  jersey_number: '7',
+  height: `6'0"`,
+  weight: '195lb',
+  gravity_score: 72.4,
+  gravity_tier: 'BREAKOUT',
+  gravity_percentile: 71,
+  gravity_delta_30d: 2.8,
+  brand_score: 74,
+  proof_score: 78,
+  proximity_score: 76,
+  velocity_score: 70,
+  risk_score: 12,
+  nil_valuation_consensus: 980_000,
+  nil_range_low: 780_000,
+  nil_range_high: 1_250_000,
+  nil_valuation_percentile: 72,
+  nil_valuation_delta_30d: 5.2,
+  social_combined_reach: 410_000,
+  instagram_engagement_rate: 5.4,
+  news_mentions_30d: 86,
+  on3_nil_rank: '#18 CFB QB',
+  verified_deals_count: 3,
+  company_gravity_score: 68.2,
+  brand_gravity_score: 62.5,
+  shap_drivers: {
+    brand: 'Dallas-Fort Worth market · ACC starter narrative',
+    proof: 'ACC passing production · multi-year starter',
+    proximity: 'DFW DMA · Texas brand corridor',
+    velocity: 'Steady deal inquiry · regional apparel',
+    risk: 'No material off-field flags',
+  },
+  updated_at: new Date().toISOString(),
+}
+
+// SMU CFB skill — Yamir Knight (WR, SR)
+const mockAthleteSmuWr: AthleteRecord = {
+  athlete_id: 'a5121750-5121-4121-8121-512175000001',
+  name: 'Yamir Knight',
+  position: 'WR',
+  school: 'SMU',
+  conference: 'ACC',
+  sport: 'CFB',
+  class_year: 'SR',
+  jersey_number: '8',
+  height: `6'0"`,
+  weight: '185lb',
+  gravity_score: 66.8,
+  gravity_tier: 'ESTABLISHING',
+  gravity_percentile: 62,
+  gravity_delta_30d: 1.6,
+  brand_score: 69,
+  proof_score: 64,
+  proximity_score: 71,
+  velocity_score: 63,
+  risk_score: 15,
+  nil_valuation_consensus: 420_000,
+  nil_range_low: 320_000,
+  nil_range_high: 560_000,
+  nil_valuation_percentile: 58,
+  nil_valuation_delta_30d: 2.4,
+  social_combined_reach: 185_000,
+  instagram_engagement_rate: 6.2,
+  news_mentions_30d: 34,
+  on3_nil_rank: '#40 CFB WR',
+  verified_deals_count: 2,
+  company_gravity_score: 68.2,
+  brand_gravity_score: 55.0,
+  updated_at: new Date().toISOString(),
+}
+
+// SMU MBB — Oziyah Sellers (G)
+const mockAthleteSmuMbb: AthleteRecord = {
+  athlete_id: 'a5105642-5105-4105-8105-510564200001',
+  name: 'Oziyah Sellers',
+  position: 'G',
+  school: 'SMU',
+  conference: 'ACC',
+  sport: 'NCAAB',
+  class_year: 'JR',
+  jersey_number: '6',
+  height: `6'4"`,
+  weight: '190lb',
+  gravity_score: 61.2,
+  gravity_tier: 'DEVELOPING',
+  gravity_percentile: 54,
+  gravity_delta_30d: 1.1,
+  brand_score: 58,
+  proof_score: 62,
+  proximity_score: 68,
+  velocity_score: 55,
+  risk_score: 18,
+  nil_valuation_consensus: 180_000,
+  nil_range_low: 120_000,
+  nil_range_high: 260_000,
+  nil_valuation_percentile: 48,
+  nil_valuation_delta_30d: 1.8,
+  social_combined_reach: 95_000,
+  instagram_engagement_rate: 4.8,
+  news_mentions_30d: 22,
+  on3_nil_rank: '#55 NCAAB',
+  verified_deals_count: 1,
+  company_gravity_score: 64.0,
+  brand_gravity_score: 48.5,
+  updated_at: new Date().toISOString(),
+}
+
 // Women's basketball — JuJu Watkins (USC, G, JR)
 const mockAthleteAmber: AthleteRecord = {
   athlete_id: 'e5555555-5555-4555-8555-555555555555',
@@ -214,6 +331,9 @@ export const mockAthletesById: Record<string, AthleteRecord> = {
   [mockAthleteMid.athlete_id]: mockAthleteMid,
   [mockAthleteLow.athlete_id]: mockAthleteLow,
   [mockAthleteAmber.athlete_id]: mockAthleteAmber,
+  [KEVIN_JENNINGS_ID]: mockAthleteSmuQb,
+  [mockAthleteSmuWr.athlete_id]: mockAthleteSmuWr,
+  [mockAthleteSmuMbb.athlete_id]: mockAthleteSmuMbb,
 }
 
 const decisionByAthleteId: Record<
@@ -472,6 +592,9 @@ export const mockWatchlistAthletes: AthleteRecord[] = [
   mockAthleteMid,
   mockAthleteLow,
   mockAthleteAmber,
+  mockAthleteSmuQb,
+  mockAthleteSmuWr,
+  mockAthleteSmuMbb,
 ]
 
 export const mockComparablesPrimary: ComparableRecord[] = [
@@ -791,6 +914,9 @@ const mockBrandMatchPool: BrandMatchPoolRow[] = [
   fromWatchlistAthlete(mockAthleteMid, 'sec', ['apparel', 'gaming']),
   fromWatchlistAthlete(mockAthleteLow, 'sec', ['apparel', 'food/beverage']),
   fromWatchlistAthlete(mockAthleteAmber, 'big ten', ['apparel', 'gaming', 'tech']),
+  fromWatchlistAthlete(mockAthleteSmuQb, 'acc', ['apparel', 'tech', 'auto', 'finance']),
+  fromWatchlistAthlete(mockAthleteSmuWr, 'acc', ['apparel', 'food/beverage', 'gaming']),
+  fromWatchlistAthlete(mockAthleteSmuMbb, 'acc', ['apparel', 'tech']),
   {
     athlete_id: 'f6666666-6666-4666-8666-666666666666',
     name: 'KJ Marshall',
@@ -1207,6 +1333,16 @@ export const mockSchoolIndex: SchoolIndexRow[] = [
     watchlisted_count: 2,
     top_athlete_name: 'Ryan Williams',
     nil_market_size_estimate: 38_000_000,
+  },
+  {
+    team_id: '25670000-2567-4567-8567-256700000001',
+    school: 'SMU',
+    conference: 'ACC',
+    sport: 'cfb',
+    avg_gravity_score: 68.9,
+    watchlisted_count: 2,
+    top_athlete_name: 'Kevin Jennings',
+    nil_market_size_estimate: 22_000_000,
   },
 ]
 

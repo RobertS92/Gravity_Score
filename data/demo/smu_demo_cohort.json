@@ -1,0 +1,306 @@
+{
+  "version": 1,
+  "purpose": "Dependable SMU demonstration cohort for Gravity terminal demos (search, CSC, Brand Match, Gravity AI, CapIQ).",
+  "school": {
+    "display_name": "SMU Mustangs",
+    "short_name": "SMU",
+    "conference": "ACC",
+    "espn_team_id": "2567",
+    "notes": "ESPN uses the same team id 2567 for SMU CFB, MBB, and WBB. School column after roster sync is typically 'SMU Mustangs'."
+  },
+  "sports": {
+    "cfb": {
+      "db_slug": "cfb",
+      "cap_code": "CFB",
+      "espn_team_id": "2567"
+    },
+    "ncaab_mens": {
+      "db_slug": "ncaab_mens",
+      "cap_code": "NCAAB",
+      "espn_team_id": "2567"
+    },
+    "ncaab_womens": {
+      "db_slug": "ncaab_womens",
+      "cap_code": "NCAAW",
+      "espn_team_id": "2567",
+      "coverage": "gap",
+      "notes": "ESPN WBB roster payloads for SMU returned empty as of 2026-10-21; do not rely on WBB for SMU demos until roster sync returns players."
+    }
+  },
+  "primary_demo_athlete": {
+    "name": "Kevin Jennings",
+    "espn_id": "5084084",
+    "sport": "cfb",
+    "position": "QB",
+    "jersey": "7",
+    "class_year": "Senior",
+    "demo_roles": ["search", "csc_report", "gravity_ai", "watchlist_seed"]
+  },
+  "athletes": [
+    {
+      "name": "Kevin Jennings",
+      "espn_id": "5084084",
+      "sport": "cfb",
+      "position": "QB",
+      "jersey": "7",
+      "class_year": "Senior",
+      "tier": "primary",
+      "demo_roles": ["search", "csc_report", "gravity_ai", "watchlist_seed"]
+    },
+    {
+      "name": "Yamir Knight",
+      "espn_id": "5121750",
+      "sport": "cfb",
+      "position": "WR",
+      "jersey": "8",
+      "class_year": "Senior",
+      "tier": "skill",
+      "demo_roles": ["search", "brand_match", "csc_report"]
+    },
+    {
+      "name": "Yannick Smith",
+      "espn_id": "5155519",
+      "sport": "cfb",
+      "position": "WR",
+      "jersey": "3",
+      "class_year": "Junior",
+      "tier": "skill",
+      "demo_roles": ["search", "brand_match"]
+    },
+    {
+      "name": "Derrick McFall",
+      "espn_id": "5079523",
+      "sport": "cfb",
+      "position": "WR",
+      "jersey": "0",
+      "class_year": "Junior",
+      "tier": "skill",
+      "demo_roles": ["search", "brand_match"]
+    },
+    {
+      "name": "Jalen Hale",
+      "espn_id": "4870776",
+      "sport": "cfb",
+      "position": "WR",
+      "jersey": "2",
+      "class_year": "Senior",
+      "tier": "skill",
+      "demo_roles": ["search", "csc_report"]
+    },
+    {
+      "name": "Kendrick Raphael",
+      "espn_id": "4899368",
+      "sport": "cfb",
+      "position": "RB",
+      "jersey": "6",
+      "class_year": "Senior",
+      "tier": "skill",
+      "demo_roles": ["search", "brand_match"]
+    },
+    {
+      "name": "Randy Pittman Jr.",
+      "espn_id": "4870954",
+      "sport": "cfb",
+      "position": "TE",
+      "jersey": "5",
+      "class_year": "Senior",
+      "tier": "skill",
+      "demo_roles": ["search", "csc_report"]
+    },
+    {
+      "name": "Theo Melin Ohrstrom",
+      "espn_id": "4870843",
+      "sport": "cfb",
+      "position": "TE",
+      "jersey": "18",
+      "class_year": "Senior",
+      "tier": "skill",
+      "demo_roles": ["search"]
+    },
+    {
+      "name": "Alexander Kilgore",
+      "espn_id": "5076108",
+      "sport": "cfb",
+      "position": "LB",
+      "jersey": "23",
+      "class_year": "Senior",
+      "tier": "defense",
+      "demo_roles": ["search", "cohort_contrast"]
+    },
+    {
+      "name": "Brandon Miyazono",
+      "espn_id": "4917622",
+      "sport": "cfb",
+      "position": "LB",
+      "jersey": "29",
+      "class_year": "Senior",
+      "tier": "defense",
+      "demo_roles": ["search"]
+    },
+    {
+      "name": "Ahmaad Moses",
+      "espn_id": "4715349",
+      "sport": "cfb",
+      "position": "S",
+      "jersey": "7",
+      "class_year": "Senior",
+      "tier": "defense",
+      "demo_roles": ["search", "cohort_contrast"]
+    },
+    {
+      "name": "Jayvon Thomas",
+      "espn_id": "4871075",
+      "sport": "cfb",
+      "position": "CB",
+      "jersey": "4",
+      "class_year": "Senior",
+      "tier": "defense",
+      "demo_roles": ["search"]
+    },
+    {
+      "name": "Jaelyn Davis-Robinson",
+      "espn_id": "4916238",
+      "sport": "cfb",
+      "position": "CB",
+      "jersey": "13",
+      "class_year": "Senior",
+      "tier": "defense",
+      "demo_roles": ["search"]
+    },
+    {
+      "name": "Trey Wilson",
+      "espn_id": "4871072",
+      "sport": "cfb",
+      "position": "DE",
+      "jersey": "14",
+      "class_year": "Senior",
+      "tier": "defense",
+      "demo_roles": ["search", "cohort_contrast"]
+    },
+    {
+      "name": "Marques White",
+      "espn_id": "4571284",
+      "sport": "cfb",
+      "position": "DE",
+      "jersey": "16",
+      "class_year": "Senior",
+      "tier": "defense",
+      "demo_roles": ["search"]
+    },
+    {
+      "name": "Oziyah Sellers",
+      "espn_id": "5105642",
+      "sport": "ncaab_mens",
+      "position": "G",
+      "jersey": "6",
+      "class_year": null,
+      "tier": "mbb",
+      "demo_roles": ["search", "csc_report", "sport_switch"]
+    },
+    {
+      "name": "Jaden Toombs",
+      "espn_id": "5101840",
+      "sport": "ncaab_mens",
+      "position": "F",
+      "jersey": "1",
+      "class_year": null,
+      "tier": "mbb",
+      "demo_roles": ["search", "brand_match"]
+    },
+    {
+      "name": "Rowan Brumbaugh",
+      "espn_id": "5106280",
+      "sport": "ncaab_mens",
+      "position": "G",
+      "jersey": "0",
+      "class_year": null,
+      "tier": "mbb",
+      "demo_roles": ["search"]
+    },
+    {
+      "name": "Jaylin Stewart",
+      "espn_id": "4685647",
+      "sport": "ncaab_mens",
+      "position": "F",
+      "jersey": "3",
+      "class_year": null,
+      "tier": "mbb",
+      "demo_roles": ["search"]
+    },
+    {
+      "name": "Boopie Miller",
+      "espn_id": null,
+      "sport": "ncaab_mens",
+      "position": "G",
+      "jersey": null,
+      "class_year": null,
+      "tier": "mbb_gap",
+      "coverage": "gap",
+      "demo_roles": [],
+      "notes": "Historically notable SMU MBB name; not on the ESPN roster payload fetched 2026-10-21. Do not use in live demos until confirmed present via roster sync."
+    }
+  ],
+  "coverage_gaps": [
+    {
+      "id": "kevin-jennings-missing-from-seeds",
+      "summary": "Kevin Jennings was absent from repo seeds/fixtures before this cohort; Find Player returned zero results when the live athletes table lacked him or roster_verified_at was stale.",
+      "remediation": [
+        "Run scripts/seed_smu_demo_cohort.py (roster sync team 2567 for cfb + ncaab_mens).",
+        "Or POST /v1/scraper/jobs/roster-sync with {\"sport\":\"cfb\",\"team_ids\":[\"2567\"]} then ncaab_mens.",
+        "Confirm: SELECT name, sport, espn_id, roster_verified_at, roster_status FROM athletes WHERE espn_id = '5084084';",
+        "Rescore / gap-fill before Brand Match or CSC if gravity_scores are missing."
+      ]
+    },
+    {
+      "id": "smu-wbb-empty-espn-roster",
+      "summary": "SMU women's basketball ESPN roster endpoints returned zero athletes.",
+      "remediation": [
+        "Skip NCAAW for SMU demos.",
+        "Re-check ESPN roster after season publication; then re-run seed script with --include-wbb when payloads are non-empty."
+      ]
+    },
+    {
+      "id": "brand-match-needs-scores-and-social",
+      "summary": "Roster sync alone does not guarantee Brand Match hits; engine needs gravity scores, risk, and social/DQS signals.",
+      "remediation": [
+        "After roster sync, run gap-fill + score for curated espn_ids (or full SMU team).",
+        "For apparel demos prefer skill players (WR/RB/QB) with social reach; use National geography if ACC/Texas geo filters zero out."
+      ]
+    },
+    {
+      "id": "capiq-org-vs-profile-label",
+      "summary": "Settings org_name 'SMU' is not CapIQ membership; CapIQ needs organization_id linked.",
+      "remediation": [
+        "Use smu@gravity.local (demo school admin) after seed_demo_accounts + SMU org membership, or link an SMU organization explicitly.",
+        "Do not present illustrative cap dollars as SMU budget when unlinked."
+      ]
+    }
+  ],
+  "ops": {
+    "roster_sync_cfb": {
+      "method": "POST",
+      "path": "/v1/scraper/jobs/roster-sync",
+      "body": { "sport": "cfb", "team_ids": ["2567"], "rescrape_transfers": true }
+    },
+    "roster_sync_mbb": {
+      "method": "POST",
+      "path": "/v1/scraper/jobs/roster-sync",
+      "body": { "sport": "ncaab_mens", "team_ids": ["2567"], "rescrape_transfers": true }
+    },
+    "seed_script": "scripts/seed_smu_demo_cohort.py",
+    "demo_login": "smu@gravity.local / demo1234 (non-production; team_or_athlete_seed=SMU)"
+  },
+  "smoke_queries": [
+    { "q": "Jennings", "sports": "CFB", "expect_name": "Kevin Jennings" },
+    { "q": "Kevin Jennings", "sports": "CFB", "expect_name": "Kevin Jennings" },
+    { "q": "Yamir", "sports": "CFB", "expect_name": "Yamir Knight" },
+    { "q": "Sellers", "sports": "NCAAB", "expect_name": "Oziyah Sellers" },
+    { "school": "SMU", "sports": "CFB", "min_results": 10 }
+  ],
+  "source": {
+    "espn_roster_fetched_at": "2026-10-21",
+    "cfb_roster_count": 100,
+    "mbb_roster_count": 14,
+    "wbb_roster_count": 0
+  }
+}
