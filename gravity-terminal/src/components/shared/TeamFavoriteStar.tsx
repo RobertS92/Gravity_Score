@@ -18,12 +18,15 @@ export function TeamFavoriteStar({ teamId, teamName, size = 'sm' }: Props) {
   const [busy, setBusy] = useState(false)
 
   if (!teamId) {
+    const unavailableLabel = teamName
+      ? `Favorite unavailable for ${teamName}: no synced team in the catalog for this school/sport`
+      : 'Favorite unavailable: no synced team in the catalog for this school/sport'
     return (
       <button
         type="button"
         className={[styles.btn, size === 'md' ? styles.md : styles.sm, styles.disabled].join(' ')}
-        aria-label={`Team favorite unavailable for ${teamName ?? 'this team'}`}
-        title="Favorite unavailable: team_id missing"
+        aria-label={unavailableLabel}
+        title={unavailableLabel}
         disabled
       >
         ☆
