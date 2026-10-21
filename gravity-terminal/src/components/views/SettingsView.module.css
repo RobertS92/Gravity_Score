@@ -23,6 +23,58 @@
   font-size: 13px;
 }
 
+.hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0 0 12px;
+}
+
+.hint code {
+  font-family: var(--font-data);
+  font-size: 11px;
+}
+
+.list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.list li {
+  margin-bottom: 6px;
+}
+
+.statusOk,
+.statusWarn {
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  font-size: 13px;
+  font-family: var(--font-data);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.statusOk {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  background: var(--bg-secondary);
+}
+
+.statusWarn {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+  background: var(--bg-secondary);
+}
+
+.inlineLink {
+  color: var(--accent-cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .error {
   color: #e08090;
   font-size: 13px;

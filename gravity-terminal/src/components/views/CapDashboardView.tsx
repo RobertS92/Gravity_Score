@@ -40,7 +40,9 @@ export function CapDashboardView() {
 
   const load = useCallback(async () => {
     if (!organizationId) {
-      setErr('No organization is linked to this account yet. Complete onboarding with a school/collective or ask an admin to connect your profile.')
+      setErr(
+        'No CapIQ organization is linked to this account. A Settings profile label (e.g. SMU) is not membership — complete school/collective onboarding with your org name, or ask a school admin to add you. See Settings → CapIQ organization access.',
+      )
       return
     }
     setErr(null)

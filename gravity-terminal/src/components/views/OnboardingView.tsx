@@ -114,6 +114,8 @@ export function OnboardingView() {
         display_name: (res.display_name as string) ?? null,
         onboarding_goal: (res.onboarding_goal as string | null) ?? null,
       })
+      // Refresh CapIQ membership (organization_id) — applySessionFromAuth leaves it null.
+      await useAuthStore.getState().hydrate()
       const path = mapDashboardTabToPath((res.default_dashboard_tab as string) ?? null)
       navigate(path, { replace: true })
     } catch (e) {

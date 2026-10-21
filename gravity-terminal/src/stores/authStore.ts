@@ -17,6 +17,8 @@ export type AuthStore = {
   userId: string | null
   email: string | null
   role: string | null
+  /** Linked CapIQ org display name from /auth/me (not the Settings profile label). */
+  organizationName: string | null
   organizationId: string | null
   organizationSlug: string | null
   coachSports: string[]
@@ -37,6 +39,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   userId: null,
   email: null,
   role: null,
+  organizationName: null,
   organizationId: null,
   organizationSlug: null,
   coachSports: [],
@@ -49,6 +52,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         userId: devFallbackUserId(),
         email: null,
         role: null,
+        organizationName: null,
         organizationId: null,
         organizationSlug: null,
         coachSports: [],
@@ -62,6 +66,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         userId: me.user_id,
         email: me.email ?? null,
         role: me.role ?? null,
+        organizationName: me.organization ?? null,
         organizationId: me.organization_id ?? null,
         organizationSlug: me.organization_slug ?? null,
         coachSports: me.coach_sports ?? [],
@@ -75,6 +80,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
         userId: devFallbackUserId(),
         email: null,
         role: null,
+        organizationName: null,
         organizationId: null,
         organizationSlug: null,
         coachSports: [],
@@ -89,6 +95,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
       userId: user_id,
       email: email ?? null,
       role: role ?? null,
+      // Membership fields come from /auth/me — callers should hydrate() after seed.
+      organizationName: null,
       organizationId: null,
       organizationSlug: null,
       coachSports: [],
@@ -102,6 +110,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       userId: null,
       email: null,
       role: null,
+      organizationName: null,
       organizationId: null,
       organizationSlug: null,
       coachSports: [],
