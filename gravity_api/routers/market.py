@@ -1,6 +1,5 @@
 """Market scan + school index for the terminal."""
 
-import re
 from typing import Any, List, Optional
 
 import asyncpg
@@ -10,6 +9,12 @@ from gravity_api.database import get_db
 from gravity_api.services.athlete_eligibility import DEFAULT_FRESHNESS_DAYS
 from gravity_api.services.athlete_search import search_athletes as run_athlete_search
 from gravity_api.services.sport_query import cap_prefs_to_db_slugs
+from gravity_api.services.team_identity import (
+    canonical_team_sport as _canonical_team_sport,
+    fetch_teams_index,
+    lookup_team_id,
+    school_key as _school_key,
+)
 
 router = APIRouter()
 _OPTIONAL_NIL_VALUATION_SQL = """
@@ -20,37 +25,22 @@ CASE
 END
 """.strip()
 
-_TEAM_SPORT_ALIASES = {
-    "cfb": "cfb",
-    "football": "cfb",
-    "fbs": "cfb",
-    "mcbb": "ncaab_mens",
-    "ncaab": "ncaab_mens",
-    "ncaab_mens": "ncaab_mens",
-    "mens": "ncaab_mens",
-    "mens_basketball": "ncaab_mens",
-    "mbb": "ncaab_mens",
-    "wcbb": "ncaab_womens",
-    "ncaaw": "ncaab_womens",
-    "ncaab_womens": "ncaab_womens",
-    "womens": "ncaab_womens",
-    "womens_basketball": "ncaab_womens",
-    "wbb": "ncaab_womens",
-}
-
-
-def _canonical_team_sport(sport: object) -> str:
-    s = str(sport or "").strip().lower()
-    return _TEAM_SPORT_ALIASES.get(s, s)
-
-
-def _school_key(name: object) -> str:
-    # Normalize punctuation/spacing drift between programs.school and teams.school_name.
-    return re.sub(r"[^a-z0-9]", "", str(name or "").strip().lower())
-
 
 def _to_float(v: Any) -> float | None:
     return float(v) if v is not None else None
+
+
+def _resolve_favorite_team_id(
+    *,
+    team_score: dict[str, Any] | None,
+    program_school: object,
+    program_sport: object,
+    teams_by_key: dict[tuple[str, str], str],
+) -> str | None:
+    """Prefer the teams join from gravity scores; else catalog school+sport."""
+    if team_score and team_score.get("matched_team_id") is not None:
+        return str(team_score["matched_team_id"])
+    return lookup_team_id(teams_by_key, program_school, program_sport)
 
 
 @router.get("/scan")
@@ -218,6 +208,10 @@ async def market_schools(
         if prev is None or (row["scored_at"] is not None and (prev["scored_at"] is None or row["scored_at"] > prev["scored_at"])):
             latest_team_by_program_key[key] = row
 
+    # Favorites require teams.id. Recover it from the catalog when gravity
+    # scores are keyed by programs.id (JOIN miss) or scores are absent.
+    teams_by_key = await fetch_teams_index(db)
+
     schools = []
     for r in program_rows:
         program = dict(r)
@@ -243,10 +237,11 @@ async def market_schools(
         resolved_avg_g = _to_float(avg_g) if avg_g is not None else _to_float(avg_program_g)
         schools.append(
             {
-                "team_id": (
-                    str(team_score["matched_team_id"])
-                    if team_score and team_score.get("matched_team_id") is not None
-                    else None
+                "team_id": _resolve_favorite_team_id(
+                    team_score=team_score,
+                    program_school=program["school"],
+                    program_sport=program["sport"],
+                    teams_by_key=teams_by_key,
                 ),
                 "school": program["school"],
                 "conference": program["conference"],

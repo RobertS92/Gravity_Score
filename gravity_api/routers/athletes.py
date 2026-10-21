@@ -9,6 +9,7 @@ from gravity_api.services.athlete_feed import build_athlete_feed_events
 from gravity_api.services.athlete_search import search_athletes as run_athlete_search
 from gravity_api.services.nil_valuation import nil_from_row, sanitize_nil_valuation_usd
 from gravity_api.services.sport_query import cap_prefs_to_db_slugs
+from gravity_api.services.team_identity import resolve_team_id_for_school_sport
 
 router = APIRouter()
 ROSTER_FRESHNESS_DAYS = 21
@@ -348,18 +349,13 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     athlete_dict = dict(athlete)
 
     # Resolve the team_id for the athlete's school+sport so the FE can
-    # offer a "favorite this program" toggle on the profile.
-    school_name = athlete_dict.get("school")
-    sport_slug = athlete_dict.get("sport")
-    if school_name and sport_slug:
-        team_row = await db.fetchrow(
-            "SELECT id FROM teams WHERE school_name = $1 AND sport = $2 LIMIT 1",
-            school_name,
-            sport_slug,
-        )
-        athlete_dict["team_id"] = str(team_row["id"]) if team_row else None
-    else:
-        athlete_dict["team_id"] = None
+    # offer a "favorite this program" toggle on the profile. Uses sport
+    # aliases (mcbb→ncaab_mens) and punctuation-normalized school names.
+    athlete_dict["team_id"] = await resolve_team_id_for_school_sport(
+        db,
+        athlete_dict.get("school"),
+        athlete_dict.get("sport"),
+    )
 
     # Merge latest gravity_scores fields
     latest_score = dict(scores[0]) if scores else {}

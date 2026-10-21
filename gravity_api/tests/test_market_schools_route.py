@@ -42,6 +42,7 @@ def test_market_schools_returns_program_gravity_scores():
                     "scored_at": "2026-05-10T00:00:00Z",
                 }
             ],
+            [],  # teams catalog (matched_team_id already set)
         ]
     )
 
@@ -98,6 +99,7 @@ def test_market_schools_maps_mcbb_programs_to_team_scores():
                     "scored_at": "2026-05-11T00:00:00Z",
                 }
             ],
+            [],
         ]
     )
 
@@ -135,6 +137,7 @@ def test_market_schools_uses_athlete_nil_estimate_when_budget_missing():
                 }
             ],
             [],
+            [],
         ]
     )
 
@@ -170,6 +173,7 @@ def test_market_schools_falls_back_to_avg_gravity_when_team_score_missing():
                 }
             ],
             [],
+            [],
         ]
     )
 
@@ -180,7 +184,8 @@ def test_market_schools_falls_back_to_avg_gravity_when_team_score_missing():
     assert schools[0]["program_gravity_score"] == 69.1
 
 
-def test_market_schools_uses_program_id_when_team_join_is_missing():
+def test_market_schools_resolves_team_id_from_catalog_when_score_join_misses():
+    """Scores keyed by programs.id still enable favorites when teams row exists."""
     conn = AsyncMock()
     conn.fetch = AsyncMock(
         side_effect=[
@@ -219,6 +224,50 @@ def test_market_schools_uses_program_id_when_team_join_is_missing():
                     "scored_at": "2026-05-12T00:00:00Z",
                 }
             ],
+            [
+                {
+                    "id": "team-catalog-1",
+                    "school_name": "Program Id U",
+                    "sport": "cfb",
+                }
+            ],
+        ]
+    )
+
+    out = asyncio.run(market_schools(limit=1, db=conn))
+    schools = out["schools"]
+
+    assert len(schools) == 1
+    assert schools[0]["team_id"] == "team-catalog-1"
+    assert schools[0]["program_gravity_score"] == 82.5
+
+
+def test_market_schools_leaves_team_id_null_when_no_catalog_team():
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(
+        side_effect=[
+            [
+                {
+                    "program_id": "program-orphan",
+                    "school": "Orphan U",
+                    "conference": "ACC",
+                    "sport": "cfb",
+                    "nil_environment_score": 50.0,
+                    "collective_budget_usd": None,
+                }
+            ],
+            [
+                {
+                    "school": "Orphan U",
+                    "sport": "cfb",
+                    "avg_gravity_score": 60.0,
+                    "athlete_count": 4,
+                    "top_athlete_name": "G. Ghost",
+                    "athlete_nil_market_estimate": 100000.0,
+                }
+            ],
+            [],
+            [],  # no teams catalog row
         ]
     )
 
@@ -227,7 +276,49 @@ def test_market_schools_uses_program_id_when_team_join_is_missing():
 
     assert len(schools) == 1
     assert schools[0]["team_id"] is None
-    assert schools[0]["program_gravity_score"] == 82.5
+
+
+def test_market_schools_resolves_team_id_via_sport_alias_without_scores():
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(
+        side_effect=[
+            [
+                {
+                    "program_id": "program-mcbb",
+                    "school": "Alias U",
+                    "conference": "Big 12",
+                    "sport": "mcbb",
+                    "nil_environment_score": 55.0,
+                    "collective_budget_usd": None,
+                }
+            ],
+            [
+                {
+                    "school": "Alias U",
+                    "sport": "mcbb",
+                    "avg_gravity_score": 70.0,
+                    "athlete_count": 14,
+                    "top_athlete_name": "H. Hoops",
+                    "athlete_nil_market_estimate": 400000.0,
+                }
+            ],
+            [],
+            [
+                {
+                    "id": "team-ncaab-1",
+                    "school_name": "Alias U",
+                    "sport": "ncaab_mens",
+                }
+            ],
+        ]
+    )
+
+    out = asyncio.run(market_schools(limit=1, db=conn))
+    schools = out["schools"]
+
+    assert len(schools) == 1
+    assert schools[0]["team_id"] == "team-ncaab-1"
+    assert schools[0]["program_gravity_score"] == 70.0
 
 
 def test_market_schools_falls_back_to_athlete_program_gravity_average():
@@ -255,6 +346,7 @@ def test_market_schools_falls_back_to_athlete_program_gravity_average():
                     "athlete_nil_market_estimate": 500000.0,
                 }
             ],
+            [],
             [],
         ]
     )
