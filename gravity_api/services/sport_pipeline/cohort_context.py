@@ -150,7 +150,7 @@ async def build_cohort_context(
     position: str | None,
     season_year: int | None = None,
 ) -> dict[str, Any]:
-    season_year = season_year or _current_season_year()
+    season_year = season_year or _current_season_year(sport)
     position_group = derive_position_group(position, sport) or "UNKNOWN"
     league = SPORT_LEAGUE.get(sport, "ncaa")
 

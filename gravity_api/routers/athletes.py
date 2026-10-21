@@ -472,6 +472,11 @@ async def get_athlete(athlete_id: str, db: asyncpg.Connection = Depends(get_db))
     athlete_dict["nil_dollar_p10_usd"] = raw_signals.get("nil_dollar_p10_usd")
     athlete_dict["nil_dollar_p50_usd"] = raw_signals.get("nil_dollar_p50_usd")
     athlete_dict["nil_dollar_p90_usd"] = raw_signals.get("nil_dollar_p90_usd")
+    # Season provenance — surfaces when scores are driven by a prior completed
+    # season (offseason / early season) vs in-progress current year.
+    athlete_dict["stats_season_year"] = raw_signals.get("stats_season_year")
+    athlete_dict["stats_is_partial"] = raw_signals.get("stats_is_partial")
+    athlete_dict["stats_season_policy"] = raw_signals.get("stats_season_policy")
     athlete_dict["gravity_delta_30d"] = score_delta_30d(scores)
 
     score_history = [_with_impact_aliases(dict(s)) for s in scores]

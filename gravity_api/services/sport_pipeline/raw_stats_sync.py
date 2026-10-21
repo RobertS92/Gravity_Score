@@ -7,7 +7,10 @@ from typing import Any
 import asyncpg
 
 from gravity_api.scrapers.parsers.stat_normalizer import finalize_stat_fields
-from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+from gravity_api.services.sport_pipeline.season_stats import (
+    _current_season_year,
+    resolve_scoring_season_year,
+)
 
 MIN_SEASON_STATS = 3
 
@@ -79,15 +82,44 @@ async def enrich_raw_from_athlete_season_stats(
     athlete_id: str,
     sport: str,
 ) -> dict[str, Any]:
-    """Load current-season athlete_season_stats rows into a raw enrichment blob."""
-    current_year = _current_season_year()
+    """Load scoring-season athlete_season_stats rows into a raw enrichment blob.
+
+    Resolves the true source season (current in-progress if it has games, else
+    latest completed) instead of blindly reading ``_current_season_year()`` rows
+    that may have been polluted by the old prior-under-current write path.
+    """
+    current_year = _current_season_year(sport)
+    year_rows = await conn.fetch(
+        """SELECT season_year,
+                  MAX(games_played) AS games_played
+           FROM athlete_season_stats
+           WHERE athlete_id = $1::uuid AND sport = $2
+           GROUP BY season_year
+           ORDER BY season_year DESC""",
+        athlete_id,
+        sport,
+    )
+    if not year_rows:
+        return {}
+
+    games_by_year = {
+        int(r["season_year"]): int(r["games_played"] or 0) for r in year_rows
+    }
+    resolved = resolve_scoring_season_year(
+        list(games_by_year.keys()),
+        current_year=current_year,
+        sport=sport,
+        games_by_year=games_by_year,
+    )
+    source_year = int(resolved["source_season_year"])
+
     rows = await conn.fetch(
         """SELECT stat_key, stat_value, games_played
            FROM athlete_season_stats
            WHERE athlete_id = $1::uuid AND sport = $2 AND season_year = $3""",
         athlete_id,
         sport,
-        current_year,
+        source_year,
     )
     if not rows:
         return {}
@@ -99,7 +131,12 @@ async def enrich_raw_from_athlete_season_stats(
         if row["games_played"]:
             games_played = int(row["games_played"])
 
-    enrichment: dict[str, Any] = {"season_stats": season_stats}
+    enrichment: dict[str, Any] = {
+        "season_stats": season_stats,
+        "stats_season_year": source_year,
+        "stats_is_partial": bool(resolved.get("is_partial")),
+        "stats_season_policy": resolved.get("policy"),
+    }
     gp = games_played or season_stats.get("games_played_season") or season_stats.get("gp")
     if gp is not None:
         enrichment["games_played_season"] = int(gp)

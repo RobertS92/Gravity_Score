@@ -12,21 +12,38 @@ from gravity_api.scrapers.types import ScraperResult
 
 
 def merge_scraper_fields(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
-    """Merge scraper output without wiping non-empty stats with empty payloads."""
+    """Merge scraper output without wiping non-empty stats with empty payloads.
+
+    ``season_stats`` / ``career_stats`` are replaced wholesale when the incoming
+    blob is non-empty so prior-season keys cannot stick after a successful
+    refresh. ``season_stats_history`` still merges by year, but each year's
+    dict is replaced when the incoming year payload is non-empty.
+    """
     out = dict(base)
     for key, val in incoming.items():
         if val is None or val == "":
             continue
-        if key in ("season_stats", "season_stats_history", "career_stats") and isinstance(val, dict):
+        if key in ("season_stats", "career_stats") and isinstance(val, dict):
+            if not val:
+                continue
+            # Replace wholesale — deep-merge previously froze 2023/2024 keys.
+            out[key] = {k: v for k, v in val.items() if v is not None and v != ""}
+            continue
+        if key == "season_stats_history" and isinstance(val, dict):
             if not val:
                 continue
             existing = out.get(key)
-            if isinstance(existing, dict):
-                merged = dict(existing)
-                merged.update({k: v for k, v in val.items() if v is not None and v != ""})
-                out[key] = merged
-            else:
-                out[key] = val
+            merged: dict[str, Any] = dict(existing) if isinstance(existing, dict) else {}
+            for year_key, year_blob in val.items():
+                if year_blob is None or year_blob == "":
+                    continue
+                if isinstance(year_blob, dict) and year_blob:
+                    merged[year_key] = {
+                        k: v for k, v in year_blob.items() if v is not None and v != ""
+                    }
+                else:
+                    merged[year_key] = year_blob
+            out[key] = merged
             continue
         out[key] = val
     return out

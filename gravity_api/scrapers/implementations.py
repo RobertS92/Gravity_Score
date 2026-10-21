@@ -1095,7 +1095,7 @@ class CfbdStatsScraper(BaseMicroScraper):
         if not client.enabled:
             return self._result(scraper_key, fields={}, error="CFBD_API_KEY not configured")
         team = ctx.team or ctx.school
-        year = _current_season_year()
+        year = _current_season_year(ctx.sport)
 
         if cfbd_is_rate_limited():
             return self._cfbd_fallback_result(ctx, scraper_key, note="cfbd rate limited")
@@ -1166,7 +1166,7 @@ class CfbdTeamRecordScraper(BaseMicroScraper):
         if cfbd_is_rate_limited():
             return self._result(scraper_key, fields={}, error="cfbd rate limited")
 
-        year = _current_season_year()
+        year = _current_season_year(ctx.sport)
         record = await client.team_record(year=year, team=team)
         if not record:
             existing = ctx.existing_raw
@@ -1393,7 +1393,7 @@ class KenPomStatsScraper(BaseMicroScraper):
             return self._result(scraper_key, fields={}, error="kenpom is ncaab_mens-only")
         from gravity_api.services.sport_pipeline.season_stats import _current_season_year
 
-        year = _current_season_year()
+        year = _current_season_year(ctx.sport)
         client = KenPomClient()
         fields: dict[str, Any] = {}
         if client.enabled:

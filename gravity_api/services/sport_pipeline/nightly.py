@@ -218,7 +218,7 @@ async def fetch_stale_athlete_ids(
 
 
 async def rebuild_cohorts_for_sport(conn: asyncpg.Connection, sport: str) -> int:
-    season_year = _current_season_year()
+    season_year = _current_season_year(sport)
     league = SPORT_LEAGUE.get(sport, "ncaa")
     spec = get_sport_spec(sport)
     total = 0

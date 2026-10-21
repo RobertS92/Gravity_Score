@@ -13,7 +13,10 @@ from typing import Any, Awaitable, Callable
 import asyncpg
 
 from gravity_api.scrapers.clients.espn import EspnClient, normalize_sport
-from gravity_api.scrapers.observations import seed_raw_from_roster_if_missing
+from gravity_api.scrapers.observations import (
+    merge_raw_athlete_data,
+    seed_raw_from_roster_if_missing,
+)
 from gravity_api.scrapers.roster.roster_diff import SnapshotRow, compute_roster_changes
 from gravity_api.scrapers.roster.school_index import (
     all_sports_in_index,
@@ -34,10 +37,17 @@ DEFAULT_ROSTER_FETCH_CONCURRENCY = int(os.environ.get("ROSTER_FETCH_CONCURRENCY"
 
 
 def _default_season_year() -> str:
+    calendar_year = datetime.now(timezone.utc).year
     v = (os.getenv("CURRENT_STATS_SEASON") or os.getenv("SCRAPE_SEASON") or "").strip()
     if v:
-        return v.split("-")[0] if "-" in v else v
-    return str(datetime.now(timezone.utc).year)
+        env_year = v.split("-")[0] if "-" in v else v
+        try:
+            if int(env_year) < calendar_year - 1:
+                return str(calendar_year)
+        except ValueError:
+            return str(calendar_year)
+        return env_year
+    return str(calendar_year)
 
 
 def _canonical_sport(sport: str) -> str:
@@ -149,6 +159,7 @@ async def sync_team_roster(
                 if jm:
                     jersey_int = int(jm.group(1))
 
+            transfer_detected = False
             if existing:
                 aid = str(existing["id"])
                 old_school = existing.get("school")
@@ -245,6 +256,29 @@ async def sync_team_roster(
                 conn, athlete_id=aid, fields=seed_fields
             ):
                 seeded += 1
+            elif transfer_detected and seed_fields:
+                # Transfers must refresh identity fields in raw — seed-once left
+                # old school/team/position stuck for scoring consumers.
+                await merge_raw_athlete_data(
+                    conn,
+                    athlete_id=aid,
+                    fields={
+                        k: v
+                        for k, v in seed_fields.items()
+                        if k
+                        in (
+                            "team",
+                            "school",
+                            "college",
+                            "conference",
+                            "position",
+                            "jersey_number",
+                            "class_year",
+                        )
+                        and v is not None
+                        and v != ""
+                    },
+                )
 
             snap_row = SnapshotRow(
                 athlete_id=aid,

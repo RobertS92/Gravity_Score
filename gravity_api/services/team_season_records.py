@@ -189,6 +189,34 @@ async def ensure_team_season_from_cfbd(
     return await fetch_team_season_stats(conn, sport=sport, team_id=team_id, season_year=season_year)
 
 
+def _team_record_needs_refresh(row: asyncpg.Record | None, *, season_year: int) -> bool:
+    """True when a cached row is missing, empty, or secretly prior-season data."""
+    if row is None:
+        return True
+    wins = int(row["wins"] or 0)
+    losses = int(row["losses"] or 0)
+    if wins + losses <= 0:
+        return True
+    meta = row.get("metadata") or {}
+    if isinstance(meta, str):
+        try:
+            meta = json.loads(meta)
+        except Exception:
+            meta = {}
+    if not isinstance(meta, dict):
+        meta = {}
+    espn_year = meta.get("espn_season_year")
+    try:
+        if espn_year is not None and int(espn_year) < int(season_year):
+            return True
+    except (TypeError, ValueError):
+        pass
+    # Legacy pollution: prior W-L was cached under the requested year with no marker.
+    if meta.get("relabeled_prior_season"):
+        return True
+    return False
+
+
 async def ensure_team_season_from_espn(
     conn: asyncpg.Connection,
     *,
@@ -197,19 +225,28 @@ async def ensure_team_season_from_espn(
     season_year: int,
     espn_team_id: str | None = None,
 ) -> asyncpg.Record | None:
-    """Load team record from DB or fetch once from ESPN core API and cache."""
+    """Load team record from DB or fetch from ESPN core API and cache under true year.
+
+    Never writes a prior season's W-L under the requested ``season_year``. When the
+    current year has no games yet, returns the prior-year row (with provenance) so
+    scoring can proceed without poisoning the current-year cache.
+    """
     team_id = normalize_team_id(team_name)
     row = await fetch_team_season_stats(conn, sport=sport, team_id=team_id, season_year=season_year)
-    if row:
+    if row and not _team_record_needs_refresh(row, season_year=season_year):
         return row
     if os.environ.get("TEAM_RECORD_REMOTE_FETCH_DISABLED", "").lower() in ("1", "true", "yes"):
-        return None
+        if row:
+            return row
+        prior = await fetch_team_season_stats(
+            conn, sport=sport, team_id=team_id, season_year=season_year - 1
+        )
+        return prior
     if sport not in ESPN_TEAM_RECORD_SPORTS:
-        return None
+        return row
     from gravity_api.scrapers.clients.espn import EspnClient
 
     client = EspnClient()
-    # Prefer completed prior season when current year has no/partial record.
     years_to_try = [season_year]
     if season_year - 1 not in years_to_try:
         years_to_try.append(season_year - 1)
@@ -229,21 +266,20 @@ async def ensure_team_season_from_espn(
         record = None
 
     if not record:
-        return None
+        return row
 
-    # Always cache under the requested season_year for scoring-anchor lookups,
-    # and also under the ESPN season year when they differ.
     meta = {
         "espn_team_id": record.get("espn_team_id"),
         "summary": record.get("summary"),
         "espn_season_year": used_year,
         "season_type": record.get("season_type"),
     }
+    # Cache under the TRUE ESPN year only — never relabel prior as current.
     await upsert_team_season_stats(
         conn,
         sport=sport,
         team_id=team_id,
-        season_year=season_year,
+        season_year=used_year,
         wins=int(record["wins"]),
         losses=int(record["losses"]),
         ties=int(record.get("ties") or 0),
@@ -251,20 +287,9 @@ async def ensure_team_season_from_espn(
         source_key="espn",
         metadata=meta,
     )
-    if used_year != season_year:
-        await upsert_team_season_stats(
-            conn,
-            sport=sport,
-            team_id=team_id,
-            season_year=used_year,
-            wins=int(record["wins"]),
-            losses=int(record["losses"]),
-            ties=int(record.get("ties") or 0),
-            team_name=team_name,
-            source_key="espn",
-            metadata=meta,
-        )
-    return await fetch_team_season_stats(conn, sport=sport, team_id=team_id, season_year=season_year)
+    return await fetch_team_season_stats(
+        conn, sport=sport, team_id=team_id, season_year=used_year
+    )
 
 
 async def ensure_team_season(
@@ -339,12 +364,16 @@ async def enrich_raw_with_team_season(
         out["team_wins"] = int(row["wins"] or 0)
         out["team_losses"] = int(row["losses"] or 0)
         out["team_ties"] = int(row["ties"] or 0)
+        record_year = int(row.get("season_year") or season_year)
+        out["team_record_season_year"] = record_year
+        if record_year != season_year:
+            out["team_record_is_prior_season"] = 1
         if row["win_pct"] is not None:
             out["team_win_pct"] = float(row["win_pct"])
             out["team_win_pct_percentile"] = await team_win_pct_percentile(
                 conn,
                 sport=sport,
-                season_year=season_year,
+                season_year=record_year,
                 win_pct=float(row["win_pct"]),
             )
         out["team_record_observed"] = 1

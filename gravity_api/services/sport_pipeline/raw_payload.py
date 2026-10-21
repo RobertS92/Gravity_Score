@@ -87,10 +87,17 @@ async def build_enriched_raw_payload(
         safe = metric_key.split(".")[-1]
         raw[f"{safe}_history"] = values
 
-    # Flatten current + prior season stats into raw so proof/win-impact see
+    # Flatten true-year season stats into raw so proof/win-impact see
     # games_played, counting stats, etc. (not only nested season_stats blobs).
+    # Prefer in-progress current year when it has games; else latest completed —
+    # never treat max(year) alone as "current" after prior-under-current pollution.
+    from gravity_api.services.sport_pipeline.season_stats import (
+        _current_season_year,
+        resolve_scoring_season_year,
+    )
+
     season_rows = await conn.fetch(
-        """SELECT season_year, stat_key, stat_value
+        """SELECT season_year, stat_key, stat_value, games_played
            FROM athlete_season_stats
            WHERE athlete_id = $1 AND sport = $2
            ORDER BY season_year DESC""",
@@ -99,14 +106,34 @@ async def build_enriched_raw_payload(
     )
     if season_rows:
         by_season: dict[int, dict[str, float]] = {}
+        games_by_year: dict[int, int] = {}
         for r in season_rows:
-            by_season.setdefault(int(r["season_year"]), {})[str(r["stat_key"])] = float(r["stat_value"])
+            y = int(r["season_year"])
+            by_season.setdefault(y, {})[str(r["stat_key"])] = float(r["stat_value"])
+            if r["games_played"]:
+                games_by_year[y] = max(games_by_year.get(y, 0), int(r["games_played"]))
+            else:
+                gp_key = by_season[y].get("games_played_season") or by_season[y].get("gp")
+                if gp_key is not None:
+                    try:
+                        games_by_year[y] = max(games_by_year.get(y, 0), int(float(gp_key)))
+                    except (TypeError, ValueError):
+                        pass
         seasons = sorted(by_season.keys())
-        # Prefer the scoring-anchor year (max), then latest completed.
-        anchor_year = max(seasons)
+        sport = str(athlete["sport"] or "")
+        resolved = resolve_scoring_season_year(
+            seasons,
+            current_year=_current_season_year(sport),
+            sport=sport,
+            games_by_year=games_by_year,
+        )
+        anchor_year = int(resolved["source_season_year"])
         for key, val in by_season[anchor_year].items():
             raw.setdefault(key, val)
         raw.setdefault("season_stats", by_season[anchor_year])
+        raw["stats_season_year"] = anchor_year
+        raw["stats_is_partial"] = bool(resolved.get("is_partial"))
+        raw["stats_season_policy"] = resolved.get("policy")
         # Alias sync so win_impact / participation always see both key forms.
         gp = raw.get("games_played_season") or raw.get("gp")
         if gp is not None:
@@ -116,9 +143,9 @@ async def build_enriched_raw_payload(
         if gs is not None:
             raw.setdefault("games_started", gs)
             raw.setdefault("gs", float(gs))
-        if len(seasons) >= 2:
-            raw["proof.performance_index_history"] = [
-                by_season[y] for y in seasons[-4:]
-            ]
+        # History for YoY: distinct true years only (no duplicate prior-as-current).
+        hist_years = [y for y in seasons if y <= anchor_year][-4:]
+        if len(hist_years) >= 2:
+            raw["proof.performance_index_history"] = [by_season[y] for y in hist_years]
 
     return raw
