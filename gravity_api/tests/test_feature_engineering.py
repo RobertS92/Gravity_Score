@@ -129,6 +129,15 @@ def test_derive_position_group_baseball_volleyball():
     assert derive_position_group("OH", "ncaa_volleyball") == "OH"
 
 
+def test_derive_position_group_basketball_guard_not_ol():
+    """ESPN coarse G must map to PG for basketball, never football OL."""
+    assert derive_position_group("G", "ncaab_womens") == "PG"
+    assert derive_position_group("G", "ncaab_mens") == "PG"
+    assert derive_position_group("G", "nba") == "PG"
+    assert derive_position_group("C", "ncaab_womens") == "C"
+    assert derive_position_group("G", "cfb") == "OL"
+
+
 def test_percentile_and_tier():
     values = list(range(1, 101))
     assert percentile_rank(values, 95) == 95.0

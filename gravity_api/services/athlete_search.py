@@ -86,7 +86,14 @@ async def search_athletes(
         params.append(f"%{conference}%")
         idx += 1
     if position_group:
-        frag, extra, idx = position_group_sql_predicate(position_group, idx)
+        # Prefer a single sport so shared tokens (G, C) resolve correctly —
+        # football OL vs basketball guard/center.
+        sport_for_aliases = sport if sport and not sports_db else (
+            sports_db[0] if sports_db and len(sports_db) == 1 else None
+        )
+        frag, extra, idx = position_group_sql_predicate(
+            position_group, idx, sport=sport_for_aliases
+        )
         conditions.append(frag)
         params.extend(extra)
     if school:

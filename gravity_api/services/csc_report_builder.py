@@ -34,11 +34,47 @@ from gravity_api.services.deal_pricing import price_standard_activation
 from gravity_api.services.deal_scope_pricing import DEAL_SCOPES, price_all_deal_scopes
 from gravity_api.services.model_health import classify_model_version
 from gravity_api.services.nil_valuation import elite_signal_strength, nil_from_row
-from gravity_api.services.position_group_match import derive_position_group, position_aliases_for_group
+from gravity_api.services.position_group_match import (
+    canonical_feature_sport,
+    derive_position_group,
+    position_aliases_for_group,
+    position_group_valid_for_sport,
+)
 from gravity_api.services.team_conferences import (
     ConferenceNotMappedError,
     try_get_conference,
 )
+
+# Default pronouns by feature-engineering sport slug. Women's leagues default
+# to she/her; men's leagues to he/him; unknown → they/them.
+_WOMENS_FEATURE_SPORTS = frozenset({"ncaab_womens", "wnba", "ncaa_volleyball"})
+_MENS_FEATURE_SPORTS = frozenset(
+    {"cfb", "nfl", "ncaab_mens", "nba", "ncaa_baseball"}
+)
+
+
+def pronouns_for_athlete_sport(sport: str | None) -> dict[str, str]:
+    """Resolve subject/object/possessive pronouns from sport/league identity."""
+    slug = canonical_feature_sport(sport) or ""
+    raw = (sport or "").strip().upper()
+    if slug in _WOMENS_FEATURE_SPORTS or raw in {
+        "NCAAW",
+        "WNBA",
+        "WBB",
+        "NCAA_VOLLEYBALL",
+        "WCBB",
+    }:
+        return {"subject": "she", "object": "her", "possessive": "her"}
+    if slug in _MENS_FEATURE_SPORTS or raw in {
+        "CFB",
+        "NFL",
+        "NCAAB",
+        "NBA",
+        "NCAA_BASEBALL",
+        "MCBB",
+    }:
+        return {"subject": "he", "object": "him", "possessive": "his"}
+    return {"subject": "they", "object": "them", "possessive": "their"}
 
 
 def _first_number(*values: Any) -> Optional[float]:
@@ -522,6 +558,7 @@ def _brand_strength_actionability(
     has_context: bool,
     has_heritage: bool,
     signal: str,
+    object_pronoun: str = "them",
 ) -> str:
     """Tailor commercial guidance to the brand-signal mix, not a static blurb."""
     if signal == "Low" and not has_heritage:
@@ -551,7 +588,7 @@ def _brand_strength_actionability(
     if owned_platforms == 1 and has_earned:
         return (
             "Even with brand equity concentrated on one primary social channel, the "
-            "earned-media and search overlay makes him especially attractive for "
+            f"earned-media and search overlay makes {object_pronoun} especially attractive for "
             "awareness campaigns, national launches, and premium consumer partnerships "
             "that can lean on recognition beyond a single feed."
         )
@@ -751,6 +788,9 @@ def _brand_strength_bundle(
             has_context=has_context,
             has_heritage=has_heritage,
             signal=signal,
+            object_pronoun=pronouns_for_athlete_sport(
+                str(athlete_d.get("sport") or "") or None
+            )["object"],
         ),
     }
 
@@ -1236,19 +1276,25 @@ _DRIVER_PEER_NOUN: dict[str, str] = {
 }
 
 
-def _peer_verb_for_driver(label: str, signal: str) -> str:
+def _peer_verb_for_driver(
+    label: str,
+    signal: str,
+    *,
+    object_pronoun: str = "them",
+) -> str:
+    him = object_pronoun  # keep local name short for f-strings below
     if label == "Risk":
         return {
-            "High": "places him among the cleanest risk postures in",
-            "Moderate": "tracks him near typical risk levels in",
-            "Low": "leaves him with elevated operational risk versus",
-        }.get(signal, "tracks him within")
+            "High": f"places {him} among the cleanest risk postures in",
+            "Moderate": f"tracks {him} near typical risk levels in",
+            "Low": f"leaves {him} with elevated operational risk versus",
+        }.get(signal, f"tracks {him} within")
     peer_noun = _DRIVER_PEER_NOUN.get(label, "profiles")
     return {
-        "High": f"places him among the strongest {peer_noun} in",
-        "Moderate": f"tracks him near the middle of",
-        "Low": f"leaves him trailing typical {peer_noun} in",
-    }.get(signal, "tracks him within")
+        "High": f"places {him} among the strongest {peer_noun} in",
+        "Moderate": f"tracks {him} near the middle of",
+        "Low": f"leaves {him} trailing typical {peer_noun} in",
+    }.get(signal, f"tracks {him} within")
 
 
 def build_driver_interpretation_fallback(
@@ -1264,7 +1310,12 @@ def build_driver_interpretation_fallback(
     bundle = _driver_evidence_bundle(
         label, athlete_d, latest_dict, signal=signal, athlete_name=athlete_name
     )
-    peer_verb = _peer_verb_for_driver(label, signal)
+    pronouns = pronouns_for_athlete_sport(
+        str(athlete_d.get("sport") or "") or None
+    )
+    peer_verb = _peer_verb_for_driver(
+        label, signal, object_pronoun=pronouns["object"]
+    )
 
     label_l = label.lower()
     first = f"{athlete_name}'s {label_l} is built from {bundle['evidence']}."
@@ -1494,23 +1545,63 @@ async def _load_season_state(
     return str(row["state"]), int(row["cohort_window_days"])
 
 
-def _position_group_value(athlete_row: Dict[str, Any], params: Dict[str, Any]) -> str:
+def _position_group_value(
+    athlete_row: Dict[str, Any],
+    params: Dict[str, Any],
+    sport: str | None = None,
+) -> str:
+    """Resolve canonical position group, scoped to the athlete's sport.
+
+    ESPN basketball often stores coarse ``G`` / ``F`` / ``C``. Without sport,
+    the football-first matcher maps ``G``/``C`` → OL — the JuJu Watkins failure
+    mode. Always pass sport so basketball guards become PG (not OL). Invalid
+    stored groups for the sport (e.g. ``OL`` on NCAAW) are discarded and
+    re-derived from ``position``.
+    """
+    sport_hint = sport or params.get("sport") or athlete_row.get("sport")
+    sport_str = str(sport_hint).strip() if sport_hint else None
+
+    def _accept(group: Any) -> str | None:
+        if group is None:
+            return None
+        text = str(group).strip().upper()
+        if not text or text == "UNK":
+            return None
+        if position_group_valid_for_sport(text, sport_str):
+            return text
+        return None
+
+    def _derive(raw: Any) -> str | None:
+        if raw is None:
+            return None
+        text = str(raw).strip()
+        if not text:
+            return None
+        return derive_position_group(text, sport_str)
+
     # Accept either `position_group` (canonical) or legacy `position` from
-    # older terminal builds and agent payloads. When `position` looks like a
-    # specific role (e.g. "QB", "WR") we let `derive_position_group` collapse
-    # it into the canonical group; when it already looks like a group code we
-    # use it directly.
+    # older terminal builds and agent payloads.
     explicit = params.get("position_group") or params.get("position")
     if explicit:
         explicit_str = str(explicit).strip()
         if explicit_str:
-            derived = derive_position_group(explicit_str)
-            return (derived or explicit_str).strip().upper()
-    raw = _text_or_fallback(
-        athlete_row.get("position_group") or derive_position_group(athlete_row.get("position")),
-        "UNK",
-    )
-    return raw.strip().upper()
+            hit = _accept(explicit_str) or _accept(_derive(explicit_str))
+            if hit:
+                return hit
+            if not sport_str:
+                derived = _derive(explicit_str)
+                return (derived or explicit_str).strip().upper()
+
+    hit = _accept(athlete_row.get("position_group"))
+    if hit:
+        return hit
+
+    hit = _accept(_derive(athlete_row.get("position")))
+    if hit:
+        return hit
+
+    derived = _derive(athlete_row.get("position"))
+    return (derived or "UNK").strip().upper()
 
 
 async def _fetch_outlier_cohort_rows(
@@ -1530,7 +1621,7 @@ async def _fetch_outlier_cohort_rows(
     fallback cohort has poor fit because the subject athlete sits far
     outside the broader cohort distribution.
     """
-    aliases = position_aliases_for_group(position_group)
+    aliases = position_aliases_for_group(position_group, sport)
     since = as_of - timedelta(days=window_days)
     tier_pred = ""
     args: list[Any] = [sport, position_group, aliases, since, float(benchmark_floor)]
@@ -1587,7 +1678,7 @@ async def _fetch_cohort_rows(
     window_days: int,
     as_of: datetime,
 ) -> list[dict[str, Any]]:
-    aliases = position_aliases_for_group(position_group)
+    aliases = position_aliases_for_group(position_group, sport)
     since = as_of - timedelta(days=window_days)
     conf_pred = ""
     args: list[Any] = [sport, position_group, aliases, since]
@@ -2092,7 +2183,8 @@ async def build_csc_report_json(
     else:
         conference_f = conference_lookup.conference
         conference_tier = conference_lookup.conference_tier
-    pos_group = _position_group_value(athlete_d, params)
+    pos_group = _position_group_value(athlete_d, params, sport_f)
+    pronouns = pronouns_for_athlete_sport(sport_f)
     n_comp = int(params.get("comparables_count") or 12)
     conf_min = float(params.get("confidence_min") or 0.75)
 
@@ -2633,7 +2725,7 @@ async def build_csc_report_json(
             athlete_id,
             sport_f,
             pos_group,
-            position_aliases_for_group(pos_group),
+            position_aliases_for_group(pos_group, sport_f),
             gravity_score or 0.0,
         )
         for r in refs:
@@ -2928,6 +3020,7 @@ async def build_csc_report_json(
             benchmark_text=benchmark_text,
             percentile_text=percentile_text,
             fallback=validation_takeaway_fallback,
+            object_pronoun=pronouns["object"],
         ),
         generate_confidence_rationale(
             athlete_name=name,
@@ -3084,6 +3177,9 @@ async def build_csc_report_json(
             ),
         },
         "metadata": {
+            "sport": sport_f,
+            "position_group": pos_group,
+            "object_pronoun": pronouns["object"],
             "tier_version": selected_tier_version,
             "tier_v1": tier_v1,
             "tier_v2": tier_v2,
