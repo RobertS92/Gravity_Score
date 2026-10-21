@@ -1,6 +1,6 @@
 """Multi-sport scraper smoke tests.
 
-Live ESPN path runs by default (network). DB scheduled_full runs only when PG_DSN is set.
+Catalog checks always run. Live ESPN / DB paths require env flags so CI stays green.
 """
 
 from __future__ import annotations
@@ -16,6 +16,14 @@ from gravity_api.scraper_smoke.runner import (
 )
 
 
+def _live_enabled() -> bool:
+    return os.environ.get("RUN_LIVE_SCRAPER_SMOKE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
 def test_smoke_catalog_covers_priority_sports():
     by = athletes_by_sport()
     for sport in ("nfl", "nba", "cfb", "ncaab_mens", "ncaab_womens"):
@@ -29,9 +37,12 @@ def test_smoke_athletes_have_espn_ids():
         assert a.name_tokens
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_live_espn_scraper_smoke_all_priority_athletes():
     """Live network smoke: roster+stats scrapers for all catalog athletes."""
+    if not _live_enabled():
+        pytest.skip("Set RUN_LIVE_SCRAPER_SMOKE=1 to run live ESPN smoke")
     failures = []
     for athlete in SMOKE_ATHLETES:
         result = await smoke_athlete_espn_scrapers(athlete)
@@ -43,22 +54,26 @@ async def test_live_espn_scraper_smoke_all_priority_athletes():
     assert not failures, "ESPN scraper smoke failures:\n" + "\n".join(failures)
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_live_smoke_suite_summary():
+    if not _live_enabled():
+        pytest.skip("Set RUN_LIVE_SCRAPER_SMOKE=1 to run live ESPN smoke")
     payload = await run_smoke_suite(include_db=False)
     assert payload["summary"]["espn_scrapers_passed"] == len(SMOKE_ATHLETES)
     assert payload["summary"]["espn_scrapers_failed"] == 0
     assert payload["summary"]["all_espn_passed"] is True
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 async def test_db_scheduled_full_optional():
+    if not _live_enabled():
+        pytest.skip("Set RUN_LIVE_SCRAPER_SMOKE=1 to run live smoke")
     if not os.environ.get("PG_DSN", "").strip():
         pytest.skip("PG_DSN unset — DB scheduled_full smoke skipped")
     payload = await run_smoke_suite(include_db=True)
     db_failed = payload["summary"]["db_scheduled_full_failed"]
-    # Allow athletes missing from DB to fail athlete_in_db — report but don't
-    # hard-fail CI unless SMOKE_REQUIRE_DB=1.
     if os.environ.get("SMOKE_REQUIRE_DB", "").strip() in {"1", "true", "yes"}:
         assert db_failed == 0, payload["summary"]
     else:
