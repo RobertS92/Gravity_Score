@@ -75,6 +75,60 @@
   margin-bottom: 8px;
 }
 
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0 24px;
+}
+
+.loadingHint {
+  margin: 0;
+  max-width: 40rem;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.loadingSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.skeletonBlock,
+.skeletonBlockWide {
+  height: 48px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 0%,
+    color-mix(in srgb, var(--bg-secondary) 60%, var(--border-default)) 50%,
+    var(--bg-secondary) 100%
+  );
+  background-size: 200% 100%;
+  animation: cscSkeletonPulse 1.4s ease-in-out infinite;
+}
+
+.skeletonBlock {
+  width: min(220px, 55%);
+}
+
+.skeletonBlockWide {
+  width: min(420px, 90%);
+  height: 72px;
+}
+
+@keyframes cscSkeletonPulse {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 .inlineRetry {
   font: inherit;
   color: inherit;
