@@ -8,8 +8,17 @@ from typing import Any
 _SEASON_YEAR_RE = re.compile(r"(20\d{2})")
 
 
+def _is_empty_stat(val: Any) -> bool:
+    if val is None or val == "" or val == "-":
+        return True
+    try:
+        return float(val) == 0.0
+    except (TypeError, ValueError):
+        return False
+
+
 def _merge_stat_dicts(*parts: dict[str, Any]) -> dict[str, Any]:
-    """Merge ESPN stat dicts; first non-empty value wins per key."""
+    """Merge ESPN stat dicts; first non-empty value wins, non-zero beats zero."""
     out: dict[str, Any] = {}
     for part in parts:
         if not part:
@@ -19,6 +28,35 @@ def _merge_stat_dicts(*parts: dict[str, Any]) -> dict[str, Any]:
                 continue
             if key not in out:
                 out[key] = val
+                continue
+            # Passing category often stamps sacks/INT=0 before defensive values land.
+            if _is_empty_stat(out[key]) and not _is_empty_stat(val):
+                out[key] = val
+    return out
+
+
+# Offensive categories reuse the key "sacks" for QB sacks taken — remap so they
+# cannot clobber defensive sack totals during a flat merge.
+_PASSING_SACK_KEYS = frozenset({"sacks", "SACK", "SACKS"})
+_OFFENSIVE_CAT_NAMES = frozenset(
+    {"passing", "rushing", "receiving", "scoring", "offensive", "kicking", "punting"}
+)
+_DEFENSIVE_CAT_NAMES = frozenset(
+    {"defensive", "defense", "defensiveInterceptions", "miscellaneous"}
+)
+
+
+def _remap_category_keys(cat_name: str, stats: dict[str, Any]) -> dict[str, Any]:
+    """Disambiguate category-local ESPN keys before a cross-category merge."""
+    if not stats:
+        return stats
+    name = (cat_name or "").strip()
+    name_l = name.lower()
+    out = dict(stats)
+    if name_l in _OFFENSIVE_CAT_NAMES or name_l.startswith("pass"):
+        for key in list(out):
+            if key in _PASSING_SACK_KEYS or str(key).lower() == "sacks":
+                out.setdefault("sacksTaken", out.pop(key))
     return out
 
 
@@ -37,7 +75,9 @@ def _stats_from_single_category(cat: dict[str, Any]) -> dict[str, Any]:
         if key:
             out[str(key)] = val
     if out:
-        return out
+        return _remap_category_keys(
+            str(cat.get("name") or cat.get("displayName") or ""), out
+        )
     labels = cat.get("labels") or cat.get("names")
     values = cat.get("stats") or cat.get("values")
     if labels and values and len(labels) == len(values):
@@ -46,18 +86,29 @@ def _stats_from_single_category(cat: dict[str, Any]) -> dict[str, Any]:
             if not name:
                 continue
             row[str(name)] = val.get("value") if isinstance(val, dict) else val
-        return row
+        return _remap_category_keys(
+            str(cat.get("name") or cat.get("displayName") or ""), row
+        )
     return {}
 
 
 def _stats_from_category_block(categories: list[Any]) -> dict[str, Any]:
-    out: dict[str, Any] = {}
+    """Merge category blocks with defensive stats preferred over offensive zeros."""
+    defensive: dict[str, Any] = {}
+    other: dict[str, Any] = {}
     for cat in categories:
         if not isinstance(cat, dict):
             continue
         merged = _stats_from_single_category(cat)
-        out = _merge_stat_dicts(out, merged)
-    return out
+        if not merged:
+            continue
+        name = str(cat.get("name") or cat.get("displayName") or "").lower()
+        if name in _DEFENSIVE_CAT_NAMES or "defensive" in name or name == "defense":
+            defensive = _merge_stat_dicts(defensive, merged)
+        else:
+            other = _merge_stat_dicts(other, merged)
+    # Defensive values win on conflict (after remap, sacks should only be defensive).
+    return _merge_stat_dicts(other, defensive)
 
 
 def stats_from_espn_payload(data: dict[str, Any]) -> dict[str, Any]:
@@ -145,11 +196,16 @@ def _categoried_rows(data: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], d
             if year is None:
                 continue
             row = {str(names[i]): stats[i] for i in range(len(names))}
+            cat_name = str(cat.get("name") or cat.get("displayName") or "")
+            row = _remap_category_keys(cat_name, row)
             key = _season_label_to_key(str(year))
             history[key] = _merge_stat_dicts(history.get(key, {}), row)
         totals = cat.get("totals")
         if isinstance(totals, list) and len(totals) == len(names):
             trow = {str(names[i]): totals[i] for i in range(len(names))}
+            trow = _remap_category_keys(
+                str(cat.get("name") or cat.get("displayName") or ""), trow
+            )
             career = _merge_stat_dicts(career, trow)
     return history, career
 
@@ -243,29 +299,90 @@ def _latest_season_stats_from_history(history: dict[str, dict[str, Any]]) -> dic
     return dict(history.get(latest_key) or {})
 
 
-def build_stats_bundle(data: dict[str, Any]) -> dict[str, Any]:
+def infer_stats_scope(
+    *,
+    history: dict[str, dict[str, Any]] | None,
+    career: dict[str, Any] | None,
+    current: dict[str, Any] | None,
+    sport: str | None = None,
+) -> str:
+    """Classify whether current stats are season, career, or multi-season aggregates."""
+    hist = history or {}
+    years = [y for y in hist.keys() if _SEASON_YEAR_RE.search(str(y))]
+    if len(years) >= 2:
+        # Current should be latest season row when history is present.
+        return "season"
+    if len(years) == 1:
+        return "season"
+    cur = current or {}
+    gp = None
+    for key in ("gamesPlayed", "games_played_season", "GP", "G", "gp"):
+        if cur.get(key) is not None:
+            try:
+                gp = float(cur[key])
+                break
+            except (TypeError, ValueError):
+                pass
+    sport_l = (sport or "").lower()
+    season_cap = {
+        "cfb": 17,
+        "nfl": 17,
+        "ncaab_mens": 45,
+        "ncaab_womens": 45,
+        "nba": 82,
+        "wnba": 50,
+    }.get(sport_l)
+    if gp is not None and season_cap is not None and gp > season_cap:
+        return "career" if career else "multi_season"
+    if career and not years and gp is not None and season_cap and gp > season_cap:
+        return "career"
+    return "season"
+
+
+_CAREER_ONLY_KEYS = frozenset(
+    {"gamesPlayed", "gamesStarted", "GP", "G", "gp", "gs"}
+)
+
+
+def build_stats_bundle(
+    data: dict[str, Any], *, sport: str | None = None
+) -> dict[str, Any]:
     """Full stats bundle: current season, history, career."""
     history = extract_season_history(data)
-    current = _merge_stat_dicts(
-        stats_from_espn_payload(data),
-        _latest_season_stats_from_history(history),
-    )
     career = extract_career_totals(data)
+    latest = _latest_season_stats_from_history(history)
+    flat = stats_from_espn_payload(data)
 
-    # CFB: merge all category blocks from latest splitCategories season
+    if latest:
+        # Prefer true per-season rows; fill gaps from flat payload but never let
+        # career-sized GP/GS from an aggregate flat payload overwrite season.
+        current = dict(latest)
+        for key, val in (flat or {}).items():
+            if key in current and not _is_empty_stat(current.get(key)):
+                continue
+            if key in _CAREER_ONLY_KEYS:
+                continue
+            current[key] = val
+    else:
+        current = flat or {}
+
     stats_as_of = data.get("season") or data.get("displaySeason")
+    if isinstance(stats_as_of, dict):
+        stats_as_of = stats_as_of.get("year") or stats_as_of.get("displayName")
     if history:
         latest_key = sorted(history.keys(), reverse=True)[0]
-        latest = history.get(latest_key) or {}
-        current = _merge_stat_dicts(current, latest)
         if not stats_as_of:
             stats_as_of = latest_key
 
+    scope = infer_stats_scope(
+        history=history, career=career, current=current, sport=sport
+    )
     return {
         "current": current,
         "history": history,
         "career": career,
         "stats_as_of": stats_as_of,
+        "stats_scope": scope,
         "raw": data,
     }
 
@@ -274,5 +391,6 @@ __all__ = [
     "build_stats_bundle",
     "extract_career_totals",
     "extract_season_history",
+    "infer_stats_scope",
     "stats_from_espn_payload",
 ]

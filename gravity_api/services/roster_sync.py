@@ -49,16 +49,64 @@ async def _table_exists(conn: asyncpg.Connection, table: str) -> bool:
     return row is not None
 
 
+_COLLEGE_SPORTS = frozenset({"cfb", "ncaab_mens", "ncaab_womens", "ncaa_baseball", "ncaa_volleyball"})
+_PRO_SPORTS = frozenset({"nfl", "nba", "wnba"})
+_COLLEGE_TO_PRO = {
+    "cfb": "nfl",
+    "ncaab_mens": "nba",
+    "ncaab_womens": "wnba",
+}
+
+
 async def _find_athlete_by_espn(
-    conn: asyncpg.Connection, espn_id: str
+    conn: asyncpg.Connection,
+    espn_id: str,
+    *,
+    sport: str | None = None,
 ) -> asyncpg.Record | None:
+    """Prefer same-sport match; fall back to any row with this ESPN id."""
+    if sport:
+        row = await conn.fetchrow(
+            """SELECT id, school, conference, sport, is_active, roster_status, name,
+                      class_year, position, height_inches, weight_lbs
+               FROM athletes
+               WHERE espn_id = $1 AND sport = $2
+               LIMIT 1""",
+            espn_id,
+            sport,
+        )
+        if row:
+            return row
+    if sport:
+        return await conn.fetchrow(
+            """SELECT id, school, conference, sport, is_active, roster_status, name,
+                      class_year, position, height_inches, weight_lbs
+               FROM athletes
+               WHERE espn_id = $1
+               ORDER BY CASE WHEN sport = $2 THEN 0 ELSE 1 END,
+                        updated_at DESC NULLS LAST
+               LIMIT 1""",
+            espn_id,
+            sport,
+        )
     return await conn.fetchrow(
-        """SELECT id, school, conference, sport, is_active, roster_status
+        """SELECT id, school, conference, sport, is_active, roster_status, name,
+                  class_year, position, height_inches, weight_lbs
            FROM athletes
            WHERE espn_id = $1
+           ORDER BY updated_at DESC NULLS LAST
            LIMIT 1""",
         espn_id,
     )
+
+
+def _is_college_to_pro_jump(old_sport: str | None, new_sport: str) -> bool:
+    old = (old_sport or "").lower()
+    new = (new_sport or "").lower()
+    if old not in _COLLEGE_SPORTS or new not in _PRO_SPORTS:
+        return False
+    expected = _COLLEGE_TO_PRO.get(old)
+    return expected == new if expected else True
 
 
 async def sync_team_roster(
@@ -142,14 +190,33 @@ async def sync_team_roster(
                 if st:
                     home_state = str(st)
 
-            existing = await _find_athlete_by_espn(conn, ext_id_s)
+            existing = await _find_athlete_by_espn(conn, ext_id_s, sport=canonical)
             jersey_int = None
             if jersey_raw:
                 jm = re.search(r"(\d+)", str(jersey_raw))
                 if jm:
                     jersey_int = int(jm.group(1))
 
-            if existing:
+            # College→pro with the same ESPN id: retire college row, insert pro.
+            if (
+                existing
+                and str(existing.get("sport") or "") != canonical
+                and _is_college_to_pro_jump(str(existing.get("sport") or ""), canonical)
+            ):
+                await conn.execute(
+                    """UPDATE athletes SET
+                         is_active = FALSE,
+                         roster_status = 'left_for_draft',
+                         roster_status_reason = 'active_pro_roster_match',
+                         roster_status_changed_at = $2,
+                         updated_at = NOW()
+                       WHERE id = $1::uuid""",
+                    str(existing["id"]),
+                    now,
+                )
+                existing = None  # fall through to pro insert
+
+            if existing and str(existing.get("sport") or "") == canonical:
                 aid = str(existing["id"])
                 old_school = existing.get("school")
                 transfer_detected = bool(

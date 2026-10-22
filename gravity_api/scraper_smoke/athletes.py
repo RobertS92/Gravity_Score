@@ -14,6 +14,8 @@ class SmokeAthlete:
     position_hint: str | None = None
     # Substrings that must appear in scraped player_name (case-insensitive).
     name_tokens: tuple[str, ...] = ()
+    # Optional notes for Phase-1 report / CSV selection_note.
+    selection_note: str = ""
 
     def __post_init__(self) -> None:
         if not self.name_tokens:
@@ -21,7 +23,8 @@ class SmokeAthlete:
 
 
 # Two athletes per priority sport. IDs confirmed via ESPN profile/stats pages.
-# Phase-1 free-tier set (2026-10): CFB/NFL/NBA named; CBB M/W chosen for 2025-26.
+# Phase-1 free-tier set (2026-10 sanity): draft departures classified as NBA;
+# men's college slots replaced with athletes still on 2026-27 college rosters.
 SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
     # NFL
     SmokeAthlete(
@@ -31,6 +34,7 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
         team_hint="Chiefs",
         position_hint="QB",
         name_tokens=("Patrick", "Mahomes"),
+        selection_note="ACL Week 15 2025 — elevated injury risk for scoring.",
     ),
     SmokeAthlete(
         sport="nfl",
@@ -40,14 +44,15 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
         position_hint="DE",
         name_tokens=("Will", "Anderson"),
     ),
-    # NBA
+    # NBA — includes 2026 draft picks who left college
     SmokeAthlete(
         sport="nba",
         name="LeBron James",
         espn_id="1966",
-        team_hint="Lakers",
+        team_hint="76ers",
         position_hint="F",
         name_tokens=("LeBron", "James"),
+        selection_note="Philadelphia 76ers (announced July 2026).",
     ),
     SmokeAthlete(
         sport="nba",
@@ -56,6 +61,30 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
         team_hint="Rockets",
         position_hint="F",
         name_tokens=("Kevin", "Durant"),
+    ),
+    SmokeAthlete(
+        sport="nba",
+        name="AJ Dybantsa",
+        espn_id="5142718",
+        team_hint="Wizards",
+        position_hint="F",
+        name_tokens=("Dybantsa",),
+        selection_note=(
+            "2026 #1 pick, Washington Wizards. College (BYU) roster must be "
+            "is_active=false / left_for_draft."
+        ),
+    ),
+    SmokeAthlete(
+        sport="nba",
+        name="Cameron Boozer",
+        espn_id="5041935",
+        team_hint="Grizzlies",
+        position_hint="F",
+        name_tokens=("Cameron", "Boozer"),
+        selection_note=(
+            "2026 #3 pick, Memphis Grizzlies. College (Duke) roster must be "
+            "is_active=false / left_for_draft."
+        ),
     ),
     # CFB
     SmokeAthlete(
@@ -74,29 +103,26 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
         position_hint="EDGE",
         name_tokens=("Colin", "Simmons"),
     ),
-    # Men's college basketball — 2025-26 stars
-    # AJ Dybantsa: BYU freshman, national scoring leader / AP All-America 2025-26.
-    # Cameron Boozer: Duke freshman, consensus National Player of the Year 2025-26.
+    # Men's college basketball — still on 2026-27 college rosters
     SmokeAthlete(
         sport="ncaab_mens",
-        name="AJ Dybantsa",
-        espn_id="5142718",
-        team_hint="BYU",
-        position_hint="F",
-        name_tokens=("Dybantsa",),
-    ),
-    SmokeAthlete(
-        sport="ncaab_mens",
-        name="Cameron Boozer",
-        espn_id="5041935",
+        name="Cayden Boozer",
+        espn_id="5041937",
         team_hint="Duke",
-        position_hint="F",
-        name_tokens=("Cameron", "Boozer"),
+        position_hint="G",
+        name_tokens=("Cayden", "Boozer"),
+        selection_note="Duke; still college 2026-27 (Cameron Boozer drafted).",
     ),
-    # Women's college basketball — 2025-26 stars
-    # Sarah Strong: UConn, 2025-26 AP POY / Naismith / Wade Trophy.
-    # Mikayla Blakes: Vanderbilt, 2025-26 scoring champ / AP First-Team All-America.
-    # (JuJu Watkins sat out 2025-26 ACL recovery — omitted as not a current-season player.)
+    SmokeAthlete(
+        sport="ncaab_mens",
+        name="Solo Ball",
+        espn_id="4895737",
+        team_hint="UConn",
+        position_hint="G",
+        name_tokens=("Solo", "Ball"),
+        selection_note="UConn; still college 2026-27.",
+    ),
+    # Women's college basketball
     SmokeAthlete(
         sport="ncaab_womens",
         name="Sarah Strong",
@@ -112,7 +138,30 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
         team_hint="Vanderbilt",
         position_hint="G",
         name_tokens=("Mikayla", "Blakes"),
+        selection_note="Vanderbilt; JuJu Watkins sat out 2025-26 ACL recovery.",
     ),
+)
+
+# Regression fixtures: college rows that must retire after the 2026 NBA draft.
+DRAFT_DEPARTURE_FIXTURES: tuple[dict[str, str], ...] = (
+    {
+        "name": "AJ Dybantsa",
+        "espn_id": "5142718",
+        "college_sport": "ncaab_mens",
+        "college_team": "BYU",
+        "pro_sport": "nba",
+        "pro_team": "Wizards",
+        "expected_roster_status": "left_for_draft",
+    },
+    {
+        "name": "Cameron Boozer",
+        "espn_id": "5041935",
+        "college_sport": "ncaab_mens",
+        "college_team": "Duke",
+        "pro_sport": "nba",
+        "pro_team": "Grizzlies",
+        "expected_roster_status": "left_for_draft",
+    },
 )
 
 

@@ -90,19 +90,35 @@ def normalize_sport(sport: str) -> str:
     return aliases.get(s, s)
 
 
+def _team_ref_url(team_field: Any) -> str | None:
+    if isinstance(team_field, dict):
+        ref = team_field.get("$ref") or team_field.get("href")
+        if ref:
+            return str(ref).replace("http://", "https://")
+        name = team_field.get("displayName") or team_field.get("name")
+        return None if name is None else None
+    return None
+
+
 def _profile_from_core_athlete(athlete: dict[str, Any], athlete_id: str) -> dict[str, Any]:
     pos = athlete.get("position") or {}
+    team_field = athlete.get("team")
+    team_name = None
+    if isinstance(team_field, dict):
+        team_name = team_field.get("displayName") or team_field.get("name")
     identity: dict[str, Any] = {
         "player_name": athlete.get("displayName") or athlete.get("fullName"),
         "position": pos.get("abbreviation") if isinstance(pos, dict) else pos,
         "jersey_number": athlete.get("jersey"),
-        "team": None,
+        "team": team_name,
         "college": None,
         "headshot_url": (athlete.get("headshot") or {}).get("href")
         if isinstance(athlete.get("headshot"), dict)
         else athlete.get("headshot"),
         "espn_id": athlete_id,
     }
+    if isinstance(team_field, dict) and team_field.get("$ref") and not team_name:
+        identity["_team_ref"] = str(team_field["$ref"]).replace("http://", "https://")
     exp = athlete.get("experience")
     if isinstance(exp, dict):
         identity["class_year"] = exp.get("displayValue")
@@ -164,7 +180,11 @@ class EspnClient:
         if not league:
             return None
         q = name.replace(" ", "+")
-        url = f"https://site.api.espn.com/apis/common/v3/search?query={q}&limit=10&type=player"
+        # site.api.espn.com 403s from many cloud egress IPs; use ESPN_SITE_HOST.
+        url = (
+            f"https://{ESPN_SITE_HOST}/apis/common/v3/search"
+            f"?query={q}&limit=10&type=player"
+        )
         data = await self._get(url)
         items = data.get("results") or []
         name_lower = name.lower()
@@ -182,7 +202,7 @@ class EspnClient:
                 if "/id/" in link:
                     return link.split("/id/")[-1].split("/")[0]
         search_url = (
-            f"https://site.api.espn.com/apis/common/v3/sports/{league}/athletes"
+            f"https://{ESPN_SITE_HOST}/apis/common/v3/sports/{league}/athletes"
             f"?search={q}&limit=5"
         )
         alt = await self._get(search_url)
@@ -199,7 +219,10 @@ class EspnClient:
         league = SITE_LEAGUE_PATH.get(sport)
         if not league:
             return {}
-        url = f"https://site.api.espn.com/apis/common/v3/sports/{league}/athletes/{athlete_id}"
+        url = (
+            f"https://{ESPN_SITE_HOST}/apis/common/v3/sports/{league}/athletes/"
+            f"{athlete_id}"
+        )
         data = await self._get(url)
         athlete = data.get("athlete") or data
         if not athlete or not isinstance(athlete, dict):
@@ -256,6 +279,16 @@ class EspnClient:
             "raw": athlete,
         }
 
+    async def _resolve_team_display_name(self, team_ref: str) -> str | None:
+        data = await self._get(team_ref)
+        if not data:
+            return None
+        return (
+            data.get("displayName")
+            or data.get("name")
+            or data.get("shortDisplayName")
+        )
+
     async def _get_athlete_profile_core(
         self, athlete_id: str, sport: str
     ) -> dict[str, Any]:
@@ -263,6 +296,13 @@ class EspnClient:
         if not athlete:
             return {}
         identity = _profile_from_core_athlete(athlete, athlete_id)
+        team_ref = identity.pop("_team_ref", None)
+        if team_ref and not identity.get("team"):
+            team_name = await self._resolve_team_display_name(team_ref)
+            if team_name:
+                identity["team"] = team_name
+                if not identity.get("college"):
+                    identity["college"] = team_name
         return {
             "identity": identity,
             "injuries": [],
@@ -272,9 +312,17 @@ class EspnClient:
 
     async def get_athlete_profile(self, athlete_id: str, sport: str) -> dict[str, Any]:
         sport = normalize_sport(sport)
+        # Prefer site.web profile — it embeds team.displayName; core only has $ref.
         if sport in CORE_PROFILE_FIRST_SPORTS:
             profile = await self._get_athlete_profile_core(athlete_id, sport)
             if profile.get("identity", {}).get("player_name"):
+                if not profile["identity"].get("team"):
+                    site = await self._get_athlete_profile_site(athlete_id, sport)
+                    if site.get("identity", {}).get("team"):
+                        profile["identity"]["team"] = site["identity"]["team"]
+                        profile["identity"].setdefault(
+                            "college", site["identity"].get("college")
+                        )
                 return profile
             site = await self._get_athlete_profile_site(athlete_id, sport)
             return site if site else profile
@@ -285,13 +333,13 @@ class EspnClient:
         return await self._get_athlete_profile_core(athlete_id, sport)
 
     def _pack_stats_response(
-        self, data: dict[str, Any], *, stats_source: str
+        self, data: dict[str, Any], *, stats_source: str, sport: str | None = None
     ) -> dict[str, Any]:
         from gravity_api.scrapers.parsers.espn_stats import build_stats_bundle
 
         if not data:
             return {}
-        bundle = build_stats_bundle(data)
+        bundle = build_stats_bundle(data, sport=sport)
         current = bundle.get("current") or {}
         if not current and not bundle.get("history"):
             return {}
@@ -300,6 +348,7 @@ class EspnClient:
             "season_stats_history": bundle.get("history") or {},
             "career_stats": bundle.get("career") or {},
             "stats_as_of": bundle.get("stats_as_of"),
+            "stats_scope": bundle.get("stats_scope"),
             "stats_source": stats_source,
             "raw": data,
         }
@@ -310,15 +359,53 @@ class EspnClient:
         if not league:
             return {}
         url = (
-            f"https://site.api.espn.com/apis/common/v3/sports/{league}/athletes/"
+            f"https://{ESPN_SITE_HOST}/apis/common/v3/sports/{league}/athletes/"
             f"{athlete_id}/stats"
         )
         data = await self._get(url)
-        return self._pack_stats_response(data, stats_source="espn")
+        return self._pack_stats_response(data, stats_source="espn", sport=sport)
 
     async def _get_season_stats_core(self, athlete_id: str, sport: str) -> dict[str, Any]:
         data = await self._get_core(sport, f"athletes/{athlete_id}/statistics")
-        return self._pack_stats_response(data, stats_source="espn_core")
+        return self._pack_stats_response(data, stats_source="espn_core", sport=sport)
+
+    async def _get_season_stats_core_year(
+        self, athlete_id: str, sport: str, year: str | int, *, season_type: int = 2
+    ) -> dict[str, Any]:
+        """Per-season core statistics (includes TFL that career aggregates zero out)."""
+        data = await self._get_core(
+            sport,
+            f"seasons/{int(year)}/types/{int(season_type)}/athletes/{athlete_id}/statistics",
+        )
+        packed = self._pack_stats_response(
+            data, stats_source="espn_core_season", sport=sport
+        )
+        if packed.get("stats_as_of") is None:
+            packed["stats_as_of"] = str(year)
+        if packed.get("season_stats"):
+            packed["stats_scope"] = "season"
+        return packed
+
+    @staticmethod
+    def _merge_prefer_nonzero(
+        base: dict[str, Any], overlay: dict[str, Any]
+    ) -> dict[str, Any]:
+        out = dict(base or {})
+        for key, val in (overlay or {}).items():
+            if val is None or val == "" or val == "-":
+                continue
+            cur = out.get(key)
+            try:
+                cur_empty = cur is None or float(cur) == 0.0
+            except (TypeError, ValueError):
+                cur_empty = cur in (None, "", "-")
+            try:
+                val_empty = float(val) == 0.0
+            except (TypeError, ValueError):
+                val_empty = False
+            if key not in out or (cur_empty and not val_empty):
+                out[key] = val
+        return out
 
     async def get_season_stats(self, athlete_id: str, sport: str) -> dict[str, Any]:
         sport = normalize_sport(sport)
@@ -329,10 +416,43 @@ class EspnClient:
             site = await self._get_season_stats_site(athlete_id, sport)
             return site if site.get("season_stats") else stats
 
+        # Prefer site common/v3 — per-season history. site.api 403s; site.web works.
         stats = await self._get_season_stats_site(athlete_id, sport)
-        if stats.get("season_stats"):
-            return stats
-        return await self._get_season_stats_core(athlete_id, sport)
+        if not stats.get("season_stats"):
+            stats = await self._get_season_stats_core(athlete_id, sport)
+
+        # Enrich latest season from core year endpoint (TFL etc. missing on site CFB).
+        history = stats.get("season_stats_history") or {}
+        year_keys = sorted(
+            (y for y in history.keys() if str(y).isdigit()),
+            key=lambda y: int(y),
+        )
+        if year_keys and sport in {"cfb", "nfl"}:
+            latest_year = year_keys[-1]
+            core_year = await self._get_season_stats_core_year(
+                athlete_id, sport, latest_year
+            )
+            core_cur = core_year.get("season_stats") or {}
+            if core_cur:
+                stats["season_stats"] = self._merge_prefer_nonzero(
+                    stats.get("season_stats") or {}, core_cur
+                )
+                hist_row = dict(history.get(latest_year) or {})
+                history[latest_year] = self._merge_prefer_nonzero(hist_row, core_cur)
+                stats["season_stats_history"] = history
+                if not stats.get("stats_as_of"):
+                    stats["stats_as_of"] = core_year.get("stats_as_of") or latest_year
+                stats["stats_scope"] = "season"
+        elif stats.get("season_stats") and not stats.get("stats_scope"):
+            from gravity_api.scrapers.parsers.espn_stats import infer_stats_scope
+
+            stats["stats_scope"] = infer_stats_scope(
+                history=stats.get("season_stats_history"),
+                career=stats.get("career_stats"),
+                current=stats.get("season_stats"),
+                sport=sport,
+            )
+        return stats
 
     async def get_college_career_for_pro(
         self, name: str, college: str | None, pro_sport: str
