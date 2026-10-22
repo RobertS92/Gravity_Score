@@ -66,7 +66,8 @@ def _alias_table() -> dict[str, dict[str, tuple[str, ...]]]:
         "qbr": ("QBR", "qbr", "adjQBR"),
         "pass_yards_per_attempt": ("yardsPerPassAttempt", "YPA", "Avg"),
         "pass_long": ("longPass", "longPassing", "Long"),
-        "pass_sacks": ("sacks", "SACKS", "sacked"),
+        # QB sacks taken — never alias bare "sacks" (that is defensive).
+        "pass_sacks": ("sacksTaken", "sacked", "sackYardsLost", "SacksTaken"),
         "rush_yards": ("rushingYards", "rushYards", "RUSH YDS", "Rush Yds"),
         "rush_attempts": ("rushingAttempts", "CAR", "rushAtt", "Rush Att"),
         "rush_td": ("rushingTouchdowns", "rushTD", "Rush TD"),
@@ -82,8 +83,10 @@ def _alias_table() -> dict[str, dict[str, tuple[str, ...]]]:
         "tackles": ("totalTackles", "TOT", "tackles", "Tackles"),
         "solo_tackles": ("soloTackles", "SOLO"),
         "assist_tackles": ("assistTackles", "AST"),
-        "sacks": ("sacks", "SACK", "sacks"),
-        "tfl": ("tacklesForLoss", "TFL", "tfl"),
+        # Defensive sacks only — avgSackYards / sackYards must NOT map here.
+        "sacks": ("sacks", "SACK", "sackTotal", "totalSacks"),
+        "tfl": ("tacklesForLoss", "TFL", "tfl", "tackles_for_loss"),
+        "stuffs": ("stuffs", "STUFF", "runStuffs"),
         "qb_hits": ("qbHits", "QBH"),
         "qb_hurries": ("hurries", "HUR"),
         "interceptions": ("interceptions", "INT", "int"),
@@ -244,10 +247,40 @@ def normalize_espn_stats(sport: str, raw_stats: dict[str, Any]) -> dict[str, flo
             continue
         if canonical not in out:
             out[canonical] = val
+        elif out[canonical] == 0.0 and val != 0.0:
+            # Prefer real defensive totals over a prior zero from another category.
+            out[canonical] = val
     # Passing vs defensive INT disambiguation when ESPN uses generic "interceptions"
     if "interceptions" in out and "pass_yards" in out and "pass_int" not in out:
         out["pass_int"] = out.pop("interceptions")
+    # When ESPN zeros tacklesForLoss but stuffs+sacks are present, TFL ≈ sacks+stuffs.
+    # Only apply for defensive packs (have tackles) — never invent TFL for QBs.
+    tfl = out.get("tfl")
+    sacks = out.get("sacks")
+    stuffs = out.get("stuffs")
+    has_tackle_signal = any(
+        out.get(k) not in (None, 0.0) for k in ("tackles", "solo_tackles", "assist_tackles")
+    )
+    if (
+        has_tackle_signal
+        and (tfl is None or tfl == 0.0)
+        and sacks is not None
+        and stuffs is not None
+    ):
+        combined = float(sacks) + float(stuffs)
+        if combined > 0:
+            out["tfl"] = combined
     return out
+
+
+_SEASON_GP_CAPS = {
+    "cfb": 17,
+    "nfl": 17,
+    "ncaab_mens": 45,
+    "ncaab_womens": 45,
+    "nba": 82,
+    "wnba": 50,
+}
 
 
 def merge_stat_layers(
@@ -256,6 +289,8 @@ def merge_stat_layers(
     current: dict[str, Any] | None = None,
     history: dict[str, dict[str, Any]] | None = None,
     career: dict[str, Any] | None = None,
+    stats_scope: str | None = None,
+    stats_as_of: Any = None,
 ) -> dict[str, Any]:
     """Build raw_athlete_data stat fields with flat current-season scalars."""
     fields: dict[str, Any] = {}
@@ -271,14 +306,18 @@ def merge_stat_layers(
                 normalized_history[str(season_key)] = norm
         if normalized_history:
             fields["season_stats_history"] = normalized_history
+    normalized_career: dict[str, float] = {}
     if career:
         normalized_career = normalize_espn_stats(sport, career)
         if normalized_career:
             fields["career_stats"] = normalized_career
             if normalized_career.get("games_played_season") is not None:
-                fields["games_played_career"] = normalized_career["games_played_season"]
+                fields["games_played_career"] = int(
+                    normalized_career["games_played_season"]
+                )
             elif normalized_career.get("gp") is not None:
-                fields["games_played_career"] = normalized_career["gp"]
+                fields["games_played_career"] = int(normalized_career["gp"])
+
     gp = normalized_current.get("games_played_season") or normalized_current.get("gp")
     if gp is None:
         history_blob = fields.get("season_stats_history")
@@ -289,8 +328,50 @@ def merge_stat_layers(
         stat_keys = all_stat_keys_for_sport(sport) - {"games_played_season", "gp"}
         if sum(1 for k in stat_keys if normalized_current.get(k) is not None) >= 1:
             gp = 1
+
+    scope = stats_scope
+    if not scope:
+        from gravity_api.scrapers.parsers.espn_stats import infer_stats_scope
+
+        scope = infer_stats_scope(
+            history=fields.get("season_stats_history"),
+            career=normalized_career or None,
+            current=normalized_current,
+            sport=sport,
+        )
+    # If current GP exceeds a single-season cap, treat it as career and clear season GP.
+    cap = _SEASON_GP_CAPS.get((sport or "").lower())
+    if gp is not None and cap is not None and float(gp) > cap:
+        fields["games_played_career"] = int(gp)
+        if scope == "season":
+            scope = "career"
+        # Prefer latest history season GP for games_played_season when available.
+        history_blob = fields.get("season_stats_history")
+        season_gp = None
+        if isinstance(history_blob, dict) and history_blob:
+            latest = history_blob[sorted(history_blob.keys(), reverse=True)[0]]
+            season_gp = latest.get("games_played_season") or latest.get("gp")
+        if season_gp is not None and float(season_gp) <= cap:
+            gp = season_gp
+            scope = "season"
+        else:
+            gp = None
+            # Don't advertise career totals as season_stats GP.
+            season = fields.get("season_stats")
+            if isinstance(season, dict):
+                season = dict(season)
+                season.pop("games_played_season", None)
+                season.pop("gp", None)
+                fields["season_stats"] = season
+            fields.pop("games_played_season", None)
+            fields.pop("gp", None)
+
     if gp is not None:
         fields["games_played_season"] = int(gp)
+    if scope:
+        fields["stats_scope"] = scope
+    if stats_as_of is not None and str(stats_as_of).strip():
+        fields["stats_as_of"] = str(stats_as_of).strip()
     return finalize_stat_fields(sport, fields)
 
 

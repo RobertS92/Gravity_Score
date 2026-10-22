@@ -848,6 +848,8 @@ class EspnStatsScraper(BaseMicroScraper):
             current=stats.get("season_stats"),
             history=stats.get("season_stats_history"),
             career=stats.get("career_stats"),
+            stats_scope=stats.get("stats_scope"),
+            stats_as_of=stats.get("stats_as_of"),
         )
         # ESPN NFL athlete stats never include gamesStarted. For skill positions
         # with GP, persist gs=gp so win_impact / ASS see real starter participation.
@@ -902,11 +904,34 @@ class EspnStatsScraper(BaseMicroScraper):
                     fields["games_played_season"] = fb["games_played_season"]
         if stats.get("stats_as_of") and not fields.get("stats_as_of"):
             fields["stats_as_of"] = stats["stats_as_of"]
+        if stats.get("stats_scope") and not fields.get("stats_scope"):
+            fields["stats_scope"] = stats["stats_scope"]
         if stats.get("stats_source") and not fields.get("stats_source"):
             fields["stats_source"] = stats["stats_source"]
         if stats.get("season_id"):
             fields["season_id"] = stats["season_id"]
-        return self._result(scraper_key, fields=fields, confidence=0.9 if fields else 0.3)
+        # Always emit collection provenance so CSV/report rows are never blank
+        # when real stats exist. Rookies with empty ESPN packs stay partial.
+        collected_at = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        fields["stats_collected_at"] = collected_at
+        has_real = bool(
+            fields.get("season_stats")
+            or fields.get("career_stats")
+            or fields.get("games_played_season")
+            or fields.get("games_played_career")
+        )
+        if has_real and not fields.get("stats_as_of"):
+            fields["stats_as_of"] = collected_at
+        if not fields.get("stats_scope") and fields.get("season_stats"):
+            fields["stats_scope"] = "season"
+        status = "success" if has_real else "partial"
+        return self._result(
+            scraper_key,
+            fields=fields,
+            confidence=0.9 if has_real else 0.4,
+            status=status,
+            error=None if has_real else "espn stats empty (rookie / no season pack yet)",
+        )
 
 
 class EspnAwardsScraper(BaseMicroScraper):

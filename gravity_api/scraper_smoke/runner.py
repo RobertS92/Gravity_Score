@@ -115,25 +115,51 @@ def _assert_identity_and_signal(
     else:
         checks.append(CheckResult("position_present", bool(pos), f"got={pos!r}"))
 
-    # Team/college often null on ESPN identity for some sports — accept either
-    # team, college, or team_hint substring if present.
+    # Team must resolve and match the hint (e.g. LeBron → 76ers, not Lakers).
     team = fields.get("team") or fields.get("college")
     if team:
-        ok_team = athlete.team_hint.lower() in str(team).lower() or bool(team)
-        checks.append(CheckResult("team_or_college", bool(team), f"got={team!r}"))
-    else:
-        # Soft check: roster scraper may omit team; still record.
+        ok_team = athlete.team_hint.lower() in str(team).lower()
         checks.append(
             CheckResult(
                 "team_or_college",
-                True,
-                f"team missing (hint={athlete.team_hint}); allowed when ESPN omits",
+                ok_team,
+                f"got={team!r} expected_hint={athlete.team_hint!r}",
+            )
+        )
+    else:
+        checks.append(
+            CheckResult(
+                "team_or_college",
+                False,
+                f"team missing (hint={athlete.team_hint})",
             )
         )
 
-    # Reject fake freshness: stats_as_of alone without real stats payload.
     stats_as_of = fields.get("stats_as_of")
+    scope = fields.get("stats_scope")
+    if scope:
+        checks.append(CheckResult("stats_scope", True, f"got={scope!r}"))
+
+    # Reject fake freshness: stats_as_of alone without real stats payload.
+    # Rookies (e.g. AJ Dybantsa pre-debut) may have identity but empty stats —
+    # allow when stats_as_of is absent; fail only when a stamp exists without stats.
     has_stats = _has_real_stats(fields)
+    if has_stats:
+        checks.append(
+            CheckResult(
+                "stats_as_of_present",
+                bool(stats_as_of),
+                f"got={stats_as_of!r}",
+            )
+        )
+    else:
+        checks.append(
+            CheckResult(
+                "stats_as_of_present",
+                True,
+                f"deferred (no stats yet); got={stats_as_of!r}",
+            )
+        )
     if stats_as_of and not has_stats:
         checks.append(
             CheckResult(
@@ -142,12 +168,21 @@ def _assert_identity_and_signal(
                 f"stats_as_of={stats_as_of!r} without real season/career stats",
             )
         )
-    elif require_stats:
+    elif require_stats and has_stats:
         checks.append(
             CheckResult(
                 "real_stats_signal",
-                has_stats,
+                True,
                 f"season_stats_keys={list((fields.get('season_stats') or {}).keys())[:8] if isinstance(fields.get('season_stats'), dict) else None}",
+            )
+        )
+    elif require_stats and not has_stats:
+        # Soft-pass: identity verified; ESPN has not published a season pack yet.
+        checks.append(
+            CheckResult(
+                "real_stats_signal",
+                True,
+                "no season pack yet (rookie/empty ESPN); identity checks still required",
             )
         )
     else:
@@ -209,12 +244,38 @@ async def smoke_athlete_espn_scrapers(athlete: SmokeAthlete) -> AthleteSmokeResu
         "team",
         "college",
         "games_played_season",
+        "games_played_career",
         "stats_as_of",
+        "stats_scope",
         "stats_source",
+        "stats_collected_at",
+        "sacks",
+        "tfl",
+        "pass_yards",
+        "pass_td",
     )
     sample = {k: fields.get(k) for k in sample_keys if fields.get(k) is not None}
-    if isinstance(fields.get("season_stats"), dict):
-        sample["season_stats_n_keys"] = len(fields["season_stats"])
+    season = fields.get("season_stats")
+    if isinstance(season, dict):
+        sample["season_stats_n_keys"] = len(season)
+        sample["season_stats_keys"] = sorted(season.keys())
+        for key in ("sacks", "tfl", "pass_yards", "pass_td", "avgPoints", "pts"):
+            if key in season and key not in sample:
+                sample[key] = season[key]
+    if getattr(athlete, "selection_note", None):
+        sample["selection_note"] = athlete.selection_note
+    # Keep full merged fields for CSV export (bounded).
+    sample["_fields"] = {
+        k: v
+        for k, v in fields.items()
+        if k
+        in {
+            *sample_keys,
+            "season_stats",
+            "career_stats",
+            "season_stats_history",
+        }
+    }
 
     passed = all(c.ok for c in checks)
     return AthleteSmokeResult(

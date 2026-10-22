@@ -133,7 +133,11 @@ def classify_identity_match(
 ) -> Confidence:
     """Decide whether a college row and a pro row are the same person."""
     college_espn = str(college.get("espn_id") or "").strip()
+    pro_espn = str(pro.get("espn_id") or pro.get("pro_espn_id") or "").strip()
     pro_college_espn = str(pro.get("college_espn_id") or "").strip()
+    # Same ESPN athlete id across college→pro (common for 2026 draft class).
+    if college_espn and pro_espn and college_espn == pro_espn:
+        return "high"
     if college_espn and pro_college_espn and college_espn == pro_college_espn:
         return "high"
 
@@ -347,13 +351,21 @@ async def find_pro_college_duplicates(
                pro.sport AS pro_sport,
                pro.position AS pro_position,
                pro.school AS pro_team,
+               pro.espn_id AS pro_espn_id,
                pro.height_inches AS pro_height_inches,
                pro.weight_lbs AS pro_weight_lbs,
                pro.updated_at AS pro_updated_at,
                {college_espn_expr} AS pro_college_espn_id
         FROM active_college college
         JOIN active_pro pro
-          ON regexp_replace(lower(pro.name), '[^a-z0-9]+', '', 'g') = college.name_key
+          ON (
+                regexp_replace(lower(pro.name), '[^a-z0-9]+', '', 'g') = college.name_key
+             OR (
+                  college.espn_id IS NOT NULL
+              AND pro.espn_id IS NOT NULL
+              AND college.espn_id = pro.espn_id
+             )
+          )
          AND (
               (college.sport = 'cfb' AND pro.sport = 'nfl')
            OR (college.sport = 'ncaab_mens' AND pro.sport = 'nba')
@@ -381,6 +393,7 @@ async def find_pro_college_duplicates(
                 "class_year": payload.get("class_year"),
             },
             {
+                "espn_id": payload.get("pro_espn_id"),
                 "college_espn_id": payload.get("pro_college_espn_id"),
                 "sport": payload.get("pro_sport"),
                 "position": payload.get("pro_position"),
