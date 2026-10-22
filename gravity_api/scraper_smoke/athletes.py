@@ -20,7 +20,8 @@ class SmokeAthlete:
             object.__setattr__(self, "name_tokens", tuple(self.name.split()))
 
 
-# Two athletes per priority sport. IDs confirmed via ESPN site.web.api roster/profile.
+# Two athletes per priority sport. IDs confirmed via ESPN profile/stats pages.
+# Phase-1 free-tier set (2026-10): CFB/NFL/NBA named; CBB M/W chosen for 2025-26.
 SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
     # NFL
     SmokeAthlete(
@@ -33,11 +34,11 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
     ),
     SmokeAthlete(
         sport="nfl",
-        name="Ja'Marr Chase",
-        espn_id="4362628",
-        team_hint="Bengals",
-        position_hint="WR",
-        name_tokens=("Chase",),
+        name="Will Anderson Jr.",
+        espn_id="4685724",
+        team_hint="Texans",
+        position_hint="DE",
+        name_tokens=("Will", "Anderson"),
     ),
     # NBA
     SmokeAthlete(
@@ -50,11 +51,11 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
     ),
     SmokeAthlete(
         sport="nba",
-        name="Stephen Curry",
-        espn_id="3975",
-        team_hint="Warriors",
-        position_hint="G",
-        name_tokens=("Stephen", "Curry"),
+        name="Kevin Durant",
+        espn_id="3202",
+        team_hint="Rockets",
+        position_hint="F",
+        name_tokens=("Kevin", "Durant"),
     ),
     # CFB
     SmokeAthlete(
@@ -67,38 +68,35 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
     ),
     SmokeAthlete(
         sport="cfb",
-        name="Julian Sayin",
-        espn_id="5079712",
-        team_hint="Ohio State",
-        position_hint="QB",
-        name_tokens=("Julian", "Sayin"),
+        name="Colin Simmons",
+        espn_id="5079689",
+        team_hint="Texas",
+        position_hint="EDGE",
+        name_tokens=("Colin", "Simmons"),
     ),
-    # Men's college basketball
+    # Men's college basketball — 2025-26 stars
+    # AJ Dybantsa: BYU freshman, national scoring leader / AP All-America 2025-26.
+    # Cameron Boozer: Duke freshman, consensus National Player of the Year 2025-26.
     SmokeAthlete(
         sport="ncaab_mens",
-        name="Zoom Diallo",
-        espn_id="5060705",
-        team_hint="Kentucky",
-        position_hint="G",
-        name_tokens=("Diallo",),
+        name="AJ Dybantsa",
+        espn_id="5142718",
+        team_hint="BYU",
+        position_hint="F",
+        name_tokens=("Dybantsa",),
     ),
     SmokeAthlete(
         sport="ncaab_mens",
-        name="Cayden Boozer",
-        espn_id="5041937",
+        name="Cameron Boozer",
+        espn_id="5041935",
         team_hint="Duke",
-        position_hint="G",
-        name_tokens=("Cayden", "Boozer"),
+        position_hint="F",
+        name_tokens=("Cameron", "Boozer"),
     ),
-    # Women's college basketball
-    SmokeAthlete(
-        sport="ncaab_womens",
-        name="JuJu Watkins",
-        espn_id="5175946",
-        team_hint="USC",
-        position_hint="G",
-        name_tokens=("Watkins",),
-    ),
+    # Women's college basketball — 2025-26 stars
+    # Sarah Strong: UConn, 2025-26 AP POY / Naismith / Wade Trophy.
+    # Mikayla Blakes: Vanderbilt, 2025-26 scoring champ / AP First-Team All-America.
+    # (JuJu Watkins sat out 2025-26 ACL recovery — omitted as not a current-season player.)
     SmokeAthlete(
         sport="ncaab_womens",
         name="Sarah Strong",
@@ -106,6 +104,14 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
         team_hint="UConn",
         position_hint="F",
         name_tokens=("Sarah", "Strong"),
+    ),
+    SmokeAthlete(
+        sport="ncaab_womens",
+        name="Mikayla Blakes",
+        espn_id="5239107",
+        team_hint="Vanderbilt",
+        position_hint="G",
+        name_tokens=("Mikayla", "Blakes"),
     ),
 )
 
