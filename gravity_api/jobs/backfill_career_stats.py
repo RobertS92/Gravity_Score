@@ -1,4 +1,10 @@
-"""Backfill career / multi-season stats for athletes with ESPN IDs."""
+"""DEPRECATED: career-aggregate scrape path.
+
+Use ``python -m gravity_api.jobs.backfill_season_stats`` instead. Career totals
+are derived from per-season ``athlete_season_stats`` rows (never scraped into
+season GP fields). This module remains as a thin wrapper that re-runs the
+orchestrator for athletes missing ``season_stats_history`` only.
+"""
 
 from __future__ import annotations
 

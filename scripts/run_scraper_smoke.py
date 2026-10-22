@@ -18,7 +18,10 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from gravity_api.scraper_smoke.runner import run_smoke_suite_sync  # noqa: E402
+from gravity_api.scraper_smoke.runner import (  # noqa: E402
+    run_smoke_suite_sync,
+    write_smoke_csv,
+)
 
 
 def main() -> int:
@@ -33,6 +36,12 @@ def main() -> int:
         type=Path,
         default=None,
         help="Write full JSON results to this path",
+    )
+    parser.add_argument(
+        "--csv-out",
+        type=Path,
+        default=None,
+        help="Write smoke CSV (always includes stats_scope + stats_as_of)",
     )
     parser.add_argument(
         "--fail-on-error",
@@ -74,6 +83,10 @@ def main() -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         print(f"Wrote {args.json_out}")
+
+    if args.csv_out:
+        n = write_smoke_csv(payload, args.csv_out)
+        print(f"Wrote {args.csv_out} ({n} rows; columns include stats_scope, stats_as_of)")
 
     failed = summary.get("espn_scrapers_failed", 0) + summary.get(
         "db_scheduled_full_failed", 0

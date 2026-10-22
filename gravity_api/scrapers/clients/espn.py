@@ -417,9 +417,20 @@ class EspnClient:
             return site if site.get("season_stats") else stats
 
         # Prefer site common/v3 — per-season history. site.api 403s; site.web works.
+        # History alone is enough (current may be empty when career aggregates are
+        # suppressed); only fall back to core when site returns nothing usable.
         stats = await self._get_season_stats_site(athlete_id, sport)
-        if not stats.get("season_stats"):
+        if not stats.get("season_stats") and not stats.get("season_stats_history"):
             stats = await self._get_season_stats_core(athlete_id, sport)
+            # Core career aggregate must not become season_stats — clear if no history.
+            if stats.get("season_stats") and not stats.get("season_stats_history"):
+                if (stats.get("stats_source") or "") == "espn_core":
+                    stats = {
+                        **stats,
+                        "season_stats": {},
+                        "career_stats": {},
+                        "stats_scope": None,
+                    }
 
         # Enrich latest season from core year endpoint (TFL etc. missing on site CFB).
         history = stats.get("season_stats_history") or {}

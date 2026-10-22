@@ -7,6 +7,7 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from gravity_api.scraper_smoke.athletes import SMOKE_ATHLETES, SmokeAthlete
@@ -449,3 +450,69 @@ async def run_smoke_suite(
 
 def run_smoke_suite_sync(**kwargs) -> dict[str, Any]:
     return asyncio.run(run_smoke_suite(**kwargs))
+
+
+def smoke_results_to_csv_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Flatten smoke results for CSV — always includes stats_scope + stats_as_of."""
+    rows: list[dict[str, Any]] = []
+    for result in payload.get("results") or []:
+        sample = result.get("fields_sample") or {}
+        fields = sample.get("_fields") if isinstance(sample.get("_fields"), dict) else {}
+        rows.append(
+            {
+                "sport": result.get("sport"),
+                "name": result.get("name"),
+                "espn_id": result.get("espn_id"),
+                "mode": result.get("mode"),
+                "passed": result.get("passed"),
+                "team": sample.get("team") or sample.get("college") or fields.get("team"),
+                "stats_scope": sample.get("stats_scope") or fields.get("stats_scope"),
+                "stats_as_of": sample.get("stats_as_of") or fields.get("stats_as_of"),
+                "games_played_season": sample.get("games_played_season")
+                or fields.get("games_played_season"),
+                "games_played_career": sample.get("games_played_career")
+                or fields.get("games_played_career"),
+                "sacks": sample.get("sacks"),
+                "tfl": sample.get("tfl"),
+                "pass_yards": sample.get("pass_yards"),
+                "pass_td": sample.get("pass_td"),
+                "season_stats_keys": sample.get("season_stats_keys"),
+                "selection_note": sample.get("selection_note"),
+                "error": result.get("error"),
+            }
+        )
+    return rows
+
+
+def write_smoke_csv(payload: dict[str, Any], path: str | Path) -> int:
+    import csv
+    from pathlib import Path as _Path
+
+    out = _Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    rows = smoke_results_to_csv_rows(payload)
+    fieldnames = [
+        "sport",
+        "name",
+        "espn_id",
+        "mode",
+        "passed",
+        "team",
+        "stats_scope",
+        "stats_as_of",
+        "games_played_season",
+        "games_played_career",
+        "sacks",
+        "tfl",
+        "pass_yards",
+        "pass_td",
+        "season_stats_keys",
+        "selection_note",
+        "error",
+    ]
+    with out.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+    return len(rows)

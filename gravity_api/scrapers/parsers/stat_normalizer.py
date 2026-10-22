@@ -283,6 +283,35 @@ _SEASON_GP_CAPS = {
 }
 
 
+def derive_career_from_history(
+    history: dict[str, dict[str, float]] | None,
+) -> dict[str, float]:
+    """SUM per-season counting stats (career is derived, never scraped)."""
+    if not history:
+        return {}
+    totals: dict[str, float] = {}
+    for season_blob in history.values():
+        if not isinstance(season_blob, dict):
+            continue
+        for key, val in season_blob.items():
+            kl = str(key).lower()
+            if kl.startswith("avg") or "pct" in kl or "rate" in kl:
+                continue
+            try:
+                totals[key] = totals.get(key, 0.0) + float(val)
+            except (TypeError, ValueError):
+                continue
+        gp = season_blob.get("games_played_season") or season_blob.get("gp")
+        if gp is not None:
+            try:
+                totals["games_played_career"] = totals.get(
+                    "games_played_career", 0.0
+                ) + float(gp)
+            except (TypeError, ValueError):
+                pass
+    return totals
+
+
 def merge_stat_layers(
     sport: str,
     *,
@@ -292,7 +321,11 @@ def merge_stat_layers(
     stats_scope: str | None = None,
     stats_as_of: Any = None,
 ) -> dict[str, Any]:
-    """Build raw_athlete_data stat fields with flat current-season scalars."""
+    """Build raw_athlete_data stat fields with flat current-season scalars.
+
+    ``career`` is ignored for season GP / season_stats. Career totals are derived
+    from ``history`` when present.
+    """
     fields: dict[str, Any] = {}
     normalized_current = normalize_espn_stats(sport, current or {})
     if normalized_current:
@@ -306,17 +339,14 @@ def merge_stat_layers(
                 normalized_history[str(season_key)] = norm
         if normalized_history:
             fields["season_stats_history"] = normalized_history
-    normalized_career: dict[str, float] = {}
-    if career:
-        normalized_career = normalize_espn_stats(sport, career)
-        if normalized_career:
-            fields["career_stats"] = normalized_career
-            if normalized_career.get("games_played_season") is not None:
-                fields["games_played_career"] = int(
-                    normalized_career["games_played_season"]
-                )
-            elif normalized_career.get("gp") is not None:
-                fields["games_played_career"] = int(normalized_career["gp"])
+
+    # Career is derived from season history — never from scraped career aggregates.
+    _ = career  # explicitly unused for season fields (spec: career never scraped)
+    normalized_career = derive_career_from_history(fields.get("season_stats_history"))
+    if normalized_career:
+        fields["career_stats"] = normalized_career
+        if normalized_career.get("games_played_career") is not None:
+            fields["games_played_career"] = int(normalized_career["games_played_career"])
 
     gp = normalized_current.get("games_played_season") or normalized_current.get("gp")
     if gp is None:
@@ -335,7 +365,7 @@ def merge_stat_layers(
 
         scope = infer_stats_scope(
             history=fields.get("season_stats_history"),
-            career=normalized_career or None,
+            career=None,
             current=normalized_current,
             sport=sport,
         )

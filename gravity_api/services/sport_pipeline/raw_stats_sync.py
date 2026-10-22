@@ -81,14 +81,30 @@ async def enrich_raw_from_athlete_season_stats(
 ) -> dict[str, Any]:
     """Load current-season athlete_season_stats rows into a raw enrichment blob."""
     current_year = _current_season_year()
+    # Prefer EAV dual-write table (post migration 038); fall back to legacy name.
     rows = await conn.fetch(
         """SELECT stat_key, stat_value, games_played
-           FROM athlete_season_stats
+           FROM athlete_season_stats_eav
            WHERE athlete_id = $1::uuid AND sport = $2 AND season_year = $3""",
         athlete_id,
         sport,
         current_year,
     )
+    if not rows:
+        try:
+            rows = await conn.fetch(
+                """SELECT key AS stat_key, value::numeric AS stat_value, games_played
+                   FROM athlete_season_stats, jsonb_each_text(stats)
+                   WHERE athlete_id = $1::uuid AND sport = $2
+                     AND espn_season_year = $3
+                     AND COALESCE(is_total, FALSE) = FALSE
+                     AND season_type = 'regular'""",
+                athlete_id,
+                sport,
+                current_year,
+            )
+        except Exception:
+            rows = []
     if not rows:
         return {}
 

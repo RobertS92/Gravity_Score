@@ -52,7 +52,7 @@ async def rebuild_for_cohort(
     stat_keys = [sw.stat_key for sw in pos_spec.performance_stats]
     for stat_key in stat_keys:
         rows = await conn.fetch(
-            """SELECT stat_value FROM athlete_season_stats
+            """SELECT stat_value FROM athlete_season_stats_eav
                WHERE sport = $1 AND position_group = $2 AND season_year = $3 AND stat_key = $4""",
             sport,
             position_group,
@@ -93,7 +93,7 @@ async def rebuild_for_cohort(
     # and group per athlete in Python — the previous per-athlete query loop was
     # an N+1 that made a full rebuild take many minutes to hours.
     cohort_rows = await conn.fetch(
-        """SELECT athlete_id, stat_key, stat_value FROM athlete_season_stats
+        """SELECT athlete_id, stat_key, stat_value FROM athlete_season_stats_eav
            WHERE sport = $1 AND position_group = $2 AND season_year = $3""",
         sport,
         position_group,

@@ -1,0 +1,961 @@
+{
+  "url": "https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/4685724/stats?seasontype=2",
+  "http_status": 200,
+  "sport": "nfl",
+  "espn_id": "4685724",
+  "payload": {
+    "filters": [
+      {
+        "displayName": "League",
+        "name": "league",
+        "value": "nfl",
+        "options": [
+          {
+            "value": "college-football",
+            "displayValue": "NCAA - Football",
+            "shortDisplayName": "NCAAF"
+          },
+          {
+            "value": "nfl",
+            "displayValue": "National Football League",
+            "shortDisplayName": "NFL"
+          }
+        ]
+      },
+      {
+        "displayName": "Season",
+        "name": "seasontype",
+        "value": "2",
+        "options": [
+          {
+            "value": "2",
+            "displayValue": "Regular Season"
+          },
+          {
+            "value": "3",
+            "displayValue": "Postseason"
+          }
+        ]
+      }
+    ],
+    "teams": {
+      "houston-texans": {
+        "id": "34",
+        "uid": "s:20~l:28~t:34",
+        "guid": "595690b3-2161-4913-a7a7-814af2fd2621",
+        "slug": "houston-texans",
+        "location": "Houston",
+        "name": "Texans",
+        "nickname": "Texans",
+        "abbreviation": "HOU",
+        "displayName": "Houston Texans",
+        "shortDisplayName": "Texans",
+        "color": "00143f",
+        "alternateColor": "eb0028",
+        "isActive": true,
+        "isAllStar": false,
+        "logos": [
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png",
+            "width": 500,
+            "height": 500,
+            "rel": [
+              "full",
+              "default"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nfl/500-dark/hou.png",
+            "width": 500,
+            "height": 500,
+            "rel": [
+              "full",
+              "dark"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/hou.png",
+            "width": 500,
+            "height": 500,
+            "rel": [
+              "full",
+              "scoreboard"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/i/teamlogos/nfl/500-dark/scoreboard/hou.png",
+            "width": 500,
+            "height": 500,
+            "rel": [
+              "full",
+              "scoreboard",
+              "dark"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/grayscale.png",
+            "width": 500,
+            "height": 500,
+            "rel": [
+              "full",
+              "grayscale"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/primary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "primary_logo_on_white_color"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/primary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "primary_logo_on_black_color"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/primary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "primary_logo_on_primary_color"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/primary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "primary_logo_on_secondary_color"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/primary_logo_black.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "primary_logo_black"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/primary_logo_white.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "primary_logo_white"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/secondary_logo_on_white_color.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "secondary_logo_on_white_color"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/secondary_logo_on_black_color.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "secondary_logo_on_black_color"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/secondary_logo_on_primary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "secondary_logo_on_primary_color"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/secondary_logo_on_secondary_color.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "secondary_logo_on_secondary_color"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/secondary_logo_black.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "secondary_logo_black"
+            ]
+          },
+          {
+            "href": "https://a.espncdn.com/guid/595690b3-2161-4913-a7a7-814af2fd2621/logos/secondary_logo_white.png",
+            "width": 4096,
+            "height": 4096,
+            "rel": [
+              "full",
+              "secondary_logo_white"
+            ]
+          }
+        ],
+        "links": [
+          {
+            "language": "en",
+            "rel": [
+              "clubhouse",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nfl/team/_/name/hou/houston-texans",
+            "text": "Clubhouse",
+            "shortText": "Clubhouse",
+            "isExternal": false,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "roster",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nfl/team/roster/_/name/hou/houston-texans",
+            "text": "Roster",
+            "shortText": "Roster",
+            "isExternal": false,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "roster",
+              "sportscenter",
+              "app",
+              "team"
+            ],
+            "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~t:34&section=roster",
+            "text": "Roster",
+            "shortText": "Roster",
+            "isExternal": false,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "stats",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nfl/team/stats/_/name/hou/houston-texans",
+            "text": "Statistics",
+            "shortText": "Statistics",
+            "isExternal": false,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "stats",
+              "sportscenter",
+              "app",
+              "team"
+            ],
+            "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~t:34&section=stats",
+            "text": "Statistics",
+            "shortText": "Statistics",
+            "isExternal": false,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "schedule",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nfl/team/schedule/_/name/hou",
+            "text": "Schedule",
+            "shortText": "Schedule",
+            "isExternal": false,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "schedule",
+              "sportscenter",
+              "app",
+              "team"
+            ],
+            "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~t:34&section=scores",
+            "text": "Schedule",
+            "shortText": "Schedule",
+            "isExternal": false,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "photos",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nfl/team/photos/_/name/hou",
+            "text": "photos",
+            "shortText": "photos",
+            "isExternal": false,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "tickets",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.vividseats.com/houston-texans-tickets--sports-nfl-football/performer/2559?wsUser=717",
+            "text": "Tickets",
+            "shortText": "Tickets",
+            "isExternal": true,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "draftpicks",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nfl/draft/teams/_/name/hou/houston-texans",
+            "text": "Draft Picks",
+            "shortText": "Draft Picks",
+            "isExternal": false,
+            "isPremium": true
+          },
+          {
+            "language": "en",
+            "rel": [
+              "transactions",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nfl/team/transactions/_/name/hou",
+            "text": "Transactions",
+            "shortText": "Transactions",
+            "isExternal": false,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "injuries",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nfl/team/injuries/_/name/hou",
+            "text": "Injuries",
+            "shortText": "Injuries",
+            "isExternal": false,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "depthchart",
+              "desktop",
+              "team"
+            ],
+            "href": "https://www.espn.com/nfl/team/depth/_/name/hou",
+            "text": "Depth Chart",
+            "shortText": "Depth Chart",
+            "isExternal": false,
+            "isPremium": false
+          },
+          {
+            "language": "en",
+            "rel": [
+              "depthchart",
+              "sportscenter",
+              "app",
+              "team"
+            ],
+            "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~t:34&section=depthchart",
+            "text": "Depth Chart",
+            "shortText": "Depth Chart",
+            "isExternal": false,
+            "isPremium": false
+          }
+        ],
+        "groups": {},
+        "coaches": {},
+        "venue": {
+          "id": "3891",
+          "fullName": "Reliant Stadium",
+          "address": {
+            "city": "Houston",
+            "state": "TX",
+            "zipCode": "77054",
+            "country": "USA"
+          },
+          "grass": false,
+          "indoor": true,
+          "images": [
+            {
+              "href": "https://a.espncdn.com/i/venues/nfl/day/3891.jpg",
+              "width": 2000,
+              "height": 1125,
+              "rel": [
+                "full",
+                "day"
+              ]
+            },
+            {
+              "href": "https://a.espncdn.com/i/venues/nfl/day/interior/3891.jpg",
+              "width": 2000,
+              "height": 1125,
+              "rel": [
+                "full",
+                "day",
+                "interior"
+              ]
+            }
+          ]
+        },
+        "record": {},
+        "againstTheSpreadRecords": {},
+        "ranks": {},
+        "franchise": {}
+      }
+    },
+    "categories": [
+      {
+        "name": "defensive",
+        "displayName": "Defense",
+        "labels": [
+          "GP",
+          "TOT",
+          "SOLO",
+          "AST",
+          "SACK",
+          "FF",
+          "FR",
+          "YDS",
+          "INT",
+          "YDS",
+          "AVG",
+          "TD",
+          "LNG",
+          "PD",
+          "STF",
+          "STFYDS",
+          "KB"
+        ],
+        "names": [
+          "gamesPlayed",
+          "totalTackles",
+          "soloTackles",
+          "assistTackles",
+          "sacks",
+          "fumblesForced",
+          "fumblesRecovered",
+          "fumblesRecoveredYards",
+          "interceptions",
+          "interceptionYards",
+          "avgInterceptionYards",
+          "interceptionTouchdowns",
+          "longInterception",
+          "passesDefended",
+          "stuffs",
+          "stuffYards",
+          "kicksBlocked"
+        ],
+        "displayNames": [
+          "Games Played",
+          "Total Tackles",
+          "Solo Tackles",
+          "Assist Tackles",
+          "Sacks",
+          "Forced Fumbles",
+          "Fumbles Recovered",
+          "Fumbles Recovered Yards",
+          "Interceptions",
+          "Interception Yards",
+          "Average Interception Yards",
+          "Interception Touchdowns",
+          "Long Interception",
+          "Passes Defended",
+          "Stuffs",
+          "Stuff Yards",
+          "Kicks Blocked"
+        ],
+        "descriptions": [
+          "Games Played",
+          "The total number of tackles.",
+          "The number of times a tackle was made unassisted.",
+          "The number of assists on tackles.",
+          "The total number of sacks.",
+          "The total number of forced fumbles.",
+          "The number of fumbles recovered.",
+          "The number of yards gained after a fumble is recovered.",
+          "The total number of interceptions.",
+          "The number of yards gained after an interception.",
+          "The average number of return yards per interception.",
+          "The number of times an interception is returned for a touchdown.",
+          "The amount of yards of the longest interception return.",
+          "The total number of passes defended.",
+          "The number of times that a runner is stuffed at or behind the line of scrimmage.",
+          "The number of yards lost from stuffs.",
+          "The number of times a kick was blocked."
+        ],
+        "statistics": [
+          {
+            "teamId": "34",
+            "teamSlug": "houston-texans",
+            "season": {
+              "year": 2023,
+              "displayName": "2023"
+            },
+            "stats": [
+              "15",
+              "45",
+              "29",
+              "16",
+              "7",
+              "0",
+              "0",
+              "0",
+              "0",
+              "0",
+              "0.0",
+              "0",
+              "0",
+              "1",
+              "10.5",
+              "14",
+              "1"
+            ],
+            "position": "DE"
+          },
+          {
+            "teamId": "34",
+            "teamSlug": "houston-texans",
+            "season": {
+              "year": 2024,
+              "displayName": "2024"
+            },
+            "stats": [
+              "14",
+              "37",
+              "27",
+              "10",
+              "11",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "0.0",
+              "0",
+              "0",
+              "2",
+              "11",
+              "16",
+              "0"
+            ],
+            "position": "DE"
+          },
+          {
+            "teamId": "34",
+            "teamSlug": "houston-texans",
+            "season": {
+              "year": 2025,
+              "displayName": "2025"
+            },
+            "stats": [
+              "17",
+              "54",
+              "35",
+              "19",
+              "12",
+              "3",
+              "2",
+              "0",
+              "0",
+              "0",
+              "0.0",
+              "0",
+              "0",
+              "3",
+              "10.5",
+              "34",
+              "0"
+            ],
+            "position": "DE"
+          },
+          {
+            "teamId": "34",
+            "teamSlug": "houston-texans",
+            "season": {
+              "year": 2026,
+              "displayName": "2026"
+            },
+            "stats": [
+              "6",
+              "28",
+              "16",
+              "12",
+              "7.5",
+              "1",
+              "1",
+              "0",
+              "0",
+              "0",
+              "0.0",
+              "0",
+              "0",
+              "1",
+              "4.5",
+              "13",
+              "1"
+            ],
+            "position": "DE"
+          }
+        ],
+        "totals": [
+          "52",
+          "164",
+          "107",
+          "57",
+          "37.5",
+          "5",
+          "4",
+          "0",
+          "0",
+          "0",
+          "0.0",
+          "0",
+          "0",
+          "7",
+          "36.5",
+          "77",
+          "2"
+        ],
+        "sortKey": "defensive"
+      },
+      {
+        "name": "passing",
+        "displayName": "Passing",
+        "labels": [
+          "GP",
+          "CMP",
+          "ATT",
+          "CMP%",
+          "YDS",
+          "AVG",
+          "TD",
+          "INT",
+          "LNG",
+          "SACK",
+          "RTG",
+          "QBR"
+        ],
+        "names": [
+          "gamesPlayed",
+          "completions",
+          "passingAttempts",
+          "completionPct",
+          "passingYards",
+          "yardsPerPassAttempt",
+          "passingTouchdowns",
+          "interceptions",
+          "longPassing",
+          "sacks",
+          "QBRating",
+          "adjQBR"
+        ],
+        "displayNames": [
+          "Games Played",
+          "Completions",
+          "Passing Attempts",
+          "Completion Percentage",
+          "Passing Yards",
+          "Yards Per Pass Attempt",
+          "Passing Touchdowns",
+          "Interceptions",
+          "Longest Pass",
+          "Total Sacks",
+          "Passer Rating",
+          "Adjusted QBR"
+        ],
+        "descriptions": [
+          "Games Played",
+          "The times a player completes a pass to another player who is eligible to catch a pass.",
+          "The number of times a pass is attempted.",
+          "The percentage of completed passes.",
+          "The total passing yards.",
+          "The average number yards per pass attempt.",
+          "The total number of passing touchdowns.",
+          "The number of passes thrown that were intercepted by the opposing team.",
+          "The longest pass play completed in terms of yards.",
+          "The total number of sacks.",
+          "Passer Rating",
+          "Adjusted Quarterback Rating."
+        ],
+        "statistics": [
+          {
+            "teamId": "34",
+            "teamSlug": "houston-texans",
+            "season": {
+              "year": 2026,
+              "displayName": "2026"
+            },
+            "stats": [
+              "6",
+              "0",
+              "0",
+              "0.0",
+              "0",
+              "0.0",
+              "0",
+              "0",
+              "0",
+              "0",
+              "39.6",
+              "-"
+            ],
+            "position": "DE"
+          }
+        ],
+        "totals": [
+          "52",
+          "0",
+          "0",
+          "0.0",
+          "0",
+          "0.0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0.0",
+          "-"
+        ],
+        "sortKey": "passing"
+      }
+    ],
+    "glossary": [
+      {
+        "abbreviation": "1-19\t",
+        "displayName": "FGM 1-19 yards"
+      },
+      {
+        "abbreviation": "20-29\t",
+        "displayName": "FGM 20-29 yards"
+      },
+      {
+        "abbreviation": "2PT",
+        "displayName": "Total Two Point Conversions"
+      },
+      {
+        "abbreviation": "30-39",
+        "displayName": "FGM 30-39 yards"
+      },
+      {
+        "abbreviation": "40-49\t",
+        "displayName": "FGM 40-49 yards"
+      },
+      {
+        "abbreviation": "50+",
+        "displayName": "FGM 50+ yards"
+      },
+      {
+        "abbreviation": "AST",
+        "displayName": "Assist Tackles"
+      },
+      {
+        "abbreviation": "ATT",
+        "displayName": "Punt Returns"
+      },
+      {
+        "abbreviation": "AVG",
+        "displayName": "Average Interception Yards"
+      },
+      {
+        "abbreviation": "CAR",
+        "displayName": "Rushing Attempts"
+      },
+      {
+        "abbreviation": "CMP",
+        "displayName": "Completions"
+      },
+      {
+        "abbreviation": "CMP%",
+        "displayName": "Completion Percentage"
+      },
+      {
+        "abbreviation": "FC",
+        "displayName": "Punt Return Fair Catches"
+      },
+      {
+        "abbreviation": "FD",
+        "displayName": "Rushing 1st downs"
+      },
+      {
+        "abbreviation": "FF",
+        "displayName": "Forced Fumbles"
+      },
+      {
+        "abbreviation": "FG",
+        "displayName": "Field Goals"
+      },
+      {
+        "abbreviation": "FG%",
+        "displayName": "Field Goal Percentage"
+      },
+      {
+        "abbreviation": "FR",
+        "displayName": "Fumbles Recovered"
+      },
+      {
+        "abbreviation": "FUM",
+        "displayName": "Rushing Fumbles"
+      },
+      {
+        "abbreviation": "GP",
+        "displayName": "Games Played"
+      },
+      {
+        "abbreviation": "IN20",
+        "displayName": "Punts Inside 20"
+      },
+      {
+        "abbreviation": "IN20%",
+        "displayName": "Punts Inside 20 Percentage"
+      },
+      {
+        "abbreviation": "INT",
+        "displayName": "Interceptions"
+      },
+      {
+        "abbreviation": "KB",
+        "displayName": "Kicks Blocked"
+      },
+      {
+        "abbreviation": "KRFC",
+        "displayName": "Kick Return Fair Catches"
+      },
+      {
+        "abbreviation": "LNG",
+        "displayName": "Long Interception"
+      },
+      {
+        "abbreviation": "LST",
+        "displayName": "Rushing Fumbles Lost"
+      },
+      {
+        "abbreviation": "NET",
+        "displayName": "Net Average Punt Yards"
+      },
+      {
+        "abbreviation": "PASS",
+        "displayName": "Passing Touchdowns"
+      },
+      {
+        "abbreviation": "PAT",
+        "displayName": "Kick Extra Points"
+      },
+      {
+        "abbreviation": "PD",
+        "displayName": "Passes Defended"
+      },
+      {
+        "abbreviation": "PTS",
+        "displayName": "Total Points"
+      },
+      {
+        "abbreviation": "PUNTS",
+        "displayName": "Punts"
+      },
+      {
+        "abbreviation": "QBR",
+        "displayName": "Adjusted QBR"
+      },
+      {
+        "abbreviation": "REC",
+        "displayName": "Receiving Touchdowns"
+      },
+      {
+        "abbreviation": "RET",
+        "displayName": "Return Touchdowns"
+      },
+      {
+        "abbreviation": "RTG",
+        "displayName": "Passer Rating"
+      },
+      {
+        "abbreviation": "RUSH",
+        "displayName": "Rushing Touchdowns"
+      },
+      {
+        "abbreviation": "SACK",
+        "displayName": "Sacks"
+      },
+      {
+        "abbreviation": "SOLO",
+        "displayName": "Solo Tackles"
+      },
+      {
+        "abbreviation": "STF",
+        "displayName": "Stuffs"
+      },
+      {
+        "abbreviation": "STFYDS",
+        "displayName": "Stuff Yards"
+      },
+      {
+        "abbreviation": "TB",
+        "displayName": "Touchbacks"
+      },
+      {
+        "abbreviation": "TB%",
+        "displayName": "Touchback Percentage"
+      },
+      {
+        "abbreviation": "TD",
+        "displayName": "Interception Touchdowns"
+      },
+      {
+        "abbreviation": "TGTS",
+        "displayName": "Receiving Targets"
+      },
+      {
+        "abbreviation": "TOT",
+        "displayName": "Total Tackles"
+      },
+      {
+        "abbreviation": "XPA",
+        "displayName": "Extra Point Attempts"
+      },
+      {
+        "abbreviation": "XPM",
+        "displayName": "Extra Points Made"
+      },
+      {
+        "abbreviation": "YDS",
+        "displayName": "Fumbles Recovered Yards"
+      }
+    ]
+  }
+}

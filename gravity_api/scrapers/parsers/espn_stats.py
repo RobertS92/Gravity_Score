@@ -347,11 +347,30 @@ _CAREER_ONLY_KEYS = frozenset(
 def build_stats_bundle(
     data: dict[str, Any], *, sport: str | None = None
 ) -> dict[str, Any]:
-    """Full stats bundle: current season, history, career."""
+    """Full stats bundle: current season + history.
+
+    Career aggregates are **not** used as season fields. When ESPN only exposes a
+    career/total row (no per-season history), ``current`` stays empty and
+    ``stats_scope`` is left unset so callers do not stamp career GP into season
+    columns. Career totals are derived downstream via SUM(season rows).
+    """
     history = extract_season_history(data)
+    # Still parse career for diagnostics / explicit career_stats blobs, but never
+    # promote it into ``current`` season fields.
     career = extract_career_totals(data)
     latest = _latest_season_stats_from_history(history)
     flat = stats_from_espn_payload(data)
+
+    def _payload_is_season_scoped(payload: dict[str, Any]) -> bool:
+        """Core ``seasons/{year}/types/{n}/…/statistics`` responses are single-season."""
+        if payload.get("seasonType"):
+            return True
+        season = payload.get("season")
+        if isinstance(season, dict) and (
+            season.get("$ref") or season.get("year") or season.get("displayName")
+        ):
+            return True
+        return False
 
     if latest:
         # Prefer true per-season rows; fill gaps from flat payload but never let
@@ -363,24 +382,40 @@ def build_stats_bundle(
             if key in _CAREER_ONLY_KEYS:
                 continue
             current[key] = val
+    elif flat and _payload_is_season_scoped(data):
+        current = dict(flat)
     else:
-        current = flat or {}
+        # No per-season history and not a season-scoped core payload — do not
+        # promote a career / multi-season aggregate into season fields.
+        current = {}
 
     stats_as_of = data.get("season") or data.get("displaySeason")
     if isinstance(stats_as_of, dict):
-        stats_as_of = stats_as_of.get("year") or stats_as_of.get("displayName")
+        stats_as_of = (
+            stats_as_of.get("year")
+            or stats_as_of.get("displayName")
+            or (
+                str(stats_as_of.get("$ref", "")).split("/seasons/")[-1].split("?")[0]
+                if stats_as_of.get("$ref")
+                else None
+            )
+        )
     if history:
         latest_key = sorted(history.keys(), reverse=True)[0]
         if not stats_as_of:
             stats_as_of = latest_key
 
     scope = infer_stats_scope(
-        history=history, career=career, current=current, sport=sport
+        history=history, career=None, current=current, sport=sport
     )
+    if not history and not current:
+        scope = None
     return {
         "current": current,
         "history": history,
-        "career": career,
+        # Intentionally omitted from season path — derive via SUM(season rows).
+        "career": {},
+        "career_scraped_disabled": career or {},
         "stats_as_of": stats_as_of,
         "stats_scope": scope,
         "raw": data,

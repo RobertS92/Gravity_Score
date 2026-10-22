@@ -91,7 +91,7 @@ async def build_enriched_raw_payload(
     # games_played, counting stats, etc. (not only nested season_stats blobs).
     season_rows = await conn.fetch(
         """SELECT season_year, stat_key, stat_value
-           FROM athlete_season_stats
+           FROM athlete_season_stats_eav
            WHERE athlete_id = $1 AND sport = $2
            ORDER BY season_year DESC""",
         athlete["id"],

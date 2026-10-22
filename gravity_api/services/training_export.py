@@ -154,8 +154,13 @@ def flatten_raw_data_export(raw: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     out: dict[str, Any] = {}
     out.update(flatten_raw_data(raw))
+    # Required provenance columns on every export/smoke row (may be blank).
+    out["stats_scope"] = raw.get("stats_scope")
+    out["stats_as_of"] = raw.get("stats_as_of")
     for key, value in raw.items():
         if key in SKIP_JSON_KEYS:
+            continue
+        if key in {"stats_scope", "stats_as_of"}:
             continue
         col = f"raw_{key}"
         if col in out:
@@ -185,6 +190,9 @@ def build_scraped_row(
         "scraped_at": scraped_at,
         "scrape_version": scrape_version,
         "has_raw_scrape": has_raw,
+        # Spec: every export/smoke CSV row carries these provenance fields.
+        "stats_scope": None,
+        "stats_as_of": None,
     }
     for k in (
         "name",
@@ -208,6 +216,8 @@ def build_scraped_row(
         row["raw_data_json"] = json.dumps(parsed, default=str)
         row["roster_seeded"] = bool(parsed.get("roster_seeded"))
     row.update(flatten_raw_data_export(parsed))
+    row["stats_scope"] = parsed.get("stats_scope") if parsed else None
+    row["stats_as_of"] = parsed.get("stats_as_of") if parsed else None
     return row
 
 
