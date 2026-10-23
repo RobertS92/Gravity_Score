@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 import re
+from datetime import datetime
 from typing import Any
 
+from gravity_api.scrapers.types import SeasonStatLine
+
 _SEASON_YEAR_RE = re.compile(r"(20\d{2})")
+_LOG = logging.getLogger(__name__)
+
+
+class ParseConflict(Exception):
+    """Duplicate or conflicting stat identity within a single ESPN category."""
 
 
 def _is_empty_stat(val: Any) -> bool:
@@ -18,7 +27,10 @@ def _is_empty_stat(val: Any) -> bool:
 
 
 def _merge_stat_dicts(*parts: dict[str, Any]) -> dict[str, Any]:
-    """Merge ESPN stat dicts; first non-empty value wins, non-zero beats zero."""
+    """Legacy merge for flat callers; first non-empty value wins, non-zero beats zero.
+
+    Prefer ``parse_core_season_statistics`` + namespaced keys for new code paths.
+    """
     out: dict[str, Any] = {}
     for part in parts:
         if not part:
@@ -36,7 +48,7 @@ def _merge_stat_dicts(*parts: dict[str, Any]) -> dict[str, Any]:
 
 
 # Offensive categories reuse the key "sacks" for QB sacks taken — remap so they
-# cannot clobber defensive sack totals during a flat merge.
+# cannot clobber defensive sack totals during a flat merge (legacy path only).
 _PASSING_SACK_KEYS = frozenset({"sacks", "SACK", "SACKS"})
 _OFFENSIVE_CAT_NAMES = frozenset(
     {"passing", "rushing", "receiving", "scoring", "offensive", "kicking", "punting"}
@@ -58,6 +70,123 @@ def _remap_category_keys(cat_name: str, stats: dict[str, Any]) -> dict[str, Any]
             if key in _PASSING_SACK_KEYS or str(key).lower() == "sacks":
                 out.setdefault("sacksTaken", out.pop(key))
     return out
+
+
+def _coerce_stat_float(val: Any) -> float | None:
+    if val is None or val == "" or val == "-":
+        return None
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
+
+
+def _namespaced_stats_from_categories(categories: list[Any]) -> dict[str, float]:
+    """Keep category namespace: keys are ``\"category.stat\"``.
+
+    Within one category, duplicate stat names log a ``ParseConflict`` and the
+    duplicate is skipped (first value kept). Categories are never flattened
+    by bare name across the payload.
+    """
+    out: dict[str, float] = {}
+    for cat in categories:
+        if not isinstance(cat, dict):
+            continue
+        cat_name = str(cat.get("name") or cat.get("displayName") or "").strip()
+        if not cat_name:
+            continue
+        seen_in_cat: dict[str, float] = {}
+        for stat in cat.get("stats") or []:
+            if not isinstance(stat, dict):
+                continue
+            raw_key = (
+                stat.get("name")
+                or stat.get("abbreviation")
+                or stat.get("shortDisplayName")
+            )
+            if not raw_key:
+                continue
+            key = str(raw_key)
+            val = stat.get("value")
+            if val is None:
+                val = stat.get("displayValue")
+            parsed = _coerce_stat_float(val)
+            if parsed is None:
+                continue
+            if key in seen_in_cat:
+                conflict = ParseConflict(
+                    f"duplicate stat '{key}' in category '{cat_name}' "
+                    f"(kept {seen_in_cat[key]}, skipped {parsed})"
+                )
+                _LOG.warning("%s", conflict)
+                continue
+            seen_in_cat[key] = parsed
+        # Parallel labels/names + values shape (no object ``stats`` entries).
+        if not seen_in_cat:
+            labels = cat.get("labels") or cat.get("names")
+            values = cat.get("stats") or cat.get("values")
+            if labels and values and len(labels) == len(values):
+                for name, val in zip(labels, values):
+                    if not name:
+                        continue
+                    key = str(name)
+                    raw = val.get("value") if isinstance(val, dict) else val
+                    parsed = _coerce_stat_float(raw)
+                    if parsed is None:
+                        continue
+                    if key in seen_in_cat:
+                        conflict = ParseConflict(
+                            f"duplicate stat '{key}' in category '{cat_name}' "
+                            f"(kept {seen_in_cat[key]}, skipped {parsed})"
+                        )
+                        _LOG.warning("%s", conflict)
+                        continue
+                    seen_in_cat[key] = parsed
+        for key, parsed in seen_in_cat.items():
+            out[f"{cat_name}.{key}"] = parsed
+    return out
+
+
+def parse_core_season_statistics(
+    payload: dict[str, Any],
+    *,
+    league: str,
+    season_year: int,
+    season_type: str,
+    team_id: str,
+    team_name: str | None,
+    is_total: bool,
+    source_url: str,
+    stats_as_of: datetime,
+    source_key: str = "espn.core.statistics",
+) -> SeasonStatLine:
+    """Parse a season-scoped core ``…/statistics`` payload into a ``SeasonStatLine``.
+
+    Stats keep their ESPN category namespace (``defensive.sacks``, ``passing.sacks``).
+    Call ``normalize_namespaced_stats`` to map to canonical keys.
+    """
+    if not payload:
+        namespaced: dict[str, float] = {}
+    else:
+        splits = payload.get("splits") or {}
+        categories = splits.get("categories") or payload.get("categories") or []
+        if not isinstance(categories, list):
+            categories = []
+        namespaced = _namespaced_stats_from_categories(categories)
+    if season_type not in {"regular", "postseason"}:
+        raise ValueError(f"season_type must be 'regular' or 'postseason', got {season_type!r}")
+    return SeasonStatLine(
+        league=league,
+        season_year=int(season_year),
+        season_type=season_type,
+        team_id=str(team_id),
+        team_name=team_name,
+        is_total=bool(is_total),
+        stats=namespaced,
+        source_key=source_key,
+        source_url=source_url,
+        stats_as_of=stats_as_of,
+    )
 
 
 def _stats_from_single_category(cat: dict[str, Any]) -> dict[str, Any]:
@@ -93,7 +222,7 @@ def _stats_from_single_category(cat: dict[str, Any]) -> dict[str, Any]:
 
 
 def _stats_from_category_block(categories: list[Any]) -> dict[str, Any]:
-    """Merge category blocks with defensive stats preferred over offensive zeros."""
+    """Legacy flat merge: defensive preferred over offensive zeros after remap."""
     defensive: dict[str, Any] = {}
     other: dict[str, Any] = {}
     for cat in categories:
@@ -370,10 +499,14 @@ def build_stats_bundle(
         """Core ``seasons/{year}/types/{n}/…/statistics`` responses are single-season."""
         if payload.get("seasonType"):
             return True
+        if payload.get("displaySeason"):
+            return True
         season = payload.get("season")
         if isinstance(season, dict) and (
             season.get("$ref") or season.get("year") or season.get("displayName")
         ):
+            return True
+        if isinstance(season, (str, int)) and str(season).strip():
             return True
         return False
 
@@ -428,9 +561,11 @@ def build_stats_bundle(
 
 
 __all__ = [
+    "ParseConflict",
     "build_stats_bundle",
     "extract_career_totals",
     "extract_season_history",
     "infer_stats_scope",
+    "parse_core_season_statistics",
     "stats_from_espn_payload",
 ]

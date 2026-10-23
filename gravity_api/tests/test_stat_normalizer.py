@@ -63,8 +63,9 @@ def test_merge_stat_layers_flattens_current_season():
     assert fields["pass_td"] == 25.0
     assert fields["games_played_season"] == 11
     assert "2023" in fields["season_stats_history"]
-    assert fields["career_stats"]["pass_yards"] == 9100.0
-    assert fields["games_played_career"] == 36.0
+    # Career is derived from history (never scraped career aggregates).
+    assert fields["career_stats"]["pass_yards"] == 2100.0
+    assert fields["games_played_career"] == 10.0
 
 
 def test_finalize_stat_fields_syncs_gp_in_season_stats():

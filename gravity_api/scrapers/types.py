@@ -70,3 +70,23 @@ class ScraperResult:
 
 def utc_now() -> datetime:
     return datetime.now(tz=timezone.utc)
+
+
+@dataclass(frozen=True)
+class SeasonStatLine:
+    """One season/type/team stat line with category-namespaced raw keys.
+
+    ``stats`` keys are ``\"category.stat\"`` (e.g. ``\"defensive.sacks\"``)
+    until passed through ``normalize_namespaced_stats``.
+    """
+
+    league: str
+    season_year: int
+    season_type: str  # 'regular' | 'postseason'
+    team_id: str
+    team_name: str | None
+    is_total: bool
+    stats: dict[str, float]
+    source_key: str
+    source_url: str
+    stats_as_of: datetime
