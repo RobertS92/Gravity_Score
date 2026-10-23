@@ -1,0 +1,12 @@
+{
+  "error": {
+    "message": "No stats found.",
+    "code": 404
+  },
+  "_capture": {
+    "url": "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/types/2/athletes/5142718/statistics/0",
+    "http_status": 404,
+    "date": "Fri, 23 Oct 2026 00:06:19 GMT",
+    "last-modified": null
+  }
+}

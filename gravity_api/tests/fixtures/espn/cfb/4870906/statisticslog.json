@@ -1,0 +1,99 @@
+{
+  "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/athletes/4870906/statisticslog?lang=en&region=us",
+  "entries": [
+    {
+      "season": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2026?lang=en&region=us"
+      },
+      "statistics": [
+        {
+          "type": "total",
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2026/types/3/athletes/4870906/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "type": "team",
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2026/teams/251?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2026/types/3/teams/251/athletes/4870906/statistics?lang=en&region=us"
+          }
+        }
+      ]
+    },
+    {
+      "season": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025?lang=en&region=us"
+      },
+      "statistics": [
+        {
+          "type": "total",
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/types/3/athletes/4870906/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "type": "team",
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/teams/251?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/types/3/teams/251/athletes/4870906/statistics?lang=en&region=us"
+          }
+        }
+      ]
+    },
+    {
+      "season": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2024?lang=en&region=us"
+      },
+      "statistics": [
+        {
+          "type": "total",
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2024/types/3/athletes/4870906/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "type": "team",
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2024/teams/251?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2024/types/3/teams/251/athletes/4870906/statistics?lang=en&region=us"
+          }
+        }
+      ]
+    },
+    {
+      "season": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2023?lang=en&region=us"
+      },
+      "statistics": [
+        {
+          "type": "total",
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2023/types/3/athletes/4870906/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "type": "team",
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2023/teams/251?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2023/types/3/teams/251/athletes/4870906/statistics?lang=en&region=us"
+          }
+        }
+      ]
+    }
+  ],
+  "_capture": {
+    "url": "https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/athletes/4870906/statisticslog",
+    "http_status": 200,
+    "date": "Fri, 23 Oct 2026 00:06:15 GMT",
+    "last-modified": null
+  }
+}

@@ -109,9 +109,13 @@ async def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+    from datetime import datetime, timezone
+    from gravity_api.scrapers.season_calendar import current_season_year
 
-    years = args.years or [_current_season_year(), _current_season_year() - 1]
+    # Default years relative to CFB/NFL calendar (shared across sports in this script).
+    _today = datetime.now(tz=timezone.utc).date()
+    _cur = current_season_year('nfl', _today)
+    years = args.years or [_cur, _cur - 1]
     years = sorted(set(years), reverse=True)
 
     settings = get_settings()

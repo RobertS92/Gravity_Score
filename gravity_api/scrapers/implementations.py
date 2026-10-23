@@ -1113,14 +1113,15 @@ class CfbdStatsScraper(BaseMicroScraper):
             cfbd_is_rate_limited,
             player_id_from_row,
         )
-        from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+        from datetime import datetime, timezone
+        from gravity_api.scrapers.season_calendar import current_season_year
         from gravity_api.scrapers.parsers.stat_normalizer import merge_stat_layers
 
         client = CfbdClient()
         if not client.enabled:
             return self._result(scraper_key, fields={}, error="CFBD_API_KEY not configured")
         team = ctx.team or ctx.school
-        year = _current_season_year()
+        year = current_season_year('cfb', datetime.now(tz=timezone.utc).date())
 
         if cfbd_is_rate_limited():
             return self._cfbd_fallback_result(ctx, scraper_key, note="cfbd rate limited")
@@ -1179,7 +1180,8 @@ class CfbdTeamRecordScraper(BaseMicroScraper):
         if ctx.sport != "cfb":
             return self._result(scraper_key, fields={}, error="cfbd team record is cfb-only")
         from gravity_api.scrapers.clients.cfbd import CfbdClient, cfbd_is_rate_limited
-        from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+        from datetime import datetime, timezone
+        from gravity_api.scrapers.season_calendar import current_season_year
 
         team = ctx.team or ctx.school
         if not team:
@@ -1191,7 +1193,7 @@ class CfbdTeamRecordScraper(BaseMicroScraper):
         if cfbd_is_rate_limited():
             return self._result(scraper_key, fields={}, error="cfbd rate limited")
 
-        year = _current_season_year()
+        year = current_season_year('cfb', datetime.now(tz=timezone.utc).date())
         record = await client.team_record(year=year, team=team)
         if not record:
             existing = ctx.existing_raw
@@ -1416,9 +1418,10 @@ class KenPomStatsScraper(BaseMicroScraper):
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
         if ctx.sport != "ncaab_mens":
             return self._result(scraper_key, fields={}, error="kenpom is ncaab_mens-only")
-        from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+        from datetime import datetime, timezone
+        from gravity_api.scrapers.season_calendar import current_season_year
 
-        year = _current_season_year()
+        year = current_season_year('ncaab_mens', datetime.now(tz=timezone.utc).date())
         client = KenPomClient()
         fields: dict[str, Any] = {}
         if client.enabled:

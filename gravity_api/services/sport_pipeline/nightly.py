@@ -16,7 +16,8 @@ from gravity_api.jobs.rebuild_cohort_baselines import rebuild_for_cohort
 from gravity_api.scrapers.orchestrator import run_scrapers_for_athlete
 from gravity_api.services.sport_pipeline.config import ALL_SPORT_PIPELINES
 from gravity_api.services.sport_pipeline.run import run_athlete_pipeline
-from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+from datetime import datetime, timezone
+from gravity_api.scrapers.season_calendar import current_season_year
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +219,7 @@ async def fetch_stale_athlete_ids(
 
 
 async def rebuild_cohorts_for_sport(conn: asyncpg.Connection, sport: str) -> int:
-    season_year = _current_season_year()
+    season_year = current_season_year(sport, datetime.now(tz=timezone.utc).date())
     league = SPORT_LEAGUE.get(sport, "ncaa")
     spec = get_sport_spec(sport)
     total = 0

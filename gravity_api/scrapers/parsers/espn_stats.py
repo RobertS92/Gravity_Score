@@ -158,9 +158,14 @@ def stats_from_espn_payload(data: dict[str, Any]) -> dict[str, Any]:
     return stats
 
 
-def _season_label_to_key(label: str) -> str:
-    m = _SEASON_YEAR_RE.search(label or "")
-    return m.group(1) if m else label.strip() or "unknown"
+def _season_year_key(label: str) -> str:
+    """Normalize a season label to a four-digit year key for history maps.
+
+    Uses any ``YYYY`` (including pre-2000). Prefer ``season_calendar.parse_season_label``
+    when the league is known.
+    """
+    m = re.search(r"(\d{4})", label or "")
+    return m.group(1) if m else (label.strip() or "unknown")
 
 
 def _categoried_rows(data: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
@@ -198,7 +203,7 @@ def _categoried_rows(data: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], d
             row = {str(names[i]): stats[i] for i in range(len(names))}
             cat_name = str(cat.get("name") or cat.get("displayName") or "")
             row = _remap_category_keys(cat_name, row)
-            key = _season_label_to_key(str(year))
+            key = _season_year_key(str(year))
             history[key] = _merge_stat_dicts(history.get(key, {}), row)
         totals = cat.get("totals")
         if isinstance(totals, list) and len(totals) == len(names):
@@ -228,7 +233,7 @@ def extract_season_history(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 or block.get("label")
                 or ""
             )
-            season_key = _season_label_to_key(str(label))
+            season_key = _season_year_key(str(label))
             categories = block.get("splits") or block.get("categories") or []
             if isinstance(categories, dict):
                 categories = categories.get("categories") or []
@@ -249,7 +254,7 @@ def extract_season_history(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
             if not isinstance(split, dict):
                 continue
             label = str(split.get("displayName") or split.get("name") or st.get("displayName") or "")
-            season_key = _season_label_to_key(label)
+            season_key = _season_year_key(label)
             categories = split.get("categories") or split.get("stats") or []
             stats = _stats_from_category_block(categories if isinstance(categories, list) else [])
             if stats:

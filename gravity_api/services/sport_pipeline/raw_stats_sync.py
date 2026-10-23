@@ -7,7 +7,8 @@ from typing import Any
 import asyncpg
 
 from gravity_api.scrapers.parsers.stat_normalizer import finalize_stat_fields
-from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+from datetime import datetime, timezone
+from gravity_api.scrapers.season_calendar import current_season_year
 
 MIN_SEASON_STATS = 3
 
@@ -80,7 +81,7 @@ async def enrich_raw_from_athlete_season_stats(
     sport: str,
 ) -> dict[str, Any]:
     """Load current-season athlete_season_stats rows into a raw enrichment blob."""
-    current_year = _current_season_year()
+    current_year = current_season_year(sport, datetime.now(tz=timezone.utc).date())
     # Prefer EAV dual-write table (post migration 038); fall back to legacy name.
     rows = await conn.fetch(
         """SELECT stat_key, stat_value, games_played

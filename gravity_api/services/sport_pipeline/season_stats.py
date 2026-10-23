@@ -14,9 +14,9 @@ import asyncpg
 
 from gravity_api.feature_engineering.positions import derive_position_group
 from gravity_api.feature_engineering.sport_specs import get_position_spec, get_sport_spec
-from gravity_api.scrapers.parsers.espn_season_year import espn_season_year
 from gravity_api.scrapers.parsers.stat_catalog import all_stat_keys_for_sport
 from gravity_api.scrapers.parsers.stat_normalizer import flatten_raw_for_stats
+from gravity_api.scrapers.season_calendar import current_season_year, parse_season_label
 from gravity_api.services.sport_pipeline.config import get_sport_pipeline_config
 
 # EAV table used by cohort baselines after migration 038.
@@ -119,16 +119,21 @@ async def upsert_season_stats_from_raw(
                 continue
         return count
 
-    current_year = season_year or _current_season_year(sport)
+    current_year = season_year or current_season_year(
+        sport, datetime.now(tz=timezone.utc).date()
+    )
 
     history = raw.get("season_stats_history")
 
     history_years: dict[int, dict[str, float]] = {}
     if isinstance(history, dict):
-        for season_label, season_blob in history.items():
+        for season_label_key, season_blob in history.items():
             if not isinstance(season_blob, dict):
                 continue
-            year = _parse_season_year(season_label, sport=sport, fallback=current_year)
+            try:
+                year = parse_season_label(sport, season_label_key)
+            except (TypeError, ValueError):
+                year = current_year
             normalized = flatten_raw_for_stats({"season_stats": season_blob}, sport)
             if not normalized:
                 continue
@@ -180,26 +185,4 @@ async def upsert_season_stats_from_raw(
     return written
 
 
-def _parse_season_year(label: str | int, *, sport: str, fallback: int) -> int:
-    try:
-        return espn_season_year(label, sport, fallback=fallback)
-    except ValueError:
-        return fallback
-
-
-def _current_season_year(sport: str | None = None) -> int:
-    from gravity_api.scrapers.parsers.espn_season_year import (
-        is_current_espn_season,
-        normalize_sport_key,
-    )
-
-    now = datetime.now(tz=timezone.utc)
-    sport_n = normalize_sport_key(sport)
-    # Probe a small window of candidate years.
-    for candidate in (now.year + 1, now.year, now.year - 1):
-        if is_current_espn_season(candidate, sport_n):
-            return candidate
-    return now.year if now.month >= 7 else now.year - 1
-
-
-__all__ = ["upsert_season_stats_from_raw", "_current_season_year", "_parse_season_year"]
+__all__ = ["upsert_season_stats_from_raw"]

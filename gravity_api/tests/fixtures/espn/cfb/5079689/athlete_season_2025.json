@@ -1,0 +1,259 @@
+{
+  "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/athletes/5079689?lang=en&region=us",
+  "id": "5079689",
+  "uid": "s:20~l:23~a:5079689",
+  "guid": "82773726-0e38-31fc-a028-ab67acc9d259",
+  "type": "football",
+  "alternateIds": {
+    "sdr": "5079689"
+  },
+  "firstName": "Colin",
+  "lastName": "Simmons",
+  "fullName": "Colin Simmons",
+  "displayName": "Colin Simmons",
+  "shortName": "C. Simmons",
+  "weight": 246.0,
+  "displayWeight": "246 lbs",
+  "height": 75.0,
+  "displayHeight": "6' 3\"",
+  "links": [
+    {
+      "language": "en-US",
+      "rel": [
+        "playercard",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/_/id/5079689/colin-simmons",
+      "text": "Player Card",
+      "shortText": "Player Card",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "stats",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/stats/_/id/5079689/colin-simmons",
+      "text": "Stats",
+      "shortText": "Stats",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "stats",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:23~a:5079689&section=stats",
+      "text": "Stats",
+      "shortText": "Stats",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "splits",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/splits/_/id/5079689/colin-simmons",
+      "text": "Splits",
+      "shortText": "Splits",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "gamelog",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/gamelog/_/id/5079689/colin-simmons",
+      "text": "Game Log",
+      "shortText": "Game Log",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "gamelog",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:23~a:5079689&section=gamelog",
+      "text": "Game Log",
+      "shortText": "Game Log",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "news",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/news/_/id/5079689/colin-simmons",
+      "text": "News",
+      "shortText": "News",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "news",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:23~a:5079689&section=news",
+      "text": "News",
+      "shortText": "News",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "bio",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/bio/_/id/5079689/colin-simmons",
+      "text": "Bio",
+      "shortText": "Bio",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "bio",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:23~a:5079689&section=bio",
+      "text": "Bio",
+      "shortText": "Bio",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "overview",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/_/id/5079689/colin-simmons",
+      "text": "Overview",
+      "shortText": "Overview",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "overview",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:23~a:5079689",
+      "text": "Overview",
+      "shortText": "Overview",
+      "isExternal": false,
+      "isPremium": false
+    }
+  ],
+  "birthPlace": {
+    "city": "Dallas",
+    "state": "TX",
+    "country": "USA"
+  },
+  "birthCountry": {
+    "alternateId": "1",
+    "abbreviation": "USA"
+  },
+  "college": {
+    "$ref": "http://sports.core.api.espn.com/v2/colleges/251?lang=en&region=us"
+  },
+  "slug": "colin-simmons",
+  "headshot": {
+    "href": "https://a.espncdn.com/i/headshots/college-football/players/full/5079689.png",
+    "alt": "Colin Simmons"
+  },
+  "jersey": "1",
+  "hand": {
+    "type": "LEFT",
+    "abbreviation": "L",
+    "displayValue": "Left"
+  },
+  "flag": {
+    "href": "https://a.espncdn.com/i/teamlogos/countries/500/usa.png",
+    "alt": "USA",
+    "rel": [
+      "country-flag"
+    ]
+  },
+  "position": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/positions/264?lang=en&region=us",
+    "id": "264",
+    "name": "EDGE",
+    "displayName": "EDGE",
+    "abbreviation": "EDGE",
+    "leaf": true,
+    "parent": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/positions/71?lang=en&region=us"
+    }
+  },
+  "injuries": [],
+  "linked": true,
+  "team": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/teams/251?lang=en&region=us"
+  },
+  "teams": [
+    {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/teams/251?lang=en&region=us"
+    }
+  ],
+  "statistics": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/types/3/athletes/5079689/statistics?lang=en&region=us"
+  },
+  "notes": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/athletes/5079689/notes?lang=en&region=us"
+  },
+  "experience": {
+    "years": 3,
+    "displayValue": "Junior",
+    "abbreviation": "JR"
+  },
+  "active": true,
+  "eventLog": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/athletes/5079689/eventlog?lang=en&region=us"
+  },
+  "status": {
+    "id": "1",
+    "name": "Active",
+    "type": "active",
+    "abbreviation": "Active"
+  },
+  "_capture": {
+    "url": "https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/athletes/5079689",
+    "http_status": 200,
+    "date": "Fri, 23 Oct 2026 00:06:17 GMT"
+  }
+}

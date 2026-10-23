@@ -19,7 +19,8 @@ import asyncpg
 
 from gravity_api.config import get_settings
 from gravity_api.scrapers.clients.cfbd import CfbdClient, cfbd_is_rate_limited
-from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+from datetime import datetime, timezone
+from gravity_api.scrapers.season_calendar import current_season_year
 from gravity_api.services.team_season_records import upsert_team_season_stats
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ async def main_async() -> int:
     client = CfbdClient()
     if not client.enabled:
         raise SystemExit("CFBD_API_KEY required")
-    year = _current_season_year()
+    year = current_season_year('cfb', datetime.now(tz=timezone.utc).date())
     schools = await conn.fetch(
         """SELECT DISTINCT school FROM athletes
            WHERE sport = 'cfb' AND school IS NOT NULL AND TRIM(school) <> ''

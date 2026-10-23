@@ -29,7 +29,8 @@ from gravity_api.feature_engineering.positions import SPORT_LEAGUE
 from gravity_api.feature_engineering.sport_specs import ALL_SPORT_SPECS, get_position_spec
 from gravity_api.feature_engineering.transforms import baseline_distribution
 from gravity_api.services.sport_pipeline.config import ALL_SPORT_PIPELINES
-from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+from datetime import datetime, timezone
+from gravity_api.scrapers.season_calendar import current_season_year
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -162,7 +163,7 @@ async def rebuild_for_cohort(
 
 async def run(*, sport_filter: str | None = None) -> None:
     dsn = os.environ["PG_DSN"]
-    season_year = _current_season_year()
+    season_year = current_season_year(sport_filter or 'nba', datetime.now(tz=timezone.utc).date())
     conn = await asyncpg.connect(dsn)
     try:
         total = 0

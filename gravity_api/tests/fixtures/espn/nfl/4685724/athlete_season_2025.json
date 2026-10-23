@@ -1,0 +1,277 @@
+{
+  "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/4685724?lang=en&region=us",
+  "id": "4685724",
+  "uid": "s:20~l:28~a:4685724",
+  "guid": "d08ac2e7-518c-3ca3-b3b8-9262906e6a27",
+  "type": "football",
+  "alternateIds": {
+    "sdr": "4685724"
+  },
+  "firstName": "Will",
+  "lastName": "Anderson Jr.",
+  "fullName": "Will Anderson Jr.",
+  "displayName": "Will Anderson Jr.",
+  "shortName": "W. Anderson Jr.",
+  "weight": 243.0,
+  "displayWeight": "243 lbs",
+  "height": 76.0,
+  "displayHeight": "6' 4\"",
+  "age": 25,
+  "dateOfBirth": "2001-09-02T07:00Z",
+  "links": [
+    {
+      "language": "en-US",
+      "rel": [
+        "playercard",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/nfl/player/_/id/4685724/will-anderson-jr",
+      "text": "Player Card",
+      "shortText": "Player Card",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "stats",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/nfl/player/stats/_/id/4685724/will-anderson-jr",
+      "text": "Stats",
+      "shortText": "Stats",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "stats",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:4685724&section=stats",
+      "text": "Stats",
+      "shortText": "Stats",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "splits",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/nfl/player/splits/_/id/4685724/will-anderson-jr",
+      "text": "Splits",
+      "shortText": "Splits",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "gamelog",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/nfl/player/gamelog/_/id/4685724/will-anderson-jr",
+      "text": "Game Log",
+      "shortText": "Game Log",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "gamelog",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:4685724&section=gamelog",
+      "text": "Game Log",
+      "shortText": "Game Log",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "news",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/nfl/player/news/_/id/4685724/will-anderson-jr",
+      "text": "News",
+      "shortText": "News",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "news",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:4685724&section=news",
+      "text": "News",
+      "shortText": "News",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "bio",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/nfl/player/bio/_/id/4685724/will-anderson-jr",
+      "text": "Bio",
+      "shortText": "Bio",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "bio",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:4685724&section=bio",
+      "text": "Bio",
+      "shortText": "Bio",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "overview",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/nfl/player/_/id/4685724/will-anderson-jr",
+      "text": "Overview",
+      "shortText": "Overview",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "overview",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:28~a:4685724",
+      "text": "Overview",
+      "shortText": "Overview",
+      "isExternal": false,
+      "isPremium": false
+    }
+  ],
+  "birthPlace": {
+    "city": "Hampton",
+    "state": "GA",
+    "country": "USA"
+  },
+  "college": {
+    "$ref": "http://sports.core.api.espn.com/v2/colleges/333?lang=en&region=us"
+  },
+  "slug": "will-anderson-jr",
+  "headshot": {
+    "href": "https://a.espncdn.com/i/headshots/nfl/players/full/4685724.png",
+    "alt": "Will Anderson Jr."
+  },
+  "jersey": "51",
+  "position": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/positions/31?lang=en&region=us",
+    "id": "31",
+    "name": "Defensive End",
+    "displayName": "Defensive End",
+    "abbreviation": "DE",
+    "leaf": true,
+    "parent": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/positions/71?lang=en&region=us"
+    }
+  },
+  "injuries": [],
+  "linked": true,
+  "team": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/34?lang=en&region=us"
+  },
+  "teams": [
+    {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/34?lang=en&region=us"
+    }
+  ],
+  "statistics": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/types/2/athletes/4685724/statistics?lang=en&region=us"
+  },
+  "notes": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/4685724/notes?lang=en&region=us"
+  },
+  "contracts": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/athletes/4685724/contracts?lang=en&region=us"
+  },
+  "experience": {
+    "years": 4
+  },
+  "collegeAthlete": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/athletes/4685724?lang=en&region=us"
+  },
+  "active": true,
+  "contract": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/athletes/4685724/contracts/2025?lang=en&region=us",
+    "optionType": 0,
+    "salary": 3951166,
+    "bonus": 0,
+    "salaryRemaining": 27063749,
+    "yearsRemaining": 0,
+    "signedThrough": 2025,
+    "season": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025?lang=en&region=us"
+    },
+    "team": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/teams/34?lang=en&region=us"
+    },
+    "active": false
+  },
+  "eventLog": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/4685724/eventlog?lang=en&region=us"
+  },
+  "draft": {
+    "displayText": "Year: 2023 Round: 1 Pick: 3",
+    "round": 1,
+    "year": 2023,
+    "selection": 3,
+    "team": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2023/teams/34?lang=en&region=us"
+    },
+    "pick": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2023/draft/rounds/1/picks/3?lang=en&region=us"
+    }
+  },
+  "status": {
+    "id": "1",
+    "name": "Active",
+    "type": "active",
+    "abbreviation": "Active"
+  },
+  "_capture": {
+    "url": "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2025/athletes/4685724",
+    "http_status": 200,
+    "date": "Fri, 23 Oct 2026 00:06:14 GMT"
+  }
+}
