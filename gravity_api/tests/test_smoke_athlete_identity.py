@@ -149,3 +149,16 @@ def test_lifecycle_fact_checks_fail_when_college_still_active():
     assert by_name["lifecycle_college_is_active"].ok is False
     assert by_name["lifecycle_college_roster_status"].ok is False
     assert by_name["lifecycle_pro_record_exists"].ok is True
+
+
+def test_no_espn_id_crosswalk_migration_for_fixture_athletes():
+    """College→pro fixtures share one ESPN id; 040 crosswalk table not required."""
+    from pathlib import Path
+
+    migrations = Path(__file__).resolve().parents[2] / "migrations"
+    assert not (migrations / "040_athlete_espn_id_crosswalk.sql").exists()
+    for fact in LIFECYCLE_FACTS:
+        assert fact.same_espn_id_college_and_pro is True
+        # Smoke catalog pro row uses the same espn_id as the college lifecycle fact.
+        pro = next(a for a in SMOKE_ATHLETES if a.espn_id == fact.espn_id and a.sport == fact.pro_sport)
+        assert pro.espn_id == fact.espn_id
