@@ -1,14 +1,15 @@
 """ESPN game summary / box-score client (WP10).
 
-Fetches site/v2 scoreboard listings and per-game summary payloads used to
-populate ``games`` and ``game_player_box``. Fetchers are production-shaped
-stubs: URL construction and response shaping are complete; full box parsing
-and season-wide crawl orchestration live in the backfill job.
+Fetches site/v2 scoreboard listings, athlete eventlogs, and per-game summary
+payloads used to populate ``games`` and ``game_player_box``. Smoke and the
+backfill job share this client for live fetch/validate (no DB required for
+parse checks).
 """
 
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -16,11 +17,14 @@ from typing import Any
 import httpx
 
 from gravity_api.scrapers.clients.espn import (
+    CORE_LEAGUE_PATH,
     ESPN_HEADERS,
     SITE_LEAGUE_PATH,
     normalize_sport,
     site_v2_url,
 )
+
+_EVENT_ID_RE = re.compile(r"/events/(\d+)")
 
 logger = logging.getLogger(__name__)
 
@@ -325,6 +329,82 @@ class EspnGamesClient:
         url = self.summary_url(league, game_id)
         payload = await self.fetch_game_summary(league, game_id)
         return self.parse_game_summary(league, game_id, payload, source_url=url)
+
+    def eventlog_url(self, league: str, athlete_id: str, season_year: int) -> str:
+        sport = normalize_sport(league)
+        core = CORE_LEAGUE_PATH.get(sport)
+        if not core:
+            raise ValueError(f"Unsupported league for ESPN eventlog: {league}")
+        return (
+            f"https://sports.core.api.espn.com/v2/sports/{core}/"
+            f"seasons/{int(season_year)}/athletes/{athlete_id}/eventlog"
+        )
+
+    async def fetch_athlete_eventlog(
+        self,
+        league: str,
+        athlete_id: str,
+        season_year: int,
+    ) -> dict[str, Any]:
+        """Fetch core athlete eventlog for one season (game id source for smoke)."""
+        url = self.eventlog_url(league, athlete_id, season_year)
+        return await self._get_json(url)
+
+    @staticmethod
+    def parse_eventlog_game_ids(
+        payload: dict[str, Any],
+        *,
+        played_only: bool = True,
+        limit: int | None = None,
+    ) -> list[str]:
+        """Extract ESPN event ids from an athlete eventlog payload."""
+        events = payload.get("events") if isinstance(payload, dict) else None
+        items: list[Any] = []
+        if isinstance(events, dict):
+            raw_items = events.get("items")
+            if isinstance(raw_items, list):
+                items = raw_items
+        elif isinstance(events, list):
+            items = events
+
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            played = item.get("played")
+            if played_only and played is False and "statistics" not in item:
+                continue
+            if played_only and played is False:
+                continue
+            event = item.get("event") if isinstance(item.get("event"), dict) else {}
+            ref = str(event.get("$ref") or item.get("$ref") or "")
+            match = _EVENT_ID_RE.search(ref)
+            if not match:
+                continue
+            gid = match.group(1)
+            if gid in seen:
+                continue
+            seen.add(gid)
+            out.append(gid)
+            if limit is not None and len(out) >= int(limit):
+                break
+        return out
+
+    async def list_athlete_game_ids(
+        self,
+        league: str,
+        athlete_id: str,
+        season_year: int,
+        *,
+        played_only: bool = True,
+        limit: int | None = 5,
+    ) -> list[str]:
+        """Fetch eventlog and return up to ``limit`` game ids."""
+        payload = await self.fetch_athlete_eventlog(league, athlete_id, season_year)
+        return self.parse_eventlog_game_ids(
+            payload, played_only=played_only, limit=limit
+        )
 
 
 __all__ = [

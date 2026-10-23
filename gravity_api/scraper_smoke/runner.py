@@ -16,6 +16,12 @@ from gravity_api.scraper_smoke.athletes import (
     SmokeAthlete,
     lifecycle_facts_for_espn_id,
 )
+from gravity_api.scraper_smoke.wp10_season_history import (
+    collect_season_history,
+    collect_wp10_games,
+)
+from gravity_api.scrapers.clients.espn import EspnClient
+from gravity_api.scrapers.clients.espn_games import EspnGamesClient
 from gravity_api.scrapers.implementations import EspnRosterScraper, EspnStatsScraper
 from gravity_api.scrapers.season_calendar import (
     parse_season_label,
@@ -35,6 +41,20 @@ SMOKE_PROVENANCE_COLUMNS: tuple[str, ...] = (
     "stats_as_of",
     "validation_status",
     "n_seasons",
+)
+# WP10 + season-history summary columns (free-tier CSV).
+SMOKE_WP10_SUMMARY_COLUMNS: tuple[str, ...] = (
+    "season_history_ok",
+    "n_seasons_log",
+    "n_season_lines",
+    "season_labels",
+    "season_teams",
+    "wp10_games_ok",
+    "games_fetched",
+    "games_with_athlete_box",
+    "game_ids",
+    "box_reconcile_ok",
+    "wp10_detail",
 )
 STATS_SCOPE_VALUES = frozenset({"season", "career"})
 # Never stamp season GP onto career-scoped rows / career_* columns.
@@ -365,8 +385,19 @@ def lifecycle_fact_checks_from_rows(
     return checks
 
 
-async def smoke_athlete_espn_scrapers(athlete: SmokeAthlete) -> AthleteSmokeResult:
-    """Production micro-scrapers (roster + stats) without DB persist."""
+async def smoke_athlete_espn_scrapers(
+    athlete: SmokeAthlete,
+    *,
+    include_season_history: bool = True,
+    include_wp10_games: bool = True,
+    max_history_seasons: int | None = None,
+    max_wp10_games: int = 2,
+) -> AthleteSmokeResult:
+    """Production micro-scrapers (roster + stats) without DB persist.
+
+    Also runs live season-history (WP3 lines) and WP10 games/box fetch when
+    enabled — still no DB persist (``PG_DSN`` required for upserts).
+    """
     ctx = AthleteScrapeContext(
         athlete_id=f"smoke-{athlete.espn_id}",
         name=athlete.name,
@@ -413,6 +444,81 @@ async def smoke_athlete_espn_scrapers(athlete: SmokeAthlete) -> AthleteSmokeResu
         checks.append(CheckResult("stats_scraper_status", False, r2.error_message or r2.status))
     else:
         checks.append(CheckResult("stats_scraper_status", True, r2.status))
+
+    espn_client = EspnClient()
+    games_client = EspnGamesClient()
+    history_result = None
+    wp10_result = None
+
+    if include_season_history:
+        history_result = await collect_season_history(
+            athlete,
+            espn_client,
+            max_seasons=max_history_seasons,
+            include_postseason=False,
+        )
+        checks.append(
+            CheckResult(
+                "season_history_live",
+                history_result.ok,
+                history_result.detail or history_result.error or "",
+            )
+        )
+        # Merge live SeasonStatLine history into fields for CSV provenance rows.
+        if history_result.lines:
+            history_map: dict[str, Any] = {}
+            for blob in history_result.lines:
+                label = str(
+                    blob.get("season_label")
+                    or blob.get("season_year")
+                    or ""
+                )
+                if not label:
+                    continue
+                # Keep TOT when duplicate labels (should be one TOT per year).
+                prev = history_map.get(label)
+                if prev is None or (
+                    blob.get("is_total") and not prev.get("is_total")
+                ):
+                    history_map[label] = blob
+            fields["season_stats_history"] = history_map
+            fields["n_seasons"] = history_result.n_seasons_log or len(history_map)
+            # Prefer current/latest line for top-level provenance stamps.
+            latest = history_result.lines[-1]
+            for key in (
+                "season_year",
+                "season_label",
+                "season_type",
+                "team_id",
+                "is_total",
+                "is_complete",
+                "stats_as_of",
+                "validation_status",
+            ):
+                if latest.get(key) is not None and fields.get(key) is None:
+                    fields[key] = latest.get(key)
+            if latest.get("stats_as_of") and not fields.get("stats_as_of"):
+                fields["stats_as_of"] = latest["stats_as_of"]
+            if not fields.get("stats_scope"):
+                fields["stats_scope"] = "season"
+
+    if include_wp10_games:
+        wp10_result = await collect_wp10_games(
+            athlete,
+            espn_client=espn_client,
+            games_client=games_client,
+            max_games=max_wp10_games,
+        )
+        checks.append(
+            CheckResult(
+                "wp10_live_games",
+                wp10_result.ok,
+                wp10_result.detail
+                or wp10_result.skipped_reason
+                or wp10_result.error
+                or "",
+            )
+        )
 
     sample_keys = (
         "player_name",
@@ -466,6 +572,29 @@ async def smoke_athlete_espn_scrapers(athlete: SmokeAthlete) -> AthleteSmokeResu
         history = fields.get("season_stats_history")
         if isinstance(history, dict) and "n_seasons" not in sample:
             sample["n_seasons"] = len(history)
+    if history_result is not None:
+        sample["season_history_ok"] = history_result.ok
+        sample["n_seasons_log"] = history_result.n_seasons_log
+        sample["n_season_lines"] = history_result.n_lines_fetched
+        sample["season_labels"] = ";".join(history_result.season_labels)
+        sample["season_teams"] = ";".join(
+            t for t in history_result.team_names if t
+        )
+        if history_result.n_seasons_log and sample.get("n_seasons") is None:
+            sample["n_seasons"] = history_result.n_seasons_log
+    if wp10_result is not None:
+        sample["wp10_games_ok"] = wp10_result.ok
+        sample["games_fetched"] = wp10_result.games_fetched
+        sample["games_with_athlete_box"] = wp10_result.games_with_athlete_box
+        sample["game_ids"] = ";".join(wp10_result.game_ids)
+        sample["box_reconcile_ok"] = wp10_result.box_reconcile_ok
+        sample["wp10_detail"] = (
+            wp10_result.detail
+            or wp10_result.skipped_reason
+            or wp10_result.error
+            or ""
+        )
+        sample["_wp10_games"] = wp10_result.games
     if getattr(athlete, "selection_note", None):
         sample["selection_note"] = athlete.selection_note
     # Keep full merged fields for CSV export (bounded).
@@ -691,6 +820,10 @@ async def run_smoke_suite(
     *,
     include_db: bool | None = None,
     athletes: tuple[SmokeAthlete, ...] | None = None,
+    include_season_history: bool = True,
+    include_wp10_games: bool = True,
+    max_history_seasons: int | None = None,
+    max_wp10_games: int = 2,
 ) -> dict[str, Any]:
     selected = athletes or SMOKE_ATHLETES
     if include_db is None:
@@ -698,7 +831,13 @@ async def run_smoke_suite(
 
     results: list[AthleteSmokeResult] = []
     for athlete in selected:
-        espn_result = await smoke_athlete_espn_scrapers(athlete)
+        espn_result = await smoke_athlete_espn_scrapers(
+            athlete,
+            include_season_history=include_season_history,
+            include_wp10_games=include_wp10_games,
+            max_history_seasons=max_history_seasons,
+            max_wp10_games=max_wp10_games,
+        )
         results.append(espn_result)
         if include_db:
             db_result = await smoke_athlete_db_scheduled_full(athlete)
@@ -712,6 +851,21 @@ async def run_smoke_suite(
     db_runs = [r for r in results if r.mode == "db_scheduled_full"]
     skipped = [r for r in results if r.mode == "skipped"]
 
+    def _check_pass_count(name: str) -> tuple[int, int]:
+        passed = failed = 0
+        for r in espn_runs:
+            for c in r.checks:
+                if c.name != name:
+                    continue
+                if c.ok:
+                    passed += 1
+                else:
+                    failed += 1
+        return passed, failed
+
+    hist_pass, hist_fail = _check_pass_count("season_history_live")
+    wp10_pass, wp10_fail = _check_pass_count("wp10_live_games")
+
     summary = {
         "generated_at": datetime.now(tz=timezone.utc).isoformat(),
         "espn_scrapers_passed": sum(1 for r in espn_runs if r.passed),
@@ -720,6 +874,11 @@ async def run_smoke_suite(
         "db_scheduled_full_failed": sum(1 for r in db_runs if not r.passed),
         "db_skipped": len(skipped),
         "all_espn_passed": all(r.passed for r in espn_runs) if espn_runs else False,
+        "season_history_passed": hist_pass,
+        "season_history_failed": hist_fail,
+        "wp10_games_passed": wp10_pass,
+        "wp10_games_failed": wp10_fail,
+        "pg_dsn_set": bool(os.environ.get("PG_DSN", "").strip()),
     }
     return {
         "summary": summary,
@@ -975,14 +1134,6 @@ def smoke_result_to_export_rows(result: dict[str, Any]) -> list[dict[str, Any]]:
     return cleaned
 
 
-def smoke_results_to_csv_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    """Flatten smoke results for CSV/JSON — full WP9 provenance column set."""
-    rows: list[dict[str, Any]] = []
-    for result in payload.get("results") or []:
-        rows.extend(smoke_result_to_export_rows(result))
-    return rows
-
-
 def smoke_csv_fieldnames(rows: list[dict[str, Any]] | None = None) -> list[str]:
     """Stable CSV header: identity + scope + provenance + optional stats + career_*."""
     base = [
@@ -1001,6 +1152,7 @@ def smoke_csv_fieldnames(rows: list[dict[str, Any]] | None = None) -> list[str]:
         "pass_yards",
         "pass_td",
         "season_stats_keys",
+        *SMOKE_WP10_SUMMARY_COLUMNS,
         "selection_note",
         "error",
     ]
@@ -1015,6 +1167,215 @@ def smoke_csv_fieldnames(rows: list[dict[str, Any]] | None = None) -> list[str]:
     # Insert career_* after n_seasons block (after provenance / before games_played_season).
     insert_at = base.index("games_played_season")
     return base[:insert_at] + career_cols + base[insert_at:]
+
+
+def _attach_wp10_summary(row: dict[str, Any], sample: dict[str, Any]) -> dict[str, Any]:
+    out = dict(row)
+    for col in SMOKE_WP10_SUMMARY_COLUMNS:
+        if col in sample and out.get(col) is None:
+            out[col] = sample.get(col)
+    return out
+
+
+def smoke_results_to_csv_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Flatten smoke results for CSV/JSON — full WP9 provenance + WP10 summary."""
+    rows: list[dict[str, Any]] = []
+    for result in payload.get("results") or []:
+        sample = result.get("fields_sample") or {}
+        for row in smoke_result_to_export_rows(result):
+            rows.append(_attach_wp10_summary(row, sample))
+    return rows
+
+
+def free_tier_summary_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """One row per athlete (Phase-1 free-tier shape) with season-history + WP10 cols."""
+    rows: list[dict[str, Any]] = []
+    for result in payload.get("results") or []:
+        if result.get("mode") not in ("espn_scrapers", "db_scheduled_full"):
+            if result.get("mode") == "skipped":
+                continue
+        if result.get("mode") != "espn_scrapers":
+            continue
+        sample = result.get("fields_sample") or {}
+        fields = sample.get("_fields") if isinstance(sample.get("_fields"), dict) else {}
+        season = fields.get("season_stats") if isinstance(fields.get("season_stats"), dict) else {}
+        checks = result.get("checks") or []
+        failed = [c for c in checks if not c.get("ok")]
+        errors = "; ".join(
+            f"{c.get('name')}: {c.get('detail')}" for c in failed
+        ) or (result.get("error") or "")
+        scope = normalize_stats_scope(sample.get("stats_scope") or fields.get("stats_scope"))
+        season_keys = sample.get("season_stats_keys")
+        if not season_keys and season:
+            season_keys = sorted(season.keys())
+        if isinstance(season_keys, list):
+            season_keys_s = ";".join(str(k) for k in season_keys)
+            key_count = len(season_keys)
+        else:
+            season_keys_s = str(season_keys or "")
+            key_count = len(season) if season else 0
+
+        highlights: list[str] = []
+        for key in (
+            "sacks",
+            "tfl",
+            "pass_yards",
+            "pass_td",
+            "pass_attempts",
+            "pts",
+            "reb",
+            "ast",
+            "stl",
+            "games_played_season",
+            "games_played_career",
+        ):
+            val = sample.get(key)
+            if val is None and isinstance(season, dict):
+                val = season.get(key)
+            if val is not None and val != "":
+                highlights.append(f"{key}={val}")
+        if scope:
+            highlights.append(f"stats_scope={scope}")
+
+        rows.append(
+            {
+                "name": result.get("name"),
+                "sport": result.get("sport"),
+                "espn_id": result.get("espn_id"),
+                "team": sample.get("team") or fields.get("team") or fields.get("college"),
+                "position": sample.get("position") or fields.get("position"),
+                "scrape_status": "PASS" if result.get("passed") else "FAIL",
+                "mode": result.get("mode"),
+                "stats_source": sample.get("stats_source") or fields.get("stats_source") or "espn",
+                "stats_as_of": sample.get("stats_as_of") or fields.get("stats_as_of"),
+                "stats_scope": scope,
+                "season_stats_keys": season_keys_s,
+                "season_stats_key_count": key_count,
+                "games_played_season": sample.get("games_played_season")
+                or fields.get("games_played_season"),
+                "games_played_career": sample.get("games_played_career")
+                or fields.get("games_played_career")
+                or sample.get("career_games_played_career"),
+                "stats_summary": "; ".join(highlights),
+                "player_name_scraped": sample.get("player_name") or fields.get("player_name"),
+                "db_persist": "skipped (PG_DSN unset)"
+                if not os.environ.get("PG_DSN", "").strip()
+                else "attempted",
+                "paid_apis": "none — ESPN free path only",
+                "errors": errors,
+                "selection_note": sample.get("selection_note") or "",
+                "season_history_ok": sample.get("season_history_ok"),
+                "n_seasons_log": sample.get("n_seasons_log") or sample.get("n_seasons"),
+                "n_season_lines": sample.get("n_season_lines"),
+                "season_labels": sample.get("season_labels"),
+                "season_teams": sample.get("season_teams"),
+                "wp10_games_ok": sample.get("wp10_games_ok"),
+                "games_fetched": sample.get("games_fetched"),
+                "games_with_athlete_box": sample.get("games_with_athlete_box"),
+                "game_ids": sample.get("game_ids"),
+                "box_reconcile_ok": sample.get("box_reconcile_ok"),
+                "wp10_detail": sample.get("wp10_detail"),
+            }
+        )
+    return rows
+
+
+def wp10_detail_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Dedicated WP10/season-history CSV: season lines + game rows."""
+    rows: list[dict[str, Any]] = []
+    for result in payload.get("results") or []:
+        if result.get("mode") != "espn_scrapers":
+            continue
+        sample = result.get("fields_sample") or {}
+        fields = sample.get("_fields") if isinstance(sample.get("_fields"), dict) else {}
+        base = {
+            "sport": result.get("sport"),
+            "name": result.get("name"),
+            "espn_id": result.get("espn_id"),
+            "passed": result.get("passed"),
+            "team": sample.get("team") or fields.get("team"),
+            "season_history_ok": sample.get("season_history_ok"),
+            "wp10_games_ok": sample.get("wp10_games_ok"),
+        }
+        history = fields.get("season_stats_history")
+        if isinstance(history, dict) and history:
+            for label, blob in sorted(history.items(), key=lambda kv: str(kv[0])):
+                if not isinstance(blob, dict):
+                    continue
+                rows.append(
+                    {
+                        **base,
+                        "row_kind": "season_history",
+                        "stats_scope": "season",
+                        "season_label": blob.get("season_label") or label,
+                        "season_year": blob.get("season_year"),
+                        "season_type": blob.get("season_type") or "regular",
+                        "team_id": blob.get("team_id"),
+                        "team_name": blob.get("team_name"),
+                        "is_total": blob.get("is_total"),
+                        "is_complete": blob.get("is_complete"),
+                        "stats_as_of": blob.get("stats_as_of"),
+                        "games_played_season": blob.get("games_played_season")
+                        or blob.get("gp"),
+                        "pts": blob.get("pts"),
+                        "pass_yards": blob.get("pass_yards"),
+                        "sacks": blob.get("sacks"),
+                        "tfl": blob.get("tfl"),
+                        "game_id": None,
+                        "game_status": None,
+                        "home_score": None,
+                        "away_score": None,
+                        "n_box_players": None,
+                        "athlete_box_rows": None,
+                        "box_reconcile_matched": None,
+                        "source_url": blob.get("source_url"),
+                    }
+                )
+        for game in sample.get("_wp10_games") or []:
+            if not isinstance(game, dict):
+                continue
+            rows.append(
+                {
+                    **base,
+                    "row_kind": "wp10_game",
+                    "stats_scope": None,
+                    "season_label": None,
+                    "season_year": game.get("season_year"),
+                    "season_type": game.get("season_type"),
+                    "team_id": game.get("athlete_team_id"),
+                    "team_name": None,
+                    "is_total": None,
+                    "is_complete": None,
+                    "stats_as_of": None,
+                    "games_played_season": None,
+                    "pts": None,
+                    "pass_yards": None,
+                    "sacks": None,
+                    "tfl": None,
+                    "game_id": game.get("game_id"),
+                    "game_status": game.get("status"),
+                    "home_score": game.get("home_score"),
+                    "away_score": game.get("away_score"),
+                    "n_box_players": game.get("n_box_players"),
+                    "athlete_box_rows": game.get("athlete_box_rows"),
+                    "box_reconcile_matched": game.get("box_reconcile_matched"),
+                    "source_url": game.get("source_url"),
+                    "error": game.get("error"),
+                }
+            )
+        if not history and not sample.get("_wp10_games"):
+            rows.append(
+                {
+                    **base,
+                    "row_kind": "summary",
+                    "stats_scope": normalize_stats_scope(sample.get("stats_scope")),
+                    "season_label": sample.get("season_labels"),
+                    "n_seasons_log": sample.get("n_seasons_log"),
+                    "game_ids": sample.get("game_ids"),
+                    "wp10_detail": sample.get("wp10_detail"),
+                }
+            )
+    return rows
 
 
 def write_smoke_csv(payload: dict[str, Any], path: str | Path) -> int:
@@ -1034,4 +1395,93 @@ def write_smoke_csv(payload: dict[str, Any], path: str | Path) -> int:
             if out_row.get("stats_scope") == "career":
                 out_row.pop("games_played_season", None)
             writer.writerow(out_row)
+    return len(rows)
+
+
+def write_free_tier_csv(payload: dict[str, Any], path: str | Path) -> int:
+    import csv
+    from pathlib import Path as _Path
+
+    out = _Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    rows = free_tier_summary_rows(payload)
+    fieldnames = [
+        "name",
+        "sport",
+        "espn_id",
+        "team",
+        "position",
+        "scrape_status",
+        "mode",
+        "stats_source",
+        "stats_as_of",
+        "stats_scope",
+        "season_stats_keys",
+        "season_stats_key_count",
+        "games_played_season",
+        "games_played_career",
+        "stats_summary",
+        "player_name_scraped",
+        "db_persist",
+        "paid_apis",
+        "errors",
+        "selection_note",
+        *SMOKE_WP10_SUMMARY_COLUMNS,
+    ]
+    with out.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+    return len(rows)
+
+
+def write_wp10_detail_csv(payload: dict[str, Any], path: str | Path) -> int:
+    import csv
+    from pathlib import Path as _Path
+
+    out = _Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    rows = wp10_detail_rows(payload)
+    fieldnames = [
+        "row_kind",
+        "sport",
+        "name",
+        "espn_id",
+        "passed",
+        "team",
+        "season_history_ok",
+        "wp10_games_ok",
+        "stats_scope",
+        "season_label",
+        "season_year",
+        "season_type",
+        "team_id",
+        "team_name",
+        "is_total",
+        "is_complete",
+        "stats_as_of",
+        "games_played_season",
+        "pts",
+        "pass_yards",
+        "sacks",
+        "tfl",
+        "game_id",
+        "game_status",
+        "home_score",
+        "away_score",
+        "n_box_players",
+        "athlete_box_rows",
+        "box_reconcile_matched",
+        "source_url",
+        "n_seasons_log",
+        "game_ids",
+        "wp10_detail",
+        "error",
+    ]
+    with out.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
     return len(rows)

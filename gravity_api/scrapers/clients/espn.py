@@ -593,6 +593,11 @@ class EspnClient:
 
         Prefers ``type=total`` refs when both total and team blocks exist for the
         same (year, season_type).
+
+        ESPN often lists only postseason (``types/3``) refs for playoff years.
+        Every year present in the log still gets a **regular** slot so callers
+        (backfill, smoke) can fetch season-correct regular lines via
+        ``get_season_stat_lines``.
         """
         league = normalize_sport(league)
         data = await self._get_core(league, f"athletes/{athlete_id}/statisticslog")
@@ -601,6 +606,7 @@ class EspnClient:
             return []
 
         chosen: dict[tuple[int, str], tuple[str, int]] = {}
+        years_in_log: set[int] = set()
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
@@ -609,6 +615,8 @@ class EspnClient:
             if isinstance(season_obj, dict):
                 season_ref = str(season_obj.get("$ref") or "")
             year = self._year_from_espn_ref(season_ref)
+            if year is not None:
+                years_in_log.add(int(year))
             for block in entry.get("statistics") or []:
                 if not isinstance(block, dict):
                     continue
@@ -622,12 +630,33 @@ class EspnClient:
                 season_type = self._stype_from_espn_ref(stats_ref)
                 if block_year is None or season_type is None:
                     continue
+                years_in_log.add(int(block_year))
                 # Prefer total over team for the index entry.
                 priority = 0 if str(block.get("type") or "").lower() == "total" else 1
                 key = (int(block_year), season_type)
                 prev = chosen.get(key)
                 if prev is None or priority < prev[1]:
                     chosen[key] = (stats_ref, priority)
+
+        # Ensure a regular-season index entry for every log year.
+        core = CORE_LEAGUE_PATH.get(league, "")
+        for y in years_in_log:
+            if (y, "regular") in chosen:
+                continue
+            donor = next(
+                (ref for (yy, _st), (ref, _) in chosen.items() if yy == y),
+                None,
+            )
+            if donor and "/types/3/" in donor:
+                regular_ref = donor.replace("/types/3/", "/types/2/")
+            elif donor and "/types/2/" in donor:
+                regular_ref = donor
+            else:
+                regular_ref = (
+                    f"https://sports.core.api.espn.com/v2/sports/{core}/"
+                    f"seasons/{y}/types/2/athletes/{athlete_id}/statistics/0"
+                )
+            chosen[(y, "regular")] = (_https_ref(regular_ref) or regular_ref, 2)
 
         out = [
             (year, stype, ref)
