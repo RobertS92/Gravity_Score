@@ -173,7 +173,9 @@ async def verify(dsn: str, sports: tuple[str, ...]) -> dict:
         for sport in sports:
             row = await conn.fetchrow(
                 """SELECT COUNT(DISTINCT athlete_id) athletes, COUNT(*) rows
-                   FROM athlete_season_stats WHERE sport = $1""",
+                   FROM athlete_season_stats
+                   WHERE sport = $1
+                     AND team_id = 'TOT' AND season_type = 'regular'""",
                 sport,
             )
             out[sport] = {"athletes_with_stats": int(row["athletes"] or 0), "stat_rows": int(row["rows"] or 0)}

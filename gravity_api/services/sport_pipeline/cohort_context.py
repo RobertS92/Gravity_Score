@@ -73,8 +73,9 @@ async def load_cohort_stat_distributions(
         return means, stds, value_lists
 
     rows = await conn.fetch(
-        """SELECT stat_key, stat_value FROM athlete_season_stats_eav
+        """SELECT stat_key, stat_value FROM athlete_season_stats
            WHERE sport = $1 AND position_group = $2 AND season_year = $3
+             AND team_id = 'TOT' AND season_type = 'regular'
              AND stat_key = ANY($4::text[])""",
         sport,
         position_group,
@@ -117,8 +118,9 @@ async def load_cohort_performance_indices(
         return []
 
     rows = await conn.fetch(
-        """SELECT athlete_id, stat_key, stat_value FROM athlete_season_stats_eav
+        """SELECT athlete_id, stat_key, stat_value FROM athlete_season_stats
            WHERE sport = $1 AND position_group = $2 AND season_year = $3
+             AND team_id = 'TOT' AND season_type = 'regular'
              AND stat_key = ANY($4::text[])""",
         sport,
         position_group,

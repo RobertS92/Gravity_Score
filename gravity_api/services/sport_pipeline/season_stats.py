@@ -1,8 +1,12 @@
 """Persist position-relevant stats from scraper raw fields.
 
-Canonical storage is the wide ``athlete_season_stats`` table (see
-``season_stats_store``). This module keeps the EAV dual-write used by cohort
-baselines and also feeds the wide table when ``season_stats_history`` is present.
+Canonical storage is the EAV ``athlete_season_stats`` table with grain
+``(athlete_id, sport, season_year, season_type, team_id, stat_key)``
+(see migration ``038_athlete_season_stats_v2.sql`` and ``season_stats_store``).
+
+Prefer ``upsert_season_stat_lines`` when callers already have ``SeasonStatLine``
+rows. This module keeps the legacy ``upsert_season_stats_from_raw`` path used by
+the orchestrator until WP7 rewrites backfill onto season-scoped lines.
 """
 
 from __future__ import annotations
@@ -16,11 +20,18 @@ from gravity_api.feature_engineering.positions import derive_position_group
 from gravity_api.feature_engineering.sport_specs import get_position_spec, get_sport_spec
 from gravity_api.scrapers.parsers.stat_catalog import all_stat_keys_for_sport
 from gravity_api.scrapers.parsers.stat_normalizer import flatten_raw_for_stats
-from gravity_api.scrapers.season_calendar import current_season_year, parse_season_label
+from gravity_api.scrapers.season_calendar import (
+    current_season_year,
+    parse_season_label,
+    season_label as calendar_season_label,
+    season_status,
+)
 from gravity_api.services.sport_pipeline.config import get_sport_pipeline_config
 
-# EAV table used by cohort baselines after migration 038.
-_EAV_TABLE = "athlete_season_stats_eav"
+# Canonical EAV table after migration 038_athlete_season_stats_v2 (WP5).
+EAV_TABLE = "athlete_season_stats"
+_EAV_TABLE = EAV_TABLE  # back-compat alias for tests / monkeypatches
+_TOT = "TOT"
 
 
 async def upsert_season_stats_from_raw(
@@ -32,7 +43,7 @@ async def upsert_season_stats_from_raw(
     raw: dict[str, Any],
     season_year: int | None = None,
 ) -> int:
-    """Write numeric stat fields into EAV + wide athlete_season_stats."""
+    """Write numeric stat fields into EAV athlete_season_stats (TOT / regular)."""
     try:
         get_sport_spec(sport)
     except KeyError:
@@ -50,15 +61,25 @@ async def upsert_season_stats_from_raw(
     league = get_sport_pipeline_config(sport).league
     written = 0
     store_keys = all_stat_keys_for_sport(sport)
+    today = datetime.now(tz=timezone.utc).date()
 
     async def _write_eav(
         stats: dict[str, float],
         year: int,
         *,
         source_key: str,
+        season_type: str = "regular",
+        team_id: str = _TOT,
+        team_name: str | None = None,
+        is_total: bool = True,
+        source_url: str | None = None,
+        stats_as_of: datetime | None = None,
     ) -> int:
         count = 0
         games = int(stats.get("games_played_season") or stats.get("gp") or 0) or None
+        label = calendar_season_label(sport, year)
+        complete = season_status(sport, year, today) == "complete"
+        as_of = stats_as_of or datetime.now(tz=timezone.utc)
         for key in store_keys:
             if key not in stats:
                 continue
@@ -66,55 +87,52 @@ async def upsert_season_stats_from_raw(
             try:
                 await conn.execute(
                     f"""INSERT INTO {_EAV_TABLE} (
-                         athlete_id, sport, league, season_year, position_group,
-                         stat_key, stat_value, games_played, source_key, observed_at
-                       ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                       ON CONFLICT (athlete_id, sport, season_year, stat_key)
+                         athlete_id, sport, league, season_year, season_label,
+                         season_type, team_id, team_name, is_total, is_complete,
+                         position_group, stat_key, stat_value, games_played,
+                         source_key, source_url, stats_as_of, observed_at,
+                         validation_status
+                       ) VALUES (
+                         $1::uuid, $2, $3, $4, $5,
+                         $6, $7, $8, $9, $10,
+                         $11, $12, $13, $14,
+                         $15, $16, $17, $18,
+                         $19
+                       )
+                       ON CONFLICT (athlete_id, sport, season_year, season_type, team_id, stat_key)
                        DO UPDATE SET
                          stat_value = EXCLUDED.stat_value,
+                         season_label = EXCLUDED.season_label,
+                         team_name = COALESCE(EXCLUDED.team_name, {_EAV_TABLE}.team_name),
+                         is_total = EXCLUDED.is_total,
+                         is_complete = EXCLUDED.is_complete,
                          position_group = EXCLUDED.position_group,
                          games_played = EXCLUDED.games_played,
+                         source_key = EXCLUDED.source_key,
+                         source_url = COALESCE(EXCLUDED.source_url, {_EAV_TABLE}.source_url),
+                         stats_as_of = EXCLUDED.stats_as_of,
                          observed_at = EXCLUDED.observed_at""",
                     athlete_id,
                     sport,
                     league,
                     year,
+                    label,
+                    season_type,
+                    team_id,
+                    team_name,
+                    is_total,
+                    complete,
                     position_group,
                     key,
                     float(val),
                     games,
                     source_key,
+                    source_url,
+                    as_of,
                     datetime.now(tz=timezone.utc),
+                    "unvalidated",
                 )
                 count += 1
-            except asyncpg.UndefinedTableError:
-                # Pre-migration env: fall back to legacy table name if present.
-                try:
-                    await conn.execute(
-                        """INSERT INTO athlete_season_stats (
-                             athlete_id, sport, league, season_year, position_group,
-                             stat_key, stat_value, games_played, source_key, observed_at
-                           ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                           ON CONFLICT (athlete_id, sport, season_year, stat_key)
-                           DO UPDATE SET
-                             stat_value = EXCLUDED.stat_value,
-                             position_group = EXCLUDED.position_group,
-                             games_played = EXCLUDED.games_played,
-                             observed_at = EXCLUDED.observed_at""",
-                        athlete_id,
-                        sport,
-                        league,
-                        year,
-                        position_group,
-                        key,
-                        float(val),
-                        games,
-                        source_key,
-                        datetime.now(tz=timezone.utc),
-                    )
-                    count += 1
-                except asyncpg.PostgresError:
-                    continue
             except asyncpg.PostgresError:
                 continue
         return count
@@ -167,7 +185,9 @@ async def upsert_season_stats_from_raw(
             source_key=str(raw.get("stats_source") or "scraper"),
         )
 
-    # Prefer the dedicated season-history client when espn_id is known.
+    # Optional history-client enrichment when espn_id is known (EAV via store).
+    # Full SeasonStatLine backfill is WP7; callers with lines should use
+    # ``upsert_season_stat_lines`` directly.
     espn_id = raw.get("espn_id")
     if espn_id:
         try:
@@ -187,10 +207,9 @@ async def upsert_season_stats_from_raw(
                 position=position,
             )
         except Exception:
-            # Wide-table path is best-effort from the orchestrator; EAV already written.
             pass
 
     return written
 
 
-__all__ = ["upsert_season_stats_from_raw"]
+__all__ = ["EAV_TABLE", "upsert_season_stats_from_raw"]
