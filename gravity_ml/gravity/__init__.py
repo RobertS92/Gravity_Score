@@ -1,8 +1,9 @@
 """Commercial Gravity models — WP-G.
 
-Labels are registered in ``gravity_ml.labels.registry`` (L_deal_180, …).
-Builders and trainers are stubbed until deal/social history coverage is
-sufficient and Impact outputs exist for the Proof feature group.
+Label builders live in ``gravity_ml.gravity.labels`` and are registered in F2.
+Trainers are skeleton-only until deal/social history coverage is sufficient and
+Impact outputs exist for the Proof feature group. Never train on
+``raw_composite_score`` or ``athlete_gravity_scores``.
 """
 
 BLOCKED_REASON = (
@@ -12,4 +13,7 @@ BLOCKED_REASON = (
     "Do not train on raw_composite_score or athlete_gravity_scores."
 )
 
-__all__ = ["BLOCKED_REASON"]
+# Register real builders on import.
+from gravity_ml.gravity import labels as labels  # noqa: E402,F401
+
+__all__ = ["BLOCKED_REASON", "labels"]

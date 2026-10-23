@@ -1,4 +1,11 @@
-"""Train and export champion model bundles."""
+"""Train and export champion model bundles.
+
+SCORING_ML_FIX_SPEC M3/M4/M5: the legacy path that reads targets from
+``athlete_gravity_scores`` (self-outputs) or formula impact labels is gated.
+Production training must use outcome labels via ``gravity_ml.impact.train_impact``
+/ ``gravity_ml.gravity.train_gravity`` and pass promotion gates before champions
+are written.
+"""
 
 from __future__ import annotations
 
@@ -17,11 +24,40 @@ import numpy as np
 
 from gravity_ml.inference.predict import model_key
 from gravity_ml.train.dataset import chronological_split, rows_to_xy
+from gravity_ml.train.promotion_gate import (
+    PromotionRefused,
+    assert_bundle_promotable,
+    assert_label_source_allowed,
+)
 from gravity_ml.train.regressor import train_regressor
 
 logger = logging.getLogger(__name__)
 
 OBJECTIVES = ("value", "quality", "impact", "team_value", "team_quality", "brand_sponsor")
+
+# M3/M4: these targets come from our own score tables / formula helpers.
+BANNED_SELF_TRAIN_TARGETS = frozenset(
+    {
+        "target_impact_score",
+        "win_impact_score",
+        "quality_score",  # proof_score prior path
+        "gravity_score",
+        "team_gravity_proxy",
+        "brand_gravity_proxy",
+    }
+)
+
+FORMULA_SELF_TRAIN_ENV = "GRAVITY_ALLOW_FORMULA_SELF_TRAIN"
+
+
+def _formula_self_train_allowed(explicit_flag: bool = False) -> bool:
+    if explicit_flag:
+        return True
+    return os.environ.get(FORMULA_SELF_TRAIN_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
 
 def _default_target(objective: str, league: str) -> str:
@@ -30,6 +66,7 @@ def _default_target(objective: str, league: str) -> str:
     if objective == "quality":
         return "quality_score"
     if objective == "impact":
+        # M4: formula label banned for production; use train_impact instead.
         return "target_impact_score"
     if objective in ("team_value", "team_quality"):
         return "team_gravity_proxy"
@@ -93,7 +130,29 @@ async def fetch_training_rows(
     target_key: str,
     *,
     min_rows: int = 30,
+    allow_formula_self_train: bool = False,
 ) -> list[dict[str, Any]]:
+    """Fetch training rows.
+
+    The historical athlete path read targets from ``athlete_gravity_scores`` and
+    injected ``*_score_prior`` features (M3). That path is refused unless
+    ``allow_formula_self_train`` / ``GRAVITY_ALLOW_FORMULA_SELF_TRAIN`` is set,
+    and even then bundles must not be promoted.
+    """
+    if not _formula_self_train_allowed(allow_formula_self_train):
+        raise PromotionRefused(
+            "M3/M4 self-training path disabled: train_champion must not read "
+            "targets from athlete_gravity_scores or formula impact labels. "
+            "Use gravity_ml.impact.train_impact / gravity_ml.gravity.train_gravity "
+            f"with outcome labels. Set {FORMULA_SELF_TRAIN_ENV}=1 only for "
+            "offline research (cannot promote)."
+        )
+
+    logger.warning(
+        "FORMULA SELF-TRAIN ENABLED — targets from athlete_gravity_scores; "
+        "priors stripped from features; promotion will be refused"
+    )
+
     from gravity_api.config import get_settings
     import asyncpg
 
@@ -132,25 +191,24 @@ async def fetch_training_rows(
             )
             for row in rows:
                 raw = dict(row["raw_data"] or {})
+                # M3 fix: do NOT inject gravity/proof priors as features.
                 raw.update(
                     {
                         "entity_id": row["entity_id"],
                         "sport": row["sport"],
                         "as_of": row["as_of"].isoformat() if row["as_of"] else None,
-                        "gravity_score_prior": float(row["gravity_score"] or 0),
-                        "brand_score_prior": float(row["brand_score"] or 0),
-                        "proof_score_prior": float(row["proof_score"] or 0),
-                        "proof_composite_pctile": float(row["proof_score"] or 0),
-                        "quality_score_prior": float(row["proof_score"] or 0),
+                        "label_source": "athlete_gravity_scores",
                     }
                 )
                 p50 = float(row["dollar_p50_usd"] or 0)
                 if target_key == "nil_valuation_usd" and p50 > 0:
                     raw["target"] = math.log1p(p50)
+                    raw["label_source"] = "athlete_gravity_scores.dollar_p50_usd"
                 elif target_key == "quality_score":
                     raw["target"] = float(row["proof_score"] or row["gravity_score"] or 0)
                 elif target_key == "contract_guaranteed_usd" and p50 > 0:
                     raw["target"] = math.log1p(p50)
+                    raw["label_source"] = "athlete_gravity_scores.dollar_p50_usd"
                 else:
                     raw["target"] = float(row["gravity_score"] or 0)
                 raw["label_weight"] = float(row["confidence"] or 0.5)
@@ -187,6 +245,7 @@ async def fetch_training_rows(
                     "market_reach": float(row["roster_velocity"] or 50),
                     "target": float(row["roster_value"] or row["performance"] or 50),
                     "label_weight": 0.6,
+                    "label_source": "athlete_gravity_scores",
                 }
                 rows_out.append(raw)
     finally:
@@ -205,9 +264,12 @@ def train_from_rows(
     objective: str,
     version: str,
     out_root: Path,
+    label_source: str | None = None,
+    allow_promote: bool = False,
 ) -> Path | None:
     if len(rows) < 30:
         return None
+    inferred_source = label_source or (rows[0].get("label_source") if rows else None)
     train_rows, val_rows, test_rows = chronological_split(rows)
     obj = objective.replace("team_", "") if objective.startswith("team_") else objective
     if objective.startswith("team_"):
@@ -217,12 +279,15 @@ def train_from_rows(
 
     X_val, y_val, _, _ = rows_to_xy(val_rows, objective=obj if obj in OBJECTIVES else objective)
     val_pred = model.predict(X_val)
-    metrics = {
+    metrics: dict[str, Any] = {
         "validation": evaluate_regression(y_val, val_pred),
         "train_rows": len(train_rows),
         "val_rows": len(val_rows),
         "test_rows": len(test_rows),
     }
+    if inferred_source:
+        metrics["label_source"] = inferred_source
+        metrics["training_source"] = inferred_source
 
     mk = model_key(entity_type, sport, objective.replace("team_", "") if entity_type == "team" else objective)
     if entity_type == "team":
@@ -240,22 +305,70 @@ def train_from_rows(
         row_count=len(rows),
     )
     logger.info("Saved bundle %s metrics=%s", out_dir, metrics)
+
+    # Never silently promote circular / formula-label bundles.
+    if inferred_source:
+        try:
+            assert_label_source_allowed(str(inferred_source))
+        except PromotionRefused as exc:
+            logger.error("Bundle saved for research only; promotion blocked: %s", exc)
+            allow_promote = False
+    if allow_promote:
+        try:
+            assert_bundle_promotable(mk, metrics, label_source=inferred_source)
+        except PromotionRefused as exc:
+            logger.error("NOT promoting %s: %s", mk, exc)
+            allow_promote = False
+    if allow_promote:
+        _write_index(out_root)
     return out_dir
 
 
 async def main_async(args: argparse.Namespace) -> None:
     league = "ncaa" if args.sport not in ("nfl", "nba", "wnba") else "pro"
     target = args.target_key or _default_target(args.objective, league)
+    allow_formula = bool(args.allow_formula_self_train)
+
+    if target in BANNED_SELF_TRAIN_TARGETS and not _formula_self_train_allowed(allow_formula):
+        raise SystemExit(
+            f"Refusing target_key={target!r} (formula/self-score label). "
+            f"Use outcome trainers, or pass --allow-formula-self-train / "
+            f"{FORMULA_SELF_TRAIN_ENV}=1 for offline research (cannot promote)."
+        )
+    if args.objective == "impact" and not _formula_self_train_allowed(allow_formula):
+        raise SystemExit(
+            "Impact via train_champion is gated (M4/M5). "
+            "Run: python -m gravity_ml.impact.train_impact --league ncaab_mens --fixture"
+        )
+
     rows: list[dict[str, Any]] = []
     dsn = os.environ.get("PG_DSN")
     if dsn and not args.allow_synthetic:
         try:
-            rows = await fetch_training_rows(args.entity, args.sport, target, min_rows=args.min_rows)
+            rows = await fetch_training_rows(
+                args.entity,
+                args.sport,
+                target,
+                min_rows=args.min_rows,
+                allow_formula_self_train=allow_formula,
+            )
+        except PromotionRefused as exc:
+            logger.error("%s", exc)
+            raise SystemExit(2) from exc
         except Exception as exc:
             logger.warning("DB fetch failed: %s", exc)
     elif dsn:
         try:
-            rows = await fetch_training_rows(args.entity, args.sport, target, min_rows=args.min_rows)
+            rows = await fetch_training_rows(
+                args.entity,
+                args.sport,
+                target,
+                min_rows=args.min_rows,
+                allow_formula_self_train=allow_formula,
+            )
+        except PromotionRefused as exc:
+            logger.error("%s", exc)
+            raise SystemExit(2) from exc
         except Exception as exc:
             logger.warning("DB fetch failed, will use synthetic if allowed: %s", exc)
 
@@ -268,6 +381,8 @@ async def main_async(args: argparse.Namespace) -> None:
             args.sport,
         )
         rows = []
+    # Formula / self-score paths never promote to champions.
+    allow_promote = bool(args.promote) and not allow_formula
     out = train_from_rows(
         rows,
         entity_type=args.entity,
@@ -275,47 +390,12 @@ async def main_async(args: argparse.Namespace) -> None:
         objective=args.objective,
         version=args.version,
         out_root=Path(args.out),
+        allow_promote=allow_promote,
     )
     if out and args.upload_s3:
         from gravity_ml.artifacts.s3 import upload_bundle_dir
 
         upload_bundle_dir(out)
-    if out:
-        _write_index(Path(args.out))
-
-
-def _synthetic_rows(entity: str, sport: str, objective: str) -> list[dict[str, Any]]:
-    import random
-
-    random.seed(42)
-    rows = []
-    for i in range(200):
-        raw = {
-            "entity_id": f"syn-{i}",
-            "sport": sport,
-            "as_of": f"2025-{1 + i % 12:02d}-01",
-            "instagram_followers": random.randint(1000, 500000),
-            "proof_composite_pctile": random.uniform(20, 95),
-            "nil_valuation": random.uniform(5000, 2_000_000),
-            "data_quality_score": random.uniform(0.4, 0.95),
-            "partnership_brand_score": random.uniform(0, 85),
-            "news_count_30d": random.randint(0, 40),
-            "google_trends_score": random.uniform(30, 90),
-        }
-        if entity == "team":
-            raw.update(
-                {
-                    "roster_value": random.uniform(40, 90),
-                    "performance": random.uniform(40, 90),
-                    "market_reach": random.uniform(30, 85),
-                    "retention": random.uniform(50, 95),
-                }
-            )
-        g = random.uniform(30, 90)
-        raw["target"] = math.log1p(random.uniform(10_000, 500_000)) if "value" in objective else g
-        raw["label_weight"] = 0.5
-        rows.append(raw)
-    return rows
 
 
 def _write_index(out_root: Path) -> None:
@@ -344,6 +424,16 @@ def main() -> None:
     parser.add_argument("--out", default="models/bundles")
     parser.add_argument("--min-rows", type=int, default=30)
     parser.add_argument("--allow-synthetic", action="store_true", help="Bootstrap with synthetic rows if DB thin")
+    parser.add_argument(
+        "--allow-formula-self-train",
+        action="store_true",
+        help="DANGEROUS research-only: allow athlete_gravity_scores / formula labels (never promotes)",
+    )
+    parser.add_argument(
+        "--promote",
+        action="store_true",
+        help="Write champions/index.json only if promotion gates pass and label source is allowed",
+    )
     parser.add_argument("--upload-s3", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)

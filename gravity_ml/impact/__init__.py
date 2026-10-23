@@ -1,8 +1,9 @@
 """Impact (winning contribution) models — WP-I.
 
-Blocked on scraper SCRAPER_FIX_SPEC WP10 (`games`, `game_player_box`, CFBD plays).
-Modules below are placeholders so imports and package layout are stable; do not
-train or promote until gates G-I1..G-I5 pass on real game data.
+APM ridge skeleton (``apm.py``) runs against fixtures. Live train/promote is
+blocked until scraper SCRAPER_FIX_SPEC WP10 populates ``games`` /
+``game_player_box`` (CFB also needs plays). Do not claim Impact trained without
+that data and gates G-I1..G-I5.
 """
 
 BLOCKED_REASON = (

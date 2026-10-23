@@ -165,7 +165,20 @@ async def ingest_external_quality_labels(conn: asyncpg.Connection) -> int:
 
 
 async def ingest_impact_labels(conn: asyncpg.Connection) -> int:
-    """Persist win_impact_score_v0 as training label for impact_v1 models."""
+    """DEPRECATED (M4): formula win_impact_v0 must not be ingested as a training label.
+
+    Kept for ``--allow-formula-impact-labels`` research exports only. Production
+    Impact labels come from game outcomes via ``gravity_ml.impact``.
+    """
+    logger.warning(
+        "Skipping formula impact label ingest (M4). Pass --allow-formula-impact-labels "
+        "only for offline research; those rows must never promote."
+    )
+    return 0
+
+
+async def ingest_impact_labels_formula_research(conn: asyncpg.Connection) -> int:
+    """Research-only: persist win_impact_score_v0 with banned provenance metadata."""
     rows = await conn.fetch(
         """
         SELECT a.id AS athlete_id,
@@ -190,7 +203,11 @@ async def ingest_impact_labels(conn: asyncpg.Connection) -> int:
             ) VALUES (
               'athlete', $1, 'target_impact_score', $2,
               $3, $3, 0.68, FALSE,
-              jsonb_build_object('source', 'win_impact_v0')
+              jsonb_build_object(
+                'source', 'compute_win_impact_score_v0',
+                'banned_for_promotion', true,
+                'reason', 'SCORING_ML_FIX_SPEC M4'
+              )
             )
             """,
             row["athlete_id"],
@@ -201,13 +218,20 @@ async def ingest_impact_labels(conn: asyncpg.Connection) -> int:
     return count
 
 
-async def main_async(*, include_quality: bool = True) -> None:
+async def main_async(
+    *,
+    include_quality: bool = True,
+    allow_formula_impact_labels: bool = False,
+) -> None:
     conn = await asyncpg.connect(get_settings().pg_dsn, statement_cache_size=0)
     try:
         deals = await ingest_nil_labels(conn)
         vals = await ingest_valuation_labels(conn)
         quality = await ingest_external_quality_labels(conn) if include_quality else 0
-        impact = await ingest_impact_labels(conn)
+        if allow_formula_impact_labels:
+            impact = await ingest_impact_labels_formula_research(conn)
+        else:
+            impact = await ingest_impact_labels(conn)
         logger.info(
             "Ingested %d deal labels, %d valuation labels, %d quality labels, %d impact labels",
             deals,
@@ -222,9 +246,19 @@ async def main_async(*, include_quality: bool = True) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ingest training labels")
     parser.add_argument("--skip-quality", action="store_true")
+    parser.add_argument(
+        "--allow-formula-impact-labels",
+        action="store_true",
+        help="Research-only: ingest compute_win_impact_score_v0 as target_impact_score (banned for promotion)",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
-    asyncio.run(main_async(include_quality=not args.skip_quality))
+    asyncio.run(
+        main_async(
+            include_quality=not args.skip_quality,
+            allow_formula_impact_labels=bool(args.allow_formula_impact_labels),
+        )
+    )
 
 
 if __name__ == "__main__":
