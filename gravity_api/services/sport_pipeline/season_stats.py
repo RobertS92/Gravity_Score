@@ -145,19 +145,27 @@ async def upsert_season_stats_from_raw(
                     source_key=str(raw.get("stats_source") or "espn_history"),
                 )
 
-    anchor_stats: dict[str, float] | None = None
-    completed = [y for y in history_years if y < current_year]
-    if completed:
-        anchor_stats = history_years[max(completed)]
-    elif history_years:
-        anchor_stats = history_years[max(history_years)]
+    # B6: do NOT copy the latest completed season into the current-year row
+    # ("scoring anchor"). Write the current-year row only from current-season data.
+    current_blob = raw.get("season_stats")
+    if isinstance(current_blob, dict) and current_blob:
+        current_stats = flatten_raw_for_stats({"season_stats": current_blob}, sport)
+    elif current_year in history_years:
+        current_stats = history_years[current_year]
+    else:
+        # Flat raw may still carry current-season scalars without history.
+        # Only write a current-year row when the payload is actually for that year
+        # (explicit season_year arg or history entry) — never relabel prior seasons.
+        current_stats = {}
+        if season_year is not None and season_year == current_year:
+            current_stats = flatten_raw_for_stats(raw, sport)
 
-    current_stats = anchor_stats or flatten_raw_for_stats(raw, sport)
-    written += await _write_eav(
-        current_stats,
-        current_year,
-        source_key=str(raw.get("stats_source") or "scraper"),
-    )
+    if current_stats:
+        written += await _write_eav(
+            current_stats,
+            current_year,
+            source_key=str(raw.get("stats_source") or "scraper"),
+        )
 
     # Prefer the dedicated season-history client when espn_id is known.
     espn_id = raw.get("espn_id")

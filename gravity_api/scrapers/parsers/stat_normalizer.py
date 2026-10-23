@@ -667,10 +667,7 @@ def merge_stat_layers(
         if isinstance(history_blob, dict) and history_blob:
             latest = history_blob[sorted(history_blob.keys(), reverse=True)[0]]
             gp = latest.get("games_played_season") or latest.get("gp")
-    if gp is None and normalized_current:
-        stat_keys = all_stat_keys_for_sport(sport) - {"games_played_season", "gp"}
-        if sum(1 for k in stat_keys if normalized_current.get(k) is not None) >= 1:
-            gp = 1
+    # B5: never invent games_played. Missing GP stays None.
 
     scope = stats_scope
     if not scope:
