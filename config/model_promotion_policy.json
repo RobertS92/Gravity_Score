@@ -1,22 +1,23 @@
 {
-  "version": "1.1.0",
-  "updated_at": "2026-06-29",
+  "version": "2.0.0",
+  "updated_at": "2026-10-23",
+  "notes": "SCORING_ML_FIX_SPEC F5: outcome-based gates. Formula-label min_spearman gates removed. Bundles must satisfy production_gates.required in metrics.json before inference load.",
   "inference": {
     "allow_ml_quality_models": false,
     "allow_ml_quality_external_models": false,
     "allow_value_proxy_ig_models": false,
+    "require_metrics_gates": true,
     "quality_fallback": "heuristic_components",
     "beta_ranker_models": {
       "gravity_athlete_cfb_value_v1": {
         "stage": "beta",
         "output_mode": "rank_only",
         "suppress_dollar_calibration": true,
-        "min_spearman_for_rank": 0.50,
-        "notes": "Predict log1p(NIL) for ranking only; do not expose expm1 dollar bands until production gates pass."
+        "notes": "Legacy NIL-ranker. Do not promote on formula labels. Prefer gravity_v2 deal-outcome gates (G-G1)."
       }
     }
   },
-    "export": {
+  "export": {
     "cfb": {
       "export_objectives": ["value_nil", "impact"],
       "blocked_objectives": ["quality", "value_proxy_ig", "quality_external"]
@@ -33,6 +34,13 @@
   "production_gates": {
     "gravity_athlete_cfb_value_v1": {
       "mode": "rank_and_calibrate",
+      "label_policy": "verified_deals_or_observed_nil_only",
+      "banned_label_sources": [
+        "athlete_gravity_scores",
+        "raw_composite_score",
+        "component_proxy_raw",
+        "compute_win_impact_score_v0"
+      ],
       "required": {
         "labeled_rows_min": 800,
         "test_rows_min": 120,
@@ -40,7 +48,8 @@
         "test_mae_max": 0.14,
         "val_test_mae_ratio_max": 1.35,
         "temporal_fold_test_spearman_min": 0.55,
-        "temporal_fold_spearman_std_max": 0.12
+        "temporal_fold_spearman_std_max": 0.12,
+        "circularity_holdout_r2_max": 0.95
       },
       "recommended": {
         "nil_label_coverage_pct_min": 15.0,
@@ -56,7 +65,8 @@
         "test_rows_min": 60,
         "test_spearman_min": 0.50,
         "instagram_observed_pct_min": 25.0,
-        "instagram_placeholder_top_frac_max": 0.15
+        "instagram_placeholder_top_frac_max": 0.15,
+        "circularity_holdout_r2_max": 0.95
       },
       "unlock": "Set allow_value_proxy_ig_models true and remove value_proxy_ig from blocked_objectives"
     },
@@ -66,13 +76,101 @@
         "labeled_rows_min": 300,
         "test_rows_min": 45,
         "test_spearman_min": 0.55,
-        "beats_heuristic_quality_min_delta": 0.05
+        "beats_heuristic_quality_min_delta": 0.05,
+        "circularity_holdout_r2_max": 0.95
       },
       "unlock": "Set allow_ml_quality_external_models true; target must be external_quality_score not proof_proxy"
+    },
+    "gravity_athlete_ncaab_mens_impact_v2": {
+      "mode": "shadow_then_promote",
+      "baselines": ["team_only_rating", "compute_win_impact_score_v0"],
+      "required": {
+        "test_rows_min": 200,
+        "test_games_min": 200,
+        "game_margin_rmse_beats_team_baseline": true,
+        "game_margin_rmse_delta_ci_excludes_zero": true,
+        "next_season_winpct_beats_prior_winpct": true,
+        "yoy_impact_rate_corr_beats_raw_box": true,
+        "circularity_holdout_r2_max": 0.95,
+        "beats_v0_on_G_I1_and_G_I2": true
+      },
+      "notes": "SCORING_ML_FIX_SPEC §4 G-I1..G-I5. Blocked until scraper WP10 games/box scores exist."
+    },
+    "gravity_athlete_ncaab_womens_impact_v2": {
+      "mode": "shadow_then_promote",
+      "inherits": "gravity_athlete_ncaab_mens_impact_v2",
+      "required": {
+        "test_rows_min": 200,
+        "test_games_min": 200,
+        "game_margin_rmse_beats_team_baseline": true,
+        "game_margin_rmse_delta_ci_excludes_zero": true,
+        "circularity_holdout_r2_max": 0.95,
+        "beats_v0_on_G_I1_and_G_I2": true
+      }
+    },
+    "gravity_athlete_cfb_impact_v2": {
+      "mode": "shadow_then_promote",
+      "inherits": "gravity_athlete_ncaab_mens_impact_v2",
+      "required": {
+        "test_rows_min": 200,
+        "test_games_min": 150,
+        "game_margin_rmse_beats_team_baseline": true,
+        "game_margin_rmse_delta_ci_excludes_zero": true,
+        "circularity_holdout_r2_max": 0.95,
+        "beats_v0_on_G_I1_and_G_I2": true
+      },
+      "notes": "Needs CFBD plays (scraper WP10) for I3 play value."
+    },
+    "gravity_athlete_cfb_gravity_v2": {
+      "mode": "shadow_then_promote",
+      "label": "L_deal_180",
+      "baselines": ["raw_composite_score", "log_social_reach", "nil_valuation", "recruiting_rank"],
+      "required": {
+        "test_rows_min": 200,
+        "test_positives_min": 30,
+        "ap_beats_best_baseline_ci_excludes_zero": true,
+        "precision_at_50_beats_best_baseline": true,
+        "attention_spearman_beats_reach_baselines": true,
+        "calibration_ece_max": 0.05,
+        "circularity_holdout_r2_max": 0.95,
+        "unavail_auc_beats_transfer_history": true
+      },
+      "notes": "SCORING_ML_FIX_SPEC §5 G-G1..G-G5. Dollars head gated separately."
+    },
+    "gravity_athlete_ncaab_mens_gravity_v2": {
+      "mode": "shadow_then_promote",
+      "inherits": "gravity_athlete_cfb_gravity_v2",
+      "required": {
+        "test_rows_min": 200,
+        "test_positives_min": 30,
+        "ap_beats_best_baseline_ci_excludes_zero": true,
+        "calibration_ece_max": 0.05,
+        "circularity_holdout_r2_max": 0.95
+      }
+    },
+    "gravity_athlete_dollars_v2": {
+      "mode": "disabled_until_n",
+      "label": "L_dollars",
+      "required": {
+        "verified_deals_min": 500,
+        "test_rows_min": 100,
+        "circularity_holdout_r2_max": 0.95
+      },
+      "notes": "Quantile head disabled until ≥500 verified_deal_transactions."
     }
   },
   "blocked_inference_models": {
     "pattern": "*_quality_v1",
     "reason": "proof_proxy target is self-supervised; use quality_external bundle when gates pass."
+  },
+  "blocked_training_labels": {
+    "sources": [
+      "athlete_gravity_scores",
+      "raw_composite_score",
+      "component_proxy_raw",
+      "compute_win_impact_score_v0",
+      "compute_target_impact_score"
+    ],
+    "reason": "SCORING_ML_FIX_SPEC M1–M5: formula and self-score labels are banned."
   }
 }
