@@ -149,6 +149,8 @@ def test_season_gp_capped_for_cfb_and_ncaab():
         stats_as_of="2026",
     )
     assert ncaab["games_played_season"] <= 45
+    # merge_stat_layers stores the caller-supplied stamp; season-scoped client
+    # (WP3) is responsible for never passing a year label (B8).
     assert ncaab["stats_as_of"] == "2026"
 
 
@@ -175,7 +177,9 @@ def test_build_stats_bundle_prefers_latest_season_not_career_totals():
     bundle = build_stats_bundle(payload, sport="cfb")
     assert bundle["stats_scope"] == "season"
     assert bundle["current"]["passingYards"] in (1295, "1295", 1295.0)
-    assert str(bundle["stats_as_of"]) == "2026"
+    # B8: build_stats_bundle must not put a season label into stats_as_of.
+    assert bundle["stats_as_of"] is None
+    assert "2026" in bundle["history"]
     assert infer_stats_scope(
         history=bundle["history"],
         career=bundle["career"],

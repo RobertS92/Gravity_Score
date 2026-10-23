@@ -176,49 +176,6 @@ def teams_match(scraped: str | None, live: str | None) -> bool:
     return a in b or b in a
 
 
-def lifecycle_fact_checks_from_rows(
-    fact: LifecycleFact,
-    *,
-    college_row: dict[str, Any] | None,
-    pro_row: dict[str, Any] | None,
-) -> list[CheckResult]:
-    """Assert college→pro lifecycle facts (WP8) against DB/roster rows."""
-    checks: list[CheckResult] = []
-    college = college_row or {}
-    pro = pro_row or {}
-
-    college_active = college.get("is_active")
-    expect_inactive = fact.college_is_active is False
-    ok_active = (college_active is False) if expect_inactive else (college_active is True)
-    checks.append(
-        CheckResult(
-            "lifecycle_college_is_active",
-            ok_active if college else False,
-            f"college.is_active={college_active!r} expected_active={fact.college_is_active}",
-        )
-    )
-
-    expected_status = fact.expected_roster_status
-    got_status = college.get("roster_status")
-    checks.append(
-        CheckResult(
-            "lifecycle_college_roster_status",
-            bool(college) and str(got_status or "") == str(expected_status),
-            f"got={got_status!r} expected={expected_status!r}",
-        )
-    )
-
-    pro_exists = bool(pro.get("espn_id") or pro.get("id") or pro.get("sport"))
-    checks.append(
-        CheckResult(
-            "lifecycle_pro_record_exists",
-            pro_exists if fact.pro_record_exists else (not pro_exists),
-            f"pro_row_present={pro_exists} expected={fact.pro_record_exists}",
-        )
-    )
-    return checks
-
-
 def _assert_identity_and_signal(
     athlete: SmokeAthlete,
     fields: dict[str, Any],
