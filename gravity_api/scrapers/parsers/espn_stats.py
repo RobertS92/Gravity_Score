@@ -189,6 +189,176 @@ def parse_core_season_statistics(
     )
 
 
+def _v3_row_is_total(team_id: Any, team_slug: str | None) -> bool:
+    if team_id in (None, "", "null"):
+        return True
+    slug = (team_slug or "").lower()
+    return "total" in slug or slug == "tot"
+
+
+def _coerce_v3_cell(val: Any) -> float | None:
+    """Coerce a v3 stats cell; compound made-attempted strings are skipped."""
+    if val is None or val == "" or val == "-":
+        return None
+    if isinstance(val, bool):
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+    text = str(val).strip()
+    if not text or text == "-":
+        return None
+    # e.g. ``410-734`` or ``10.5-18.8`` — not a single counting value
+    if re.match(r"^-?\d+(?:\.\d+)?\s*-\s*-?\d+(?:\.\d+)?$", text):
+        return None
+    return _coerce_stat_float(text)
+
+
+def parse_v3_season_stat_lines(
+    payload: dict[str, Any],
+    *,
+    league: str,
+    season_year: int,
+    season_type: str,
+    source_url: str,
+    stats_as_of: datetime,
+    source_key: str = "espn.v3.stats",
+) -> list[SeasonStatLine]:
+    """Build ``SeasonStatLine`` rows for one season from common/v3 ``/stats``.
+
+    Prefers non-average categories for counting stats; merges ``averages`` for
+    ``gamesPlayed`` / ``gamesStarted``. Multi-team seasons yield per-team rows
+    plus ``team_id='TOT'``.
+    """
+    if season_type not in {"regular", "postseason"}:
+        raise ValueError(f"season_type must be 'regular' or 'postseason', got {season_type!r}")
+    if not payload:
+        return []
+
+    teams_map = payload.get("teams") if isinstance(payload.get("teams"), dict) else {}
+    categories = [c for c in (payload.get("categories") or []) if isinstance(c, dict)]
+    if not categories:
+        return []
+
+    # Keyed by team_id (or TOT)
+    merged: dict[str, dict[str, float]] = {}
+    meta: dict[str, dict[str, Any]] = {}
+
+    for cat in categories:
+        cat_name = str(cat.get("name") or cat.get("displayName") or "").strip()
+        if not cat_name:
+            continue
+        names = cat.get("names") or cat.get("labels") or []
+        if not isinstance(names, list) or not names:
+            continue
+        is_avg_cat = "average" in cat_name.lower()
+        for srow in cat.get("statistics") or []:
+            if not isinstance(srow, dict):
+                continue
+            season = srow.get("season") or {}
+            if not isinstance(season, dict):
+                continue
+            year_raw = season.get("year")
+            try:
+                year_i = int(year_raw) if year_raw is not None else None
+            except (TypeError, ValueError):
+                year_i = None
+            if year_i is None:
+                display = str(season.get("displayName") or "")
+                m = re.search(r"(\d{4})", display)
+                if not m:
+                    continue
+                # Split labels like 2022-23 → end year 2023 for basketball-style
+                # labels; calendar labels stay as the only year found.
+                years = [int(x) for x in re.findall(r"(\d{4})", display)]
+                year_i = max(years) if len(years) >= 2 else years[0]
+            if int(year_i) != int(season_year):
+                continue
+            values = srow.get("stats") or []
+            if not isinstance(values, list) or len(values) != len(names):
+                continue
+            team_id_raw = srow.get("teamId")
+            slug = srow.get("teamSlug")
+            is_total = _v3_row_is_total(team_id_raw, str(slug) if slug else None)
+            team_id = "TOT" if is_total else str(team_id_raw)
+            row_stats: dict[str, float] = {}
+            for i, name in enumerate(names):
+                if not name:
+                    continue
+                # Skip rate-heavy average compounds except GP/GS
+                key = str(name)
+                if is_avg_cat and key not in {"gamesPlayed", "gamesStarted"}:
+                    if key.startswith("avg") or "Pct" in key or "-" in key:
+                        continue
+                parsed = _coerce_v3_cell(values[i])
+                if parsed is None:
+                    continue
+                row_stats[f"{cat_name}.{key}"] = parsed
+            if not row_stats:
+                continue
+            bucket = merged.setdefault(team_id, {})
+            bucket.update(row_stats)
+            team_name = None
+            if not is_total:
+                if isinstance(slug, str) and slug in teams_map:
+                    t = teams_map[slug]
+                    if isinstance(t, dict):
+                        team_name = (
+                            t.get("abbreviation")
+                            or t.get("shortDisplayName")
+                            or t.get("displayName")
+                        )
+                if team_name is None:
+                    for t in teams_map.values():
+                        if isinstance(t, dict) and str(t.get("id")) == team_id:
+                            team_name = (
+                                t.get("abbreviation")
+                                or t.get("shortDisplayName")
+                                or t.get("displayName")
+                            )
+                            break
+            meta[team_id] = {
+                "is_total": is_total,
+                "team_name": team_name,
+                "slug": slug,
+            }
+
+    if not merged:
+        return []
+
+    # Ensure a TOT line when only a single team row exists.
+    if "TOT" not in merged:
+        non_tot = [tid for tid in merged if tid != "TOT"]
+        if len(non_tot) == 1:
+            only = non_tot[0]
+            merged["TOT"] = dict(merged[only])
+            meta["TOT"] = {
+                "is_total": True,
+                "team_name": (meta.get(only) or {}).get("team_name"),
+                "slug": None,
+            }
+
+    lines: list[SeasonStatLine] = []
+    for team_id, stats in merged.items():
+        info = meta.get(team_id) or {}
+        is_total = team_id == "TOT" or bool(info.get("is_total"))
+        lines.append(
+            SeasonStatLine(
+                league=league,
+                season_year=int(season_year),
+                season_type=season_type,
+                team_id="TOT" if is_total else str(team_id),
+                team_name=None if is_total else info.get("team_name"),
+                is_total=is_total,
+                stats=stats,
+                source_key=source_key,
+                source_url=source_url,
+                stats_as_of=stats_as_of,
+            )
+        )
+    lines.sort(key=lambda ln: (0 if ln.is_total else 1, ln.team_id))
+    return lines
+
+
 def _stats_from_single_category(cat: dict[str, Any]) -> dict[str, Any]:
     """Stats from one ESPN category block (object stats or labels/names row)."""
     if not isinstance(cat, dict):
@@ -527,21 +697,9 @@ def build_stats_bundle(
         # promote a career / multi-season aggregate into season fields.
         current = {}
 
-    stats_as_of = data.get("season") or data.get("displaySeason")
-    if isinstance(stats_as_of, dict):
-        stats_as_of = (
-            stats_as_of.get("year")
-            or stats_as_of.get("displayName")
-            or (
-                str(stats_as_of.get("$ref", "")).split("/seasons/")[-1].split("?")[0]
-                if stats_as_of.get("$ref")
-                else None
-            )
-        )
-    if history:
-        latest_key = sorted(history.keys(), reverse=True)[0]
-        if not stats_as_of:
-            stats_as_of = latest_key
+    # Never put a season label in stats_as_of (B8). Real timestamps come from
+    # EspnClient.get_season_stat_lines (season endDate / HTTP Date / fetch time).
+    stats_as_of = None
 
     scope = infer_stats_scope(
         history=history, career=None, current=current, sport=sport
@@ -567,5 +725,6 @@ __all__ = [
     "extract_season_history",
     "infer_stats_scope",
     "parse_core_season_statistics",
+    "parse_v3_season_stat_lines",
     "stats_from_espn_payload",
 ]

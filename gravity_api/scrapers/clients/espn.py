@@ -5,11 +5,20 @@ from __future__ import annotations
 import contextvars
 import logging
 import os
+import re
+from datetime import date, datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+_SEASON_YEAR_IN_URL = re.compile(r"/seasons/(\d+)")
+_SEASON_TYPE_IN_URL = re.compile(r"/types/(\d+)/")
+_TEAM_ID_IN_URL = re.compile(r"/teams/(\d+)")
+_ESPN_TYPE_TO_SEASON = {2: "regular", 3: "postseason"}
+TOT_TEAM_ID = "TOT"
 
 _espn_get_cache: contextvars.ContextVar[dict[str, dict[str, Any]] | None] = (
     contextvars.ContextVar("_espn_get_cache", default=None)
@@ -137,14 +146,82 @@ def _stats_from_core_payload(data: dict[str, Any]) -> dict[str, Any]:
     return stats_from_espn_payload(data)
 
 
+def _https_ref(url: str | None) -> str | None:
+    if not url:
+        return None
+    return str(url).replace("http://", "https://")
+
+
+def _strip_capture(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    if not isinstance(data, dict):
+        return {}, None
+    capture = data.get("_capture")
+    if isinstance(capture, dict):
+        clean = {k: v for k, v in data.items() if k != "_capture"}
+        return clean, capture
+    return data, None
+
+
+def _parse_http_date(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        dt = parsedate_to_datetime(value)
+    except (TypeError, ValueError, IndexError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _parse_espn_timestamp(value: Any) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        dt = datetime.fromisoformat(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+    except ValueError:
+        return _parse_http_date(text)
+
+
 class EspnClient:
     def __init__(self, *, timeout_s: float = 30.0):
         self.timeout_s = timeout_s
+        self._last_fetch_meta: dict[str, Any] = {}
+
+    def _record_fetch_meta(
+        self,
+        url: str,
+        *,
+        date_header: str | None = None,
+        last_modified: str | None = None,
+        capture: dict[str, Any] | None = None,
+        fetched_at: datetime | None = None,
+    ) -> None:
+        cap = capture or {}
+        self._last_fetch_meta = {
+            "url": url,
+            "date": date_header or cap.get("date"),
+            "last_modified": last_modified or cap.get("last-modified") or cap.get("last_modified"),
+            "fetched_at": fetched_at or datetime.now(tz=timezone.utc),
+        }
 
     async def _get(self, url: str, *, allow_empty: bool = True) -> dict[str, Any]:
         cache = _espn_get_cache.get()
         if cache is not None and url in cache:
-            return dict(cache[url])
+            cached = dict(cache[url])
+            clean, capture = _strip_capture(cached)
+            self._record_fetch_meta(url, capture=capture)
+            return clean
 
         async with httpx.AsyncClient(timeout=self.timeout_s, headers=ESPN_HEADERS) as client:
             resp = await client.get(url)
@@ -152,14 +229,26 @@ class EspnClient:
                 # Do not cache empty error bodies — a transient 5xx would poison
                 # parallel roster/stats/awards scrapers for the whole athlete run.
                 logger.debug("ESPN GET %s returned %s (not cached)", url, resp.status_code)
+                self._record_fetch_meta(
+                    url,
+                    date_header=resp.headers.get("Date"),
+                    last_modified=resp.headers.get("Last-Modified"),
+                )
                 return {}
             resp.raise_for_status()
             raw = resp.json()
             data = raw if isinstance(raw, dict) else {}
+            clean, capture = _strip_capture(data)
+            self._record_fetch_meta(
+                url,
+                date_header=resp.headers.get("Date"),
+                last_modified=resp.headers.get("Last-Modified"),
+                capture=capture,
+            )
 
-        if cache is not None and data:
-            cache[url] = data
-        return data
+        if cache is not None and clean:
+            cache[url] = dict(clean)
+        return clean
 
     async def _get_core(self, sport: str, path: str) -> dict[str, Any]:
         sport = normalize_sport(sport)
@@ -365,25 +454,36 @@ class EspnClient:
         data = await self._get(url)
         return self._pack_stats_response(data, stats_source="espn", sport=sport)
 
-    async def _get_season_stats_core(self, athlete_id: str, sport: str) -> dict[str, Any]:
+    async def _get_career_stats_unscoped(
+        self, athlete_id: str, sport: str
+    ) -> dict[str, Any]:
+        """Unscoped core ``athletes/{id}/statistics`` — career cross-check only (B1)."""
         data = await self._get_core(sport, f"athletes/{athlete_id}/statistics")
-        return self._pack_stats_response(data, stats_source="espn_core", sport=sport)
+        if not data:
+            return {}
+        from gravity_api.scrapers.parsers.espn_stats import stats_from_espn_payload
+
+        return {
+            "career_stats": stats_from_espn_payload(data),
+            "stats_source": "espn_core_career",
+            "raw": data,
+        }
 
     async def _get_season_stats_core_year(
         self, athlete_id: str, sport: str, year: str | int, *, season_type: int = 2
     ) -> dict[str, Any]:
         """Per-season core statistics (includes TFL that career aggregates zero out)."""
-        data = await self._get_core(
-            sport,
-            f"seasons/{int(year)}/types/{int(season_type)}/athletes/{athlete_id}/statistics",
+        data = await self._fetch_core_season_statistics(
+            athlete_id, sport, int(year), season_type=int(season_type)
         )
         packed = self._pack_stats_response(
             data, stats_source="espn_core_season", sport=sport
         )
-        if packed.get("stats_as_of") is None:
-            packed["stats_as_of"] = str(year)
         if packed.get("season_stats"):
             packed["stats_scope"] = "season"
+            packed["stats_as_of"] = await self.resolve_stats_as_of(
+                sport, int(year), fetch_meta=self._last_fetch_meta
+            )
         return packed
 
     @staticmethod
@@ -408,29 +508,25 @@ class EspnClient:
         return out
 
     async def get_season_stats(self, athlete_id: str, sport: str) -> dict[str, Any]:
+        """Legacy packed stats for current pipeline callers.
+
+        Never promotes unscoped core aggregates into ``season_stats`` (B1).
+        Prefer ``get_season_stat_lines`` for season-correct history.
+        """
         sport = normalize_sport(sport)
-        if sport in CORE_PROFILE_FIRST_SPORTS:
-            stats = await self._get_season_stats_core(athlete_id, sport)
-            if stats.get("season_stats"):
-                return stats
-            site = await self._get_season_stats_site(athlete_id, sport)
-            return site if site.get("season_stats") else stats
 
         # Prefer site common/v3 — per-season history. site.api 403s; site.web works.
-        # History alone is enough (current may be empty when career aggregates are
-        # suppressed); only fall back to core when site returns nothing usable.
         stats = await self._get_season_stats_site(athlete_id, sport)
-        if not stats.get("season_stats") and not stats.get("season_stats_history"):
-            stats = await self._get_season_stats_core(athlete_id, sport)
-            # Core career aggregate must not become season_stats — clear if no history.
-            if stats.get("season_stats") and not stats.get("season_stats_history"):
-                if (stats.get("stats_source") or "") == "espn_core":
-                    stats = {
-                        **stats,
-                        "season_stats": {},
-                        "career_stats": {},
-                        "stats_scope": None,
-                    }
+        if not stats:
+            stats = {
+                "season_stats": {},
+                "season_stats_history": {},
+                "career_stats": {},
+                "stats_as_of": None,
+                "stats_scope": None,
+                "stats_source": "espn",
+                "raw": {},
+            }
 
         # Enrich latest season from core year endpoint (TFL etc. missing on site CFB).
         history = stats.get("season_stats_history") or {}
@@ -438,7 +534,7 @@ class EspnClient:
             (y for y in history.keys() if str(y).isdigit()),
             key=lambda y: int(y),
         )
-        if year_keys and sport in {"cfb", "nfl"}:
+        if year_keys and sport in {"cfb", "nfl", "ncaa_baseball", "ncaa_volleyball"}:
             latest_year = year_keys[-1]
             core_year = await self._get_season_stats_core_year(
                 athlete_id, sport, latest_year
@@ -451,8 +547,7 @@ class EspnClient:
                 hist_row = dict(history.get(latest_year) or {})
                 history[latest_year] = self._merge_prefer_nonzero(hist_row, core_cur)
                 stats["season_stats_history"] = history
-                if not stats.get("stats_as_of"):
-                    stats["stats_as_of"] = core_year.get("stats_as_of") or latest_year
+                stats["stats_as_of"] = core_year.get("stats_as_of")
                 stats["stats_scope"] = "season"
         elif stats.get("season_stats") and not stats.get("stats_scope"):
             from gravity_api.scrapers.parsers.espn_stats import infer_stats_scope
@@ -464,6 +559,328 @@ class EspnClient:
                 sport=sport,
             )
         return stats
+
+    # --- WP3: season-scoped SeasonStatLine API ---------------------------------
+
+    @staticmethod
+    def _season_type_from_espn_code(code: int | str) -> str | None:
+        try:
+            return _ESPN_TYPE_TO_SEASON.get(int(code))
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _year_from_espn_ref(ref: str) -> int | None:
+        m = _SEASON_YEAR_IN_URL.search(ref or "")
+        return int(m.group(1)) if m else None
+
+    @staticmethod
+    def _stype_from_espn_ref(ref: str) -> str | None:
+        m = _SEASON_TYPE_IN_URL.search(ref or "")
+        if not m:
+            return None
+        return EspnClient._season_type_from_espn_code(m.group(1))
+
+    @staticmethod
+    def _team_id_from_espn_ref(ref: str) -> str | None:
+        m = _TEAM_ID_IN_URL.search(ref or "")
+        return m.group(1) if m else None
+
+    async def list_stat_seasons(
+        self, athlete_id: str, league: str
+    ) -> list[tuple[int, str, str]]:
+        """Enumerate ``(season_year, season_type, stats_ref)`` from statisticslog.
+
+        Prefers ``type=total`` refs when both total and team blocks exist for the
+        same (year, season_type).
+        """
+        league = normalize_sport(league)
+        data = await self._get_core(league, f"athletes/{athlete_id}/statisticslog")
+        entries = data.get("entries") if isinstance(data, dict) else None
+        if not isinstance(entries, list):
+            return []
+
+        chosen: dict[tuple[int, str], tuple[str, int]] = {}
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            season_obj = entry.get("season") or {}
+            season_ref = ""
+            if isinstance(season_obj, dict):
+                season_ref = str(season_obj.get("$ref") or "")
+            year = self._year_from_espn_ref(season_ref)
+            for block in entry.get("statistics") or []:
+                if not isinstance(block, dict):
+                    continue
+                stats_obj = block.get("statistics") or {}
+                stats_ref = ""
+                if isinstance(stats_obj, dict):
+                    stats_ref = _https_ref(str(stats_obj.get("$ref") or "")) or ""
+                if not stats_ref:
+                    continue
+                block_year = self._year_from_espn_ref(stats_ref) or year
+                season_type = self._stype_from_espn_ref(stats_ref)
+                if block_year is None or season_type is None:
+                    continue
+                # Prefer total over team for the index entry.
+                priority = 0 if str(block.get("type") or "").lower() == "total" else 1
+                key = (int(block_year), season_type)
+                prev = chosen.get(key)
+                if prev is None or priority < prev[1]:
+                    chosen[key] = (stats_ref, priority)
+
+        out = [
+            (year, stype, ref)
+            for (year, stype), (ref, _) in chosen.items()
+        ]
+        out.sort(key=lambda row: (row[0], 0 if row[1] == "regular" else 1, row[2]))
+        return out
+
+    async def resolve_stats_as_of(
+        self,
+        league: str,
+        season_year: int,
+        *,
+        on: date | None = None,
+        fetch_meta: dict[str, Any] | None = None,
+    ) -> datetime:
+        """Timestamp provenance for a season row (never a season label).
+
+        Completed seasons → league ``seasons/{y}.endDate`` (or window end).
+        In-progress / future → HTTP Date / Last-Modified / fetch time.
+        """
+        from gravity_api.scrapers.season_calendar import season_status, season_window
+
+        league = normalize_sport(league)
+        on_d = on or date.today()
+        status = season_status(league, int(season_year), on_d)
+        if status == "complete":
+            season_doc = await self._get_core(league, f"seasons/{int(season_year)}")
+            end = _parse_espn_timestamp(
+                (season_doc or {}).get("endDate")
+                or ((season_doc or {}).get("type") or {}).get("endDate")
+            )
+            if end is not None:
+                return end
+            _, end_d = season_window(league, int(season_year))
+            return datetime(end_d.year, end_d.month, end_d.day, tzinfo=timezone.utc)
+
+        meta = fetch_meta if fetch_meta is not None else self._last_fetch_meta
+        for key in ("last_modified", "date"):
+            parsed = _parse_http_date(str(meta.get(key) or "") or None)
+            if parsed is not None:
+                return parsed
+        fetched = meta.get("fetched_at")
+        if isinstance(fetched, datetime):
+            return fetched if fetched.tzinfo else fetched.replace(tzinfo=timezone.utc)
+        return datetime.now(tz=timezone.utc)
+
+    async def _fetch_v3_stats(
+        self, athlete_id: str, league: str, *, season_type_code: int | None = None
+    ) -> tuple[dict[str, Any], str]:
+        league = normalize_sport(league)
+        site = SITE_LEAGUE_PATH.get(league)
+        if not site:
+            return {}, ""
+        base = (
+            f"https://{ESPN_SITE_HOST}/apis/common/v3/sports/{site}/athletes/"
+            f"{athlete_id}/stats"
+        )
+        if season_type_code is not None:
+            data = await self._get(f"{base}?seasontype={int(season_type_code)}")
+            if data:
+                return data, base
+        data = await self._get(base)
+        return data or {}, base
+
+    async def _fetch_core_season_statistics(
+        self,
+        athlete_id: str,
+        league: str,
+        season_year: int,
+        *,
+        season_type: int = 2,
+        team_id: str | None = None,
+    ) -> dict[str, Any]:
+        league = normalize_sport(league)
+        y, t = int(season_year), int(season_type)
+        paths: list[str] = []
+        if team_id and team_id != TOT_TEAM_ID:
+            paths.append(
+                f"seasons/{y}/types/{t}/teams/{team_id}/athletes/{athlete_id}/statistics"
+            )
+            paths.append(
+                f"seasons/{y}/types/{t}/teams/{team_id}/athletes/{athlete_id}/statistics/0"
+            )
+        paths.extend(
+            [
+                f"seasons/{y}/types/{t}/athletes/{athlete_id}/statistics",
+                f"seasons/{y}/types/{t}/athletes/{athlete_id}/statistics/0",
+            ]
+        )
+        for path in paths:
+            data = await self._get_core(league, path)
+            if data and (
+                data.get("splits") or data.get("categories") or data.get("season")
+            ):
+                return data
+        return {}
+
+    def _core_statistics_url(
+        self,
+        league: str,
+        athlete_id: str,
+        season_year: int,
+        *,
+        season_type: int = 2,
+        team_id: str | None = None,
+    ) -> str:
+        league = normalize_sport(league)
+        core = CORE_LEAGUE_PATH.get(league, "")
+        y, t = int(season_year), int(season_type)
+        if team_id and team_id != TOT_TEAM_ID:
+            path = (
+                f"seasons/{y}/types/{t}/teams/{team_id}/athletes/{athlete_id}/statistics"
+            )
+        else:
+            path = f"seasons/{y}/types/{t}/athletes/{athlete_id}/statistics/0"
+        return f"https://sports.core.api.espn.com/v2/sports/{core}/{path}"
+
+    async def resolve_season_team(
+        self, athlete_id: str, league: str, season_year: int
+    ) -> tuple[str | None, str | None]:
+        """Return ``(team_id, team_name)`` from season-scoped athlete record."""
+        league = normalize_sport(league)
+        athlete = await self._get_core(
+            league, f"seasons/{int(season_year)}/athletes/{athlete_id}"
+        )
+        if not athlete:
+            return None, None
+        team = athlete.get("team") or {}
+        if not isinstance(team, dict):
+            return None, None
+        ref = _https_ref(str(team.get("$ref") or ""))
+        team_id = self._team_id_from_espn_ref(ref or "") if ref else None
+        if isinstance(team.get("id"), (str, int)):
+            team_id = str(team.get("id"))
+        team_name = team.get("displayName") or team.get("abbreviation") or team.get("name")
+        if ref and (not team_name or not team_id):
+            team_data = await self._get(ref)
+            if team_data:
+                team_id = (
+                    str(team_data.get("id"))
+                    if team_data.get("id") is not None
+                    else team_id or self._team_id_from_espn_ref(ref)
+                )
+                team_name = (
+                    team_data.get("abbreviation")
+                    or team_data.get("shortDisplayName")
+                    or team_data.get("displayName")
+                    or team_name
+                )
+        return team_id, str(team_name) if team_name else None
+
+    async def get_season_stat_lines(
+        self,
+        athlete_id: str,
+        league: str,
+        season_year: int,
+        season_type: str,
+    ) -> list["SeasonStatLine"]:
+        """Season-scoped ``SeasonStatLine`` rows for one (year, type).
+
+        Uses core season endpoints; resolves team; for mid-season trades uses
+        common/v3 per-team rows (BKN+PHX+TOT). ``stats_as_of`` is never a label.
+        """
+        from gravity_api.scrapers.parsers.espn_stats import (
+            parse_core_season_statistics,
+            parse_v3_season_stat_lines,
+        )
+        from gravity_api.scrapers.types import SeasonStatLine
+
+        league = normalize_sport(league)
+        if season_type not in {"regular", "postseason"}:
+            raise ValueError(
+                f"season_type must be 'regular' or 'postseason', got {season_type!r}"
+            )
+        type_code = 2 if season_type == "regular" else 3
+        year = int(season_year)
+
+        v3_data, v3_url = await self._fetch_v3_stats(
+            athlete_id, league, season_type_code=type_code
+        )
+        as_of = await self.resolve_stats_as_of(
+            league, year, fetch_meta=self._last_fetch_meta
+        )
+        v3_lines = parse_v3_season_stat_lines(
+            v3_data,
+            league=league,
+            season_year=year,
+            season_type=season_type,
+            source_url=v3_url or f"espn:v3:{league}:{athlete_id}",
+            stats_as_of=as_of,
+        )
+
+        team_lines = [ln for ln in v3_lines if not ln.is_total]
+        tot_lines = [ln for ln in v3_lines if ln.is_total]
+
+        # Mid-season trade / multi-team: trust v3 splits (Durant 2023).
+        if len(team_lines) >= 2:
+            return sorted(
+                team_lines + tot_lines,
+                key=lambda ln: (0 if ln.is_total else 1, ln.team_id),
+            )
+
+        # Single-team (or unknown): prefer season-scoped core statistics.
+        core = await self._fetch_core_season_statistics(
+            athlete_id, league, year, season_type=type_code
+        )
+        core_url = self._core_statistics_url(
+            league, athlete_id, year, season_type=type_code
+        )
+        as_of = await self.resolve_stats_as_of(
+            league, year, fetch_meta=self._last_fetch_meta
+        )
+
+        team_id, team_name = await self.resolve_season_team(athlete_id, league, year)
+        if team_id is None and team_lines:
+            team_id = team_lines[0].team_id
+            team_name = team_lines[0].team_name
+
+        if core:
+            return [
+                parse_core_season_statistics(
+                    core,
+                    league=league,
+                    season_year=year,
+                    season_type=season_type,
+                    team_id=TOT_TEAM_ID,
+                    team_name=team_name,
+                    is_total=True,
+                    source_url=core_url,
+                    stats_as_of=as_of,
+                )
+            ]
+
+        if v3_lines:
+            # Refresh timestamps after core/team fetches may have updated meta.
+            return [
+                SeasonStatLine(
+                    league=ln.league,
+                    season_year=ln.season_year,
+                    season_type=ln.season_type,
+                    team_id=ln.team_id,
+                    team_name=ln.team_name,
+                    is_total=ln.is_total,
+                    stats=ln.stats,
+                    source_key=ln.source_key,
+                    source_url=ln.source_url,
+                    stats_as_of=as_of,
+                )
+                for ln in v3_lines
+            ]
+
+        return []
 
     async def get_college_career_for_pro(
         self, name: str, college: str | None, pro_sport: str
