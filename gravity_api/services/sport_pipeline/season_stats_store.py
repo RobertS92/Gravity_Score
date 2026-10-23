@@ -106,6 +106,20 @@ async def upsert_season_stat_lines(
             if stats_as_of is not None and stats_as_of.tzinfo is None:
                 stats_as_of = stats_as_of.replace(tzinfo=timezone.utc)
 
+            # Optional validation stamp: source_key may end with ``|matched`` etc.
+            source_key = line.source_key or "espn"
+            validation_status = "unvalidated"
+            if "|" in source_key:
+                base_key, maybe_status = source_key.rsplit("|", 1)
+                if maybe_status in {
+                    "unvalidated",
+                    "matched",
+                    "mismatch",
+                    "no_second_source",
+                }:
+                    source_key = base_key
+                    validation_status = maybe_status
+
             for key, val in canonical.items():
                 await conn.execute(
                     f"""INSERT INTO {_EAV_TABLE} (
@@ -152,11 +166,11 @@ async def upsert_season_stat_lines(
                     key,
                     float(val),
                     games,
-                    line.source_key,
+                    source_key,
                     line.source_url,
                     stats_as_of,
                     datetime.now(tz=timezone.utc),
-                    "unvalidated",
+                    validation_status,
                 )
                 written += 1
 
