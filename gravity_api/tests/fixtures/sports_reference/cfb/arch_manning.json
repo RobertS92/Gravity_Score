@@ -1,0 +1,56 @@
+{
+  "athlete": "Arch Manning",
+  "school": "Texas",
+  "espn_id": "4870906",
+  "source": "sports_reference",
+  "source_url": "https://www.sports-reference.com/cfb/players/arch-manning-1.html",
+  "snapshot_note": "Locked second-source snapshot when career pass_yards=4994 (30 GP). Aligns with the SCRAPER_FIX_SPEC / season-history note ESPN season-sum ~5206 vs SR ~4994. Live SR later advanced (career 5427) as 2025/2026 games accrued — do not retarget ESPN values toward SR; flag mismatch.",
+  "seasons": {
+    "2023": {
+      "gp": 3.0,
+      "pass_yards": 30.0,
+      "pass_td": 0.0,
+      "pass_int": 0.0,
+      "pass_attempts": 5.0
+    },
+    "2024": {
+      "gp": 10.0,
+      "pass_yards": 939.0,
+      "pass_td": 9.0,
+      "pass_int": 2.0,
+      "pass_attempts": 90.0
+    },
+    "2025": {
+      "gp": 13.0,
+      "pass_yards": 3163.0,
+      "pass_td": 26.0,
+      "pass_int": 7.0,
+      "pass_attempts": 404.0
+    },
+    "2026": {
+      "gp": 4.0,
+      "pass_yards": 862.0,
+      "pass_td": 7.0,
+      "pass_int": 3.0,
+      "pass_attempts": 115.0
+    }
+  },
+  "career": {
+    "gp": 30.0,
+    "pass_yards": 4994.0,
+    "pass_td": 42.0,
+    "pass_int": 12.0,
+    "pass_attempts": 614.0
+  },
+  "investigation": {
+    "espn_v3_fixture_season_sum_pass_yards": 5206,
+    "espn_v3_breakdown": {
+      "2023": 30,
+      "2024": 939,
+      "2025": 2942,
+      "2026": 1295
+    },
+    "espn_career_aggregate_hallucination": 5427,
+    "root_cause": "ESPN WP0/v3 2025 line is incomplete vs SR full 2025 (2942 vs 3163; 12 GP / 370 ATT vs 13 GP / 404 ATT). Career cross-check of ESPN season-sum (5206) vs this SR snapshot (4994) must status=mismatch and log both values to collection_errors — never rewrite ESPN toward SR."
+  }
+}

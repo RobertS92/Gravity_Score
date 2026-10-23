@@ -11,7 +11,8 @@ from gravity_api.feature_engineering.positions import SPORT_LEAGUE, derive_posit
 from gravity_api.feature_engineering.sport_specs import get_position_spec
 from gravity_api.feature_engineering.transforms import baseline_distribution
 from gravity_api.feature_engineering.types import CohortBaseline
-from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+from datetime import datetime, timezone
+from gravity_api.scrapers.season_calendar import current_season_year
 
 
 async def load_cohort_baselines_map(
@@ -74,6 +75,7 @@ async def load_cohort_stat_distributions(
     rows = await conn.fetch(
         """SELECT stat_key, stat_value FROM athlete_season_stats
            WHERE sport = $1 AND position_group = $2 AND season_year = $3
+             AND team_id = 'TOT' AND season_type = 'regular'
              AND stat_key = ANY($4::text[])""",
         sport,
         position_group,
@@ -118,6 +120,7 @@ async def load_cohort_performance_indices(
     rows = await conn.fetch(
         """SELECT athlete_id, stat_key, stat_value FROM athlete_season_stats
            WHERE sport = $1 AND position_group = $2 AND season_year = $3
+             AND team_id = 'TOT' AND season_type = 'regular'
              AND stat_key = ANY($4::text[])""",
         sport,
         position_group,
@@ -150,7 +153,7 @@ async def build_cohort_context(
     position: str | None,
     season_year: int | None = None,
 ) -> dict[str, Any]:
-    season_year = season_year or _current_season_year()
+    season_year = season_year or current_season_year(sport, datetime.now(tz=timezone.utc).date())
     position_group = derive_position_group(position, sport) or "UNKNOWN"
     league = SPORT_LEAGUE.get(sport, "ncaa")
 

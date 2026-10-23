@@ -10,7 +10,16 @@
 
 ## 1. What “Gravity” is (product)
 
-**Gravity** (often called **Gravity Score** in older docs) is a **college-focused NIL intelligence** system. It quantifies athlete “market gravity” using five interpretable components:
+**Gravity** (often called **Gravity Score** in older docs) is an **athlete market-gravity intelligence** system. The **primary product surface is college NIL** (`cfb`, `ncaab_mens`, `ncaab_womens`), and **pro leagues are an explicit in-scope tier**:
+
+| Tier | Leagues | Role |
+|------|---------|------|
+| **College (NIL)** | CFB, men’s/women’s NCAAB | Buyer-facing NIL Terminal, deal pricing, roster/program workflows |
+| **Pro (calibration anchors)** | **NBA**, **NFL** | Full career / season-history collection, model calibration, and Velocity baselines — **not** “temporary scrape samples” to strip later |
+
+Both tiers share the same per-season stats contract (`athlete_season_stats`: one row per athlete × league × ESPN season year × season type × team, including mid-season `TOT` rows). Pro rows are **first-class** for Gravity accumulation and season-over-season Velocity.
+
+It quantifies athlete “market gravity” using five interpretable components:
 
 | Component | Symbol | Meaning (short) |
 |-----------|--------|------------------|

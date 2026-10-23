@@ -162,7 +162,9 @@ async def _ass_raw_sync_gap(conn: asyncpg.Connection, sport: str) -> dict:
           WHERE a.sport = $1 AND COALESCE(a.is_active, TRUE)
         ), ass AS (
           SELECT athlete_id, COUNT(*) FILTER (WHERE stat_value > 0) AS pos_stats
-          FROM athlete_season_stats WHERE sport = $1 GROUP BY athlete_id
+          FROM athlete_season_stats
+          WHERE sport = $1 AND team_id = 'TOT' AND season_type = 'regular'
+          GROUP BY athlete_id
         )
         SELECT
           COUNT(*) FILTER (WHERE ass.pos_stats >= 3) ass_has_3,

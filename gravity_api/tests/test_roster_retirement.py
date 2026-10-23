@@ -1,3 +1,4 @@
+from gravity_api.scraper_smoke.athletes import DRAFT_DEPARTURE_FIXTURES
 from gravity_api.services.roster_retirement import (
     classify_identity_match,
     departure_status,
@@ -6,6 +7,7 @@ from gravity_api.services.roster_retirement import (
     roster_payload_complete,
     synced_school_names,
 )
+from gravity_api.services.roster_sync import _is_college_to_pro_jump
 
 
 def test_name_collision_ol_vs_cb_is_rejected():
@@ -36,6 +38,27 @@ def test_college_espn_id_match_is_high_confidence():
         )
         == "high"
     )
+
+
+def test_same_espn_id_college_to_pro_is_high_confidence():
+    assert (
+        classify_identity_match(
+            {"espn_id": "5142718", "sport": "ncaab_mens", "position": "F"},
+            {"espn_id": "5142718", "sport": "nba", "position": "F"},
+        )
+        == "high"
+    )
+
+
+def test_dybantsa_boozer_draft_departure_fixtures():
+    for fix in DRAFT_DEPARTURE_FIXTURES:
+        assert _is_college_to_pro_jump(fix["college_sport"], fix["pro_sport"])
+        conf = classify_identity_match(
+            {"espn_id": fix["espn_id"], "sport": fix["college_sport"], "position": "F"},
+            {"espn_id": fix["espn_id"], "sport": fix["pro_sport"], "position": "F"},
+        )
+        assert conf == "high"
+        assert departure_status("Freshman", has_pro_match=True)[0] == "left_for_draft"
 
 
 def test_same_family_and_measurements_are_medium():

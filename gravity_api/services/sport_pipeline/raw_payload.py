@@ -93,6 +93,7 @@ async def build_enriched_raw_payload(
         """SELECT season_year, stat_key, stat_value
            FROM athlete_season_stats
            WHERE athlete_id = $1 AND sport = $2
+             AND team_id = 'TOT' AND season_type = 'regular'
            ORDER BY season_year DESC""",
         athlete["id"],
         athlete["sport"],

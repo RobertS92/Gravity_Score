@@ -75,12 +75,14 @@ async def sample_athlete_ids(
             OR EXISTS (
               SELECT 1 FROM athlete_season_stats s
               WHERE s.athlete_id = a.id AND s.sport = a.sport
+                AND s.team_id = 'TOT' AND s.season_type = 'regular'
                 AND s.stat_key IN ('gp', 'games_played', 'games_played_season')
                 AND s.stat_value > 0
             )
             OR (
               SELECT COUNT(*)::int FROM athlete_season_stats s
               WHERE s.athlete_id = a.id AND s.sport = a.sport
+                AND s.team_id = 'TOT' AND s.season_type = 'regular'
                 AND s.stat_key NOT IN ('gp', 'games_played', 'games_played_season', 'stats_as_of')
                 AND s.stat_value > 0
             ) >= 2
@@ -102,6 +104,7 @@ async def sample_athlete_ids(
             OR (
               SELECT COUNT(*)::int FROM athlete_season_stats s
               WHERE s.athlete_id = a.id AND s.sport = a.sport
+                AND s.team_id = 'TOT' AND s.season_type = 'regular'
                 AND s.stat_key NOT IN ('gp', 'games_played', 'games_played_season', 'stats_as_of')
                 AND s.stat_value > 0
             ) >= 3
@@ -146,6 +149,7 @@ async def sample_athlete_ids(
             WHEN EXISTS (
               SELECT 1 FROM athlete_season_stats s
               WHERE s.athlete_id = a.id AND s.sport = a.sport
+                AND s.team_id = 'TOT' AND s.season_type = 'regular'
             ) THEN 3
             ELSE 4
           END,
@@ -201,6 +205,7 @@ async def enrich_raw_from_season_stats(
     rows = await conn.fetch(
         """SELECT stat_key, stat_value FROM athlete_season_stats
            WHERE athlete_id = $1::uuid AND sport = $2
+             AND team_id = 'TOT' AND season_type = 'regular'
            ORDER BY season_year DESC, observed_at DESC""",
         athlete_id,
         sport,

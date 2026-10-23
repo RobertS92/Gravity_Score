@@ -1,0 +1,254 @@
+{
+  "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/athletes/4870906?lang=en&region=us",
+  "id": "4870906",
+  "uid": "s:20~l:23~a:4870906",
+  "guid": "d499f837-dace-3ada-8168-eaaa41b706e3",
+  "type": "football",
+  "alternateIds": {
+    "sdr": "4870906"
+  },
+  "firstName": "Arch",
+  "lastName": "Manning",
+  "fullName": "Arch Manning",
+  "displayName": "Arch Manning",
+  "shortName": "A. Manning",
+  "weight": 222.0,
+  "displayWeight": "222 lbs",
+  "height": 76.0,
+  "displayHeight": "6' 4\"",
+  "links": [
+    {
+      "language": "en-US",
+      "rel": [
+        "playercard",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/_/id/4870906/arch-manning",
+      "text": "Player Card",
+      "shortText": "Player Card",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "stats",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/stats/_/id/4870906/arch-manning",
+      "text": "Stats",
+      "shortText": "Stats",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "stats",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:23~a:4870906&section=stats",
+      "text": "Stats",
+      "shortText": "Stats",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "splits",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/splits/_/id/4870906/arch-manning",
+      "text": "Splits",
+      "shortText": "Splits",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "gamelog",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/gamelog/_/id/4870906/arch-manning",
+      "text": "Game Log",
+      "shortText": "Game Log",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "gamelog",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:23~a:4870906&section=gamelog",
+      "text": "Game Log",
+      "shortText": "Game Log",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "news",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/news/_/id/4870906/arch-manning",
+      "text": "News",
+      "shortText": "News",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "news",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:23~a:4870906&section=news",
+      "text": "News",
+      "shortText": "News",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "bio",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/bio/_/id/4870906/arch-manning",
+      "text": "Bio",
+      "shortText": "Bio",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "bio",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:23~a:4870906&section=bio",
+      "text": "Bio",
+      "shortText": "Bio",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "overview",
+        "desktop",
+        "athlete"
+      ],
+      "href": "https://www.espn.com/college-football/player/_/id/4870906/arch-manning",
+      "text": "Overview",
+      "shortText": "Overview",
+      "isExternal": false,
+      "isPremium": false
+    },
+    {
+      "language": "en-US",
+      "rel": [
+        "overview",
+        "sportscenter",
+        "app",
+        "athlete"
+      ],
+      "href": "sportscenter://x-callback-url/showClubhouse?uid=s:20~l:23~a:4870906",
+      "text": "Overview",
+      "shortText": "Overview",
+      "isExternal": false,
+      "isPremium": false
+    }
+  ],
+  "birthPlace": {
+    "city": "New Orleans",
+    "state": "LA",
+    "country": "USA"
+  },
+  "birthCountry": {
+    "alternateId": "1",
+    "abbreviation": "USA"
+  },
+  "college": {
+    "$ref": "http://sports.core.api.espn.com/v2/colleges/251?lang=en&region=us"
+  },
+  "slug": "arch-manning",
+  "headshot": {
+    "href": "https://a.espncdn.com/i/headshots/college-football/players/full/4870906.png",
+    "alt": "Arch Manning"
+  },
+  "jersey": "16",
+  "flag": {
+    "href": "https://a.espncdn.com/i/teamlogos/countries/500/usa.png",
+    "alt": "USA",
+    "rel": [
+      "country-flag"
+    ]
+  },
+  "position": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/positions/8?lang=en&region=us",
+    "id": "8",
+    "name": "Quarterback",
+    "displayName": "Quarterback",
+    "abbreviation": "QB",
+    "leaf": true,
+    "parent": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/positions/70?lang=en&region=us"
+    }
+  },
+  "injuries": [],
+  "linked": true,
+  "team": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/teams/251?lang=en&region=us"
+  },
+  "teams": [
+    {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/teams/251?lang=en&region=us"
+    }
+  ],
+  "statistics": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/types/3/athletes/4870906/statistics?lang=en&region=us"
+  },
+  "notes": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/athletes/4870906/notes?lang=en&region=us"
+  },
+  "experience": {
+    "years": 4,
+    "displayValue": "Senior",
+    "abbreviation": "SR"
+  },
+  "active": true,
+  "eventLog": {
+    "$ref": "http://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/athletes/4870906/eventlog?lang=en&region=us"
+  },
+  "status": {
+    "id": "1",
+    "name": "Active",
+    "type": "active",
+    "abbreviation": "Active"
+  },
+  "_capture": {
+    "url": "https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/seasons/2025/athletes/4870906",
+    "http_status": 200,
+    "date": "Fri, 23 Oct 2026 00:06:15 GMT"
+  }
+}

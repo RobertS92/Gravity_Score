@@ -1,4 +1,13 @@
-"""Persist position-relevant stats from scraper raw fields."""
+"""Persist position-relevant stats from scraper raw fields.
+
+Canonical storage is the EAV ``athlete_season_stats`` table with grain
+``(athlete_id, sport, season_year, season_type, team_id, stat_key)``
+(see migration ``038_athlete_season_stats_v2.sql`` and ``season_stats_store``).
+
+Prefer ``upsert_season_stat_lines`` when callers already have ``SeasonStatLine``
+rows. This module keeps the legacy ``upsert_season_stats_from_raw`` path used by
+the orchestrator until WP7 rewrites backfill onto season-scoped lines.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +20,18 @@ from gravity_api.feature_engineering.positions import derive_position_group
 from gravity_api.feature_engineering.sport_specs import get_position_spec, get_sport_spec
 from gravity_api.scrapers.parsers.stat_catalog import all_stat_keys_for_sport
 from gravity_api.scrapers.parsers.stat_normalizer import flatten_raw_for_stats
+from gravity_api.scrapers.season_calendar import (
+    current_season_year,
+    parse_season_label,
+    season_label as calendar_season_label,
+    season_status,
+)
 from gravity_api.services.sport_pipeline.config import get_sport_pipeline_config
+
+# Canonical EAV table after migration 038_athlete_season_stats_v2 (WP5).
+EAV_TABLE = "athlete_season_stats"
+_EAV_TABLE = EAV_TABLE  # back-compat alias for tests / monkeypatches
+_TOT = "TOT"
 
 
 async def upsert_season_stats_from_raw(
@@ -23,7 +43,7 @@ async def upsert_season_stats_from_raw(
     raw: dict[str, Any],
     season_year: int | None = None,
 ) -> int:
-    """Write numeric stat fields into athlete_season_stats (current + historical seasons)."""
+    """Write numeric stat fields into EAV athlete_season_stats (TOT / regular)."""
     try:
         get_sport_spec(sport)
     except KeyError:
@@ -41,104 +61,155 @@ async def upsert_season_stats_from_raw(
     league = get_sport_pipeline_config(sport).league
     written = 0
     store_keys = all_stat_keys_for_sport(sport)
+    today = datetime.now(tz=timezone.utc).date()
 
-    async def _write_season(
+    async def _write_eav(
         stats: dict[str, float],
         year: int,
         *,
         source_key: str,
+        season_type: str = "regular",
+        team_id: str = _TOT,
+        team_name: str | None = None,
+        is_total: bool = True,
+        source_url: str | None = None,
+        stats_as_of: datetime | None = None,
     ) -> int:
         count = 0
         games = int(stats.get("games_played_season") or stats.get("gp") or 0) or None
+        label = calendar_season_label(sport, year)
+        complete = season_status(sport, year, today) == "complete"
+        as_of = stats_as_of or datetime.now(tz=timezone.utc)
         for key in store_keys:
             if key not in stats:
                 continue
             val = stats[key]
             try:
                 await conn.execute(
-                    """INSERT INTO athlete_season_stats (
-                         athlete_id, sport, league, season_year, position_group,
-                         stat_key, stat_value, games_played, source_key, observed_at
-                       ) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                       ON CONFLICT (athlete_id, sport, season_year, stat_key)
+                    f"""INSERT INTO {_EAV_TABLE} (
+                         athlete_id, sport, league, season_year, season_label,
+                         season_type, team_id, team_name, is_total, is_complete,
+                         position_group, stat_key, stat_value, games_played,
+                         source_key, source_url, stats_as_of, observed_at,
+                         validation_status
+                       ) VALUES (
+                         $1::uuid, $2, $3, $4, $5,
+                         $6, $7, $8, $9, $10,
+                         $11, $12, $13, $14,
+                         $15, $16, $17, $18,
+                         $19
+                       )
+                       ON CONFLICT (athlete_id, sport, season_year, season_type, team_id, stat_key)
                        DO UPDATE SET
                          stat_value = EXCLUDED.stat_value,
+                         season_label = EXCLUDED.season_label,
+                         team_name = COALESCE(EXCLUDED.team_name, {_EAV_TABLE}.team_name),
+                         is_total = EXCLUDED.is_total,
+                         is_complete = EXCLUDED.is_complete,
                          position_group = EXCLUDED.position_group,
                          games_played = EXCLUDED.games_played,
+                         source_key = EXCLUDED.source_key,
+                         source_url = COALESCE(EXCLUDED.source_url, {_EAV_TABLE}.source_url),
+                         stats_as_of = EXCLUDED.stats_as_of,
                          observed_at = EXCLUDED.observed_at""",
                     athlete_id,
                     sport,
                     league,
                     year,
+                    label,
+                    season_type,
+                    team_id,
+                    team_name,
+                    is_total,
+                    complete,
                     position_group,
                     key,
                     float(val),
                     games,
                     source_key,
+                    source_url,
+                    as_of,
                     datetime.now(tz=timezone.utc),
+                    "unvalidated",
                 )
                 count += 1
             except asyncpg.PostgresError:
                 continue
         return count
 
-    current_year = season_year or _current_season_year()
+    current_year = season_year or current_season_year(
+        sport, datetime.now(tz=timezone.utc).date()
+    )
 
     history = raw.get("season_stats_history")
 
-    # First, persist every real per-season row under its actual year (used for
-    # feature engineering: trajectories, peaks, recent-form). Skip current_year
-    # itself — that slot is reserved for the scoring "anchor" written last so it
-    # is authoritative and never overwritten by an in-progress partial season.
     history_years: dict[int, dict[str, float]] = {}
     if isinstance(history, dict):
-        for season_label, season_blob in history.items():
+        for season_label_key, season_blob in history.items():
             if not isinstance(season_blob, dict):
                 continue
-            year = _parse_season_year(season_label, fallback=current_year)
+            try:
+                year = parse_season_label(sport, season_label_key)
+            except (TypeError, ValueError):
+                year = current_year
             normalized = flatten_raw_for_stats({"season_stats": season_blob}, sport)
             if not normalized:
                 continue
             history_years[year] = normalized
             if year != current_year:
-                written += await _write_season(
+                written += await _write_eav(
                     normalized,
                     year,
                     source_key=str(raw.get("stats_source") or "espn_history"),
                 )
 
-    # The scoring anchor (current_year row) must be a single clean season. Use
-    # the latest COMPLETED season (year < current_year) when available — pros in
-    # the offseason have no games in current_year, and the flattened top-level
-    # scalars can carry career-cumulative leakage (e.g. games_played = career
-    # total). Fall back to any real season, then to flattened scalars.
-    anchor_stats: dict[str, float] | None = None
-    completed = [y for y in history_years if y < current_year]
-    if completed:
-        anchor_stats = history_years[max(completed)]
-    elif history_years:
-        anchor_stats = history_years[max(history_years)]
+    # B6: do NOT copy the latest completed season into the current-year row
+    # ("scoring anchor"). Write the current-year row only from current-season data.
+    current_blob = raw.get("season_stats")
+    if isinstance(current_blob, dict) and current_blob:
+        current_stats = flatten_raw_for_stats({"season_stats": current_blob}, sport)
+    elif current_year in history_years:
+        current_stats = history_years[current_year]
+    else:
+        # Flat raw may still carry current-season scalars without history.
+        # Only write a current-year row when the payload is actually for that year
+        # (explicit season_year arg or history entry) — never relabel prior seasons.
+        current_stats = {}
+        if season_year is not None and season_year == current_year:
+            current_stats = flatten_raw_for_stats(raw, sport)
 
-    current_stats = anchor_stats or flatten_raw_for_stats(raw, sport)
-    written += await _write_season(
-        current_stats,
-        current_year,
-        source_key=str(raw.get("stats_source") or "scraper"),
-    )
+    if current_stats:
+        written += await _write_eav(
+            current_stats,
+            current_year,
+            source_key=str(raw.get("stats_source") or "scraper"),
+        )
+
+    # Optional history-client enrichment when espn_id is known (EAV via store).
+    # Full SeasonStatLine backfill is WP7; callers with lines should use
+    # ``upsert_season_stat_lines`` directly.
+    espn_id = raw.get("espn_id")
+    if espn_id:
+        try:
+            from gravity_api.scrapers.clients.espn_season_history import (
+                EspnSeasonHistoryClient,
+            )
+            from gravity_api.services.sport_pipeline.season_stats_store import (
+                upsert_season_stat_rows,
+            )
+
+            client = EspnSeasonHistoryClient()
+            rows = await client.fetch_season_rows(str(espn_id), sport)
+            written += await upsert_season_stat_rows(
+                conn,
+                athlete_id=athlete_id,
+                rows=rows,
+                position=position,
+            )
+        except Exception:
+            pass
 
     return written
 
 
-def _parse_season_year(label: str | int, *, fallback: int) -> int:
-    if isinstance(label, int):
-        return label
-    text = str(label).strip()
-    for token in text.replace("-", " ").split():
-        if token.isdigit() and len(token) == 4:
-            return int(token)
-    return fallback
-
-
-def _current_season_year() -> int:
-    now = datetime.now(tz=timezone.utc)
-    return now.year if now.month >= 7 else now.year - 1
+__all__ = ["EAV_TABLE", "upsert_season_stats_from_raw"]

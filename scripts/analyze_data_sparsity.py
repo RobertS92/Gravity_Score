@@ -173,9 +173,11 @@ async def main() -> None:
     row = await conn.fetchrow(
         """
         SELECT
-          (SELECT COUNT(DISTINCT athlete_id) FROM athlete_season_stats WHERE sport = 'cfb') athletes,
           (SELECT COUNT(DISTINCT athlete_id) FROM athlete_season_stats
-             WHERE sport = 'cfb' AND stat_key IN ('gp','games_played','games_played_season') AND stat_value > 0) with_gp
+             WHERE sport = 'cfb' AND team_id = 'TOT' AND season_type = 'regular') athletes,
+          (SELECT COUNT(DISTINCT athlete_id) FROM athlete_season_stats
+             WHERE sport = 'cfb' AND team_id = 'TOT' AND season_type = 'regular'
+               AND stat_key IN ('gp','games_played','games_played_season') AND stat_value > 0) with_gp
         """
     )
     print(dict(row))
@@ -184,7 +186,7 @@ async def main() -> None:
         """
         SELECT COUNT(*) FROM (
           SELECT athlete_id FROM athlete_season_stats
-          WHERE sport = 'cfb'
+          WHERE sport = 'cfb' AND team_id = 'TOT' AND season_type = 'regular'
           GROUP BY athlete_id
           HAVING COUNT(*) FILTER (WHERE stat_value > 0) >= 3
         ) t
@@ -204,7 +206,9 @@ async def main() -> None:
           WHERE a.sport = 'cfb' AND COALESCE(a.is_active, TRUE)
         ), ass AS (
           SELECT athlete_id, COUNT(*) FILTER (WHERE stat_value > 0) AS pos_stats
-          FROM athlete_season_stats WHERE sport = 'cfb' GROUP BY athlete_id
+          FROM athlete_season_stats
+          WHERE sport = 'cfb' AND team_id = 'TOT' AND season_type = 'regular'
+          GROUP BY athlete_id
         )
         SELECT
           COUNT(*) FILTER (WHERE ass.pos_stats >= 3) ass_has_3,

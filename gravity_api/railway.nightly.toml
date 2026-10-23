@@ -1,5 +1,12 @@
 # Railway Cron worker for gap-fill nightly scrapes (separate service from the web API).
 #
+# B11 (SCRAPER_FIX_SPEC): this cron does NOT HTTP-call sibling gravity-scrapers.
+# It runs in-process: `python -m gravity_api.jobs.nightly_pipeline …` with Root
+# Directory = gravity_api. Canonical scrapers = Gravity_Score/gravity_api/scrapers/.
+# Ops: if GitHub Actions still POSTs RAILWAY_SCRAPER_URL / SCRAPERS_SERVICE_URL at
+# a frozen gravity-scrapers service, retarget those secrets to gravity_api job
+# routes (or disable the sibling cron) — do not port fixes into both codebases.
+#
 # Dashboard setup:
 #   1. New service in the same project → name: gravity-api-nightly
 #   2. Root Directory = gravity_api

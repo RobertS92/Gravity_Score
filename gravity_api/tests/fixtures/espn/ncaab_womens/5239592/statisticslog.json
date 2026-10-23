@@ -1,0 +1,55 @@
+{
+  "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/womens-college-basketball/athletes/5239592/statisticslog?lang=en&region=us",
+  "entries": [
+    {
+      "season": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/womens-college-basketball/seasons/2026?lang=en&region=us"
+      },
+      "statistics": [
+        {
+          "type": "total",
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/womens-college-basketball/seasons/2026/types/0/athletes/5239592/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "type": "team",
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/womens-college-basketball/seasons/2026/teams/41?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/womens-college-basketball/seasons/2026/types/0/teams/41/athletes/5239592/statistics?lang=en&region=us"
+          }
+        }
+      ]
+    },
+    {
+      "season": {
+        "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/womens-college-basketball/seasons/2025?lang=en&region=us"
+      },
+      "statistics": [
+        {
+          "type": "total",
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/womens-college-basketball/seasons/2025/types/0/athletes/5239592/statistics/0?lang=en&region=us"
+          }
+        },
+        {
+          "type": "team",
+          "team": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/womens-college-basketball/seasons/2025/teams/41?lang=en&region=us"
+          },
+          "statistics": {
+            "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/womens-college-basketball/seasons/2025/types/0/teams/41/athletes/5239592/statistics?lang=en&region=us"
+          }
+        }
+      ]
+    }
+  ],
+  "_capture": {
+    "url": "https://sports.core.api.espn.com/v2/sports/basketball/leagues/womens-college-basketball/athletes/5239592/statisticslog",
+    "http_status": 200,
+    "date": "Fri, 23 Oct 2026 00:06:20 GMT",
+    "last-modified": null
+  }
+}

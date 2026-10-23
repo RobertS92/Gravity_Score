@@ -1,0 +1,143 @@
+{
+  "captured_at": "2026-10-23T00:06:21Z",
+  "athletes": [
+    {
+      "key": "lebron",
+      "league": "nba",
+      "espn_id": "1966",
+      "files": {
+        "statisticslog": 200,
+        "v3_stats": 200,
+        "athlete_season_2026": 200,
+        "statistics_2026_2": 200,
+        "seasons_2026": 200,
+        "athlete_season_2027": 200,
+        "statistics_2027_2": 200,
+        "seasons_2027": 200,
+        "statistics_career_unscoped": 200
+      }
+    },
+    {
+      "key": "durant",
+      "league": "nba",
+      "espn_id": "3202",
+      "files": {
+        "statisticslog": 200,
+        "v3_stats": 200,
+        "athlete_season_2023": 200,
+        "statistics_2023_2": 200,
+        "seasons_2023": 200,
+        "athlete_season_2027": 200,
+        "statistics_2027_2": 200,
+        "seasons_2027": 200,
+        "statistics_career_unscoped": 200
+      }
+    },
+    {
+      "key": "mahomes",
+      "league": "nfl",
+      "espn_id": "3139477",
+      "files": {
+        "statisticslog": 200,
+        "v3_stats": 200,
+        "athlete_season_2025": 200,
+        "statistics_2025_2": 200,
+        "seasons_2025": 200,
+        "athlete_season_2026": 200,
+        "statistics_2026_2": 200,
+        "seasons_2026": 200,
+        "statistics_career_unscoped": 200
+      }
+    },
+    {
+      "key": "will_anderson",
+      "league": "nfl",
+      "espn_id": "4685724",
+      "files": {
+        "statisticslog": 200,
+        "v3_stats": 200,
+        "athlete_season_2025": 200,
+        "statistics_2025_2": 200,
+        "seasons_2025": 200,
+        "athlete_season_2026": 200,
+        "statistics_2026_2": 200,
+        "seasons_2026": 200,
+        "statistics_career_unscoped": 200
+      }
+    },
+    {
+      "key": "arch_manning",
+      "league": "cfb",
+      "espn_id": "4870906",
+      "files": {
+        "statisticslog": 200,
+        "v3_stats": 200,
+        "athlete_season_2025": 200,
+        "statistics_2025_2": 200,
+        "seasons_2025": 200,
+        "athlete_season_2026": 200,
+        "statistics_2026_2": 200,
+        "seasons_2026": 200,
+        "statistics_career_unscoped": 200
+      }
+    },
+    {
+      "key": "colin_simmons",
+      "league": "cfb",
+      "espn_id": "5079689",
+      "files": {
+        "statisticslog": 200,
+        "v3_stats": 200,
+        "athlete_season_2025": 200,
+        "statistics_2025_2": 200,
+        "seasons_2025": 200,
+        "athlete_season_2026": 200,
+        "statistics_2026_2": 200,
+        "seasons_2026": 200,
+        "statistics_career_unscoped": 200
+      }
+    },
+    {
+      "key": "dybantsa_ncaab",
+      "league": "ncaab_mens",
+      "espn_id": "5142718",
+      "files": {
+        "statisticslog": 200,
+        "v3_stats": 200,
+        "athlete_season_2026": 200,
+        "statistics_2026_2": 200,
+        "seasons_2026": 200,
+        "statistics_career_unscoped": 200
+      }
+    },
+    {
+      "key": "dybantsa_nba",
+      "league": "nba",
+      "espn_id": "5142718",
+      "files": {
+        "statisticslog": 404,
+        "v3_stats": 200,
+        "athlete_season_2027": 200,
+        "statistics_2027_2": 404,
+        "seasons_2027": 200,
+        "statistics_career_unscoped": 404
+      }
+    },
+    {
+      "key": "sarah_strong",
+      "league": "ncaab_womens",
+      "espn_id": "5239592",
+      "files": {
+        "statisticslog": 200,
+        "v3_stats": 200,
+        "athlete_season_2026": 200,
+        "statistics_2026_2": 200,
+        "seasons_2026": 200,
+        "athlete_season_2027": 200,
+        "statistics_2027_2": 404,
+        "seasons_2027": 200,
+        "statistics_career_unscoped": 200
+      }
+    }
+  ]
+}

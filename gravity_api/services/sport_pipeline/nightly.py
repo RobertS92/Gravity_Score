@@ -1,10 +1,25 @@
-"""Nightly per-sport pipeline: stale scrape → cohort rebuild → score."""
+"""Nightly per-sport pipeline.
+
+Canonical nightly order (SCRAPER_FIX_SPEC WP8):
+
+  1. roster sync     — ESPN team rosters upsert athletes / transfers
+  2. roster_hygiene  — ``left_for_draft``, college→pro retirement, transfers
+  3. stats           — stale scrape → cohort rebuild → BPXVR score
+
+Identity preamble is ``run_nightly_identity_preamble``; stats live in
+``run_nightly_for_sport`` / ``run_nightly_all_sports``. College→pro linking
+uses the same ESPN athlete id when leagues share it (e.g. Dybantsa
+``5142718`` college+NBA); pro ``college_espn_id`` covers different-id cases.
+No separate crosswalk table is required for current fixtures.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any
 
 import asyncpg
@@ -14,11 +29,18 @@ from gravity_api.feature_engineering.positions import SPORT_LEAGUE
 from gravity_api.feature_engineering.sport_specs import get_sport_spec
 from gravity_api.jobs.rebuild_cohort_baselines import rebuild_for_cohort
 from gravity_api.scrapers.orchestrator import run_scrapers_for_athlete
+from gravity_api.scrapers.season_calendar import current_season_year
 from gravity_api.services.sport_pipeline.config import ALL_SPORT_PIPELINES
 from gravity_api.services.sport_pipeline.run import run_athlete_pipeline
-from gravity_api.services.sport_pipeline.season_stats import _current_season_year
 
 logger = logging.getLogger(__name__)
+
+# Documented stage names for operators / tests (order is significant).
+NIGHTLY_PIPELINE_ORDER: tuple[str, ...] = (
+    "roster_sync",
+    "roster_hygiene",
+    "stats",
+)
 
 _DB_RETRY_EXCEPTIONS = (
     TimeoutError,
@@ -53,6 +75,93 @@ class NightlySportResult:
     scored_ok: int = 0
     scored_fail: int = 0
     errors: list[str] = field(default_factory=list)
+
+
+def _env_flag(name: str, default: str = "1") -> bool:
+    return os.environ.get(name, default).strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
+
+
+async def run_nightly_identity_preamble(
+    conn: asyncpg.Connection,
+    *,
+    sync_rosters: bool | None = None,
+    hygiene: bool | None = None,
+    roster_sports: list[str] | None = None,
+) -> dict[str, Any]:
+    """Run roster sync then roster_hygiene before stats.
+
+    Order is fixed: sync first (so pro rows exist), then hygiene
+    (``left_for_draft`` / transfers). Env defaults:
+
+    - ``NIGHTLY_ROSTER_SYNC`` (default on)
+    - ``NIGHTLY_ROSTER_HYGIENE`` (default on)
+    """
+    do_sync = _env_flag("NIGHTLY_ROSTER_SYNC") if sync_rosters is None else sync_rosters
+    do_hygiene = _env_flag("NIGHTLY_ROSTER_HYGIENE") if hygiene is None else hygiene
+
+    out: dict[str, Any] = {
+        "order": list(NIGHTLY_PIPELINE_ORDER),
+        "roster_sync": {"skipped": True},
+        "roster_hygiene": {"skipped": True},
+    }
+
+    if do_sync:
+        from gravity_api.services.roster_sync import sync_power5_sports
+
+        logger.info("Nightly identity: roster sync → hygiene → stats")
+        sync_results = await sync_power5_sports(conn, sports=roster_sports)
+        # sync_power5_sports already applies pro/college hygiene at the end;
+        # still run a full hygiene pass below when requested so non-synced
+        # college rows (e.g. mid-major) are covered.
+        out["roster_sync"] = {
+            "skipped": False,
+            "sports": len(sync_results),
+            "results": [
+                {
+                    "sport": r.get("sport"),
+                    "snapshots_written": r.get("snapshots_written"),
+                    "diff_event_counts": r.get("diff_event_counts"),
+                }
+                for r in sync_results
+            ],
+        }
+        # Hygiene already ran inside sync_power5_sports; mark so operators see it.
+        if sync_results and sync_results[-1].get("pro_college_hygiene"):
+            out["roster_hygiene"] = {
+                "skipped": False,
+                "via": "sync_power5_sports",
+                **sync_results[-1]["pro_college_hygiene"],
+            }
+
+    if do_hygiene:
+        from gravity_api.services.roster_retirement import apply_pro_college_hygiene
+
+        hygiene_report = await apply_pro_college_hygiene(
+            conn, apply=True, min_confidence="medium"
+        )
+        out["roster_hygiene"] = {
+            "skipped": False,
+            "via": "apply_pro_college_hygiene",
+            "deactivated": hygiene_report.get("deactivated"),
+            "actionable": hygiene_report.get("actionable"),
+            "candidates": hygiene_report.get("candidates"),
+            "by_confidence": hygiene_report.get("by_confidence"),
+        }
+        logger.info(
+            "Nightly roster hygiene: deactivated=%s actionable=%s candidates=%s",
+            hygiene_report.get("deactivated"),
+            hygiene_report.get("actionable"),
+            hygiene_report.get("candidates"),
+        )
+    elif not do_sync:
+        logger.info("Nightly identity preamble skipped (sync+hygiene disabled)")
+
+    return out
 
 
 async def fetch_gap_fill_athlete_ids(
@@ -218,7 +327,7 @@ async def fetch_stale_athlete_ids(
 
 
 async def rebuild_cohorts_for_sport(conn: asyncpg.Connection, sport: str) -> int:
-    season_year = _current_season_year()
+    season_year = current_season_year(sport, datetime.now(tz=timezone.utc).date())
     league = SPORT_LEAGUE.get(sport, "ncaa")
     spec = get_sport_spec(sport)
     total = 0

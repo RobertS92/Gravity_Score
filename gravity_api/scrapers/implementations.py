@@ -848,6 +848,8 @@ class EspnStatsScraper(BaseMicroScraper):
             current=stats.get("season_stats"),
             history=stats.get("season_stats_history"),
             career=stats.get("career_stats"),
+            stats_scope=stats.get("stats_scope"),
+            stats_as_of=stats.get("stats_as_of"),
         )
         # ESPN NFL athlete stats never include gamesStarted. For skill positions
         # with GP, persist gs=gp so win_impact / ASS see real starter participation.
@@ -902,11 +904,34 @@ class EspnStatsScraper(BaseMicroScraper):
                     fields["games_played_season"] = fb["games_played_season"]
         if stats.get("stats_as_of") and not fields.get("stats_as_of"):
             fields["stats_as_of"] = stats["stats_as_of"]
+        if stats.get("stats_scope") and not fields.get("stats_scope"):
+            fields["stats_scope"] = stats["stats_scope"]
         if stats.get("stats_source") and not fields.get("stats_source"):
             fields["stats_source"] = stats["stats_source"]
         if stats.get("season_id"):
             fields["season_id"] = stats["season_id"]
-        return self._result(scraper_key, fields=fields, confidence=0.9 if fields else 0.3)
+        # Always emit collection provenance so CSV/report rows are never blank
+        # when real stats exist. Rookies with empty ESPN packs stay partial.
+        collected_at = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        fields["stats_collected_at"] = collected_at
+        has_real = bool(
+            fields.get("season_stats")
+            or fields.get("career_stats")
+            or fields.get("games_played_season")
+            or fields.get("games_played_career")
+        )
+        if has_real and not fields.get("stats_as_of"):
+            fields["stats_as_of"] = collected_at
+        if not fields.get("stats_scope") and fields.get("season_stats"):
+            fields["stats_scope"] = "season"
+        status = "success" if has_real else "partial"
+        return self._result(
+            scraper_key,
+            fields=fields,
+            confidence=0.9 if has_real else 0.4,
+            status=status,
+            error=None if has_real else "espn stats empty (rookie / no season pack yet)",
+        )
 
 
 class EspnAwardsScraper(BaseMicroScraper):
@@ -1088,14 +1113,15 @@ class CfbdStatsScraper(BaseMicroScraper):
             cfbd_is_rate_limited,
             player_id_from_row,
         )
-        from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+        from datetime import datetime, timezone
+        from gravity_api.scrapers.season_calendar import current_season_year
         from gravity_api.scrapers.parsers.stat_normalizer import merge_stat_layers
 
         client = CfbdClient()
         if not client.enabled:
             return self._result(scraper_key, fields={}, error="CFBD_API_KEY not configured")
         team = ctx.team or ctx.school
-        year = _current_season_year()
+        year = current_season_year('cfb', datetime.now(tz=timezone.utc).date())
 
         if cfbd_is_rate_limited():
             return self._cfbd_fallback_result(ctx, scraper_key, note="cfbd rate limited")
@@ -1154,7 +1180,8 @@ class CfbdTeamRecordScraper(BaseMicroScraper):
         if ctx.sport != "cfb":
             return self._result(scraper_key, fields={}, error="cfbd team record is cfb-only")
         from gravity_api.scrapers.clients.cfbd import CfbdClient, cfbd_is_rate_limited
-        from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+        from datetime import datetime, timezone
+        from gravity_api.scrapers.season_calendar import current_season_year
 
         team = ctx.team or ctx.school
         if not team:
@@ -1166,7 +1193,7 @@ class CfbdTeamRecordScraper(BaseMicroScraper):
         if cfbd_is_rate_limited():
             return self._result(scraper_key, fields={}, error="cfbd rate limited")
 
-        year = _current_season_year()
+        year = current_season_year('cfb', datetime.now(tz=timezone.utc).date())
         record = await client.team_record(year=year, team=team)
         if not record:
             existing = ctx.existing_raw
@@ -1391,9 +1418,10 @@ class KenPomStatsScraper(BaseMicroScraper):
     async def run(self, ctx: AthleteScrapeContext, scraper_key: str) -> ScraperResult:
         if ctx.sport != "ncaab_mens":
             return self._result(scraper_key, fields={}, error="kenpom is ncaab_mens-only")
-        from gravity_api.services.sport_pipeline.season_stats import _current_season_year
+        from datetime import datetime, timezone
+        from gravity_api.scrapers.season_calendar import current_season_year
 
-        year = _current_season_year()
+        year = current_season_year('ncaab_mens', datetime.now(tz=timezone.utc).date())
         client = KenPomClient()
         fields: dict[str, Any] = {}
         if client.enabled:

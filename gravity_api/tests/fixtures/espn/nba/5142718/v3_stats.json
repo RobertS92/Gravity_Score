@@ -1,0 +1,27 @@
+{
+  "filters": [
+    {
+      "displayName": "League",
+      "name": "league",
+      "value": "nba",
+      "options": [
+        {
+          "value": "mens-college-basketball",
+          "displayValue": "NCAA Men's Basketball",
+          "shortDisplayName": "NCAAM"
+        },
+        {
+          "value": "nba",
+          "displayValue": "National Basketball Association",
+          "shortDisplayName": "NBA"
+        }
+      ]
+    }
+  ],
+  "_capture": {
+    "url": "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/5142718/stats",
+    "http_status": 200,
+    "date": "Fri, 23 Oct 2026 00:06:19 GMT",
+    "last-modified": null
+  }
+}
