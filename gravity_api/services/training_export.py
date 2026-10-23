@@ -49,6 +49,48 @@ RAW_NUMERIC_KEYS = (
 
 SKIP_JSON_KEYS = frozenset({"bpxvr", "cohort_stat_means", "cohort_stat_stds", "nil_deals", "brand_deals"})
 
+# WP9 season provenance columns on every scraped export row.
+SEASON_PROVENANCE_KEYS = (
+    "season_year",
+    "season_label",
+    "season_type",
+    "team_id",
+    "is_total",
+    "is_complete",
+    "stats_as_of",
+    "validation_status",
+    "n_seasons",
+)
+_STATS_SCOPE_VALUES = frozenset({"season", "career"})
+_SEASON_ONLY_STAT_KEYS = frozenset({"games_played_season", "gp", "G", "gamesPlayed"})
+
+
+def normalize_export_stats_scope(scope: Any) -> str | None:
+    """Coerce to WP9 ``season|career`` (or None)."""
+    if scope is None:
+        return None
+    text = str(scope).strip().lower()
+    if not text:
+        return None
+    if text in _STATS_SCOPE_VALUES:
+        return text
+    if text in {"multi_season", "multiseason", "career_total", "totals", "total"}:
+        return "career"
+    return None
+
+
+def _career_export_columns(career: dict[str, Any] | None) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    if not isinstance(career, dict):
+        return out
+    for key, val in career.items():
+        if key in _SEASON_ONLY_STAT_KEYS:
+            continue
+        if val is None or val == "":
+            continue
+        out[f"career_{key}"] = val
+    return out
+
 
 def _safe_float(val: Any) -> float | None:
     if val is None or val == "":
@@ -149,18 +191,43 @@ def flatten_raw_data(raw: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def flatten_raw_data_export(raw: dict[str, Any] | None) -> dict[str, Any]:
-    """Flatten all top-level raw_athlete_data fields for CSV export."""
+    """Flatten all top-level raw_athlete_data fields for CSV export.
+
+    Always includes WP9 provenance keys (``stats_scope``, season grain,
+    ``career_<key>``). Omits ``games_played_season`` when scope is career.
+    """
     if not raw:
-        return {}
+        out = {
+            "stats_scope": None,
+            **{k: None for k in SEASON_PROVENANCE_KEYS},
+        }
+        return out
     out: dict[str, Any] = {}
     out.update(flatten_raw_data(raw))
-    # Required provenance columns on every export/smoke row (may be blank).
-    out["stats_scope"] = raw.get("stats_scope")
+    scope = normalize_export_stats_scope(raw.get("stats_scope"))
+    out["stats_scope"] = scope
+    for key in SEASON_PROVENANCE_KEYS:
+        out[key] = raw.get(key)
+    # Prefer explicit stats_as_of already copied via provenance loop.
     out["stats_as_of"] = raw.get("stats_as_of")
+    career = raw.get("career_stats")
+    out.update(_career_export_columns(career if isinstance(career, dict) else None))
+    history = raw.get("season_stats_history")
+    if out.get("n_seasons") is None and isinstance(history, dict):
+        out["n_seasons"] = len(history)
+    # WP9: never keep season GP on career-scoped rows.
+    if scope == "career":
+        out.pop("games_played_season", None)
+    skip_top = {
+        "stats_scope",
+        "stats_as_of",
+        "career_stats",
+        *SEASON_PROVENANCE_KEYS,
+    }
     for key, value in raw.items():
         if key in SKIP_JSON_KEYS:
             continue
-        if key in {"stats_scope", "stats_as_of"}:
+        if key in skip_top:
             continue
         col = f"raw_{key}"
         if col in out:
@@ -192,7 +259,7 @@ def build_scraped_row(
         "has_raw_scrape": has_raw,
         # Spec: every export/smoke CSV row carries these provenance fields.
         "stats_scope": None,
-        "stats_as_of": None,
+        **{k: None for k in SEASON_PROVENANCE_KEYS},
     }
     for k in (
         "name",
@@ -215,9 +282,19 @@ def build_scraped_row(
     if parsed:
         row["raw_data_json"] = json.dumps(parsed, default=str)
         row["roster_seeded"] = bool(parsed.get("roster_seeded"))
-    row.update(flatten_raw_data_export(parsed))
-    row["stats_scope"] = parsed.get("stats_scope") if parsed else None
-    row["stats_as_of"] = parsed.get("stats_as_of") if parsed else None
+    flat = flatten_raw_data_export(parsed)
+    row.update(flat)
+    scope = normalize_export_stats_scope(parsed.get("stats_scope") if parsed else None)
+    row["stats_scope"] = scope
+    for key in SEASON_PROVENANCE_KEYS:
+        if key in flat:
+            row[key] = flat.get(key)
+        elif parsed:
+            row[key] = parsed.get(key)
+        else:
+            row[key] = None
+    if scope == "career":
+        row.pop("games_played_season", None)
     return row
 
 

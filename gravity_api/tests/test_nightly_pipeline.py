@@ -1,6 +1,20 @@
 """Tests for nightly pipeline pooling helpers."""
 
 from gravity_api.scrapers.orchestrator import _partition_scraper_keys
+from gravity_api.services.sport_pipeline.nightly import NIGHTLY_PIPELINE_ORDER
+
+
+def test_nightly_order_roster_sync_then_hygiene_then_stats():
+    """WP8: identity preamble before stats (documented stage order)."""
+    assert NIGHTLY_PIPELINE_ORDER[0] == "roster_sync"
+    assert NIGHTLY_PIPELINE_ORDER[1] == "roster_hygiene"
+    assert NIGHTLY_PIPELINE_ORDER[2] == "stats"
+    assert NIGHTLY_PIPELINE_ORDER.index("roster_sync") < NIGHTLY_PIPELINE_ORDER.index(
+        "roster_hygiene"
+    )
+    assert NIGHTLY_PIPELINE_ORDER.index("roster_hygiene") < NIGHTLY_PIPELINE_ORDER.index(
+        "stats"
+    )
 
 
 def test_partition_scraper_keys_parallel_espn():

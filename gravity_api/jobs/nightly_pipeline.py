@@ -1,5 +1,10 @@
 """
-Nightly pipeline: per-sport stale scrape → cohort rebuild → BPXVR score.
+Nightly pipeline: roster sync → roster_hygiene → stale scrape → cohort → score.
+
+Order (SCRAPER_FIX_SPEC WP8):
+  1. roster sync
+  2. roster_hygiene (left_for_draft, transfers)
+  3. stats (per-sport stale scrape → cohort rebuild → BPXVR)
 
 Run manually:
   PYTHONPATH=. python3 -m gravity_api.jobs.nightly_pipeline
@@ -24,7 +29,11 @@ load_dotenv()
 import asyncpg
 
 from gravity_api.scraper_registry.acceptance_sports import PRIORITY_SPORTS
-from gravity_api.services.sport_pipeline.nightly import run_nightly_all_sports, run_nightly_for_sport
+from gravity_api.services.sport_pipeline.nightly import (
+    run_nightly_all_sports,
+    run_nightly_for_sport,
+    run_nightly_identity_preamble,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -46,6 +55,8 @@ async def main_async(
     rescore_all: bool,
     scrape_stale_days: int,
     score_stale_days: int,
+    skip_roster_sync: bool,
+    skip_hygiene: bool,
 ) -> None:
     dsn = os.environ.get("PG_DSN")
     if not dsn:
@@ -53,17 +64,16 @@ async def main_async(
 
     conn = await asyncpg.connect(dsn, command_timeout=120)
     try:
-        hygiene_flag = os.environ.get("NIGHTLY_ROSTER_HYGIENE", "1").strip().lower()
-        if hygiene_flag not in ("0", "false", "no", "off"):
-            from gravity_api.services.roster_retirement import apply_pro_college_hygiene
-
-            hygiene = await apply_pro_college_hygiene(conn, apply=True, min_confidence="medium")
-            logger.info(
-                "Nightly roster hygiene: deactivated=%s actionable=%s candidates=%s",
-                hygiene.get("deactivated"),
-                hygiene.get("actionable"),
-                hygiene.get("candidates"),
-            )
+        preamble = await run_nightly_identity_preamble(
+            conn,
+            sync_rosters=False if skip_roster_sync else None,
+            hygiene=False if skip_hygiene else None,
+        )
+        logger.info(
+            "Nightly identity preamble: sync=%s hygiene=%s",
+            preamble.get("roster_sync"),
+            preamble.get("roster_hygiene"),
+        )
         if sport:
             result = await run_nightly_for_sport(
                 conn,
@@ -135,6 +145,16 @@ def main() -> None:
     parser.add_argument("--skip-cohorts", action="store_true")
     parser.add_argument("--skip-score", action="store_true")
     parser.add_argument(
+        "--skip-roster-sync",
+        action="store_true",
+        help="Skip ESPN roster sync stage (still runs hygiene unless --skip-hygiene)",
+    )
+    parser.add_argument(
+        "--skip-hygiene",
+        action="store_true",
+        help="Skip left_for_draft / college→pro hygiene stage",
+    )
+    parser.add_argument(
         "--gap-fill",
         action="store_true",
         help="Only scrape athletes with missing/placeholder IG, NIL, or quality fields",
@@ -176,6 +196,8 @@ def main() -> None:
             rescore_all=args.rescore_all,
             scrape_stale_days=args.scrape_stale_days,
             score_stale_days=args.score_stale_days,
+            skip_roster_sync=args.skip_roster_sync,
+            skip_hygiene=args.skip_hygiene,
         )
     )
 

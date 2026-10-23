@@ -1,6 +1,12 @@
 # gravity-scrapers & gravity-ml — source of truth
 
-**Purpose:** Single reference for the **data plane** (gravity-scrapers) and **learned scoring plane** (gravity-ml): responsibilities, contracts between them, env vars, jobs, and how **Gravity_Score** (`gravity_api`) consumes the result.
+**Purpose:** Single reference for the **data plane** (scrapers) and **learned scoring plane** (gravity-ml): responsibilities, contracts between them, env vars, jobs, and how **Gravity_Score** (`gravity_api`) consumes the result.
+
+> **Canonical scrapers (2026-10):** implement and deploy season-correct athlete stats from **`Gravity_Score/gravity_api/scrapers/`** (see `docs/specs/SCRAPER_FIX_SPEC.md`). Confirm Railway cron (`RAILWAY_SCRAPER_URL` / `SCRAPERS_SERVICE_URL`) points at `gravity_api` jobs before assuming the sibling `gravity-scrapers` repo is live. Do not port fixes into both.
+>
+> **Season year:** one module — `gravity_api/scrapers/season_calendar.py`. NBA/NCAAB store the year the season **ends** (`2026-27` → `2027`); NFL/CFB store the year the season **starts**.
+>
+> **Table grain:** `athlete_season_stats` is EAV with unique `(athlete_id, sport, season_year, season_type, team_id, stat_key)` (migration `038_athlete_season_stats_v2.sql`). Readers must filter `team_id = 'TOT' AND season_type = 'regular'` for one-row-per-season semantics. Career = `athlete_career_stats` view (SUM of counting stats), never scraped.
 
 **Audience:** Engineers and agents working in sibling repos, CI operators, and anyone debugging “empty scores,” “scrapers ran but nothing changed,” or ML inference failures.
 
@@ -152,6 +158,20 @@ The **linear blend** \(G \approx w_B B + w_P P + w_X X + w_V V - w_R R\) is the 
 ```
 
 Exact “who writes `athlete_gravity_scores`” depends on your deployed wiring (scraper callback vs `gravity_api` sync). **Source of wiring detail:** gravity-scrapers + gravity-ml READMEs and **SCRAPER_EXHAUSTIVE**.
+
+### 4.1 gravity_api nightly identity order (WP8)
+
+Canonical order in `gravity_api/services/sport_pipeline/nightly.py` /
+`gravity_api/jobs/nightly_pipeline.py`:
+
+1. **roster sync** (`sync_power5_sports`) — ESPN team rosters upsert athletes / transfers  
+2. **roster_hygiene** (`apply_pro_college_hygiene`) — `left_for_draft`, college→pro retirement  
+3. **stats** — stale scrape → cohort rebuild → BPXVR score  
+
+Env: `NIGHTLY_ROSTER_SYNC` / `NIGHTLY_ROSTER_HYGIENE` (default on). Smoke asserts
+scraped team equals **live ESPN roster team**, not hard-coded `team_hint`. Draft
+departures (e.g. Dybantsa) assert lifecycle facts separately; same ESPN id
+college+pro needs no crosswalk table (`college_espn_id` covers different-id cases).
 
 ---
 

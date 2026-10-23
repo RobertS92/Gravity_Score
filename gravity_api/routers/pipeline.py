@@ -32,6 +32,9 @@ class NightlyBody(BaseModel):
     scrape: bool = True
     rebuild_cohorts: bool = True
     score: bool = True
+    # Identity preamble: roster sync → roster_hygiene before stats.
+    roster_sync: bool = True
+    roster_hygiene: bool = True
     gap_fill: bool = False
     rescore_all: bool = False
     scrape_stale_days: int = Field(7, ge=0, le=365)
@@ -51,10 +54,17 @@ async def run_nightly_pipeline(
     db: asyncpg.Connection = Depends(get_db),
     _: None = Depends(_require_internal_key),
 ):
-    """Per-sport stale scrape → cohort rebuild → BPXVR score (all 8 sports by default)."""
+    """Roster sync → hygiene → stale scrape → cohort rebuild → BPXVR score."""
     from gravity_api.services.sport_pipeline.nightly import (
         run_nightly_all_sports,
         run_nightly_for_sport,
+        run_nightly_identity_preamble,
+    )
+
+    identity = await run_nightly_identity_preamble(
+        db,
+        sync_rosters=body.roster_sync,
+        hygiene=body.roster_hygiene,
     )
 
     if body.sport:
@@ -75,6 +85,7 @@ async def run_nightly_pipeline(
         )
         return {
             "sport": result.sport,
+            "identity_preamble": identity,
             "gap_fill": body.gap_fill,
             "rescore_all": body.rescore_all,
             "scrape_stale_days": body.scrape_stale_days,
@@ -94,7 +105,7 @@ async def run_nightly_pipeline(
         # Gap-fill defaults to product priority sports (CFB, NCAAB M/W, NFL, NBA).
         PRIORITY_SPORTS if body.gap_fill else None
     )
-    return await run_nightly_all_sports(
+    stats = await run_nightly_all_sports(
         db,
         athlete_limit_per_sport=body.athlete_limit,
         concurrency=body.concurrency,
@@ -110,6 +121,7 @@ async def run_nightly_pipeline(
         scrape_stale_days=body.scrape_stale_days,
         score_stale_days=body.score_stale_days,
     )
+    return {"identity_preamble": identity, **stats}
 
 
 @router.post("/cohorts/rebuild")

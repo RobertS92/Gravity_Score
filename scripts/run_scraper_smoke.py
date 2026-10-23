@@ -20,6 +20,7 @@ if str(ROOT) not in sys.path:
 
 from gravity_api.scraper_smoke.runner import (  # noqa: E402
     run_smoke_suite_sync,
+    smoke_results_to_csv_rows,
     write_smoke_csv,
 )
 
@@ -41,7 +42,12 @@ def main() -> int:
         "--csv-out",
         type=Path,
         default=None,
-        help="Write smoke CSV (always includes stats_scope + stats_as_of)",
+        help=(
+            "Write smoke CSV with WP9 provenance columns "
+            "(season_year, season_label, season_type, team_id, is_total, "
+            "is_complete, stats_as_of, validation_status, n_seasons, career_*, "
+            "stats_scope=season|career)"
+        ),
     )
     parser.add_argument(
         "--fail-on-error",
@@ -79,14 +85,22 @@ def main() -> int:
                 print(f"      error: {row['error']}")
         print()
 
+    # Same provenance rows as CSV (season + career) for JSON consumers.
+    export_rows = smoke_results_to_csv_rows(payload)
+    payload = {**payload, "export_rows": export_rows}
+
     if args.json_out:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
-        args.json_out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        print(f"Wrote {args.json_out}")
+        args.json_out.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+        print(f"Wrote {args.json_out} ({len(export_rows)} export_rows)")
 
     if args.csv_out:
         n = write_smoke_csv(payload, args.csv_out)
-        print(f"Wrote {args.csv_out} ({n} rows; columns include stats_scope, stats_as_of)")
+        print(
+            f"Wrote {args.csv_out} ({n} rows; WP9 columns: "
+            "stats_scope, season_year, season_label, season_type, team_id, "
+            "is_total, is_complete, stats_as_of, validation_status, n_seasons, career_*)"
+        )
 
     failed = summary.get("espn_scrapers_failed", 0) + summary.get(
         "db_scheduled_full_failed", 0

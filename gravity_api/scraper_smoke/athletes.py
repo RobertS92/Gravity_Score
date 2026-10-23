@@ -1,4 +1,17 @@
-"""Well-known athletes for scraper smoke tests — ESPN IDs verified live."""
+"""Well-known athletes for scraper smoke tests — ESPN IDs verified live.
+
+Team identity: smoke pass/fail compares scraped team to the **live ESPN roster
+team** returned by ``EspnRosterScraper``, not to ``team_hint``. ``team_hint`` is
+documentation / scrape-context seed only (avoids stale Lakers-style hard fails).
+
+Lifecycle: draft departures are asserted as expected facts in
+``DRAFT_DEPARTURE_FIXTURES`` / ``LIFECYCLE_FACTS`` (college inactive + pro row),
+separately from current-team matching.
+
+ESPN id crosswalk: fixture athletes (Dybantsa ``5142718``, Boozer ``5041935``)
+reuse the same ESPN id for college and pro — no separate crosswalk table needed.
+Pro ``college_espn_id`` covers different-id cases when ESPN issues them.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +23,7 @@ class SmokeAthlete:
     sport: str
     name: str
     espn_id: str
+    # Docs / AthleteScrapeContext seed only — NOT smoke pass/fail for team.
     team_hint: str
     position_hint: str | None = None
     # Substrings that must appear in scraped player_name (case-insensitive).
@@ -20,6 +34,23 @@ class SmokeAthlete:
     def __post_init__(self) -> None:
         if not self.name_tokens:
             object.__setattr__(self, "name_tokens", tuple(self.name.split()))
+
+
+@dataclass(frozen=True)
+class LifecycleFact:
+    """Expected roster lifecycle after college→pro departure (not a team hint)."""
+
+    name: str
+    espn_id: str
+    college_sport: str
+    college_team: str
+    pro_sport: str
+    pro_team: str
+    expected_roster_status: str = "left_for_draft"
+    college_is_active: bool = False
+    pro_record_exists: bool = True
+    # Same ESPN id across leagues for these fixtures (no crosswalk row).
+    same_espn_id_college_and_pro: bool = True
 
 
 # Two athletes per priority sport. IDs confirmed via ESPN profile/stats pages.
@@ -52,7 +83,7 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
         team_hint="76ers",
         position_hint="F",
         name_tokens=("LeBron", "James"),
-        selection_note="Philadelphia 76ers (announced July 2026).",
+        selection_note="Philadelphia 76ers (announced July 2026). team_hint is docs-only.",
     ),
     SmokeAthlete(
         sport="nba",
@@ -71,7 +102,7 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
         name_tokens=("Dybantsa",),
         selection_note=(
             "2026 #1 pick, Washington Wizards. College (BYU) roster must be "
-            "is_active=false / left_for_draft."
+            "is_active=false / left_for_draft. Same ESPN id 5142718 college+NBA."
         ),
     ),
     SmokeAthlete(
@@ -143,25 +174,45 @@ SMOKE_ATHLETES: tuple[SmokeAthlete, ...] = (
 )
 
 # Regression fixtures: college rows that must retire after the 2026 NBA draft.
-DRAFT_DEPARTURE_FIXTURES: tuple[dict[str, str], ...] = (
+LIFECYCLE_FACTS: tuple[LifecycleFact, ...] = (
+    LifecycleFact(
+        name="AJ Dybantsa",
+        espn_id="5142718",
+        college_sport="ncaab_mens",
+        college_team="BYU",
+        pro_sport="nba",
+        pro_team="Wizards",
+        expected_roster_status="left_for_draft",
+        college_is_active=False,
+        pro_record_exists=True,
+        same_espn_id_college_and_pro=True,
+    ),
+    LifecycleFact(
+        name="Cameron Boozer",
+        espn_id="5041935",
+        college_sport="ncaab_mens",
+        college_team="Duke",
+        pro_sport="nba",
+        pro_team="Grizzlies",
+        expected_roster_status="left_for_draft",
+        college_is_active=False,
+        pro_record_exists=True,
+        same_espn_id_college_and_pro=True,
+    ),
+)
+
+# Back-compat alias for existing tests / retirement helpers.
+DRAFT_DEPARTURE_FIXTURES: tuple[dict[str, str], ...] = tuple(
     {
-        "name": "AJ Dybantsa",
-        "espn_id": "5142718",
-        "college_sport": "ncaab_mens",
-        "college_team": "BYU",
-        "pro_sport": "nba",
-        "pro_team": "Wizards",
-        "expected_roster_status": "left_for_draft",
-    },
-    {
-        "name": "Cameron Boozer",
-        "espn_id": "5041935",
-        "college_sport": "ncaab_mens",
-        "college_team": "Duke",
-        "pro_sport": "nba",
-        "pro_team": "Grizzlies",
-        "expected_roster_status": "left_for_draft",
-    },
+        "name": f.name,
+        "espn_id": f.espn_id,
+        "college_sport": f.college_sport,
+        "college_team": f.college_team,
+        "pro_sport": f.pro_sport,
+        "pro_team": f.pro_team,
+        "expected_roster_status": f.expected_roster_status,
+    }
+    for f in LIFECYCLE_FACTS
 )
 
 
@@ -170,3 +221,8 @@ def athletes_by_sport() -> dict[str, list[SmokeAthlete]]:
     for a in SMOKE_ATHLETES:
         out.setdefault(a.sport, []).append(a)
     return out
+
+
+def lifecycle_facts_for_espn_id(espn_id: str) -> list[LifecycleFact]:
+    eid = str(espn_id).strip()
+    return [f for f in LIFECYCLE_FACTS if f.espn_id == eid]
