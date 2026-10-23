@@ -372,13 +372,102 @@ def _infer_football_group(stats: Mapping[str, float]) -> str | None:
     return best[0] if best[1] > 0 else None
 
 
+def collection_errors_from_validation(
+    result: ValidationResult,
+    *,
+    athlete_name: str | None = None,
+) -> list[str]:
+    """Format §4.4 mismatch details for ``collection_errors`` / scraper_jobs.
+
+    Mismatch rows are still stored; callers must append these strings so both
+    values are retained for ops review. Never rewrite ESPN toward the second
+    source.
+    """
+    if result.status != "mismatch":
+        return []
+    details = result.details or {}
+    who = athlete_name or "athlete"
+    league = details.get("league")
+    year = details.get("season_year")
+    prefix = f"validation_mismatch:{who}:{league}:{year}"
+    errors: list[str] = []
+    comparisons = details.get("comparisons") or {}
+    for key in details.get("mismatches") or []:
+        cmp = comparisons.get(key) or {}
+        errors.append(
+            f"{prefix}:{key}:ours={cmp.get('ours')}:theirs={cmp.get('theirs')}"
+        )
+    if not errors:
+        errors.append(f"{prefix}:keys={details.get('mismatches')}")
+    return errors
+
+
+def log_validation_result(
+    result: ValidationResult,
+    *,
+    athlete_name: str | None = None,
+) -> list[str]:
+    """Log mismatch / no_second_source outcomes; return ``collection_errors`` strings."""
+    errors = collection_errors_from_validation(result, athlete_name=athlete_name)
+    if result.status == "mismatch":
+        for err in errors:
+            logger.warning("%s", err)
+    elif result.status == "no_second_source":
+        logger.info(
+            "validation no_second_source athlete=%s league=%s year=%s reason=%s",
+            athlete_name,
+            (result.details or {}).get("league"),
+            (result.details or {}).get("season_year"),
+            (result.details or {}).get("reason"),
+        )
+    return errors
+
+
+def validate_career_counting_stat(
+    *,
+    ours_total: float,
+    second_source_total: float,
+    stat_key: str = "pass_yards",
+    league: str,
+    athlete_name: str | None = None,
+) -> ValidationResult:
+    """Zero-tolerance career cross-check (SUM of season TOT rows vs second source)."""
+    details: dict[str, Any] = {
+        "league": normalize_league(league),
+        "stat_key": stat_key,
+        "ours": {stat_key: float(ours_total)},
+        "theirs": {stat_key: float(second_source_total)},
+        "comparisons": {
+            stat_key: {
+                "ours": float(ours_total),
+                "theirs": float(second_source_total),
+                "result": (
+                    "matched"
+                    if values_match(stat_key, float(ours_total), float(second_source_total))
+                    else "mismatch"
+                ),
+            }
+        },
+        "mismatches": [],
+        "athlete_name": athlete_name,
+        "scope": "career",
+    }
+    if values_match(stat_key, float(ours_total), float(second_source_total)):
+        return ValidationResult(status="matched", details=details)
+    details["mismatches"] = [stat_key]
+    return ValidationResult(status="mismatch", details=details)
+
+
 __all__ = [
     "ValidationResult",
     "ValidationStatus",
     "canonicalize_stat_dict",
+    "collection_errors_from_validation",
     "fetch_second_source_stats",
     "line_canonical_stats",
+    "log_validation_result",
     "primary_stat_keys",
+    "validate_career_counting_stat",
     "validate_completed_season",
     "values_match",
 ]

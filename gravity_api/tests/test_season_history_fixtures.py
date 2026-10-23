@@ -83,6 +83,20 @@ def test_lebron_24_regular_season_rows_team_order():
         r.espn_season_year == 2027 and r.is_complete is False for r in seasons
     )
 
+    # WP7 fixture acceptance (no staging DB): 23 completed TOT seasons, SUM(pts).
+    completed = [
+        r
+        for r in seasons
+        if r.espn_season_year < 2027 and r.is_complete is not False
+    ]
+    completed_years = {r.espn_season_year for r in completed}
+    assert len(completed_years) == 23, completed_years
+    career = derive_career_from_seasons(
+        [r for r in seasons if r.espn_season_year < 2027]
+    )
+    pts = career.get("pts") or career.get("points") or 0
+    assert pts == 43440.0, pts
+
 
 def test_durant_midseason_trade_bkn_phx_tot():
     rows = _rows_from_fixture("durant_nba_v3.json", "nba", "3202")
@@ -122,10 +136,11 @@ def test_arch_manning_per_season_texas():
         slug = (r.raw_team_slug or r.team_abbr or "").lower()
         assert "texas" in slug or r.team_abbr in {"TEX", "Texas"} or r.team_id == "251"
     career = derive_career_from_seasons(seasons)
-    # Summed yards must be less than the old career-aggregate hallucination (5427)
-    # and reconcile toward Sports-Reference (~4994 for completed seasons + partial).
+    # ESPN v3 fixture season-sum is 5206 (not the career-aggregate hallucination 5427).
+    # Locked SR snapshot is 4994 — zero-tolerance mismatch covered in
+    # test_arch_manning_sr_zero_tolerance.py (collection_errors with both values).
     yds = career.get("pass_yards") or career.get("passingYards") or 0
-    assert yds > 0
+    assert yds == 5206.0
     assert yds < 5427
 
 

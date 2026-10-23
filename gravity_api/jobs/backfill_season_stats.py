@@ -232,16 +232,28 @@ async def backfill_one(
                 ):
                     try:
                         from gravity_api.services.stat_validation import (
+                            fetch_second_source_stats,
+                            log_validation_result,
                             validate_completed_season,
                         )
 
-                        result = validate_completed_season(line)
-                        if asyncio.iscoroutine(result):
-                            result = await result
-                        vstatus = getattr(result, "status", None) or (
-                            result.get("status")
-                            if isinstance(result, dict)
-                            else "unvalidated"
+                        second = await fetch_second_source_stats(
+                            line,
+                            athlete_name=str(row.get("name") or espn_id),
+                            position=row.get("position"),
+                            team=line.team_name,
+                        )
+                        result = validate_completed_season(
+                            line,
+                            second_source_stats=second,
+                            position=row.get("position"),
+                        )
+                        vstatus = getattr(result, "status", None) or "unvalidated"
+                        # Spec §4.4: mismatch still stored; log both values to
+                        # collection_errors / scraper_jobs channel.
+                        log_validation_result(
+                            result,
+                            athlete_name=str(row.get("name") or espn_id),
                         )
                     except Exception:  # noqa: BLE001
                         vstatus = "unvalidated"

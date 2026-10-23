@@ -2,7 +2,9 @@
 
 **Purpose:** Single reference for the **data plane** (scrapers) and **learned scoring plane** (gravity-ml): responsibilities, contracts between them, env vars, jobs, and how **Gravity_Score** (`gravity_api`) consumes the result.
 
-> **Canonical scrapers (2026-10):** implement and deploy season-correct athlete stats from **`Gravity_Score/gravity_api/scrapers/`** (see `docs/specs/SCRAPER_FIX_SPEC.md`). Confirm Railway cron (`RAILWAY_SCRAPER_URL` / `SCRAPERS_SERVICE_URL`) points at `gravity_api` jobs before assuming the sibling `gravity-scrapers` repo is live. Do not port fixes into both.
+> **Canonical scrapers (2026-10):** implement and deploy season-correct athlete stats from **`Gravity_Score/gravity_api/scrapers/`** (see `docs/specs/SCRAPER_FIX_SPEC.md`).
+>
+> **B11 Railway cron (verified in-repo):** `gravity_api/railway.nightly.toml` / `railway.tuesday.toml` / `railway.roster.toml` run **in-process** `python -m gravity_api.jobs.nightly_pipeline` (and roster jobs) on a Railway service with Root Directory `gravity_api` — they do **not** HTTP-hit sibling `gravity-scrapers`. Product API optional outbound `SCRAPERS_SERVICE_URL` is for ops dashboards / legacy proxies only. If GitHub Actions in the sibling repo still POSTs `RAILWAY_SCRAPER_URL` at a frozen `gravity-scrapers` deploy, retarget or disable that cron (separate ticket); do not port SCRAPER_FIX_SPEC fixes into both codebases.
 >
 > **Season year:** one module — `gravity_api/scrapers/season_calendar.py`. NBA/NCAAB store the year the season **ends** (`2026-27` → `2027`); NFL/CFB store the year the season **starts**.
 >

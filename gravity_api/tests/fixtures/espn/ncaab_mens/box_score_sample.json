@@ -1,0 +1,89 @@
+{
+  "note": "Synthetic ESPN summary shape for WP10 box-sum acceptance (no staging DB).",
+  "header": {
+    "season": {"year": 2024, "type": 2},
+    "competitions": [
+      {
+        "date": "2024-01-15T00:00:00Z",
+        "neutralSite": false,
+        "status": {"type": {"name": "STATUS_FINAL", "state": "post"}},
+        "competitors": [
+          {
+            "homeAway": "home",
+            "score": "78",
+            "team": {"id": "251", "displayName": "Texas"}
+          },
+          {
+            "homeAway": "away",
+            "score": "71",
+            "team": {"id": "99", "displayName": "Opponent"}
+          }
+        ]
+      }
+    ]
+  },
+  "boxscore": {
+    "players": [
+      {
+        "team": {"id": "251"},
+        "statistics": [
+          {
+            "keys": ["min", "pts", "reb", "ast"],
+            "athletes": [
+              {
+                "athlete": {"id": "1001", "displayName": "Player A"},
+                "starter": true,
+                "stats": ["32", "22", "5", "4"]
+              },
+              {
+                "athlete": {"id": "1002", "displayName": "Player B"},
+                "starter": true,
+                "stats": ["28", "18", "7", "2"]
+              },
+              {
+                "athlete": {"id": "1003", "displayName": "Player C"},
+                "starter": false,
+                "stats": ["20", "20", "3", "1"]
+              },
+              {
+                "athlete": {"id": "1004", "displayName": "Player D"},
+                "starter": false,
+                "stats": ["15", "18", "2", "0"]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "team": {"id": "99"},
+        "statistics": [
+          {
+            "keys": ["min", "pts", "reb", "ast"],
+            "athletes": [
+              {
+                "athlete": {"id": "2001", "displayName": "Opp A"},
+                "starter": true,
+                "stats": ["34", "25", "6", "3"]
+              },
+              {
+                "athlete": {"id": "2002", "displayName": "Opp B"},
+                "starter": true,
+                "stats": ["30", "20", "4", "5"]
+              },
+              {
+                "athlete": {"id": "2003", "displayName": "Opp C"},
+                "starter": false,
+                "stats": ["22", "16", "5", "1"]
+              },
+              {
+                "athlete": {"id": "2004", "displayName": "Opp D"},
+                "starter": false,
+                "stats": ["14", "10", "2", "0"]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

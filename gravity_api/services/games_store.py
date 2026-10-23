@@ -123,4 +123,87 @@ async def upsert_box_rows(
     return written
 
 
-__all__ = ["upsert_game", "upsert_box_rows"]
+def box_pts_by_team(
+    players: Iterable[Mapping[str, Any]],
+) -> dict[str, float]:
+    """Sum player ``pts`` (or ``points``) per ``team_id`` from box rows."""
+    totals: dict[str, float] = {}
+    for row in players:
+        team_id = str(row.get("team_id") or "").strip()
+        if not team_id:
+            continue
+        stats = row.get("stats") if isinstance(row.get("stats"), Mapping) else {}
+        raw = None
+        if isinstance(stats, Mapping):
+            for key in ("pts", "points", "PTS", "Points"):
+                if key in stats:
+                    raw = stats[key]
+                    break
+        if raw is None:
+            continue
+        try:
+            pts = float(str(raw).replace(",", ""))
+        except (TypeError, ValueError):
+            continue
+        totals[team_id] = totals.get(team_id, 0.0) + pts
+    return totals
+
+
+def box_score_reconciliation(
+    *,
+    home_team_id: str | None,
+    away_team_id: str | None,
+    home_score: int | None,
+    away_score: int | None,
+    players: Iterable[Mapping[str, Any]],
+    tolerance: float = 0.0,
+) -> dict[str, Any]:
+    """Compare SUM(player pts) per team to game header scores (WP10 acceptance).
+
+    Returns a dict with ``matched`` (bool), ``by_team``, and ``discrepancies``.
+    Zero tolerance by default; callers may allow a small float epsilon.
+    """
+    sums = box_pts_by_team(players)
+    expected: dict[str, float] = {}
+    if home_team_id and home_score is not None:
+        expected[str(home_team_id)] = float(home_score)
+    if away_team_id and away_score is not None:
+        expected[str(away_team_id)] = float(away_score)
+
+    discrepancies: list[dict[str, Any]] = []
+    for team_id, exp in expected.items():
+        got = sums.get(team_id)
+        if got is None:
+            discrepancies.append(
+                {
+                    "team_id": team_id,
+                    "header_score": exp,
+                    "box_sum_pts": None,
+                    "result": "missing_box",
+                }
+            )
+            continue
+        if abs(got - exp) > tolerance:
+            discrepancies.append(
+                {
+                    "team_id": team_id,
+                    "header_score": exp,
+                    "box_sum_pts": got,
+                    "delta": got - exp,
+                    "result": "mismatch",
+                }
+            )
+    return {
+        "matched": not discrepancies and bool(expected),
+        "by_team": sums,
+        "expected": expected,
+        "discrepancies": discrepancies,
+    }
+
+
+__all__ = [
+    "box_pts_by_team",
+    "box_score_reconciliation",
+    "upsert_game",
+    "upsert_box_rows",
+]
