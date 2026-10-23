@@ -9,6 +9,8 @@ from typing import Any
 
 import numpy as np
 
+from gravity_ml.features.manifest import is_banned_feature
+
 PRO_SPORTS = frozenset({"nfl", "nba", "wnba"})
 
 SHARED_NUMERIC_KEYS = [
@@ -23,6 +25,8 @@ SHARED_NUMERIC_KEYS = [
     "partnership_proof_boost",
     "partnership_deal_count",
     "partnership_verified_count",
+    # Legacy composite / prior keys retained in the catalog for older bundles
+    # but stripped by build_feature_manifest via BANNED_FEATURES (F2).
     "proof_composite_pctile",
     "proof_composite_index",
     "brand_composite_pctile",
@@ -91,6 +95,39 @@ IMPACT_NUMERIC_KEYS = [
 # Legacy default — college-oriented training exports.
 DEFAULT_NUMERIC_KEYS = SHARED_NUMERIC_KEYS + COLLEGE_NUMERIC_KEYS
 
+# Banned for every objective (SCORING_ML_FIX_SPEC §3 F2). Enforced in
+# build_feature_manifest in addition to the feature allow-list.
+BANNED_FEATURES_EVERY_OBJECTIVE: frozenset[str] = frozenset(
+    {
+        "gravity_score_prior",
+        "brand_score_prior",
+        "proof_score_prior",
+        "quality_score_prior",
+        "proximity_score_prior",
+        "velocity_score_prior",
+        "risk_score_prior",
+        "dollar_p10_usd",
+        "dollar_p50_usd",
+        "dollar_p90_usd",
+        "win_impact_score",
+        "win_impact_score_v0",
+        "target_impact_score",
+        "proof_composite_pctile",
+        "proof_composite_index",
+        "brand_composite_pctile",
+        "proximity_composite_pctile",
+        "velocity_composite_pctile",
+        "gravity_score",
+        "brand_score",
+        "proof_score",
+        "proximity_score",
+        "velocity_score",
+        "risk_score",
+        "raw_composite_score",
+        "component_proxy_raw",
+    }
+)
+
 OBJECTIVE_EXCLUDE: dict[str, set[str]] = {
     "quality": {
         "instagram_followers",
@@ -125,6 +162,15 @@ OBJECTIVE_EXCLUDE: dict[str, set[str]] = {
         "dollar_p10_usd",
         "dollar_p90_usd",
     },
+    "gravity": {
+        "nil_deal_count",
+        "nil_deal_count_verified",
+        "nil_deal_max_usd",
+        "nil_deal_sum_usd",
+        "dollar_p50_usd",
+        "dollar_p10_usd",
+        "dollar_p90_usd",
+    },
     "team_value": set(),
     "team_quality": {"partnership_brand_score", "nil_valuation", "contract_aav_usd"},
     "brand_sponsor": set(),
@@ -151,19 +197,23 @@ def build_feature_manifest(
     sport: str | None = None,
 ) -> list[str]:
     resolved_league = league or league_for_sport(sport)
-    exclude = OBJECTIVE_EXCLUDE.get(objective, set())
+    exclude = set(OBJECTIVE_EXCLUDE.get(objective, set())) | set(BANNED_FEATURES_EVERY_OBJECTIVE)
     if objective == "impact":
-        keys = [k for k in IMPACT_NUMERIC_KEYS if k not in exclude]
+        keys = [k for k in IMPACT_NUMERIC_KEYS if k not in exclude and not is_banned_feature(k)]
         if extra_keys:
-            keys.extend(extra_keys)
+            keys.extend(k for k in extra_keys if k not in exclude and not is_banned_feature(k))
         return sorted(set(keys))
     if resolved_league == "pro":
         exclude = exclude | frozenset(COLLEGE_NUMERIC_KEYS)
     else:
         exclude = exclude | frozenset(PRO_NUMERIC_KEYS)
-    keys = [k for k in numeric_keys_for_league(resolved_league) if k not in exclude]
+    keys = [
+        k
+        for k in numeric_keys_for_league(resolved_league)
+        if k not in exclude and not is_banned_feature(k)
+    ]
     if extra_keys:
-        keys.extend(extra_keys)
+        keys.extend(k for k in extra_keys if k not in exclude and not is_banned_feature(k))
     return sorted(set(keys))
 
 

@@ -82,7 +82,9 @@ def resolve_games_started(
     return 0.0, False
 
 
-# ~30-feature MVP manifest for gravity_athlete_cfb_impact_v1
+# Feature keys for impact *features* (not labels). win_impact_score_v0 /
+# target_impact_score removed per SCORING_ML_FIX_SPEC §4 I7 — those are fallback
+# outputs / banned training labels, never model inputs.
 IMPACT_FEATURE_KEYS: tuple[str, ...] = (
     "games_played_season",
     "games_started",
@@ -112,8 +114,6 @@ IMPACT_FEATURE_KEYS: tuple[str, ...] = (
     "games_started_observed",
     "gp_observed",
     "impact_confidence",
-    "win_impact_score_v0",
-    "target_impact_score",
 )
 
 
@@ -351,7 +351,13 @@ def compute_win_impact_score_v0(
     snapshot: AthleteFeatureSnapshot | None = None,
     sport: str = "cfb",
 ) -> float:
-    """Position-aware additive winning-impact score.
+    """Heuristic Impact fallback / bake-off baseline (NOT a training label).
+
+    SCORING_ML_FIX_SPEC M4/M5: this formula must not be used as
+    ``target_impact_score`` for model training or promotion gates. Prefer
+    ``athlete_impact_seasons`` from ``gravity_ml.impact`` once WP10 game data
+    and G-I1..G-I5 pass. Kept only as the public ``value_score`` fallback and
+    as the G-I5 baseline to beat.
 
     Proof is primary. Availability and starter status modify rather than
     multiply it; team context is intentionally small. Missing evidence shrinks
@@ -528,13 +534,13 @@ def compute_win_impact_score_v0(
     return round(min(98.0, max(25.0, score)), 4)
 
 
-def compute_target_impact_score(
+def compute_win_impact_fallback_v0(
     raw: dict[str, Any],
     *,
     snapshot: AthleteFeatureSnapshot | None = None,
     sport: str = "cfb",
 ) -> float:
-    """Training label: v0 impact score (bootstrap until external win-share labels land)."""
+    """Alias for ``compute_win_impact_score_v0`` — explicit fallback naming (I7)."""
     return compute_win_impact_score_v0(raw, snapshot=snapshot, sport=sport)
 
 
@@ -543,18 +549,28 @@ def merge_win_impact_into_raw(
     *,
     snapshot: AthleteFeatureSnapshot | None = None,
     sport: str = "cfb",
+    include_banned_training_label: bool = False,
 ) -> dict[str, Any]:
-    """Attach impact features and scores to raw payload for ML vectorizer + API."""
+    """Attach impact features and fallback scores for API / vectorizer.
+
+    By default does **not** write ``target_impact_score`` (banned training label).
+    Pass ``include_banned_training_label=True`` only for research exports that
+    also set ``label_source=compute_win_impact_score_v0`` and never promote.
+    """
     out = dict(raw)
     features = compute_win_impact_features(out, snapshot=snapshot, sport=sport)
     out.update(features)
-    v0 = compute_win_impact_score_v0(out, snapshot=snapshot, sport=sport)
+    v0 = compute_win_impact_fallback_v0(out, snapshot=snapshot, sport=sport)
     out["win_impact_score_v0"] = v0
     out["win_impact_score"] = v0
     # Public Value Score alias — winning impact (not commercial Gravity).
     out["value_score"] = v0
-    out["value_score_source"] = "win_impact_v1_additive"
-    out["target_impact_score"] = compute_target_impact_score(out, snapshot=snapshot, sport=sport)
+    out["value_score_source"] = "win_impact_fallback_v0"
+    if include_banned_training_label:
+        out["target_impact_score"] = v0
+        out["target_impact_score_banned"] = True
+    else:
+        out.pop("target_impact_score", None)
     return out
 
 
@@ -563,7 +579,7 @@ __all__ = [
     "IMPACT_FEATURE_KEYS",
     "NFL_SKILL_POSITIONS",
     "compute_participation_index",
-    "compute_target_impact_score",
+    "compute_win_impact_fallback_v0",
     "compute_win_impact_features",
     "compute_win_impact_score_v0",
     "expected_games_for_sport",

@@ -72,8 +72,24 @@ def test_merge_win_impact_into_raw():
         sport="cfb",
     )
     assert "win_impact_score" in out
-    assert "target_impact_score" in out
+    assert "win_impact_score_v0" in out
+    # M4/I7: formula label must not be written by default (banned for training).
+    assert "target_impact_score" not in out
+    assert out["value_score_source"] == "win_impact_fallback_v0"
     assert out["participation_index"] > 0
+
+    research = merge_win_impact_into_raw(
+        {
+            "games_played_season": 12,
+            "games_started": 12,
+            "proof_performance_index_pctile": 80,
+            "team_win_pct_percentile": 80,
+        },
+        sport="cfb",
+        include_banned_training_label=True,
+    )
+    assert research["target_impact_score"] == research["win_impact_score_v0"]
+    assert research["target_impact_score_banned"] is True
 
 
 def test_impact_feature_manifest_has_core_keys():
